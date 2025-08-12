@@ -16,9 +16,6 @@ build/
 .env.test.local
 .env.production.local
 
-# Vercel
-.vercel
-
 # Logs
 *.log
 

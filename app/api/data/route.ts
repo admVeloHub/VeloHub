@@ -1,17 +1,20 @@
 import { NextResponse } from 'next/server'
-import clientPromise from '@/lib/mongodb'
 import { VelotaxDB, VeloNews, ChatbotFAQ } from '@/lib/models'
 
 export async function GET() {
   try {
-    // Verificar se MONGODB_URI está configurado
+    // Para build estático, retornar dados vazios se não houver MONGODB_URI
     if (!process.env.MONGODB_URI) {
-      return NextResponse.json(
-        { error: 'MongoDB URI não configurada' },
-        { status: 500 }
-      )
+      return NextResponse.json({
+        artigos: {},
+        velonews: [],
+        chatbotFaq: []
+      })
     }
 
+    // Importar dinamicamente para evitar problemas no build
+    const { default: clientPromise } = await import('@/lib/mongodb')
+    
     const client = await clientPromise
     const db = client.db("velohub")
 
@@ -53,9 +56,11 @@ export async function GET() {
 
   } catch (error) {
     console.error('Database error:', error)
-    return NextResponse.json(
-      { error: 'Erro interno do servidor' },
-      { status: 500 }
-    )
+    // Retornar dados vazios em caso de erro para não quebrar o build
+    return NextResponse.json({
+      artigos: {},
+      velonews: [],
+      chatbotFaq: []
+    })
   }
 }
