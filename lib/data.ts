@@ -1,14 +1,62 @@
-import mongoose, { Schema, model, models } from "mongoose";
+import 'server-only';
+import { connectToDatabase } from './mongodb';
 
-// Modelo de exemplo — ajuste conforme sua coleção
-const ExampleSchema = new Schema({
-  name: { type: String, required: true },
-  value: { type: Number, required: true },
-});
+// Tipagem para os dados
+interface Article {
+  title: string;
+  content: string;
+}
 
-const Example =
-  models.Example || model("Example", ExampleSchema);
+interface Category {
+  title: string;
+  articles: Article[];
+}
 
-export async function getData() {
-  return await Example.find({});
+interface VeloHubData {
+  artigos: Record<string, Category>;
+  noticias: any[];
+  faq: any[];
+}
+
+export async function getVeloHubData(): Promise<VeloHubData> {
+  try {
+    const connection = await connectToDatabase();
+    
+    if (!connection) {
+      console.log('MONGODB_URI não configurado, retornando dados vazios.');
+      return { artigos: {}, noticias: [], faq: [] };
+    }
+
+    // Usar mongoose para buscar dados
+    const artigosResult = await connection.models.Example?.find({}) || [];
+    
+    // Processar artigos (ajuste conforme sua estrutura de dados)
+    const artigos: Record<string, Category> = {};
+    
+    // Se não há dados, retornar estrutura vazia
+    if (!artigosResult || artigosResult.length === 0) {
+      return { artigos: {}, noticias: [], faq: [] };
+    }
+
+    // Processar dados (ajuste conforme sua estrutura)
+    artigosResult.forEach((artigo: any) => {
+      const categoria = artigo.category || 'Geral';
+      if (!artigos[categoria]) {
+        artigos[categoria] = {
+          title: categoria,
+          articles: []
+        };
+      }
+      artigos[categoria].articles.push({
+        title: artigo.title || artigo.name,
+        content: artigo.content || artigo.value
+      });
+    });
+
+    return { artigos, noticias: [], faq: [] };
+
+  } catch (error) {
+    console.error('Erro ao buscar dados do DB:', error);
+    return { artigos: {}, noticias: [], faq: [] };
+  }
 }
