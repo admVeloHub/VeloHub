@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4.1.11",
     "autoprefixer": "^10.4.21",
     "mongodb": "^6.3.0",
     "next": "14.2.31",
@@ -23,6 +24,8 @@
     "@types/react-dom": "^18",
     "eslint": "^8.57.0",
     "eslint-config-next": "14.2.31",
+    "mongoose": "^8.17.1",
+    "tsx": "^4.20.3",
     "typescript": "^5"
   },
   "overrides": {
