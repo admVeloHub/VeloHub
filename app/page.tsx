@@ -2,100 +2,127 @@
 
 import { useEffect, useState } from 'react'
 
+interface Article {
+  title: string
+  content: string
+}
+
+interface CategoryData {
+  title: string
+  articles: Article[]
+}
+
+interface ApiData {
+  artigos: Record<string, CategoryData>
+  noticias: any[]
+  faq: any[]
+}
+
 export default function Home() {
-  const [htmlContent, setHtmlContent] = useState('')
+  const [data, setData] = useState<ApiData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Tentar carregar o HTML original
-    fetch('/VELOHUB 2.html')
-      .then(response => {
+    const fetchData = async () => {
+      try {
+        const response = await fetch('/api/data')
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`)
         }
-        return response.text()
-      })
-      .then(html => {
-        // Substituir a URL da API do Google Apps Script pela nova API do Next.js
-        const modifiedHtml = html.replace(
-          'https://script.google.com/macros/s/AKfycbwuX73q38Ypdpigm0TG1AOMj5wNeDHjRi0PhZFI4F_SxA572btd8l2KVYUPEkQFpT9vyw/exec',
-          '/api/data'
-        )
-        setHtmlContent(modifiedHtml)
+        const apiData = await response.json()
+        setData(apiData)
         setIsLoading(false)
-      })
-      .catch(error => {
-        console.error('Erro ao carregar o HTML:', error)
-        // Fallback: criar uma página básica
-        const fallbackHtml = `
-          <!DOCTYPE html>
-          <html lang="pt-BR">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>VeloHub - Plataforma de Conhecimento</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
-              .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-              h1 { color: #2563eb; text-align: center; margin-bottom: 30px; }
-              .loading { text-align: center; color: #666; }
-              .error { color: #dc2626; text-align: center; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>VeloHub</h1>
-              <div id="content">
-                <div class="loading">Carregando conteúdo...</div>
-              </div>
-            </div>
-            <script>
-              // Carregar dados da API
-              fetch('/api/data')
-                .then(response => response.json())
-                .then(data => {
-                  const content = document.getElementById('content');
-                  if (data.artigos && Object.keys(data.artigos).length > 0) {
-                    let html = '<h2>Artigos Disponíveis:</h2>';
-                    Object.entries(data.artigos).forEach(([category, catData]) => {
-                      html += '<h3>' + catData.title + '</h3>';
-                      catData.articles.forEach(article => {
-                        html += '<div style="margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">';
-                        html += '<h4>' + article.title + '</h4>';
-                        html += '<div>' + article.content + '</div>';
-                        html += '</div>';
-                      });
-                    });
-                    content.innerHTML = html;
-                  } else {
-                    content.innerHTML = '<div class="error">Nenhum conteúdo disponível no momento.</div>';
-                  }
-                })
-                .catch(error => {
-                  document.getElementById('content').innerHTML = '<div class="error">Erro ao carregar dados: ' + error.message + '</div>';
-                });
-            </script>
-          </body>
-          </html>
-        `
-        setHtmlContent(fallbackHtml)
+      } catch (err) {
+        console.error('Erro ao carregar dados:', err)
+        setError(err instanceof Error ? err.message : 'Erro desconhecido')
         setIsLoading(false)
-      })
+      }
+    }
+
+    fetchData()
   }, [])
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Carregando VeloHub...</p>
+          <p className="text-gray-600 text-lg">Carregando VeloHub...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center max-w-md mx-auto p-6 bg-white rounded-lg shadow-lg">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Erro</h1>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Tentar Novamente
+          </button>
         </div>
       </div>
     )
   }
 
   return (
-    <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-8">
+        <header className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-blue-600 mb-2">VeloHub</h1>
+          <p className="text-gray-600">Plataforma de Conhecimento</p>
+        </header>
+
+        <main>
+          {data && data.artigos && Object.keys(data.artigos).length > 0 ? (
+            <div className="space-y-8">
+              <h2 className="text-2xl font-semibold text-gray-800 mb-6">Artigos Disponíveis</h2>
+              
+              {Object.entries(data.artigos).map(([category, catData]) => (
+                <section key={category} className="bg-white rounded-lg shadow-md p-6">
+                  <h3 className="text-xl font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">
+                    {catData.title}
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    {catData.articles.map((article, index) => (
+                      <article key={index} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <h4 className="text-lg font-medium text-gray-800 mb-2">
+                          {article.title}
+                        </h4>
+                        <div className="text-gray-600 leading-relaxed">
+                          {article.content}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="bg-white rounded-lg shadow-md p-8 max-w-md mx-auto">
+                <h2 className="text-xl font-semibold text-gray-800 mb-4">Nenhum Conteúdo Disponível</h2>
+                <p className="text-gray-600 mb-4">
+                  No momento não há artigos disponíveis. Tente novamente mais tarde.
+                </p>
+                <button 
+                  onClick={() => window.location.reload()} 
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                >
+                  Recarregar
+                </button>
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+    </div>
   )
 }
