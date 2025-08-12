@@ -5,6 +5,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -37,11 +38,19 @@ jobs:
         echo "Node version: $(node --version)"
         echo "NPM version: $(npm --version)"
         echo "MONGODB_URI configured: ${{ secrets.MONGODB_URI != '' }}"
+        echo "Repository: ${{ github.repository }}"
     
     - name: Build application
       run: npm run build
       env:
         MONGODB_URI: ${{ secrets.MONGODB_URI || 'mongodb://localhost:27017/velohub' }}
+    
+    - name: List build output
+      run: |
+        echo "Build output directory:"
+        ls -la out/
+        echo "HTML files:"
+        find out/ -name "*.html" -type f
     
     - name: Setup Pages
       uses: actions/configure-pages@v4
