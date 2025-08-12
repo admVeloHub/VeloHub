@@ -1,13 +1,16 @@
 require('dotenv').config();
 const { MongoClient } = require('mongodb');
 
-// URL da API do Google Apps Script (substitua pela sua URL real)
-const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwuX73q38Ypdpigm0TG1AOMj5wNeDHjRi0PhZFI4F_SxA572btd8l2KVYUPEkQFpT9vyw/exec';
+// URL da API do Google Apps Script
+const GOOGLE_APPS_SCRIPT_URL = process.env.GOOGLE_APPS_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbwuX73q38Ypdpigm0TG1AOMj5wNeDHjRi0PhZFI4F_SxA572btd8l2KVYUPEkQFpT9vyw/exec';
 
-// URL do MongoDB (substitua pela sua URL real)
-const MONGODB_URI = 'mongodb+srv://lucasgravina:nKQu8bSN6iZl8FPo@clustercentral.quqgq6x.mongodb.net/velohub?retryWrites=true&w=majority&appName=ClusterCentral';
+// URL do MongoDB
+const MONGODB_URI = process.env.MONGODB_URI;
 
-console.log('MONGODB_URI:', MONGODB_URI);
+if (!MONGODB_URI) {
+  console.error('❌ MONGODB_URI não configurada');
+  process.exit(1);
+}
 
 async function migrateData() {
   try {
@@ -28,10 +31,8 @@ async function migrateData() {
     console.log('📝 Migrando artigos...');
     const articlesCollection = db.collection('articles');
     
-    // Limpar coleção existente
     await articlesCollection.deleteMany({});
     
-    // Inserir novos artigos
     const articles = [];
     Object.entries(data.artigos || {}).forEach(([categoryKey, category]) => {
       if (category.articles) {
@@ -90,7 +91,6 @@ async function migrateData() {
       console.log(`✅ ${chatbotFaqs.length} FAQs migradas`);
     }
 
-    // 6. Fechar conexão
     await client.close();
     
     console.log('🎉 Migração concluída com sucesso!');
@@ -105,7 +105,6 @@ async function migrateData() {
   }
 }
 
-// Executar migração se o script for chamado diretamente
 if (require.main === module) {
   migrateData();
 }
