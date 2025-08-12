@@ -1,16 +1,21 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Head from 'next/head'
 
 export default function Home() {
   const [htmlContent, setHtmlContent] = useState('')
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     // Carregar o HTML original e modificar a URL da API
     fetch('/VELOHUB 2.html')
-      .then(response => response.text())
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+        return response.text()
+      })
       .then(html => {
         // Substituir a URL da API do Google Apps Script pela nova API do Next.js
         const modifiedHtml = html.replace(
@@ -22,6 +27,7 @@ export default function Home() {
       })
       .catch(error => {
         console.error('Erro ao carregar o HTML:', error)
+        setError('Erro ao carregar o conteúdo')
         setIsLoading(false)
       })
   }, [])
@@ -34,13 +40,18 @@ export default function Home() {
     )
   }
 
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Erro</h1>
+          <p className="text-gray-600">{error}</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <>
-      <Head>
-        <title>VeloHub (MK10.6.0)</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      </Head>
-      <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
-    </>
+    <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
   )
 }
