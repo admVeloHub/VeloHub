@@ -1,23 +1,23 @@
-# VeloHub - Aplicação Next.js no GitHub Pages
+# VeloHub - Aplicação Next.js no Vercel
 
-Este projeto é uma aplicação Next.js moderna que serve o VeloHub, uma plataforma de conhecimento da Velotax, hospedada no GitHub Pages com MongoDB.
+Este projeto é uma aplicação Next.js moderna que serve o VeloHub, uma plataforma de conhecimento da Velotax, hospedada no Vercel com MongoDB.
 
 ## 🚀 Tecnologias Utilizadas
 
 ### Frontend
 - ✅ **Next.js 14** - Framework React moderno
 - ✅ **TypeScript** - Tipagem estática
-- ✅ **GitHub Pages** - Hospedagem estática
-- ✅ **GitHub Actions** - Deploy automático
+- ✅ **Vercel** - Hospedagem com backend
+- ✅ **Deploy automático** - Integração com GitHub
 
 ### Backend
 - ✅ **MongoDB Atlas** - Banco de dados na nuvem
 - ✅ **API Routes** - Endpoints do Next.js
-- ✅ **Mongoose** - ODM para MongoDB
+- ✅ **Serverless Functions** - Vercel Functions
 
 ## 📋 Pré-requisitos
 
-1. **Conta no GitHub**: [github.com](https://github.com)
+1. **Conta no Vercel**: [vercel.com](https://vercel.com)
 2. **Conta no MongoDB Atlas**: [mongodb.com/atlas](https://mongodb.com/atlas)
 3. **Node.js**: Versão 18 ou superior
 4. **Git**: Para versionamento
@@ -62,23 +62,31 @@ npm run dev
 
 Acesse [http://localhost:3000](http://localhost:3000)
 
-## 🚀 Deploy no GitHub Pages
+## 🚀 Deploy no Vercel
 
-### 1. Configurar Secrets no GitHub
+### 1. Conectar ao Vercel
 
-1. Vá para: https://github.com/admVeloHub/VeloHub/settings/secrets/actions
-2. Clique em "New repository secret"
-3. Adicione: `MONGODB_URI` com sua string de conexão
+```bash
+npm install -g vercel
+vercel login
+```
 
-### 2. Configurar GitHub Pages
+### 2. Configurar Variáveis de Ambiente no Vercel
 
-1. Vá para: https://github.com/admVeloHub/VeloHub/settings/pages
-2. Em "Source", selecione: **"GitHub Actions"**
-3. O deploy será automático a cada push
+```bash
+vercel env add MONGODB_URI
+# Cole sua string de conexão do MongoDB
+```
 
-### 3. Deploy Automático
+### 3. Fazer Deploy
 
-O GitHub Actions fará deploy automático a cada push para o branch `main`.
+```bash
+vercel --prod
+```
+
+### 4. Deploy Automático
+
+Conecte seu repositório GitHub ao Vercel para deploy automático a cada push.
 
 ## 📁 Estrutura do Projeto
 
@@ -97,8 +105,6 @@ velohub/
 │   └── migrate-data.js    # Migração de dados
 ├── public/                # Arquivos estáticos
 │   └── VELOHUB 2.html     # HTML original
-├── .github/               # GitHub Actions
-│   └── workflows/         # Workflows de deploy
 ├── package.json           # Dependências
 ├── next.config.js         # Configuração Next.js
 ├── tsconfig.json          # Configuração TypeScript
@@ -179,14 +185,14 @@ Retorna todos os dados necessários para a aplicação:
 ## 🎯 Benefícios da Arquitetura
 
 ### Performance
-- ✅ Carregamento rápido via CDN do GitHub Pages
-- ✅ Build estático otimizado
-- ✅ Cache eficiente
+- ✅ Carregamento rápido via CDN do Vercel
+- ✅ Serverless Functions otimizadas
+- ✅ Cache inteligente
 
 ### Escalabilidade
 - ✅ Banco de dados escalável (MongoDB Atlas)
 - ✅ Deploy automático
-- ✅ Sem custos de servidor
+- ✅ Serverless por natureza
 
 ### Manutenibilidade
 - ✅ Código TypeScript
@@ -197,18 +203,19 @@ Retorna todos os dados necessários para a aplicação:
 - ✅ Interface moderna
 - ✅ Dados em tempo real
 - ✅ API robusta
+- ✅ Rotas de API funcionais
 
 ## 🐛 Troubleshooting
 
 ### Erro de Conexão MongoDB
-- Verifique se `MONGODB_URI` está configurado
+- Verifique se `MONGODB_URI` está configurado no Vercel
 - Confirme se o IP está liberado no MongoDB Atlas
 - Teste a conexão localmente primeiro
 
 ### Erro no Deploy
-- Verifique se todas as variáveis de ambiente estão configuradas no GitHub
+- Verifique se todas as variáveis de ambiente estão configuradas no Vercel
 - Confirme se o build está passando localmente
-- Verifique os logs do GitHub Actions
+- Verifique os logs do Vercel
 
 ### Dados Não Aparecem
 - Execute o script de migração
@@ -218,7 +225,7 @@ Retorna todos os dados necessários para a aplicação:
 ## 📞 Suporte
 
 Para dúvidas ou problemas:
-1. Verifique os logs do GitHub Actions
+1. Verifique os logs do Vercel
 2. Teste localmente primeiro
 3. Confirme a configuração do MongoDB
 4. Execute o script de migração novamente
@@ -229,8 +236,8 @@ Para adicionar novos dados:
 1. Atualize o Google Apps Script
 2. Execute o script de migração
 3. Faça push para o GitHub
-4. O deploy será automático
+4. O Vercel fará deploy automático
 
 ---
 
-**VeloHub** - Aplicação Next.js moderna hospedada no GitHub Pages! 🎉
+**VeloHub** - Aplicação Next.js moderna hospedada no Vercel! 🎉
