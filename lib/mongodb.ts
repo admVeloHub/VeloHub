@@ -1,28 +1,29 @@
-import { MongoClient } from 'mongodb'
+import mongoose from "mongoose";
 
-// Remover o throw new Error que quebra o build
-const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/velohub'
-const options = {}
+const MONGODB_URI = process.env.MONGODB_URI;
 
-let client
-let clientPromise: Promise<MongoClient>
+let cached = (global as any).mongoose;
 
-if (process.env.NODE_ENV === 'development') {
-  // In global scope, this is needed because the development server
-  // restarts, and each restart creates a new global scope.
-  let globalWithMongo = global as typeof globalThis & {
-    _mongoClientPromise?: Promise<MongoClient>
-  }
-
-  if (!globalWithMongo._mongoClientPromise) {
-    client = new MongoClient(uri, options)
-    globalWithMongo._mongoClientPromise = client.connect()
-  }
-  clientPromise = globalWithMongo._mongoClientPromise
-} else {
-  // In production mode, it's best to not use a global variable.
-  client = new MongoClient(uri, options)
-  clientPromise = client.connect()
+if (!cached) {
+  cached = (global as any).mongoose = { conn: null, promise: null };
 }
 
-export { clientPromise }
+export async function connectToDatabase() {
+  if (!MONGODB_URI) {
+    console.warn("❌ MONGODB_URI não está definida");
+    return null;
+  }
+
+  if (cached.conn) {
+    return cached.conn;
+  }
+
+  if (!cached.promise) {
+    cached.promise = mongoose.connect(MONGODB_URI).then((mongoose) => {
+      console.log("✅ Conectado ao MongoDB");
+      return mongoose;
+    });
+  }
+  cached.conn = await cached.promise;
+  return cached.conn;
+}
