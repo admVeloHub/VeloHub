@@ -137,7 +137,7 @@ export default function App_v2() {
       case 'Processos':
         return <ProcessosPage />;
       case 'Artigos':
-        return <div className="text-center p-10 text-gray-800 dark:text-gray-200"><h1 className="text-3xl">Página de Artigos</h1><p>As categorias e os artigos serão exibidos aqui.</p></div>;
+        return <ArtigosPage />;
       case 'Apoio':
         return <ApoioPage />;
       case 'VeloAcademy':
@@ -227,7 +227,7 @@ const HomePage = ({ setCriticalNews }) => {
                     ))}
                 </ul>
             </aside>
-            {selectedNews && !selectedNews.is_critical && (
+            {selectedNews && (
                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedNews(null)}>
                     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-8 max-w-2xl w-full mx-4" onClick={e => e.stopPropagation()}>
                         <div className="flex justify-between items-center mb-4">
@@ -266,20 +266,96 @@ const ApoioPage = () => {
     );
 };
 
+// Página de Artigos
+const ArtigosPage = () => {
+    const [articles, setArticles] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        const fetchArticles = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                const response = await articlesAPI.getAll();
+                console.log('Artigos carregados:', response.data);
+                setArticles(response.data);
+            } catch (error) {
+                console.error('Erro ao carregar artigos:', error);
+                setError('Erro ao carregar artigos');
+                setArticles(mockArticles);
+            } finally {
+                setLoading(false);
+            }
+        };
+        
+        fetchArticles();
+    }, []);
+
+    return (
+        <div className="container mx-auto px-6 py-8">
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-8">Artigos</h1>
+            
+            {loading && (
+                <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                    <p className="text-gray-600 dark:text-gray-400 mt-4">Carregando artigos...</p>
+                </div>
+            )}
+            
+            {error && (
+                <div className="text-center py-12">
+                    <p className="text-red-600 dark:text-red-400 text-lg">{error}</p>
+                </div>
+            )}
+            
+            {!loading && !error && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {articles.map(article => (
+                        <div key={article._id || article.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+                            <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-3">{article.title}</h3>
+                            {article.content && (
+                                <p className="text-gray-600 dark:text-gray-400 mb-4 line-clamp-3">{article.content}</p>
+                            )}
+                            {article.keywords && (
+                                <div className="flex flex-wrap gap-2">
+                                    {article.keywords.map((keyword, index) => (
+                                        <span key={index} className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full text-xs">
+                                            {keyword}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 // Página de Processos (Chatbot)
 const ProcessosPage = () => {
     const [promptFromFaq, setPromptFromFaq] = useState(null);
     const [faq, setFaq] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
         const fetchFAQ = async () => {
             try {
+                setLoading(true);
+                setError(null);
                 const response = await faqAPI.getAll();
+                console.log('FAQ carregado:', response.data);
                 setFaq(response.data);
             } catch (error) {
                 console.error('Erro ao carregar FAQ:', error);
+                setError('Erro ao carregar FAQ');
                 // Fallback para dados mock em caso de erro
                 setFaq(mockFaq);
+            } finally {
+                setLoading(false);
             }
         };
         
@@ -298,16 +374,34 @@ const ProcessosPage = () => {
                 </div>
                 <aside className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm h-fit">
                     <h3 className="font-bold text-xl mb-4 border-b pb-2 text-gray-800 dark:text-gray-200 dark:border-gray-600">Perguntas Frequentes</h3>
-                    <ul className="space-y-3">
-                        {faq.slice(0, 10).map((item, index) => (
-                            <li key={index} onClick={() => handleFaqClick(item.question || item)} className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer text-sm">
-                                {item.question || item}
-                            </li>
-                        ))}
-                    </ul>
-                    <button className="w-full mt-6 bg-blue-500 text-white font-semibold py-2 rounded-md hover:bg-blue-600 transition-colors">
-                        Mais Perguntas
-                    </button>
+                    
+                    {loading && (
+                        <div className="text-center py-4">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                            <p className="text-gray-600 dark:text-gray-400 mt-2">Carregando...</p>
+                        </div>
+                    )}
+                    
+                    {error && (
+                        <div className="text-center py-4">
+                            <p className="text-red-600 dark:text-red-400">{error}</p>
+                        </div>
+                    )}
+                    
+                    {!loading && !error && (
+                        <>
+                            <ul className="space-y-3">
+                                {faq.slice(0, 10).map((item, index) => (
+                                    <li key={index} onClick={() => handleFaqClick(item.question || item)} className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer text-sm">
+                                        {item.question || item}
+                                    </li>
+                                ))}
+                            </ul>
+                            <button className="w-full mt-6 bg-blue-500 text-white font-semibold py-2 rounded-md hover:bg-blue-600 transition-colors">
+                                Mais Perguntas
+                            </button>
+                        </>
+                    )}
                 </aside>
             </div>
         </div>
