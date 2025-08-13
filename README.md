@@ -46,15 +46,7 @@ MONGODB_URI=mongodb+srv://REDACTED
 npm install
 ```
 
-### 4. Migrar Dados
-
-Execute o script de migração para transferir os dados do Google Apps Script para o MongoDB:
-
-```bash
-node scripts/migrate-data.js
-```
-
-### 5. Testar Localmente
+### 4. Testar Localmente
 
 ```bash
 npm run dev
@@ -101,29 +93,10 @@ velohub/
 ├── lib/                   # Utilitários
 │   ├── mongodb.ts         # Configuração MongoDB
 │   └── models.ts          # Tipos TypeScript
-├── scripts/               # Scripts de migração
-│   └── migrate-data.js    # Migração de dados
-├── public/                # Arquivos estáticos
-│   └── VELOHUB 2.html     # HTML original
 ├── package.json           # Dependências
 ├── next.config.js         # Configuração Next.js
 ├── tsconfig.json          # Configuração TypeScript
 └── README.md              # Documentação
-```
-
-## 🔄 Migração de Dados
-
-O script `scripts/migrate-data.js` faz a migração automática:
-
-1. **Artigos**: Migra todos os artigos organizados por categoria
-2. **Notícias**: Migra as VeloNews com status crítico
-3. **FAQs**: Migra as perguntas frequentes do chatbot
-
-### Executar Migração
-
-```bash
-# Certifique-se de que MONGODB_URI está configurado
-node scripts/migrate-data.js
 ```
 
 ## 🗄️ Estrutura do MongoDB
@@ -218,9 +191,9 @@ Retorna todos os dados necessários para a aplicação:
 - Verifique os logs do Vercel
 
 ### Dados Não Aparecem
-- Execute o script de migração
 - Verifique se as coleções foram criadas no MongoDB
 - Confirme se a API está retornando dados
+- Teste a conexão com o banco de dados
 
 ## 📞 Suporte
 
@@ -228,13 +201,13 @@ Para dúvidas ou problemas:
 1. Verifique os logs do Vercel
 2. Teste localmente primeiro
 3. Confirme a configuração do MongoDB
-4. Execute o script de migração novamente
+4. Verifique se as variáveis de ambiente estão corretas
 
 ## 🔄 Atualizações Futuras
 
 Para adicionar novos dados:
-1. Atualize o Google Apps Script
-2. Execute o script de migração
+1. Insira diretamente no MongoDB Atlas
+2. Ou crie endpoints de API para gerenciar conteúdo
 3. Faça push para o GitHub
 4. O Vercel fará deploy automático
 

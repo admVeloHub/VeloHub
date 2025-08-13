@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Configuração para Vercel com rotas de API
+  // Configuração para Vercel
   experimental: {
     // Desabilitar features experimentais que podem causar problemas
   },
@@ -10,6 +10,8 @@ const nextConfig = {
   compress: true,
   // Configurações de cache
   generateEtags: true,
+  // Configurações para Vercel
+  output: 'standalone',
   // Configurações de headers
   async headers() {
     return [

@@ -1,0 +1,235 @@
+solução gemini
+Olá\! Fico feliz em ajudar a depurar e otimizar seu projeto VeloHub. O erro 404 em um deploy na Vercel, quando o código funciona localmente, geralmente aponta para um problema na fase de *build* (construção) do projeto, e não na execução.
+
+Analisando seus arquivos, identifiquei a causa raiz e tenho uma solução completa, além de algumas sugestões para deixar seu projeto mais robusto e alinhado com as melhores práticas do Next.js.
+
+-----
+
+### Análise do Problema (Diagnóstico)
+
+O erro **404 Not Found** na Vercel para a rota principal (`/`) significa que o processo de build do Next.js (`next build`) falhou. Quando o build falha, a Vercel não tem nenhum arquivo estático (HTML, CSS, JS) para servir naquela rota, resultando em um 404.
+
+O erro não está no `fetch` do HTML ou no fallback. Esses são erros de *runtime* (tempo de execução) que aconteceriam *depois* da página carregar. O seu problema é que a página nem chega a ser gerada no servidor da Vercel.
+
+### Causa Raiz do Erro 404
+
+A causa mais provável do seu build estar falhando é a verificação da variável de ambiente no arquivo `lib/mongodb.ts`.
+
+Veja este trecho:
+
+```typescript
+// lib/mongodb.ts
+import { MongoClient } from 'mongodb'
+
+if (!process.env.MONGODB_URI) {
+  throw new Error('Please add your Mongo URI to .env.local') // <-- PROBLEMA AQUI
+}
+```
+
+Durante o comando `next build` nos servidores da Vercel, o Next.js analisa e executa partes do seu código para gerar as páginas. Quando ele importa o arquivo `lib/mongodb.ts`, ele executa essa verificação.
+
+O seu repositório no GitHub **não contém** o arquivo `.env.local` (o que está correto, pois o `.gitignore` o exclui por segurança). Portanto, ao fazer o deploy na Vercel, a variável `process.env.MONGODB_URI` **não existe** no ambiente de build. Isso faz com que a linha `throw new Error(...)` seja executada, o build é interrompido imediatamente e a Vercel retorna um 404.
+
+-----
+
+### Solução Definitiva (Passo a Passo)
+
+Para corrigir o problema e fazer seu site funcionar, siga estes dois passos:
+
+#### Passo 1: Configurar a Variável de Ambiente na Vercel
+
+Você precisa informar à Vercel qual é o valor da sua `MONGODB_URI`.
+
+1.  Acesse o painel do seu projeto na **Vercel**.
+2.  Vá para a aba **Settings** (Configurações).
+3.  No menu lateral, clique em **Environment Variables** (Variáveis de Ambiente).
+4.  Crie uma nova variável:
+      * **Key:** `MONGODB_URI`
+      * **Value:** Cole a sua string de conexão completa do MongoDB Atlas (a mesma que você usaria no seu arquivo `.env.local`).
+      * **Environments:** Deixe todas as opções marcadas (Production, Preview, Development).
+5.  Clique em **Save**.
+
+#### Passo 2: Corrigir o Nome do Arquivo na `public`
+
+Nomes de arquivos com espaços em URLs são uma fonte comum de erros. O navegador precisa codificar o espaço como `%20`, o que pode causar falhas no `fetch`.
+
+1.  Na sua pasta `public`, renomeie o arquivo `VELOHUB 2.html` para `velohub-v2.html` (ou algo sem espaços).
+
+2.  Atualize a chamada `fetch` no seu arquivo `app/page.tsx`:
+
+    ```typescript
+    // Em app/page.tsx
+    // ...
+    useEffect(() => {
+        // Mude o nome do arquivo aqui
+        fetch('/velohub-v2.html') 
+          .then(response => {
+    // ...
+    ```
+
+#### Passo 3: Fazer o Redeploy
+
+Após configurar a variável de ambiente na Vercel e corrigir o nome do arquivo no seu código, faça um novo commit e push para o seu repositório no GitHub. A Vercel irá automaticamente iniciar um novo deploy, que agora deverá ser concluído com sucesso.
+
+-----
+
+### Melhorias de Arquitetura (Altamente Recomendado)
+
+A abordagem atual de carregar um arquivo HTML estático com `fetch` e injetá-lo com `dangerouslySetInnerHTML` funciona, mas vai contra os principais benefícios do Next.js (como renderização no servidor, otimização e SEO).
+
+Aqui está uma arquitetura muito melhor, mais segura e performática, usando Server Components.
+
+#### 1\. Transformar a Página em um Server Component
+
+Server Components podem buscar dados diretamente no servidor antes de enviar a página para o cliente. Isso elimina a necessidade de `useEffect`, `useState` e `fetch` no lado do cliente para o conteúdo principal.
+
+**Arquivo `app/page.tsx` reescrito:**
+
+```typescript
+import { getVeloHubData } from '../lib/data'; // Vamos criar este arquivo
+
+// Este agora é um Server Component (removido 'use client')
+export default async function Home() {
+  // 1. Buscar os dados diretamente no servidor
+  const { artigos } = await getVeloHubData();
+
+  // 2. Renderizar o conteúdo com JSX, de forma segura
+  return (
+    <div className="container mx-auto p-4 md:p-8">
+      <header className="text-center mb-12">
+        <h1 className="text-4xl md:text-5xl font-bold text-blue-600">VeloHub</h1>
+        <p className="text-lg text-gray-600 mt-2">Sua plataforma central de conhecimento.</p>
+      </header>
+
+      <main>
+        {Object.keys(artigos).length > 0 ? (
+          <div className="space-y-8">
+            {Object.entries(artigos).map(([key, categoryData]) => (
+              <section key={key}>
+                <h2 className="text-3xl font-semibold border-b-2 border-blue-500 pb-2 mb-4">
+                  {categoryData.title}
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {categoryData.articles.map((article, index) => (
+                    <article key={index} className="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
+                      <h3 className="text-xl font-bold text-gray-800 mb-2">{article.title}</h3>
+                      {/* Usar `dangerouslySetInnerHTML` aqui é mais seguro, pois o conteúdo vem do seu DB */}
+                      <div 
+                        className="text-gray-700 prose" 
+                        dangerouslySetInnerHTML={{ __html: article.content }} 
+                      />
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-16">
+            <p className="text-xl text-gray-500">Nenhum conteúdo disponível no momento.</p>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+```
+
+#### 2\. Centralizar a Lógica de Acesso a Dados
+
+É uma boa prática ter uma função dedicada para buscar dados, que pode ser usada tanto por Server Components quanto por API Routes.
+
+**Crie um novo arquivo `lib/data.ts`:**
+
+```typescript
+// lib/data.ts
+import 'server-only'; // Garante que este código só rode no servidor
+import { clientPromise } from './mongodb';
+
+// Tipagem para os dados (opcional, mas recomendado)
+interface Article {
+  title: string;
+  content: string;
+}
+
+interface Category {
+  title: string;
+  articles: Article[];
+}
+
+interface VeloHubData {
+  artigos: Record<string, Category>;
+  noticias: any[]; // Adicione tipos mais específicos se necessário
+  faq: any[];
+}
+
+export async function getVeloHubData(): Promise<VeloHubData> {
+  try {
+    if (!process.env.MONGODB_URI) {
+      console.log('MONGODB_URI não configurado, retornando dados vazios.');
+      return { artigos: {}, noticias: [], faq: [] };
+    }
+
+    const client = await clientPromise;
+    const db = client.db('velohub');
+
+    const artigosResult = await db.collection('artigos').find({}).toArray();
+    // Você pode buscar noticias e faq aqui também, se necessário na página principal
+    // const [artigosResult, noticiasResult, faqResult] = await Promise.all(...)
+
+    const artigos: Record<string, Category> = {};
+    artigosResult.forEach((artigo: any) => {
+      if (!artigos[artigo.categoria]) {
+        artigos[artigo.categoria] = {
+          title: artigo.categoria,
+          articles: [],
+        };
+      }
+      artigos[artigo.categoria].articles.push({
+        title: artigo.titulo,
+        content: artigo.conteudo,
+      });
+    });
+
+    // Retorna apenas os artigos, ajuste conforme a necessidade
+    return { artigos, noticias: [], faq: [] };
+
+  } catch (error) {
+    console.error('Erro ao buscar dados do DB:', error);
+    // Em caso de erro, retorna uma estrutura vazia para não quebrar a página
+    return { artigos: {}, noticias: [], faq: [] };
+  }
+}
+```
+
+#### 3\. Simplificar a API Route (se ainda for necessária)
+
+Sua API Route pode agora usar essa função centralizada.
+
+**Arquivo `app/api/data/route.ts` atualizado:**
+
+```typescript
+// app/api/data/route.ts
+import { NextResponse } from 'next/server';
+import { getVeloHubData } from '../../../lib/data'; // Importa a função centralizada
+
+export async function GET() {
+  try {
+    const data = await getVeloHubData();
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Erro na API:', error);
+    return NextResponse.json(
+      { message: 'Erro interno do servidor' },
+      { status: 500 }
+    );
+  }
+}
+```
+
+Com essa nova arquitetura, sua página será renderizada no servidor, chegando pronta para o usuário. Isso é mais rápido, melhora o SEO e simplifica drasticamente o código do seu componente de página, eliminando a necessidade do arquivo `velohub-v2.html`.
+
+Espero que esta análise completa ajude a resolver seu problema e a levar seu projeto para o próximo nível. Se tiver qualquer outra dúvida, pode perguntar\!
+
+solução manus
+Identifiquei que o erro 404 ocorreu devido ao nome do arquivo HTML com espaços; renomear para VELOHUB_2.html resolveu. Corrigi o import de globals.css criando o arquivo na pasta correta. Também ajustei a sintaxe no código JSX de page.tsx, adicionando 'use client' e envolvendo o JSX com a função Home. Assim, elimina-se o erro de token inesperado. Próximos passos: testar o servidor novamente para confirmar a correção.
