@@ -1,0 +1,5 @@
+[33md189abe[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Integrar React com MongoDB - conectar dados reais
+[33m5508154[m Adicionar configuração completa do Tailwind CSS
+[33md6c4a15[m Corrigir import do ícone Route para Map
+[33m31c0172[m Criar estrutura completa do React com Tailwind CSS
+[33m5705845[m Corrigir conflito TypeScript - voltar para versão 4.9.5 compatível com react-scripts

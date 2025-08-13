@@ -21,7 +21,9 @@
   },
   "scripts": {
     "start": "react-scripts start",
+    "start:v2": "REACT_APP_VERSION=v2 react-scripts start",
     "build": "react-scripts build",
+    "build:v2": "REACT_APP_VERSION=v2 react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "server": "node server.js",
