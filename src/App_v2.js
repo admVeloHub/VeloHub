@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Map, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen } from 'lucide-react';
+import { veloNewsAPI, articlesAPI, faqAPI } from './services/api';
 
 // Dados mock (serão substituídos por chamadas de API)
 const mockVeloNews = [
@@ -168,21 +169,24 @@ const HomePage = ({ setCriticalNews }) => {
     const [veloNews, setVeloNews] = useState([]);
 
     useEffect(() => {
-        // Em um app real, você faria a chamada da API aqui:
-        // fetch('/api/news')
-        //   .then(res => res.json())
-        //   .then(data => {
-        //     setVeloNews(data.news);
-        //     const critical = data.news.find(n => n.is_critical === 'Y');
-        //     if (critical) setCriticalNews(critical);
-        //   });
+        const fetchNews = async () => {
+            try {
+                const response = await veloNewsAPI.getAll();
+                setVeloNews(response.data);
+                
+                // Verificar notícias críticas
+                const critical = response.data.find(n => n.is_critical === 'Y');
+                if (critical) {
+                    setCriticalNews(critical);
+                }
+            } catch (error) {
+                console.error('Erro ao carregar notícias:', error);
+                // Fallback para dados mock em caso de erro
+                setVeloNews(mockVeloNews);
+            }
+        };
         
-        // Por enquanto, usamos os dados mock para manter o visual
-        setVeloNews(mockVeloNews);
-        const critical = mockVeloNews.find(n => n.is_critical === 'Y');
-        if (critical) {
-            setCriticalNews(critical);
-        }
+        fetchNews();
     }, [setCriticalNews]);
 
     return (
@@ -268,8 +272,18 @@ const ProcessosPage = () => {
     const [faq, setFaq] = useState([]);
 
     useEffect(() => {
-        // fetch('/api/faq').then(res => res.json()).then(data => setFaq(data.faq));
-        setFaq(mockFaq); // Simulação
+        const fetchFAQ = async () => {
+            try {
+                const response = await faqAPI.getAll();
+                setFaq(response.data);
+            } catch (error) {
+                console.error('Erro ao carregar FAQ:', error);
+                // Fallback para dados mock em caso de erro
+                setFaq(mockFaq);
+            }
+        };
+        
+        fetchFAQ();
     }, []);
 
     const handleFaqClick = (question) => {
@@ -360,11 +374,20 @@ const Chatbot = ({ prompt }) => {
     }, [messages, isTyping]);
 
     const findSuggestedArticles = async (query) => {
-        // fetch(`/api/articles?q=${query}`).then(res => res.json()).then(data => data.articles);
-        const queryWords = query.toLowerCase().split(/\s+/);
-        return mockArticles.filter(article => 
-            article.keywords.some(keyword => queryWords.includes(keyword))
-        );
+        try {
+            const response = await articlesAPI.getAll();
+            const queryWords = query.toLowerCase().split(/\s+/);
+            return response.data.filter(article => 
+                article.keywords && article.keywords.some(keyword => queryWords.includes(keyword))
+            );
+        } catch (error) {
+            console.error('Erro ao buscar artigos:', error);
+            // Fallback para dados mock em caso de erro
+            const queryWords = query.toLowerCase().split(/\s+/);
+            return mockArticles.filter(article => 
+                article.keywords.some(keyword => queryWords.includes(keyword))
+            );
+        }
     };
 
     const handleSendMessage = async (text) => {
