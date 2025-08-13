@@ -1,20 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Route, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen } from 'lucide-react';
 
-// No seu projeto Next.js, você precisará instalar o lucide-react:
-// npm install lucide-react
-
-// --- NOTA DE CONFIGURAÇÃO DO MODO NOTURNO ---
-// Para o modo noturno funcionar, adicione `darkMode: 'class'`
-// ao seu arquivo tailwind.config.js e reinicie seu servidor de desenvolvimento.
-
-// --- DADOS MOCK (Serão substituídos por chamadas de API) ---
+// Dados mock (serão substituídos por chamadas de API)
 const mockVeloNews = [
   { _id: 1, title: 'Nova Integração com Sistema de Gestão', content: 'Expandimos nossas capacidades! Agora o VeloHub se integra perfeitamente com os principais sistemas de gestão do mercado, otimizando seu fluxo de trabalho e centralizando informações cruciais para o seu negócio. A atualização já está disponível para todos os usuários.' },
   { _id: 2, title: 'Atualização de Segurança Crítica', content: 'Implementamos novas camadas de segurança para proteger seus dados. Esta atualização reforça a criptografia e adiciona novos protocolos de autenticação. Recomendamos que todos os usuários revisem suas configurações de segurança.', is_critical: 'Y'},
   { _id: 3, title: 'VeloAcademy Lança Novo Curso de Processos', content: 'Aprenda a dominar a automação de processos com nosso novo curso exclusivo na VeloAcademy. O curso cobre desde os conceitos básicos até as estratégias avançadas para maximizar a eficiência da sua equipe. Inscreva-se já!' },
   { _id: 4, title: 'Dashboard de Análise de Dados Recebe Melhorias', content: 'Apresentamos um dashboard de análise totalmente remodelado. Com novos gráficos interativos e métricas personalizáveis, ficou mais fácil extrair insights valiosos e tomar decisões baseadas em dados com mais rapidez e precisão.' },
 ];
+
 const mockRecentlyAdded = ['Novo Artigo: Otimização de API', 'Processo Atualizado: Onboarding', 'Funcionalidade: Exportar Relatório'];
 const mockStatus = ['API Operacional', 'Banco de Dados Conectado', 'Chatbot Online'];
 const mockFaq = [
@@ -23,6 +17,7 @@ const mockFaq = [
     'Como customizar meu dashboard?', 'Onde vejo o histórico de alterações?', 'Como entrar em contato com o suporte?',
     'Qual a política de segurança de dados?',
 ];
+
 const mockArticles = [
     { id: 1, title: "Guia Completo para Resetar sua Senha", keywords: ["senha", "resetar", "esqueci", "acesso"] },
     { id: 2, title: "Entendendo os Relatórios Analíticos", keywords: ["relatórios", "dados", "análise"] },
@@ -30,8 +25,7 @@ const mockArticles = [
     { id: 4, title: "Exportação de Dados em CSV e PDF", keywords: ["exportação", "exportar", "dados", "pdf", "csv"] },
 ];
 
-
-// --- Componente de Logo (Solução para embedar) ---
+// Componente de Logo
 const VeloHubLogo = () => (
   <svg width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
     <text x="0" y="28" fontFamily="Arial, sans-serif" fontSize="24" fontWeight="bold">
@@ -41,8 +35,7 @@ const VeloHubLogo = () => (
   </svg>
 );
 
-
-// --- Componente do Cabeçalho (Header.js) ---
+// Componente do Cabeçalho
 const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
   const navItems = ['Home', 'Processos', 'Artigos', 'Apoio', 'VeloAcademy'];
 
@@ -85,7 +78,7 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
   );
 };
 
-// --- Componente do Modal de Notícia Crítica ---
+// Componente do Modal de Notícia Crítica
 const CriticalNewsModal = ({ news, onClose }) => {
   const [isAcknowledged, setIsAcknowledged] = useState(false);
 
@@ -122,9 +115,8 @@ const CriticalNewsModal = ({ news, onClose }) => {
   );
 };
 
-
-// --- Componente da Página Principal (App.js) ---
-export default function App() {
+// Componente da Página Principal
+export default function App_v2() {
   const [activePage, setActivePage] = useState('Home');
   const [criticalNews, setCriticalNews] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -137,8 +129,6 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  // Lógica para buscar notícias será movida para a HomePage
-  
   const renderContent = () => {
     switch (activePage) {
       case 'Home':
@@ -172,7 +162,7 @@ export default function App() {
   );
 }
 
-// --- Conteúdo da Página Home (HomePage.js) ---
+// Conteúdo da Página Home
 const HomePage = ({ setCriticalNews }) => {
     const [selectedNews, setSelectedNews] = useState(null);
     const [veloNews, setVeloNews] = useState([]);
@@ -250,7 +240,7 @@ const HomePage = ({ setCriticalNews }) => {
     );
 };
 
-// --- Conteúdo da Página de Apoio (ApoioPage.js) ---
+// Conteúdo da Página de Apoio
 const ApoioPage = () => {
     const supportItems = [
         { name: 'Artigo', icon: <FileText size={40} /> }, { name: 'Processo', icon: <Bot size={40} /> },
@@ -272,7 +262,7 @@ const ApoioPage = () => {
     );
 };
 
-// --- Página de Processos (Chatbot) ---
+// Página de Processos (Chatbot)
 const ProcessosPage = () => {
     const [promptFromFaq, setPromptFromFaq] = useState(null);
     const [faq, setFaq] = useState([]);
@@ -310,7 +300,7 @@ const ProcessosPage = () => {
     );
 };
 
-// --- Componente do Modal de Feedback ---
+// Componente do Modal de Feedback
 const FeedbackModal = ({ isOpen, onClose, onSubmit, comment, setComment }) => {
     if (!isOpen) return null;
 
@@ -348,7 +338,7 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit, comment, setComment }) => {
     );
 };
 
-// --- Componente do Chatbot ---
+// Componente do Chatbot
 const Chatbot = ({ prompt }) => {
     const [messages, setMessages] = useState([]);
     const [inputValue, setInputValue] = useState('');
