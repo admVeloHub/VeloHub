@@ -1,4 +1,5 @@
-const API_BASE_URL = 'http://localhost:5000/api';
+// Configuração da API - funciona tanto local quanto remoto
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 // Função genérica para fazer requisições
 async function apiRequest(endpoint, options = {}) {
@@ -20,6 +21,11 @@ async function apiRequest(endpoint, options = {}) {
     return data;
   } catch (error) {
     console.error(`Erro na API ${endpoint}:`, error);
+    // Se for erro de rede, retornar dados vazios em vez de quebrar
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      console.warn('API não disponível, retornando dados vazios');
+      return { data: [] };
+    }
     throw error;
   }
 }
