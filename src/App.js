@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Map, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen } from 'lucide-react';
+import { veloNewsAPI, faqAPI } from './services/api';
 
 // Dados mock (serão substituídos por chamadas de API)
 const mockVeloNews = [
@@ -119,13 +120,32 @@ const CriticalNewsModal = ({ news, onClose }) => {
 const HomePage = ({ setCriticalNews }) => {
     const [selectedNews, setSelectedNews] = useState(null);
     const [veloNews, setVeloNews] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
-        setVeloNews(mockVeloNews);
-        const critical = mockVeloNews.find(n => n.is_critical === 'Y');
-        if (critical) {
-            setCriticalNews(critical);
-        }
+        const fetchNews = async () => {
+            try {
+                setLoading(true);
+                const response = await veloNewsAPI.getAll();
+                setVeloNews(response.data);
+                
+                // Verificar notícias críticas
+                const critical = response.data.find(n => n.is_critical === true);
+                if (critical) {
+                    setCriticalNews(critical);
+                }
+            } catch (err) {
+                console.error('Erro ao buscar notícias:', err);
+                setError('Erro ao carregar notícias');
+                // Fallback para dados mock
+                setVeloNews(mockVeloNews);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchNews();
     }, [setCriticalNews]);
 
     return (
@@ -144,7 +164,18 @@ const HomePage = ({ setCriticalNews }) => {
                     <span className="text-black dark:text-white">News</span>
                 </h2>
                 <div className="space-y-6">
-                    {veloNews.slice(0, 4).map(news => (
+                    {loading ? (
+                        <div className="text-center py-8">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                            <p className="mt-2 text-gray-600 dark:text-gray-400">Carregando notícias...</p>
+                        </div>
+                    ) : error ? (
+                        <div className="text-center py-8">
+                            <p className="text-red-600 dark:text-red-400">{error}</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Usando dados de exemplo</p>
+                        </div>
+                    ) : (
+                        veloNews.slice(0, 4).map(news => (
                         <div key={news._id} className="border-b dark:border-gray-700 pb-4 last:border-b-0">
                             <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-200 mb-2">{news.title}</h3>
                             <p className="text-gray-600 dark:text-gray-400 line-clamp-3">{news.content}</p>
@@ -152,7 +183,8 @@ const HomePage = ({ setCriticalNews }) => {
                                 Ler mais
                             </button>
                         </div>
-                    ))}
+                    ))
+                    )}
                 </div>
             </section>
             <aside className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
@@ -415,9 +447,24 @@ const Chatbot = ({ prompt }) => {
 const ProcessosPage = () => {
     const [promptFromFaq, setPromptFromFaq] = useState(null);
     const [faq, setFaq] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        setFaq(mockFaq);
+        const fetchFAQ = async () => {
+            try {
+                setLoading(true);
+                const response = await faqAPI.getAll();
+                setFaq(response.data.map(item => item.question || item));
+            } catch (err) {
+                console.error('Erro ao buscar FAQ:', err);
+                // Fallback para dados mock
+                setFaq(mockFaq);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchFAQ();
     }, []);
 
     const handleFaqClick = (question) => {
@@ -432,16 +479,23 @@ const ProcessosPage = () => {
                 </div>
                 <aside className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm h-fit">
                     <h3 className="font-bold text-xl mb-4 border-b pb-2 text-gray-800 dark:text-gray-200 dark:border-gray-600">Perguntas Frequentes</h3>
-                    <ul className="space-y-3">
-                        {faq.slice(0, 10).map((item, index) => (
-                            <li key={index} onClick={() => handleFaqClick(item.question || item)} className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer text-sm">
-                                {item.question || item}
-                            </li>
-                        ))}
-                    </ul>
-                    <button className="w-full mt-6 bg-blue-500 text-white font-semibold py-2 rounded-md hover:bg-blue-600 transition-colors">
-                        Mais Perguntas
-                    </button>
+                    {loading ? (
+                        <div className="text-center py-4">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Carregando...</p>
+                        </div>
+                    ) : (
+                        <ul className="space-y-3">
+                            {faq.slice(0, 10).map((item, index) => (
+                                <li key={index} onClick={() => handleFaqClick(item.question || item)} className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer text-sm">
+                                    {item.question || item}
+                                </li>
+                            ))}
+                        </ul>
+                        <button className="w-full mt-6 bg-blue-500 text-white font-semibold py-2 rounded-md hover:bg-blue-600 transition-colors">
+                            Mais Perguntas
+                        </button>
+                    )}
                 </aside>
             </div>
         </div>
