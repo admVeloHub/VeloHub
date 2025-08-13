@@ -2,30 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Map, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen } from 'lucide-react';
 import { veloNewsAPI, articlesAPI, faqAPI } from './services/api';
 
-// Dados mock (serão substituídos por chamadas de API)
-const mockVeloNews = [
-  { _id: 1, title: 'Nova Integração com Sistema de Gestão', content: 'Expandimos nossas capacidades! Agora o VeloHub se integra perfeitamente com os principais sistemas de gestão do mercado, otimizando seu fluxo de trabalho e centralizando informações cruciais para o seu negócio. A atualização já está disponível para todos os usuários.' },
-  { _id: 2, title: 'Atualização de Segurança Crítica', content: 'Implementamos novas camadas de segurança para proteger seus dados. Esta atualização reforça a criptografia e adiciona novos protocolos de autenticação. Recomendamos que todos os usuários revisem suas configurações de segurança.', is_critical: 'Y'},
-  { _id: 3, title: 'VeloAcademy Lança Novo Curso de Processos', content: 'Aprenda a dominar a automação de processos com nosso novo curso exclusivo na VeloAcademy. O curso cobre desde os conceitos básicos até as estratégias avançadas para maximizar a eficiência da sua equipe. Inscreva-se já!' },
-  { _id: 4, title: 'Dashboard de Análise de Dados Recebe Melhorias', content: 'Apresentamos um dashboard de análise totalmente remodelado. Com novos gráficos interativos e métricas personalizáveis, ficou mais fácil extrair insights valiosos e tomar decisões baseadas em dados com mais rapidez e precisão.' },
-];
-
-const mockRecentlyAdded = ['Novo Artigo: Otimização de API', 'Processo Atualizado: Onboarding', 'Funcionalidade: Exportar Relatório'];
-const mockStatus = ['API Operacional', 'Banco de Dados Conectado', 'Chatbot Online'];
-const mockFaq = [
-    'Como resetar minha senha?', 'Onde encontro meus relatórios?', 'Como integrar com o sistema X?',
-    'Qual o plano ideal para minha equipe?', 'Como funciona a exportação de dados?', 'Posso adicionar mais usuários?',
-    'Como customizar meu dashboard?', 'Onde vejo o histórico de alterações?', 'Como entrar em contato com o suporte?',
-    'Qual a política de segurança de dados?',
-];
-
-const mockArticles = [
-    { id: 1, title: "Guia Completo para Resetar sua Senha", keywords: ["senha", "resetar", "esqueci", "acesso"] },
-    { id: 2, title: "Entendendo os Relatórios Analíticos", keywords: ["relatórios", "dados", "análise"] },
-    { id: 3, title: "Passo a passo para Integração de Sistemas", keywords: ["integrar", "integração", "api", "sistema"] },
-    { id: 4, title: "Exportação de Dados em CSV e PDF", keywords: ["exportação", "exportar", "dados", "pdf", "csv"] },
-];
-
 // Componente de Logo
 const VeloHubLogo = () => (
   <svg width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -181,8 +157,7 @@ const HomePage = ({ setCriticalNews }) => {
                 }
             } catch (error) {
                 console.error('Erro ao carregar notícias:', error);
-                // Fallback para dados mock em caso de erro
-                setVeloNews(mockVeloNews);
+                setVeloNews([]);
             }
         };
         
@@ -193,11 +168,9 @@ const HomePage = ({ setCriticalNews }) => {
         <div className="container mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-4 gap-8">
             <aside className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
                 <h3 className="font-bold text-xl mb-4 border-b pb-2 text-gray-800 dark:text-gray-200 dark:border-gray-600">Adicionado Recentemente</h3>
-                <ul className="space-y-3">
-                    {mockRecentlyAdded.map((item, index) => (
-                        <li key={index} className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer">{item}</li>
-                    ))}
-                </ul>
+                <div className="text-center py-8">
+                    <p className="text-gray-500 dark:text-gray-400">Carregando dados...</p>
+                </div>
             </aside>
             <section className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
                 <h2 className="text-center font-bold text-3xl mb-6">
@@ -218,14 +191,9 @@ const HomePage = ({ setCriticalNews }) => {
             </section>
             <aside className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
                 <h3 className="font-bold text-xl mb-4 border-b pb-2 text-gray-800 dark:text-gray-200 dark:border-gray-600">Status</h3>
-                <ul className="space-y-3">
-                    {mockStatus.map((item, index) => (
-                        <li key={index} className="text-gray-700 dark:text-gray-300 flex items-center">
-                            <span className="h-2 w-2 bg-green-500 rounded-full mr-2"></span>
-                            {item}
-                        </li>
-                    ))}
-                </ul>
+                <div className="text-center py-8">
+                    <p className="text-gray-500 dark:text-gray-400">Carregando dados...</p>
+                </div>
             </aside>
             {selectedNews && (
                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedNews(null)}>
@@ -283,7 +251,7 @@ const ArtigosPage = () => {
             } catch (error) {
                 console.error('Erro ao carregar artigos:', error);
                 setError('Erro ao carregar artigos');
-                setArticles(mockArticles);
+                setArticles([]);
             } finally {
                 setLoading(false);
             }
@@ -352,8 +320,7 @@ const ProcessosPage = () => {
             } catch (error) {
                 console.error('Erro ao carregar FAQ:', error);
                 setError('Erro ao carregar FAQ');
-                // Fallback para dados mock em caso de erro
-                setFaq(mockFaq);
+                setFaq([]);
             } finally {
                 setLoading(false);
             }
@@ -476,11 +443,7 @@ const Chatbot = ({ prompt }) => {
             );
         } catch (error) {
             console.error('Erro ao buscar artigos:', error);
-            // Fallback para dados mock em caso de erro
-            const queryWords = query.toLowerCase().split(/\s+/);
-            return mockArticles.filter(article => 
-                article.keywords.some(keyword => queryWords.includes(keyword))
-            );
+            return [];
         }
     };
 
