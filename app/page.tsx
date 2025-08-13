@@ -33,6 +33,12 @@ export default function Home() {
         <p style={{ color: '#666', lineHeight: '1.6', marginTop: '1rem' }}>
           <strong>Data/Hora:</strong> {new Date().toLocaleString('pt-BR')}
         </p>
+        <div style={{ marginTop: '2rem', padding: '1rem', backgroundColor: '#f0f9ff', borderRadius: '4px' }}>
+          <h3 style={{ color: '#1e40af', marginBottom: '0.5rem' }}>🚀 Próximos Passos</h3>
+          <p style={{ color: '#1e40af', fontSize: '0.9rem' }}>
+            Configure o MongoDB Atlas e adicione conteúdo através da API
+          </p>
+        </div>
       </div>
     </div>
   );
