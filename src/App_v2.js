@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Route, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen } from 'lucide-react';
+import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Map, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen } from 'lucide-react';
 
 // Dados mock (serão substituídos por chamadas de API)
 const mockVeloNews = [
@@ -244,7 +244,7 @@ const HomePage = ({ setCriticalNews }) => {
 const ApoioPage = () => {
     const supportItems = [
         { name: 'Artigo', icon: <FileText size={40} /> }, { name: 'Processo', icon: <Bot size={40} /> },
-        { name: 'Treinamento', icon: <GraduationCap size={40} /> }, { name: 'Roteiro', icon: <Route size={40} /> },
+        { name: 'Treinamento', icon: <GraduationCap size={40} /> }, { name: 'Roteiro', icon: <Map size={40} /> },
         { name: 'Funcionalidade', icon: <Puzzle size={40} /> }, { name: 'Recurso Adicional', icon: <PlusSquare size={40} /> },
     ];
     return (
