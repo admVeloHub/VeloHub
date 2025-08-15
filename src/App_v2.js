@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Map, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen } from 'lucide-react';
-import { veloNewsAPI, articlesAPI, faqAPI } from './services/api';
+import { mainAPI, veloNewsAPI, articlesAPI, faqAPI } from './services/api';
 
 // Componente de Logo
 const VeloHubLogo = () => (
@@ -143,25 +143,37 @@ export default function App_v2() {
 const HomePage = ({ setCriticalNews }) => {
     const [selectedNews, setSelectedNews] = useState(null);
     const [veloNews, setVeloNews] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchNews = async () => {
+        const fetchAllData = async () => {
             try {
-                const response = await veloNewsAPI.getAll();
-                setVeloNews(response.data);
+                setLoading(true);
+                console.log('🔄 Buscando todos os dados...');
+                const response = await mainAPI.getAllData();
+                console.log('✅ Dados recebidos:', response.data);
                 
-                // Verificar notícias críticas
-                const critical = response.data.find(n => n.is_critical === 'Y');
-                if (critical) {
-                    setCriticalNews(critical);
+                if (response.data && response.data.velonews) {
+                    setVeloNews(response.data.velonews);
+                    
+                    // Verificar notícias críticas
+                    const critical = response.data.velonews.find(n => n.is_critical === 'Y');
+                    if (critical) {
+                        setCriticalNews(critical);
+                    }
+                } else {
+                    console.warn('⚠️ Dados de velonews não encontrados');
+                    setVeloNews([]);
                 }
             } catch (error) {
-                console.error('Erro ao carregar notícias:', error);
+                console.error('❌ Erro ao carregar dados:', error);
                 setVeloNews([]);
+            } finally {
+                setLoading(false);
             }
         };
         
-        fetchNews();
+        fetchAllData();
     }, [setCriticalNews]);
 
     return (
@@ -178,15 +190,26 @@ const HomePage = ({ setCriticalNews }) => {
                     <span className="text-black dark:text-white">News</span>
                 </h2>
                 <div className="space-y-6">
-                    {veloNews.slice(0, 4).map(news => (
-                        <div key={news._id} className="border-b dark:border-gray-700 pb-4 last:border-b-0">
-                            <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-200 mb-2">{news.title}</h3>
-                            <p className="text-gray-600 dark:text-gray-400 line-clamp-3">{news.content}</p>
-                            <button onClick={() => setSelectedNews(news)} className="text-blue-600 dark:text-blue-400 hover:underline mt-2 font-medium">
-                                Ler mais
-                            </button>
+                    {loading ? (
+                        <div className="text-center py-8">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                            <p className="text-gray-600 dark:text-gray-400 mt-2">Carregando dados do MongoDB...</p>
                         </div>
-                    ))}
+                    ) : veloNews.length > 0 ? (
+                        veloNews.slice(0, 4).map(news => (
+                            <div key={news._id} className="border-b dark:border-gray-700 pb-4 last:border-b-0">
+                                <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-200 mb-2">{news.title}</h3>
+                                <p className="text-gray-600 dark:text-gray-400 line-clamp-3">{news.content}</p>
+                                <button onClick={() => setSelectedNews(news)} className="text-blue-600 dark:text-blue-400 hover:underline mt-2 font-medium">
+                                    Ler mais
+                                </button>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="text-center py-8">
+                            <p className="text-gray-500 dark:text-gray-400">Nenhuma notícia encontrada</p>
+                        </div>
+                    )}
                 </div>
             </section>
             <aside className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
