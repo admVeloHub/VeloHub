@@ -30,7 +30,13 @@ async function apiRequest(endpoint, options = {}) {
   }
 }
 
-// API para VeloNews
+// API principal - busca todos os dados de uma vez
+export const mainAPI = {
+  // Buscar todos os dados
+  getAllData: () => apiRequest('/data'),
+};
+
+// API para VeloNews (mantida para compatibilidade)
 export const veloNewsAPI = {
   // Buscar todas as notícias
   getAll: () => apiRequest('/velo-news'),
@@ -41,7 +47,7 @@ export const veloNewsAPI = {
   ),
 };
 
-// API para Artigos
+// API para Artigos (mantida para compatibilidade)
 export const articlesAPI = {
   // Buscar todos os artigos
   getAll: () => apiRequest('/articles'),
@@ -50,7 +56,7 @@ export const articlesAPI = {
   getById: (id) => apiRequest(`/articles/${id}`),
 };
 
-// API para FAQ
+// API para FAQ (mantida para compatibilidade)
 export const faqAPI = {
   // Buscar todas as perguntas frequentes
   getAll: () => apiRequest('/faq'),
@@ -63,6 +69,7 @@ export const testAPI = {
 };
 
 export default {
+  main: mainAPI,
   veloNews: veloNewsAPI,
   articles: articlesAPI,
   faq: faqAPI,
