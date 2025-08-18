@@ -271,7 +271,10 @@ const ApoioPage = () => {
 // Página de Artigos
 const ArtigosPage = () => {
     const [articles, setArticles] = useState([]);
+    const [filteredArticles, setFilteredArticles] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [selectedCategory, setSelectedCategory] = useState('Todas');
+    const [categories, setCategories] = useState([]);
 
     useEffect(() => {
         const fetchArticles = async () => {
@@ -295,40 +298,118 @@ const ArtigosPage = () => {
         fetchArticles();
     }, []);
 
+    // Extrair categorias únicas dos artigos
+    useEffect(() => {
+        if (articles.length > 0) {
+            const uniqueCategories = ['Todas', ...new Set(articles.map(article => article.category).filter(Boolean))];
+            setCategories(uniqueCategories);
+        }
+    }, [articles]);
+
+    // Filtrar artigos por categoria
+    useEffect(() => {
+        if (selectedCategory === 'Todas') {
+            setFilteredArticles(articles);
+        } else {
+            const filtered = articles.filter(article => article.category === selectedCategory);
+            setFilteredArticles(filtered);
+        }
+    }, [selectedCategory, articles]);
+
+    const handleCategoryChange = (category) => {
+        setSelectedCategory(category);
+    };
+
     return (
         <div className="container mx-auto px-6 py-8">
             <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-8">Artigos</h1>
             
-            {loading && (
-                <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                    <p className="text-gray-600 dark:text-gray-400 mt-4">Carregando artigos...</p>
-                </div>
-            )}
-            
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                {/* Sidebar de Categorias */}
+                <aside className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm h-fit">
+                    <h3 className="font-bold text-xl mb-4 border-b pb-2 text-gray-800 dark:text-gray-200 dark:border-gray-600">
+                        Categorias
+                    </h3>
+                    
+                    {loading ? (
+                        <div className="text-center py-4">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
+                            <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm">Carregando...</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            {categories.map((category, index) => (
+                                <button
+                                    key={index}
+                                    onClick={() => handleCategoryChange(category)}
+                                    className={`w-full text-left px-3 py-2 rounded-md transition-colors duration-200 text-sm ${
+                                        selectedCategory === category
+                                            ? 'bg-blue-600 text-white'
+                                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    }`}
+                                >
+                                    {category}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                    
+                    {!loading && (
+                        <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                {filteredArticles.length} artigo{filteredArticles.length !== 1 ? 's' : ''} encontrado{filteredArticles.length !== 1 ? 's' : ''}
+                            </p>
+                        </div>
+                    )}
+                </aside>
 
-            
-            {!loading && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {articles.map(article => (
-                        <div key={article._id || article.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-                            <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-3">{article.title}</h3>
-                            {article.content && (
-                                <p className="text-gray-600 dark:text-gray-400 mb-4 line-clamp-3">{article.content}</p>
-                            )}
-                            {article.keywords && (
-                                <div className="flex flex-wrap gap-2">
-                                    {article.keywords.map((keyword, index) => (
-                                        <span key={index} className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full text-xs">
-                                            {keyword}
-                                        </span>
+                {/* Lista de Artigos */}
+                <div className="lg:col-span-3">
+                    {loading && (
+                        <div className="text-center py-12">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                            <p className="text-gray-600 dark:text-gray-400 mt-4">Carregando artigos...</p>
+                        </div>
+                    )}
+                    
+                    {!loading && (
+                        <>
+                            {filteredArticles.length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {filteredArticles.map(article => (
+                                        <div key={article._id || article.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+                                            <div className="mb-3">
+                                                <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full text-xs font-medium">
+                                                    {article.category}
+                                                </span>
+                                            </div>
+                                            <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-3">{article.title}</h3>
+                                            {article.content && (
+                                                <p className="text-gray-600 dark:text-gray-400 mb-4 line-clamp-3">{article.content}</p>
+                                            )}
+                                            {article.keywords && (
+                                                <div className="flex flex-wrap gap-2">
+                                                    {article.keywords.map((keyword, index) => (
+                                                        <span key={index} className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-full text-xs">
+                                                            {keyword}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
                                     ))}
                                 </div>
+                            ) : (
+                                <div className="text-center py-12">
+                                    <p className="text-gray-500 dark:text-gray-400 text-lg">
+                                        Nenhum artigo encontrado na categoria "{selectedCategory}"
+                                    </p>
+                                </div>
                             )}
-                        </div>
-                    ))}
+                        </>
+                    )}
                 </div>
-            )}
+            </div>
         </div>
     );
 };
