@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Map, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen } from 'lucide-react';
 import { mainAPI, veloNewsAPI, articlesAPI, faqAPI } from './services/api';
+import { getMockData } from './data/mockData';
 
 // Componente de Logo
 const VeloHubLogo = () => (
@@ -166,8 +167,18 @@ const HomePage = ({ setCriticalNews }) => {
                     setVeloNews([]);
                 }
             } catch (error) {
-                console.error('❌ Erro ao carregar dados:', error);
-                setVeloNews([]);
+                console.error('❌ Erro ao carregar dados da API:', error);
+                console.log('📋 Usando dados mock como fallback...');
+                
+                // Usar dados mock como fallback
+                const mockData = getMockData();
+                setVeloNews(mockData.velonews);
+                
+                // Verificar notícias críticas nos dados mock
+                const critical = mockData.velonews.find(n => n.is_critical === 'Y');
+                if (critical) {
+                    setCriticalNews(critical);
+                }
             } finally {
                 setLoading(false);
             }
@@ -261,20 +272,21 @@ const ApoioPage = () => {
 const ArtigosPage = () => {
     const [articles, setArticles] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
 
     useEffect(() => {
         const fetchArticles = async () => {
             try {
                 setLoading(true);
-                setError(null);
                 const response = await articlesAPI.getAll();
                 console.log('Artigos carregados:', response.data);
                 setArticles(response.data);
             } catch (error) {
-                console.error('Erro ao carregar artigos:', error);
-                setError('Erro ao carregar artigos');
-                setArticles([]);
+                console.error('Erro ao carregar artigos da API:', error);
+                console.log('📋 Usando dados mock como fallback...');
+                
+                // Usar dados mock como fallback
+                const mockData = getMockData();
+                setArticles(mockData.articles);
             } finally {
                 setLoading(false);
             }
@@ -294,13 +306,9 @@ const ArtigosPage = () => {
                 </div>
             )}
             
-            {error && (
-                <div className="text-center py-12">
-                    <p className="text-red-600 dark:text-red-400 text-lg">{error}</p>
-                </div>
-            )}
+
             
-            {!loading && !error && (
+            {!loading && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {articles.map(article => (
                         <div key={article._id || article.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
@@ -330,20 +338,21 @@ const ProcessosPage = () => {
     const [promptFromFaq, setPromptFromFaq] = useState(null);
     const [faq, setFaq] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
 
     useEffect(() => {
         const fetchFAQ = async () => {
             try {
                 setLoading(true);
-                setError(null);
                 const response = await faqAPI.getAll();
                 console.log('FAQ carregado:', response.data);
                 setFaq(response.data);
             } catch (error) {
-                console.error('Erro ao carregar FAQ:', error);
-                setError('Erro ao carregar FAQ');
-                setFaq([]);
+                console.error('Erro ao carregar FAQ da API:', error);
+                console.log('📋 Usando dados mock como fallback...');
+                
+                // Usar dados mock como fallback
+                const mockData = getMockData();
+                setFaq(mockData.faq);
             } finally {
                 setLoading(false);
             }
@@ -372,13 +381,7 @@ const ProcessosPage = () => {
                         </div>
                     )}
                     
-                    {error && (
-                        <div className="text-center py-4">
-                            <p className="text-red-600 dark:text-red-400">{error}</p>
-                        </div>
-                    )}
-                    
-                    {!loading && !error && (
+                    {!loading && (
                         <>
                             <ul className="space-y-3">
                                 {faq.slice(0, 10).map((item, index) => (
@@ -465,8 +468,15 @@ const Chatbot = ({ prompt }) => {
                 article.keywords && article.keywords.some(keyword => queryWords.includes(keyword))
             );
         } catch (error) {
-            console.error('Erro ao buscar artigos:', error);
-            return [];
+            console.error('Erro ao buscar artigos da API:', error);
+            console.log('📋 Usando dados mock para sugestões...');
+            
+            // Usar dados mock como fallback
+            const mockData = getMockData();
+            const queryWords = query.toLowerCase().split(/\s+/);
+            return mockData.articles.filter(article => 
+                article.keywords && article.keywords.some(keyword => queryWords.includes(keyword))
+            );
         }
     };
 
