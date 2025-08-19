@@ -154,7 +154,7 @@ const HomePage = ({ setCriticalNews }) => {
                 const response = await mainAPI.getAllData();
                 console.log('✅ Dados recebidos:', response.data);
                 
-                if (response.data && response.data.velonews) {
+                if (response.data && response.data.velonews && response.data.velonews.length > 0) {
                     setVeloNews(response.data.velonews);
                     
                     // Verificar notícias críticas
@@ -163,8 +163,8 @@ const HomePage = ({ setCriticalNews }) => {
                         setCriticalNews(critical);
                     }
                 } else {
-                    console.warn('⚠️ Dados de velonews não encontrados');
-                    setVeloNews([]);
+                    console.warn('⚠️ Dados de velonews não encontrados ou vazios, usando mock...');
+                    throw new Error('Dados vazios da API');
                 }
             } catch (error) {
                 console.error('❌ Erro ao carregar dados da API:', error);
@@ -191,9 +191,26 @@ const HomePage = ({ setCriticalNews }) => {
         <div className="container mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-4 gap-8">
             <aside className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
                 <h3 className="font-bold text-xl mb-4 border-b pb-2 text-gray-800 dark:text-gray-200 dark:border-gray-600">Adicionado Recentemente</h3>
-                <div className="text-center py-8">
-                    <p className="text-gray-500 dark:text-gray-400">Carregando dados...</p>
-                </div>
+                {loading ? (
+                    <div className="text-center py-8">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
+                        <p className="text-gray-500 dark:text-gray-400 mt-2 text-sm">Carregando...</p>
+                    </div>
+                ) : veloNews.length > 0 ? (
+                    <div className="space-y-4">
+                        {veloNews.slice(0, 3).map(news => (
+                            <div key={news._id} className="border-b dark:border-gray-700 pb-3 last:border-b-0">
+                                <h4 className="font-semibold text-sm text-gray-800 dark:text-gray-200 mb-1 line-clamp-2">{news.title}</h4>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{news.content}</p>
+                                <span className="text-xs text-blue-600 dark:text-blue-400">{new Date(news.createdAt).toLocaleDateString('pt-BR')}</span>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-8">
+                        <p className="text-gray-500 dark:text-gray-400 text-sm">Nenhuma notícia recente</p>
+                    </div>
+                )}
             </aside>
             <section className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
                 <h2 className="text-center font-bold text-3xl mb-6">
@@ -209,11 +226,25 @@ const HomePage = ({ setCriticalNews }) => {
                     ) : veloNews.length > 0 ? (
                         veloNews.slice(0, 4).map(news => (
                             <div key={news._id} className="border-b dark:border-gray-700 pb-4 last:border-b-0">
-                                <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-200 mb-2">{news.title}</h3>
-                                <p className="text-gray-600 dark:text-gray-400 line-clamp-3">{news.content}</p>
-                                <button onClick={() => setSelectedNews(news)} className="text-blue-600 dark:text-blue-400 hover:underline mt-2 font-medium">
-                                    Ler mais
-                                </button>
+                                <div className="flex justify-between items-start mb-2">
+                                    <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-200">{news.title}</h3>
+                                    {news.is_critical === 'Y' && (
+                                        <span className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 px-2 py-1 rounded-full text-xs font-medium">
+                                            Crítica
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-gray-600 dark:text-gray-400 line-clamp-3 mb-2">{news.content}</p>
+                                <div className="flex justify-between items-center">
+                                    <button onClick={() => setSelectedNews(news)} className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
+                                        Ler mais
+                                    </button>
+                                    {news.createdAt && (
+                                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                                            {new Date(news.createdAt).toLocaleDateString('pt-BR')}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         ))
                     ) : (
@@ -225,9 +256,30 @@ const HomePage = ({ setCriticalNews }) => {
             </section>
             <aside className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
                 <h3 className="font-bold text-xl mb-4 border-b pb-2 text-gray-800 dark:text-gray-200 dark:border-gray-600">Status</h3>
-                <div className="text-center py-8">
-                    <p className="text-gray-500 dark:text-gray-400">Carregando dados...</p>
-                </div>
+                {loading ? (
+                    <div className="text-center py-8">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
+                        <p className="text-gray-500 dark:text-gray-400 mt-2 text-sm">Carregando...</p>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600 dark:text-gray-400">Notícias:</span>
+                            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{veloNews.length}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600 dark:text-gray-400">Críticas:</span>
+                            <span className="text-sm font-semibold text-red-600">{veloNews.filter(n => n.is_critical === 'Y').length}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600 dark:text-gray-400">Sistema:</span>
+                            <span className="flex items-center gap-1">
+                                <span className="h-2 w-2 bg-green-500 rounded-full"></span>
+                                <span className="text-sm font-semibold text-green-600">Online</span>
+                            </span>
+                        </div>
+                    </div>
+                )}
             </aside>
             {selectedNews && (
                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedNews(null)}>
@@ -282,7 +334,13 @@ const ArtigosPage = () => {
                 setLoading(true);
                 const response = await articlesAPI.getAll();
                 console.log('Artigos carregados:', response.data);
-                setArticles(response.data);
+                
+                if (response.data && response.data.length > 0) {
+                    setArticles(response.data);
+                } else {
+                    console.warn('⚠️ Dados de artigos não encontrados ou vazios, usando mock...');
+                    throw new Error('Dados vazios da API');
+                }
             } catch (error) {
                 console.error('Erro ao carregar artigos da API:', error);
                 console.log('📋 Usando dados mock como fallback...');
@@ -378,22 +436,32 @@ const ArtigosPage = () => {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {filteredArticles.map(article => (
                                         <div key={article._id || article.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-                                            <div className="mb-3">
+                                            <div className="mb-3 flex justify-between items-start">
                                                 <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full text-xs font-medium">
                                                     {article.category}
                                                 </span>
+                                                {article.createdAt && (
+                                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                        {new Date(article.createdAt).toLocaleDateString('pt-BR')}
+                                                    </span>
+                                                )}
                                             </div>
                                             <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-3">{article.title}</h3>
                                             {article.content && (
                                                 <p className="text-gray-600 dark:text-gray-400 mb-4 line-clamp-3">{article.content}</p>
                                             )}
-                                            {article.keywords && (
+                                            {article.keywords && article.keywords.length > 0 && (
                                                 <div className="flex flex-wrap gap-2">
-                                                    {article.keywords.map((keyword, index) => (
+                                                    {article.keywords.slice(0, 5).map((keyword, index) => (
                                                         <span key={index} className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-full text-xs">
                                                             {keyword}
                                                         </span>
                                                     ))}
+                                                    {article.keywords.length > 5 && (
+                                                        <span className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
+                                                            +{article.keywords.length - 5} mais
+                                                        </span>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -426,7 +494,13 @@ const ProcessosPage = () => {
                 setLoading(true);
                 const response = await faqAPI.getAll();
                 console.log('FAQ carregado:', response.data);
-                setFaq(response.data);
+                
+                if (response.data && response.data.length > 0) {
+                    setFaq(response.data);
+                } else {
+                    console.warn('⚠️ Dados de FAQ não encontrados ou vazios, usando mock...');
+                    throw new Error('Dados vazios da API');
+                }
             } catch (error) {
                 console.error('Erro ao carregar FAQ da API:', error);
                 console.log('📋 Usando dados mock como fallback...');
@@ -561,6 +635,30 @@ const Chatbot = ({ prompt }) => {
         }
     };
 
+    const findRelevantFAQ = async (query) => {
+        try {
+            const response = await faqAPI.getAll();
+            const queryWords = query.toLowerCase().split(/\s+/);
+            return response.data.find(faq => 
+                faq.keywords && queryWords.some(word => 
+                    faq.keywords.toLowerCase().includes(word)
+                )
+            );
+        } catch (error) {
+            console.error('Erro ao buscar FAQ da API:', error);
+            console.log('📋 Usando dados mock para FAQ...');
+            
+            // Usar dados mock como fallback
+            const mockData = getMockData();
+            const queryWords = query.toLowerCase().split(/\s+/);
+            return mockData.faq.find(faq => 
+                faq.keywords && queryWords.some(word => 
+                    faq.keywords.toLowerCase().includes(word)
+                )
+            );
+        }
+    };
+
     const handleSendMessage = async (text) => {
         const trimmedInput = text.trim();
         if (!trimmedInput || isTyping) return;
@@ -570,9 +668,24 @@ const Chatbot = ({ prompt }) => {
         setInputValue('');
         setIsTyping(true);
 
-        // fetch(`/api/chatbot?q=${trimmedInput}`).then(res => res.json()).then(data => { ... });
-        const botResponse = `Esta é uma resposta para: "${trimmedInput}". Em um ambiente real, eu buscaria esta informação em uma base de dados.`;
+        // Buscar resposta relevante nos dados
+        const relevantFAQ = await findRelevantFAQ(trimmedInput);
         const suggestedArticles = await findSuggestedArticles(trimmedInput);
+        
+        let botResponse;
+        if (relevantFAQ) {
+            botResponse = relevantFAQ.context;
+        } else {
+            // Se não encontrar FAQ específico, buscar em artigos
+            const relevantArticle = suggestedArticles.find(article => 
+                article.content && article.content.toLowerCase().includes(trimmedInput.toLowerCase())
+            );
+            if (relevantArticle) {
+                botResponse = relevantArticle.content;
+            } else {
+                botResponse = `Desculpe, não encontrei informações específicas sobre "${trimmedInput}". Posso ajudá-lo com outras dúvidas sobre nossos serviços.`;
+            }
+        }
         
         let finalMessages = [...newMessages, { id: Date.now() + 1, text: botResponse, sender: 'bot', feedbackState: 'pending' }];
 
