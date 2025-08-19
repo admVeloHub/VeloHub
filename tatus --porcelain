@@ -1,0 +1,10 @@
+[33mbcd8c2b[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m feat: implementa sidebar de categorias na seção Artigos
+[33m2acc511[m feat: implementa sistema de fallback com dados mock baseados no CSV
+[33m69a5b8c[m Sistema otimizado: endpoint único /api/data para MongoDB - Backend com conexão única e mapeamento correto - Frontend atualizado para usar novo sistema - Logs de debug implementados
+[33m6b2f531[m feat: Configurar VeloHub para ler dados da database console_conteudo
+[33m9ddc768[m fix: configurar API para funcionar no deploy remoto\n\n- Adicionar suporte a REACT_APP_API_URL para API remota\n- Melhorar tratamento de erro de rede\n- API funciona tanto local quanto no ar\n- Retorna dados vazios se API não disponível
+[33mbcd8c2b[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m feat: implementa sidebar de categorias na seção Artigos
+[33m2acc511[m feat: implementa sistema de fallback com dados mock baseados no CSV
+[33m69a5b8c[m Sistema otimizado: endpoint único /api/data para MongoDB - Backend com conexão única e mapeamento correto - Frontend atualizado para usar novo sistema - Logs de debug implementados
+[33m6b2f531[m feat: Configurar VeloHub para ler dados da database console_conteudo
+[33m9ddc768[m fix: configurar API para funcionar no deploy remoto\n\n- Adicionar suporte a REACT_APP_API_URL para API remota\n- Melhorar tratamento de erro de rede\n- API funciona tanto local quanto no ar\n- Retorna dados vazios se API não disponível

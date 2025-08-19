@@ -193,8 +193,10 @@ app.get('/api/faq', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor backend rodando na porta ${PORT}`);
+  console.log(`🌐 Acessível em: http://localhost:${PORT}`);
+  console.log(`🌐 Acessível na rede local: http://0.0.0.0:${PORT}`);
   console.log(`📡 Endpoint principal: http://localhost:${PORT}/api/data`);
   console.log(`📡 Teste a API em: http://localhost:${PORT}/api/test`);
 });
