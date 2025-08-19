@@ -1,0 +1,394 @@
+topico,contexto,Palavras_chave,URLs de Imagens
+"E-MAIL DA PROCURAÇÃO, e-mail da procuração","A intenção do envio do e-mail foi justamente reforçar nosso compromisso com a transparência.
+Essa autorização é algo comum em serviços contábeis e fiscais e serve apenas para facilitar o acompanhamento da sua declaração junto à Receita, sem qualquer risco para seus dados bancários ou movimentações financeiras.
+Mas, claro: se você preferir revogar, é só acessar o site do e-CAC e fazer o cancelamento de forma simples e segura. A gente continua à disposição para te orientar, com o máximo respeito pela sua autonomia.","procuração, email",
+esta no lote,"Informe ao cliente  que verifique no portal E-CAC, la consta que houve um problema na hora do pagamento do lote, e informe a ele que acesse o site do BB restituição e faça o resgate do valor, mas antes, tenta fazer pelo cliente no site",cliente está no lote e agora?,https://www49.bb.com.br/restituicao/#/pagina-inicial
+não esta no lote,"Informe ao cliente que ele não esta contemplado neste lote, e peça para ele que verifique no site de consulta quando estiver proximo dos outros lotes, diga que é algo da Receita Federal, a Velotax, não consegue alterar nada sobre os lotes",cliente não está no lote e agora?,
+como funciona o agendamento?,"A própria Receita Federal orienta que o contribuinte realize o agendamento de forma direta. Ao acessar o Portal e-CAC ou o app Meu Imposto de Renda (MIR), é possível visualizar essa mesma orientação.
+
+Assim, reforçamos que essa exigência não parte da Velotax, e sim da Receita, e o contribuinte pode confirmar a informação acessando essas plataformas.
+",como aparece na Receita Federal?,https://github.com/velobot05/Chatbot-Atendimento/blob/main/imagens/image%20(1).png?raw=true
+cliente não recebeu,"Nos casos que o cliente não recebeu sua  restituição primeiro verifique se o mesmo estava cadastrado para lotes antigos logo após informe a ele que o valor esta disponivel no site do Banco do Brasil, tente fazer o resgate para o cliente e acima de tudo VERIFIQUE SE O CLIENTE ESTA NO RESPECTIVO LOTE, NO SITE/ Caso o mesmo esteja no lote atual siga as instruções que os gestores passaram.","não recebeu, cliente não recebeu, ciente ainda não recebeu, cliente nao recebeu",https://www.restituicao.receita.fazenda.gov.br/
+Portabilidade de Chave PIX com Débito,"Informe ao cliente que se ele fizer o débito da antecipação, seja com o valor da restituição ou não, a chave pix é automaticamente liberada, antes da quitação do débito. o valor a ser quitado pode ou não ter o desconto agora caso o cliente não queira pagar explique as condições da retirada da chave pix e escale para o N2.","portabilidade com pagamento, retida",
+Exclusão de Cadastro,"Podemos excluir a conta do cliente quando ele solicitar, mas antes é importante:
+
+Verificar pendências:
+Avisar o cliente se houver débitos em aberto ou planos ativos.
+
+Atenção legal:
+A conta pode ser excluída, mas os débitos continuam válidos, conforme contrato.
+
+Planos de assinatura (ex: calculadora):
+Informar que o plano é válido por 12 meses, mesmo com a exclusão da conta.
+👉 Exceção: pode ser cancelado em até 7 dias corridos após a compra (direito do consumidor).
+Clientes com antecipação:
+(Aqui você pode completar com a orientação específica para esse caso, se quiser ajuda com isso.)
+Verificar se houve quitação.
+Caso negativo, orientar:
+Efetuar o pagamento pendente; ou
+Aguardar restituição para regularização.
+Insistência na exclusão:
+Comunicar que a solicitação será encaminhada à equipe responsável, que entrará em contato com detalhes sobre os procedimentos e implicações.
+envie para N2","exclusão,finalização, cadastro, Quero fazer a exclusão da minha conta",
+Erro no Aplicativo,"Se está enfrentando um erro ou bug, peça mais detalhes do erro, se possível prints da tela e verifique no Octa se consta erro no processamento da antecipação ou algo do tipo. Se consta erro no Octa, envie no grupo do chat do Google o CPF e o erro citado no Octa. Caso não conste, se o cliente enviar um print, analise ou peça ajuda para saber o procedimento diante daquele erro do app do cliente.","aplicativo,sistema,suporte",
+Divergência em Valores de Antecipação,"Se o cliente questiona o valor que foi antecipado ou o valor para quitação, informe que estes valores foram devidamente mostrados antes de contratar e durante também, nas telas do app onde mostrava os valores oferecidos e quanto ficaria para pagamento futuro. Se ele falar sobre a data de vencimento do contrato, diga que é uma base para os cálculos, mas que os valores são fixos e não têm como alterá-los.Verifique se está disponivel, e informe sobre q quitação antecipada com o desconto, mas somente nos casos que o cliente falar que irá acionar a justiça",Cliente questionou o debito integral da restituição,
+Atualização de E-mail,"Guia para Alteração de E-mail Ou Telefone do Cliente
+
+1. Solicitação Inicial: 
+Solicitar o CPF do cliente e o novo e-mail desejado.
+Pedir para confirmar o e-mail antigo cadastrado.
+
+2. Confirmação do Novo E-mail: 
+Enviar a macro de saudação para o novo e-mail.
+Solicitar ao cliente que confirme o recebimento.
+Assim que confirmado, enviar a macro [Atendimento] Troca de e-mail - Validação com foto.
+
+Ajuste Temporário do Telefone
+
+Para que a alteração seja salva, também é necessário alterar temporariamente o telefone.
+Alterar um dígito do número cadastrado.
+
+Salvar as alterações.
+
+Reverter a alteração no telefone para o número correto e salvar novamente.
+
+Notificação ao Cliente
+Enviar um e-mail informando que a alteração foi realizada com sucesso.
+Se colocar à disposição para dúvidas ou esclarecimentos adicionais.
+
+3. Validação da Identidade: 
+Explicar ao cliente que será necessário que ele tenha um documento com foto em mãos.
+Ele deve tirar uma selfie segurando o documento ao lado do rosto.
+As informações no documento devem estar claras, e o rosto do cliente visível.
+Caso a imagem recebida não esteja adequada, solicitar uma nova verificação ao cliente.
+
+4. Acessando a Plataforma para Alterar o E-mail: 
+Solicitar ao supervisor um token de acesso à plataforma.
+Acessar a calculadora do cliente pelo link:
+
+""https://app.velotax.com.br/p/ssyo/(cole aqui o token)""
+
+Segue passos
+","E-mail, email atualização,e-mail","https://github.com/velobot05/Chatbot-Atendimento/blob/main/imagens/Captura%20de%20tela%202025-06-26%20141315.png?raw=true,
+
+https://github.com/velobot05/Chatbot-Atendimento/blob/main/imagens/Captura%20de%20tela%202025-06-26%20141327.png?raw=true"
+estorno de plano,"Se for um caso de calculadora, peça ajuda a um superior para transferir a ligação se você ainda não souber. Caso saiba e seja apenas dúvida, para cancelamento de plano, o cliente não pode ter emitido nenhuma DARF ou relatório desde que contratou ou renovou. Se emitiu, não é mais possível. Se não emitiu, siga com o pedido de estorno e envie para o financeiro se estiver dentro de 7 dias corridos desde a data de renovação/contratação. Siga os passos para solicitar estorno : lembre-se, são casos e casos, isso é um exemplo de como fazer, tabule de acordo com a situação
+Se o cliente for caso de IRPF, ele tem até 7 dias para cancelar o serviço, pelo direito de arrependimento previsto no Código de Defesa do Consumidor.
+ 
+
+Se o cliente solicitar o cancelamento dentro desse prazo, o agente deve informar imediatamente um dos gestores sobre o pedido de cancelamento.
+Caso o pedido seja fora do prazo, informe ao cliente que não será possível realizar o cancelamento.
+Se o cliente insistir no cancelamento após o prazo, encaminhe o caso para o Nível 2 (N2) — Casos Especiais, se necessário.","cancelamento,antecipação, estorno","https://github.com/velobot05/Chatbot-Atendimento/blob/main/imagens/passo1estorno.png?raw=true,
+
+
+
+https://github.com/velobot05/Chatbot-Atendimento/blob/main/imagens/passo2estorno.png?raw=true"
+Reclamação sobre Taxas do Contrato,Os juros aplicados na antecipação foram previamente acordados e estão detalhados de forma transparente no contrato que o  cliente tem acesso no seu app!,"contrato,taxa,reclamação",
+Reprovação de Crédito,"A antecipação pode ser negada devido a uma análise de crédito automática ou restrições cadastrais internas. Infelizmente, não é possível forçar a aprovação ou detalhar o que levou à negativa, pois não há detalhamento no sistema.","reprovação,restrição, inelegível",
+Cancelamento de Plano,"Se for um caso de calculadora, peça ajuda a um superior para transferir a ligação se você ainda não souber. Caso saiba e seja apenas dúvida, para cancelamento de plano, o cliente não pode ter emitido nenhuma DARF ou relatório desde que contratou ou renovou. Se emitiu, não é mais possível. Se não emitiu, siga com o pedido de estorno e envie para o financeiro se estiver dentro de 7 dias corridos desde a data de renovação/contratação.","plano,cancelamento, estorno",
+Portabilidade de PIX,"O cliente se compromete, conforme previsto em contrato, a manter a chave Pix CPF vinculada à conta da empresa até a quitação total do valor antecipado. A desvinculação da chave somente poderá ocorrer após a quitação integral do contrato firmado com o banco parceiro.","desvincular pix, portabilidade da chave pix",
+Problemas de Acesso ao App,"Para problemas de acesso ao app, recomendamos: 
+1) Atualizar o aplicativo para a versão mais recente; 
+2) Reinstalar o aplicativo. Se o problema persistir, peça um print da tela do cliente com o erro visível. Quando enviar, verifique o que diz na tela e veja se é necessário enviar ao suporte, para saber, diga o erro na mensagem abaixo que eu dito o que é preciso fazer!!","acesso,app,login",
+Regularização de Declaração em Malha Fina,"Se sua declaração está em malha fina, você deve retificar a declaração ou aguardar a liberação pela Receita Federal. Esse processo é externo à Velotax. Acesse o e-CAC para acompanhar o status.","regularização,pendência, e-cac",
+Problemas com Portabilidade de Conta,"Para que a portabilidade da antecipação seja concluída corretamente, é obrigatório que a chave Pix do cliente esteja cadastrada, ativa e vinculada ao banco Celcoin. Caso a portabilidade não seja confirmada no app do banco, a liberação da antecipação não ocorrerá.
+A exclusão ou alteração da chave Pix antes da finalização do processo pode gerar divergências e falhas operacionais. Por esse motivo, é fundamental orientar o cliente a manter a chave ativa e vinculada até a conclusão total da operação."," cadastramento, abertura de conta bancaria, portabilidade para celcoin",
+Divergência em Cobrança,"Verificaremos se o valor cobrado na CCB do cliente e informaremos a ele, pois o valor a ser quitado é o mesmo que consta no Octa como VALOR DEVIDO e no contrato do cliente também está indicado o valor em aberto para pagamento.","cobrança,divergência",
+Erro no Plano IRPF PLUS,"Se o cliente contratou o plano IRPF PLUS para entrega da declaração, mas por um erro do app não conseguiu, verifique a data de contratação. Se for 7 dias corridos ou menos, abra um pedido de estorno do valor. Se já passou de 7 dias, pegue a data e o CPF e questione um superior se é possível estornar diante da situação.","plano,valor",
+Acompanhamento de Malha Fina,"Para pendências em malha fina, o cliente deve acompanhar a regularização pelo e-CAC da Receita Federal. A Velotax não tem controle sobre esse processo.","malha,acompanhamento, malha fina",
+Cobrança Duplicada,"Se houve cobrança duplicada, envie os comprovantes para verificação. Confirmada a duplicidade, verifique as datas. If tiver 7 dias ou menos, entre com pedido de estorno. Se passou do prazo, verifique com um superior se é possível diante da situação.","duplicidade,estorno,análise",
+Preenchimento de Declaração,"Recomendamos revisar as informações enviadas para a declaração. Se ele contratou o serviço completo, nosso time fiscal pode auxiliar na correção. Verifique com o suporte onde foi o erro e informe o cliente.",preenchimento,
+Abertura de Conta,"Para abrir uma conta, verifique se toda a documentação foi enviada e os termos aceitos. Caso haja pendências, acesse a Receita Federal para regularização.",abertura,
+Resgate de Restituição,"Caso o cliente questione onde sua restituição foi depositada, informe a macro de restituição presa no BB e verifique para ele se é possível resgatar o valor.","conta,resgate",
+Relatório de Investimentos no Exterior,"Seja no primeiro contato, ou em contatos posteriores, ao averiguar que o atendimento precisa escalar para o N2, você deverá:
+
+Preencher o tipo de chamado, que em casos de problemas técnicos, será uma Reclamação
+
+Preencher o Motivo e o Detalhe da forma em que melhor descrevam a situação do cliente. 
+
+Alterar o campo Escalar chamado para a opção N2 - Suporte. 
+
+Insira quaisquer observações que deseja deixar para a equipe técnica como comentário interno e salve o ticket Em Andamento","exterior,relatório,investimento",
+Taxa de Antecipação,"O cliente se compromete, conforme previsto em contrato, a manter a chave Pix CPF vinculada à conta da empresa até a quitação total do valor antecipado. A desvinculação da chave somente poderá ocorrer após a quitação integral do contrato firmado com o banco parceiro.","taxa,retenção",
+Validação de Selfie e Documento,"Se no app do cliente ainda há opção de enviar a foto, informe que deve ser em um local bem iluminado, com o rosto visível e o documento legível. Se o app não permite mais enviar a foto, significa que não será possível abrir a conta para antecipar. Informe que ele está inelegível e que não se sabe ao certo se foi por conta da foto ou outro motivo interno de segurança.","selfie,validação,documento",
+Retificação de Declaração,"A declaração retificadora serve para corrigir erros ou omissões em uma declaração de Imposto de Renda já enviada. Se você perceber que esqueceu de incluir algo, como rendimentos ou deduções, pode retificar sem pagar multa, desde que faça isso antes de ser avisado pela Receita Federal.
+Ela é importante para evitar problemas com a malha fina e garantir que tudo esteja certo.
+Você deve fazer uma retificação sempre que perceber que enviou sua declaração com dados incorretos, como valores de rendimentos, deduções ou bens. Também é necessário retificar caso tenha deixado de declarar algo importante ou tenha esquecido de incluir algum documento. Além disso, se houver dados cadastrais errados, como erro no endereço ou CPF dos dependentes, a retificação também será necessária.
+As retificações podem ser feitas pelo site Meu Imposto de Renda, ou pelo app de declaração da Receita, após sua declaração ter sido processada pela Receita.","retificação,correção",
+Pagamento de DARF,"Se o caso for sobre o tempo de processamento de uma DARF, a receita recebe o valor que o cliente enviou na mesma hora, mas para atualizar a informação, leva em torno de 7 dias úteis, para processamento da informação, podendo demorar até mais, pois se trata de um orgão publico e do governo, onde acessos simultaneos podem causar lentidão no sistema deles","DARFS, darfs, Darf's, DARF'S, DARF's, pagamento de darf, darf, DARF",
+Erro no Envio de Declaração,"Se houve erro no envio da declaração, confirme com o cliente se aparece FALHA NA TRANSMISSÃO. Se for isso, peça ao cliente que verifique item por item de sua declaração, localize o dado divergente.
+
+Ou, envie ao time de produto o problmea identificado e peça para que verifiquem o que está incorreto na declaração do cliente!","envio,declaração, transmissão ",
+Cancelamento de Declaração de IRPF,Não é possível cancelar uma declaração de IRPF já transmitida por nós. A solução é retificar a declaração na Receita Federal.,"cancelamento,irpf,retificação",
+Status de Declaração,"Verifique o status da declaração do cliente pelo Octa. Se estiver em fila de restituição, está tudo certo. Se houver pendência, indique que ele acesse o site da Receita e faça uma retificação, ou acesse o portal e-CAC para saber o que causou a pendência.","web,status,documentação",
+Problemas com PIX na Caixa,"Recentemente tivemos uma complicação com as chaves PIX que estavam no banco da Caixa. Não informe diretamente que o problema está no banco da Caixa, mas informe ao cliente que tente cadastrar seu PIX em outro banco e depois solicitar a portabilidade novamente.","caixa, incompatibilidade",
+Cobrança Indevida em Plano Gratuito,"Se houve cobrança indevida em um plano gratuito, verifique do que se trata o pagamento que foi feito ou pedido ao cliente. Se for DARF, relatório ou envio de declaração, está correto, pois se trata de uma ferramenta paga do nosso app.","plano,gratuito,estorno",
+Recibo de Declaração,"Se o cliente quer o número do recibo da declaração dele, está disponível no Octa quando puxar informações do cliente. Se ele quiser saber se já foi entregue, questione se, pelo app, ele clicou para entregar e preencheu tudo corretamente. Se sim, verifique o status da declaração no Octa.",recibo,
+Indicação e Promoções,"Atualmente, o link de indicação é enviado como notificação ao cliente. Informe que, se ele ainda não recebeu, deve esperar, pois é enviado aleatoriamente aos clientes. Se recebeu e apagou, peça que verifique se há algo relacionado no app.","indicação,benefício,promoção",
+Bloqueio de Conta para Antecipação,"Se a conta está impossibilitando fazer a antecipação, peça detalhes do erro que aparece na tela. Oriente que acesse o aplicativo e informe o erro exibido. Se estiver dizendo 'INFELIZMENTE NÃO SERÁ POSSÍVEL PROSSEGUIR COM SUA ANTECIPAÇÃO', informe ao cliente que este ano infelizmente nós não iremos conseguir ofertar a antecipação para ele","erro de antecipação, infelizmenete não sera possivel prosseguiir com sua antecipação,  infelizmenete não sera possivel prosseguiir com sua operação",
+Alteração de Número de Telefone,"Se o número de telefone estiver incorreto, pergunte ao cliente se a tela mostra 'GOV.BR'. Se sim, oriente-o a acessar o site do gov.br e atualizar lá. Caso contrário, siga o mesmo procedimento de alteração de e-mail.","numero,atualização",
+Liquidação de Contrato,"O valor total com juros é apresentado de forma clara ao cliente antes da finalização da contratação. É importante incluir os prints de tela da jornada do app para demonstrar exatamente onde o cliente realizou os aceites formais. O valor acordado no momento da contratação permanece válido até o fim do contrato.
+Mesmo em caso de antecipação de pagamento, existe um valor mínimo previsto contratualmente que deve ser pago, sem possibilidade de negociação ou redução abaixo desse limite.
+Caso o app exiba um valor inferior ao contratado, isso se refere a promoções ou condições específicas do sistema e não altera os termos do contrato já assinado. Se necessário, o cliente pode ser orientado a consultar o próprio contrato disponível no app para esclarecimentos adicionais.","Juros, contrato, Como são calculados os juros cobrados na antecipação da restituição?",
+Erro na Abertura de Conta,"Para erros na abertura de conta, peça ao cliente que detalhe o erro exibido na tela e verifique se é necessário abrir um chamado no grupo de suporte ou se realmente não será possível realizar a antecipação, dependendo do erro.","abertura,conta,documentação",
+Erro na Finalização de Antecipação,"Se houve erro ao finalizar a antecipação, verifique com o cliente se aparece uma mensagem dizendo que não será possível. Caso apareça, é autoexplicativo, pois o sistema considerou o cliente inelegível por algum motivo interno de segurança.","antecipação,finalização,validação",
+Divergência em Valores Ofertados,"Se o cliente diz que os valores ofertados estão incorretos, peça para ele consulte o contrato e analise junto com ele para explicar os valores conforme acordados no ato da contratação.","valor,divergência,análise",
+Cobrança de Calculadora,"A contratação da calculadora pode incluir funcionalidades adicionais, com cobrança conforme o plano selecionado. Consulte os detalhes do plano e explique ao cliente.","calculadora,plano,cobrança",
+Empréstimo Consignado ou Trabalhista,"Informe ao cliente que este é um produto novo em período de teste e que em breve estará disponível no app para todos, permitindo simulação e verificação de disponibilidade.","emprestimo,consignado,pessoal,crédito",
+Alteração de Conta ou Chave PIX,"Se caso o cliente quiser trocar a chave pix na celcoin para outro tipo de chave diga que não é possivel, pois assim como a Receita Federal, só aceitamos a chave pix CPF!",alteração da chave,
+Problemas de Login no App,"Para problemas de login, atualize o app, limpe o cache e tente novamente. Se persistir, peça detalhamento do que aparece na tela do cliente.","login,acesso",
+Indisponibilidade de Antecipação,"Se o cliente questionar sobre a indisponibilidade da antecipação no app, informe que é algo temporário, mas sem prazo de retorno, pois estamos atualizando informações no app. Por isso, atualmente está indisponível para todos.","indisponível,indisponibilidade",
+dinheiro de bet,"informe ao cliente que sobre pagamento de Bets, isso é de responsabilidade da plataforma, pois nós não bloqueamos pagamento, o que pode acontecer, é na própria plataforma, eles não terem cadastrados o nosso banco parceiro para ser um recebedor, isso tem que ser verificado diretamente com o suporte da plataforma","bet, jogo de aposta, casa de aposta, plataforma de jogos",
+Como proceder quando um atendimento precisa ser escalado para o N2 devido a problemas técnicos?,"Seja no primeiro contato, ou em contatos posteriores, ao averiguar que o atendimento precisa escalar para o N2, você deverá:
+
+Preencher o tipo de chamado, que em casos de problemas técnicos, será uma Reclamação
+Preencher o Motivo e o Detalhe da forma em que melhor descrevam a situação do cliente. 
+
+Alterar o campo Escalar chamado para a opção N2 - Suporte. 
+
+Insira quaisquer observações que deseja deixar para a equipe técnica como comentário interno e salve o ticket Em Andamento
+
+O workflow será criado e o chamado ficará na responsabilidade da equipe do N2. Os agentes podem interagir, responder o cliente e adicionar comentários internos no chamado enquanto aguardam. Quando o N2 concluir a etapa de intervenção, o agente receberá o ticket de volta para a devolutiva. 
+
+Componha a resposta adequada e selecione Etapa Concluída no botão Enviar como. O ticket será resolvido automaticamente. ","escalar, N2, suporte, reclamação, chamado, técnico",
+Como são calculados os juros cobrados na antecipação da restituição?,"Os juros da antecipação são calculados considerando a data prevista do último pagamento da Receita Federal, porque não dá para saber exatamente quando a restituição vai sair. Assim, evitamos cobrar juros extras depois, caso o pagamento demore mais.","juros, cálculo",
+"em casos que o cliente quer quitar a antecipação, sem ser com o valor da restituição","Informe ao cliente que para efetuar este pagamento, é feito apenas pelo nosso app, onde possivelmente pode aparecer um valor promocional ou fixo, peça que o mesmo verifique no app dele da seguinte forma : Acesse o app, na tela principal, clique em IRPF 2025, e nesta tela irá aparecer um botão para pagar! ""Quitar operação"" é o botão que aparece para quitação.","quitação, quitar débito, botão de quitar ",
+boas vindas,"Olá, tudo bem? No que posso ajudar hoje?","olá, oi, iai, iae, beleza, opa, olaa, oiii, Fala velotax",
+Para atualizar dados,"Para atualizar qualquer dado cadastral do cliente, peça ao mesmo que envie uma foto segurando um documento de identificação ao lado do rosto no e-mail(possui macro sobre no octa) e após o envio da foto pelo cliente, verifique se é a mesma pessoa, se sim, peça o token a um superior e acesse a conta do cliente para alterar o dado","Dados do cliente, alterar dados, atualizar dados",
+Ferramentas do GOV.BR,"Se caso o cliente disser que o código de verificação não está chegando, questione ao mesmo se na tela que ele está, aparece algo escrito GOV.BR, se sim, informe a ele que terá que acessar o site do GOV para poder alterar os dados lá, e depois retornar ao nosso app","gov.br., GOV.BR, GOV",GOV.BR
+Como acessar a conta da velobank,"para acessar a conta do velobank, basta acessar o app da velotax e clicar no simbolo de sifrão na parte inferior da tela!!",velobank,
+0,"O pagamento da restituição é liberado em lotes que são definidos seguindo critérios de prioridade considerados pela Receita Federal. Essas datas são divulgadas todos os anos nos canais oficiais de comunicação da Receita todos os anos. O cliente pode consultar em que lote se encontra atraves do site consulta restituição. com os dados cpf e data de nascimento. 
+A prioridade nos lotes pode ser determinada por faixa de idade, condições de vulnerabilidade social e outros critérios relevantes à ocasião. 
+Acontecimentos como desastres naturais, surtos de doenças ou outras ocorrências podem afetar a organização dessas datas. 
+
+
+Ano 2025
+
+1º > 30/05/2025
+
+2º > 30/06/2025
+
+3º > 31/07/2025
+
+4º > 29/08/2025
+
+5º (último) > 30/09/2025","lotes, lote, lotes da receita",
+cliente quer reativar conta,"em casos em que o cliente excluiu a conta com o pix cadastrado ainda, é necessário reativar a conta, para depois fazer a portabilidade, pegue o CPF do cliente e a solicitação REATIVAR CONTA e envie no grupo do chat b2c da seguinte forma CPF - SOLICITAÇÃO, e informe ao cliente que ira ser resolvido até o final do dia
+o prazo para reativação é de 24 horas úteis! Se não estiver no grupo peça aos gestores que eles enviam a solicitação. ","reativar conta, reativação de conta, reativar",
+cliente omisso,"Isso significa que a Receita Federal acredita que o contribuinte ganhou mais dinheiro do que a faixa que é isenta de imposto, mas não enviou a declaração do Imposto de Renda que deveria.","omisso, status omisso, Status omisso",
+desconto porporcional,"Esse valor de juros é apresentado de forma clara para você antes de concluir a contratação.
+Como ele foi acordado previamente no momento da contratação, permanece conforme o combinado.
+
+""Senhor(a), Mesmo com a antecipação do pagamento e a redução dos juros, o contrato estabelece um valor mínimo que precisa ser mantido, mesmo em caso de quitação antecipada. Esse valor faz parte das condições acordadas no contrato e, por isso, permanece o mesmo.
+
+Se por acaso aparecer no app um valor a menor do que o contratado, trata-se de uma
+promoção ou condição específica oferecida pelo sistema, e não de uma mudança no
+contrato já assinado (se necessário, informar ao cliente que o contrato se
+encontra no app para maiores informações)","desconto porporcional, desconto",
+Como saber se o cliente está com bloqueio judicial?,"Se o cliente utilizar a conta Celcoin para realizar as suas transações, uma forma de identificar é se o cliente alegar que recebeu um valor, mas não aparece no extrato ou se contar a saida do valor. Se isso acontecer, confirme com a equipe técnica antes de retornar ao cliente.","Bloqueio Judicial, bloqueio judicial, judicial",
+O que é bloqueio judicial?,"[Orientação interna – Atendimento sobre bloqueio judicial]
+Caso o cliente entre em contato mencionando bloqueio judicial, solicite o extrato completo da conta ao suporte.
+Após receber o extrato, encaminhe-o ao cliente e explique que no documento constará um número de processo ou referência judicial, que ele pode usar para consultar diretamente a origem do bloqueio junto ao órgão responsável.","O que é Bloqueio Judicial, Bloqueio juducial, bloqueio juducial",
+O que são ativos no exterior?,"Ativo Financeiro Internacional refere-se a qualquer tipo de investimento ou recurso financeiro que é mantido fora do país de residência do investidor. Esses ativos podem incluir ações, títulos, fundos mútuos, imóveis, contas bancárias, entre outros.",Ativos no exterior,
+Quando é necessário emitir o DARF?,"Caso sejam realizadas operações com lucro dentro do mesmo mês que ultrapassem R$ 20.000,00 (vinte mil reais) no valor da venda, o investidor precisará gerar o DARF e efetuar o devido pagamento dos tributos.","Emissão, imposto",
+oq é Velopro,"Velotax para contadores e assessores
+Contadores e assessores que desejem usar o Velotax para gerenciar as contas de seus clientes poderão se beneficiar das funções do Velopro. Em caso de contratos de subsídio ou faturamento em nome do escritório, o departamento comercial deverá ser acionado para a geração do plano. ",Velopro,
+Como saber quando o cliente recebe,"Caso o cliente esteja se referindo à antecipação:
+
+Verifique internamente o motivo pelo qual o valor ainda não foi creditado.
+Se a solicitação foi feita recentemente, oriente o cliente a aguardar até 24 horas, que é o prazo máximo para o valor ser liberado.
+Caso o cliente esteja se referindo ao pagamento da restituição:
+Consulte se ele está incluído no lote atual ou em lotes anteriores.
+Se for lote anterior, explique a situação e os motivos do atraso.
+Se estiver no lote atual, repasse as informações confirmadas previamente pelos gestores.","receber, quando recebe",
+Passo a passo da Portabilidade,"Para o cliente fazer a portabilidade da sua chave Pix, ele deve seguir este passo a passo:
+
+Acesse o app e toque no ícone de cifrão (💰) localizado na parte inferior da tela.
+
+Vá em Área Pix
+
+Selecione Minhas Chaves
+
+Toque em Registrar Chave","portabilidade, como fazer a portabilidade, passoapassoportabilidade passo a passo portabilidade, comofazerportabilidade, ",
+Valor de entrega da declaração,"O valor aplicado para as entregas da declaração com pagamento imediato do serviço, sem contratação da Antecipação serão ajustados segundo o valor previsto do cálculo de restituição do usuário. A tabela a seguir apresenta essa conta conforme vigente na data de publicação deste artigo (06/05) e é exclusivamente para consulta dos agentes, não devendo ser divulgada para os clientes em nenhuma circunstância.  
+","custo de entrega, custo de entrega da declaração, valor de entrega R$149,90 R$179,90 R$199,90 R$249,90",https://github.com/velobot05/Chatbot-Atendimento/blob/main/imagens/tabela%20de%20valores%20de%20entrega.jpeg?raw=true
+Agradecimentos,"Eu que agradeço, se tiver mais dúvidas é só me perguntar!!","obrigado, valeu, tmj",
+e se o cliente entrar em atrito?,"Nos casos que o cliente ficar atritado durante a ligação, peça educadamente para o mesmo manter um tom respeitoso na chamada, para poder resolver a situação dele ou então apenas informar o que pode ter ocorrido, se ele continuar com palavrões ou algo do tipo, sempre mantenha a calma e tente explicar ao cliente sobre a situação do mesmo!!/ porém se não houver jeito encerre a chamada com a frase '' Por falta de comunicação encerramos o contato ''
+
+Em casos de portabilidade, informe que ira enviar a solicitação ao setor responsavel e eles irão entrar em contato com ele para poder analisar o caso!!
+se for outros casos, verifique se é necessário abrir chamado, se for, abra normalmente, se for casos como o valor dos juros, por mais atritados que os clientes estejam, é um valor fixo, no maximo liberado temporariamente por uma promoção! 
+
+o prazo estipulado para resolução é de até 48 horas!
+
+em casos de dúvidas sobre os juros, pesquise aqui por ""juros"" e eu irei te responder","atrito, atritado, atritar, atrita, bravo, irritado",
+se o cliente entrou em chargedback,"Nos casos em que o cliente entrou em chargedback,como o chargeback foi solicitado diretamente junto ao banco responsável pelo cartão de crédito, o caso já está sendo tratado internamente.
+
+Se desejar acompanhar o status, orientamos que entre em contato com o banco em que a solicitação foi feita.",chargedback,
+qual o limite e como faz para aumentar,"
+
+“O limite mínimo é o valor da antecipação. Ex: o cliente recebeu R$ 800 de antecipação, então o mínimo liberado é R$ 800. Se ele quiser mais, pode subir até R$ 1.200.
+Se o cliente recebeu mais de R$ 1.200, dá pra ajustar até R$ 1.400 por dia.
+Em casos bem específicos, com histórico de muita movimentação, dá pra liberar mais, mas aí passa por análise do time.”","limite, limite de pix, limite de pix na celcoin",
+Teste de Diagnóstico,O teste funcionou corretamente.,abacate,
+O que é Imposto de Renda?,"O Imposto de Renda é um tributo federal cobrado sobre os ganhos de pessoas físicas e jurídicas. Ele incide sobre salários, investimentos, aluguéis e outros rendimentos, com alíquotas variáveis conforme a renda. No Brasil, a declaração anual é obrigatória para quem atingiu certos limites de renda.",imposto de renda,
+,,,
+Cenário 1: Valor creditado na conta Velobank e empréstimo liquidado,"Situação
+O cliente recebeu a restituição na conta Velobank, que foi automaticamente utilizada para
+quitar o empréstimo de antecipação.
+Roteiro de Atendimento
+Saudação Inicial:
+
+""Olá [Nome do Cliente], meu nome é [Seu Nome] e sou do Velotax. Como posso ajudar?""
+Identificação e Explicação:
+""Entendo sua preocupação, [Nome do Cliente]. Verifiquei aqui que o valor da sua
+restituição foi creditado em sua conta Velobank e automaticamente utilizado para quitar
+o empréstimo de antecipação que você contratou. Isso está de acordo com o processo
+que foi explicado no momento da contratação.""
+Explicação do Processo:
+""Para que você entenda melhor, a antecipação da restituição do Imposto de Renda
+funciona da seguinte forma: o Velotax adianta o valor da sua restituição, e quando a
+Receita Federal libera o pagamento, esse valor é automaticamente direcionado para
+quitar o empréstimo que você fez conosco. No momento da contratação, você confirmou
+que receberia esse valor antecipado e que ele seria usado para pagar o total da sua
+restituição.""
+Reforço da Contratação:
+""Lembro que, durante o processo de contratação, todas as condições e o funcionamento
+da antecipação foram apresentados e confirmados por você. O objetivo é facilitar o acesso
+ao seu dinheiro de forma rápida, e a quitação automática garante que você não precise se
+preocupar com o pagamento do empréstimo.""
+Gerenciamento de Reclamações
+Se o cliente mencionar órgãos reguladores:
+""Compreendo sua insatisfação, [Nome do Cliente]. Para que possamos analisar seu caso
+de forma mais aprofundada e encontrar a melhor solução, vou encaminhar sua
+solicitação para um de nossos gestores. Ele(a) entrará em contato com você o mais breve
+possível para entender melhor a situação e verificar as possibilidades. Nosso objetivo é
+garantir sua satisfação e evitar qualquer tipo de transtorno.""
+Ação Imediata: Escalonar para o gestor com todos os detalhes da conversa.",Cenário 1: Valor creditado na conta Velobank e empréstimo liquidado,
+"Cenário 2: Valor creditado pela Receita, mas não processado na conta Velobank","Situação
+A Receita Federal já liberou o pagamento, mas o valor ainda não foi processado na conta
+Velobank do cliente.
+
+Roteiro de Atendimento
+Saudação Inicial:
+""Olá [Nome do Cliente], meu nome é [Seu Nome] e sou do Velotax. Como posso ajudar?""
+Identificação e Tranquilização:
+""Entendo sua preocupação, [Nome do Cliente]. Verifiquei aqui que o valor da sua
+restituição consta como creditado pela Receita Federal, mas ainda não foi processado em
+sua conta Velobank. Isso pode acontecer devido ao processo de baixa dos valores pela
+Receita.""
+Explicação do Status:
+""Estamos aguardando a baixa dos valores pela Receita Federal. Esse processo pode levar
+algumas horas ou até alguns dias, dependendo do volume de transações que a Receita
+está processando. É um procedimento normal e não há motivo para preocupação.""
+Compromisso de Análise:
+""Para garantir que seu caso seja tratado com a devida atenção, vamos analisar sua
+situação individualmente. Você receberá um retorno da nossa equipe em até
+horas
+
+com um parecer detalhado sobre o status do seu pagamento.""
+Reforço sobre Quitação:
+""É importante lembrar que, quando o valor for creditado em sua conta Velobank, ele será
+automaticamente utilizado para a quitação integral do contrato de antecipação que você
+fez conosco. Esse é o funcionamento padrão do serviço.""
+Explicação do Processo:
+
+""Para relembrar como funciona a antecipação da restituição: o Velotax adianta o valor da
+sua restituição, e quando a Receita Federal libera o pagamento, esse valor é direcionado
+para quitar o empréstimo que você fez conosco. No momento da contratação, você
+confirmou que receberia esse valor antecipado e que ele seria usado para pagar o total da
+sua restituição.""
+Gerenciamento de Reclamações
+Se o cliente mencionar órgãos reguladores:
+Chame um dos gestores para entender o caso
+Ação Imediata: Escalonar para o gestor com todos os detalhes da conversa.","Cenário 2: Valor creditado pela Receita, mas não processado na conta Velobank",
+Frases de Apoio e Encerramento,"Demonstração de Empatia
+• ""Compreendo perfeitamente sua preocupação...""
+• ""Entendo que essa situação pode gerar ansiedade...""
+• ""Sua satisfação é muito importante para nós...""",Frases de Apoio e Encerramento,
+Encerramento Positivo,"""Agradeço a sua compreensão, [Nome do Cliente]. O Velotax está à disposição para
+qualquer outra dúvida.""
+• ""Ficamos à disposição para esclarecer qualquer dúvida adicional.""
+• ""Obrigado(a) por escolher o Velotax. Tenha um excelente dia!""",Encerramento Positivo,
+Compromissos de Retorno,"• ""Você receberá nosso retorno em até 48
+
+horas.""
+
+• ""Um gestor entrará em contato com você o mais breve possível.""
+• ""Acompanharemos seu caso até a completa resolução.""",Compromissos de Retorno,
+Como antecipar o meu imposto de renda?,"Passo a passo para antecipar a restituição do IRPF:
+Abra o app do seu banco ou financeira.
+
+Procure a opção “Antecipação de Restituição do IRPF”.
+
+Informe os dados pedidos (CPF, ano da declaração, valor estimado).
+
+Confira as condições (taxas, prazos).
+
+Confirme o pedido de antecipação.
+
+Aguarde a análise e aprovação.
+
+Se aprovado, o valor será creditado na sua conta.
+
+","Cliente quer antecipar, como funciona a antecipação, passo  a passo antecipação, antecipação, antecipar",
+Terceiro lote !!!,"  do Cliente]. Para que possamos analisar seu caso
+de forma mais aprofundada e encontrar a melhor solução, vou encaminhar sua
+solicitação para um de nossos gestores. Ele(a) entrará em contato com você o mais breve
+possível para entender melhor a situação e verificar as possibilidades. Nosso objetivo é
+garantir sua satisfação e evitar qualquer tipo de transtorno.""
+ao seu dinheiro de forma rápida, e a quitação automática garante que você não precise se
+preocupar com o pagamento do empréstimo.""","Terceiro lote, juros terceiro lote, terceiro lote, juros lote 3, lote 3, 3 lote",
+macroteste,"Olá, [Nome do Cliente], tudo bem?<br><br>
+Eu sou {{ASSINATURA_ATENDENTE}} do <strong>Atendimento Velotax</strong>.
+<br><br>
+[...aqui vai o resto da sua resposta...]
+<br><br>
+Atenciosamente,<br><br>
+{{ASSINATURA_ATENDENTE}}<br>
+<strong><span style=""color: #0000ff;"">Atendimento Velotax - Transforme seu IRPF em dinheiro</span></strong>",macroteste,
+Ausencia de ativo,"Olá, [Nome do Cliente], tudo bem?<br><br>
+Eu sou {{ASSINATURA_ATENDENTE}} do <strong>Atendimento Velotax</strong>.
+<br><br>
+Para que eu possa te ajudar da melhor forma possível, preciso de mais alguns detalhes sobre o ativo que está faltando no fechamento. Poderia, por favor, me enviar algumas informações adicionais?
+
+Se possível, encaminhe prints da tela onde você identificou a ausência do ativo, além de especificar quais ativos ou valores deveriam constar no fechamento. Qualquer outra informação relevante que você puder compartilhar também será muito útil para entendermos melhor o ocorrido.
+
+Com essas informações, conseguiremos analisar o caso de maneira mais precisa e, se necessário, encaminhá-lo para a equipe responsável para que a situação seja resolvida da melhor forma.
+
+Fico no aguardo e, claro, à disposição para qualquer dúvida ou para ajudar no que for preciso.
+
+<br><br>
+Atenciosamente,<br><br>
+{{ASSINATURA_ATENDENTE}}<br>
+<strong><span style=""color: #0000ff;"">Atendimento Velotax - Transforme seu IRPF em dinheiro</span></strong>",Ausencia de ativo,
+estorno negado,"Olá, [Nome do Cliente], tudo bem?<br><br>
+Eu sou {{ASSINATURA_ATENDENTE}} do <strong>Atendimento Velotax</strong>.
+<br><br>
+
+Entendemos que você gostaria de solicitar o estorno do valor contratado, e queremos trazer um esclarecimento sobre essa questão.
+
+
+
+O estorno pode ser solicitado dentro de um prazo de 7 dias corridos após a contratação, desde que nenhuma funcionalidade paga da plataforma tenha sido utilizada nesse período. Essa informação está disponível no Termo de Contratação aceito no momento da compra.
+
+
+
+Verificamos aqui que você utilizou a plataforma para gerar o DARF referente ao período de apuração MM/AAAA, o que caracteriza o uso de uma funcionalidade paga. Por esse motivo, não será possível atender ao seu pedido de estorno.
+
+
+
+Nosso objetivo é sempre oferecer o máximo de suporte e transparência. Caso tenha mais dúvidas ou precise de ajuda em outros pontos, estamos aqui para ajudar!
+<br><br>
+Atenciosamente,<br><br>
+{{ASSINATURA_ATENDENTE}}<br>
+<strong><span style=""color: #0000ff;"">Atendimento Velotax - Transforme seu IRPF em dinheiro</span></strong>","negado, estorno",
+interesse nos serviços,"Olá, [Nome do Cliente], tudo bem?<br>
+Eu sou {{ASSINATURA_ATENDENTE}} do <strong>Atendimento Velotax</strong>.
+<br>
+Seus dados foram registrados com sucesso e inseridos na lista de análise.
+Assim que a opção estiver disponível, os clientes que estiverem na planilha serão notificados diretamente.
+Agradecemos pelo interesse e permanecemos à disposição.
+<br>
+Atenciosamente,<br>
+{{ASSINATURA_ATENDENTE}}<br>
+<strong><span style=""color: #0000ff;"">Atendimento Velotax - Transforme seu IRPF em dinheiro</span></strong>","interesse, planilha",

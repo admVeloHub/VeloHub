@@ -114,7 +114,9 @@ app.post('/api/create-sample-data', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-  console.log(`Teste a conexão em: http://localhost:${PORT}/api/test-connection`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+  console.log(`🌐 Acessível em: http://localhost:${PORT}`);
+  console.log(`🌐 Acessível na rede local: http://0.0.0.0:${PORT}`);
+  console.log(`📡 Teste a conexão em: http://localhost:${PORT}/api/test-connection`);
 });
