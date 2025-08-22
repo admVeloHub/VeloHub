@@ -31,19 +31,19 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
   return (
     <header className="velohub-header">
       <div className="header-container">
-        <VeloHubLogo />
+          <VeloHubLogo />
         
         <nav className="nav-menu">
-          {navItems.map(item => (
-            <button
-              key={item}
+            {navItems.map(item => (
+              <button
+                key={item}
               onClick={() => handleNavClick(item)}
               className={`nav-link ${activePage === item ? 'active' : ''}`}
-            >
-              {item}
-            </button>
-          ))}
-        </nav>
+              >
+                {item}
+              </button>
+            ))}
+          </nav>
 
         <div className="user-section">
           <div className="user-info">
@@ -51,9 +51,9 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
             <span id="user-name" className="user-name">Usuário VeloHub</span>
             <button id="logout-btn" className="logout-btn">
               <i className="fas fa-sign-out-alt"></i>
-            </button>
-          </div>
+          </button>
         </div>
+      </div>
 
         <div className="theme-switch-wrapper" id="theme-toggle" onClick={toggleDarkMode}>
           <i className='bx bx-sun theme-icon'></i>
