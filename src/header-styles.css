@@ -79,9 +79,9 @@
 
 .velohub-logo { 
     position: absolute;
-    left: 40px;
-    top: 60%;
-    transform: translateY(-50%) scale(2.10);
+    left: 25px;
+    top:50%;
+    transform: translateY(-50%) scale(2.40);
     z-index: 10;
 }
 
