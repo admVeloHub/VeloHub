@@ -2,56 +2,64 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Map, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen } from 'lucide-react';
 import { mainAPI, veloNewsAPI, articlesAPI, faqAPI } from './services/api';
 import { getMockData } from './data/mockData';
+import './header-styles.css';
 
 // Componente de Logo
 const VeloHubLogo = () => (
-  <svg width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <text x="0" y="28" fontFamily="Arial, sans-serif" fontSize="24" fontWeight="bold">
-      <tspan fill="#007BFF">Velo</tspan>
-      <tspan fill="#1a202c" className="dark:fill-white">Hub</tspan>
-    </text>
-  </svg>
+  <div className="velohub-logo">
+    <img src="/VeloHubLogo 2.png" alt="VeloHub Logo" />
+  </div>
 );
 
 // Componente do Cabeçalho
 const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
   const navItems = ['Home', 'Processos', 'Artigos', 'Apoio', 'VeloAcademy'];
 
+  const handleNavClick = (item) => {
+    console.log('Clicou em:', item); // Debug
+    
+    if (item === 'VeloAcademy') {
+      console.log('Redirecionando para VeloAcademy...'); // Debug
+      window.open('https://veloacademy.vercel.app', '_blank');
+      return; // Não muda a página ativa para VeloAcademy
+    }
+    
+    console.log('Mudando para página:', item); // Debug
+    setActivePage(item);
+  };
+
   return (
-    <header className="bg-white dark:bg-gray-800 sticky top-0 z-40 shadow-sm">
-      <div className="container mx-auto px-6 py-3 flex justify-between items-center">
-        <div className="flex items-center space-x-8">
-          <VeloHubLogo />
-          <nav className="hidden md:flex items-center space-x-6">
-            {navItems.map(item => (
-              <button
-                key={item}
-                onClick={() => setActivePage(item)}
-                className={`text-lg font-medium transition-colors duration-300 ${activePage === item ? 'bg-blue-600 text-white px-4 py-2 rounded-md' : 'text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300'}`}
-              >
-                {item}
-              </button>
-            ))}
-          </nav>
-        </div>
-        <div className="flex items-center space-x-4">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Buscar..."
-              className="bg-gray-100 dark:bg-gray-700 dark:text-gray-200 rounded-full px-4 py-2 w-48 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+    <header className="velohub-header">
+      <div className="header-container">
+        <VeloHubLogo />
+        
+        <nav className="nav-menu">
+          {navItems.map(item => (
+            <button
+              key={item}
+              onClick={() => handleNavClick(item)}
+              className={`nav-link ${activePage === item ? 'active' : ''}`}
+            >
+              {item}
+            </button>
+          ))}
+        </nav>
+
+        <div className="user-section">
+          <div className="user-info">
+            <img id="user-avatar" className="user-avatar" src="" alt="Avatar" />
+            <span id="user-name" className="user-name">Usuário VeloHub</span>
+            <button id="logout-btn" className="logout-btn">
+              <i className="fas fa-sign-out-alt"></i>
+            </button>
           </div>
-          <button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
-            <User className="text-gray-600 dark:text-gray-300" />
-          </button>
-          <button onClick={toggleDarkMode} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
-            {isDarkMode ? <Sun className="text-yellow-500" /> : <Moon className="text-gray-600" />}
-          </button>
+        </div>
+
+        <div className="theme-switch-wrapper" id="theme-toggle" onClick={toggleDarkMode}>
+          <i className='bx bx-sun theme-icon'></i>
+          <i className='bx bx-moon theme-icon'></i>
         </div>
       </div>
-      <div className="w-full h-[2px] bg-black dark:bg-gray-600"></div>
     </header>
   );
 };
@@ -100,12 +108,48 @@ export default function App_v2() {
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
-    if (isDarkMode) {
+    // Carregar tema salvo
+    const savedTheme = localStorage.getItem('velohub-theme') || 'light';
+    const isDark = savedTheme === 'dark';
+    setIsDarkMode(isDark);
+    
+    if (isDark) {
       document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
+      localStorage.setItem('velohub-theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.setAttribute('data-theme', 'light');
+      localStorage.setItem('velohub-theme', 'light');
     }
   }, [isDarkMode]);
+
+  // Inicializar funcionalidades do header
+  useEffect(() => {
+    // Importar e inicializar o header dinamicamente
+    const initHeader = async () => {
+      try {
+        const { VeloHubHeader } = await import('./header-theme.js');
+        if (VeloHubHeader && VeloHubHeader.init) {
+          VeloHubHeader.init();
+        }
+      } catch (error) {
+        console.log('Header inicializado via DOM');
+      }
+    };
+    
+    initHeader();
+  }, []);
 
   const renderContent = () => {
     switch (activePage) {
@@ -118,10 +162,7 @@ export default function App_v2() {
       case 'Apoio':
         return <ApoioPage />;
       case 'VeloAcademy':
-        if (typeof window !== 'undefined') {
-            window.location.href = 'https://google.com'; // URL de exemplo
-        }
-        return <div className="text-center p-10 text-gray-800 dark:text-gray-200"><h1 className="text-3xl">Redirecionando...</h1></div>;
+        return <div className="text-center p-10 text-gray-800 dark:text-gray-200"><h1 className="text-3xl">VeloAcademy</h1><p>Clique no botão VeloAcademy no header para acessar a plataforma.</p></div>;
       default:
         return <HomePage setCriticalNews={setCriticalNews} />;
     }

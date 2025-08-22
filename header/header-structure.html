@@ -1,0 +1,96 @@
+<!-- ========================================
+     ESTRUTURA HTML DO HEADER - Kit Genérico
+     ======================================== -->
+
+<!-- VERSÃO 1: Header para página inicial (Home) -->
+<header>
+    <div class="container header-container">
+        <!-- Logo -->
+        <div class="logo" id="logo-container">
+            <img id="logo-image" class="logo-image" src="./seu-logo.png" alt="Logo da Empresa">
+        </div>
+        
+        <!-- Navegação principal -->
+        <nav class="nav-menu">
+            <a href="./index.html" class="nav-link active">Home</a>
+            <a href="./cursos.html" class="nav-link">Cursos</a>
+            <a href="./conquistas.html" class="nav-link">Conquistas</a>
+            <a href="./auto-feedback.html" class="nav-link">Auto Feedback</a>
+            <a href="https://seu-site.com" class="nav-link" target="_blank">Portal</a>
+        </nav>
+
+        <!-- Botão de toggle tema -->
+        <div class="theme-switch-wrapper" id="theme-toggle">
+            <i class='bx bx-sun theme-icon'></i>
+            <i class='bx bx-moon theme-icon'></i>
+        </div>
+    </div>
+</header>
+
+<!-- ======================================== -->
+
+<!-- VERSÃO 2: Header para páginas internas (com seção do usuário) -->
+<header>
+    <div class="container header-container">
+        <!-- Logo -->
+        <div class="logo" id="logo-container">
+            <img id="logo-image" class="logo-image" src="./seu-logo.png" alt="Logo da Empresa">
+        </div>
+        
+        <!-- Navegação principal -->
+        <nav class="nav-menu">
+            <a href="./index.html" class="nav-link">Home</a>
+            <a href="./cursos.html" class="nav-link active">Cursos</a>
+            <a href="./conquistas.html" class="nav-link">Conquistas</a>
+            <a href="./auto-feedback.html" class="nav-link">Auto Feedback</a>
+            <a href="https://seu-site.com" class="nav-link" target="_blank">Portal</a>
+        </nav>
+
+        <!-- Seção do usuário -->
+        <div class="user-section">
+            <div class="user-info" id="user-info">
+                <img id="user-avatar" class="user-avatar" src="" alt="Avatar">
+                <span id="user-name" class="user-name"></span>
+                <button id="logout-btn" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Botão de toggle tema -->
+        <div class="theme-switch-wrapper" id="theme-toggle">
+            <i class='bx bx-sun theme-icon'></i>
+            <i class='bx bx-moon theme-icon'></i>
+        </div>
+    </div>
+</header>
+
+<!-- ======================================== -->
+
+<!-- INSTRUÇÕES DE USO:
+
+1. DEPENDÊNCIAS NECESSÁRIAS:
+   - Font Awesome: https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css
+   - Boxicons: https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css
+   - Fonte Poppins: https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap
+
+2. ARQUIVOS NECESSÁRIOS:
+   - header-styles.css (estilos CSS)
+   - header-theme.js (funcionalidade do tema)
+   - config.json (configurações do logo)
+
+3. COMO IMPLEMENTAR:
+   - Inclua o header-styles.css no <head>
+   - Inclua as dependências (Font Awesome, Boxicons, Poppins)
+   - Copie a estrutura HTML desejada
+   - Inclua o header-theme.js antes do </body>
+   - Configure o config.json conforme necessário
+
+4. PERSONALIZAÇÃO:
+   - Substitua "seu-logo.png" pelo caminho do seu logo
+   - Altere os links da navegação conforme suas páginas
+   - Marque a classe 'active' no link da página atual
+   - Configure as cores nas variáveis CSS do header-styles.css
+   - Ajuste as dimensões do logo no config.json
+
+-->

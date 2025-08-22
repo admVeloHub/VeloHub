@@ -1,0 +1,341 @@
+/* ========================================
+   HEADER STYLES - VeloHub (Baseado no VeloAcademy)
+   ======================================== */
+
+/* Configuração da fonte Poppins */
+* {
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+/* Variáveis CSS para o header */
+:root {
+    /* Cores do Tema Claro */
+    --cor-fundo: #f0f4f8;
+    --cor-container: #ffffff;
+    --cor-texto-principal: #071a2f;
+    --cor-texto-secundario: #5a677e;
+    --cor-accent: #007bff;
+    --cor-borda: rgba(0, 0, 0, 0.1);
+    --cor-sombra: rgba(0, 0, 0, 0.1);
+
+    /* Cores do Tema Escuro */
+    --cor-fundo-escuro: #0a1929;
+    --cor-container-escuro: #112240;
+    --cor-texto-principal-escuro: #e6f1ff;
+    --cor-texto-secundario-escuro: #a8b2d1;
+    --cor-accent-escuro: #4dabf7;
+    --cor-borda-escuro: rgba(77, 171, 247, 0.2);
+    --cor-sombra-escuro: rgba(0, 0, 0, 0.4);
+}
+
+/* Aplicação do tema escuro */
+[data-theme="dark"] {
+    --cor-fundo: var(--cor-fundo-escuro);
+    --cor-container: var(--cor-container-escuro);
+    --cor-texto-principal: var(--cor-texto-principal-escuro);
+    --cor-texto-secundario: var(--cor-texto-secundario-escuro);
+    --cor-accent: var(--cor-accent-escuro);
+    --cor-borda: var(--cor-borda-escuro);
+    --cor-sombra: var(--cor-sombra-escuro);
+}
+
+/* ========================================
+   CONTAINER E ESTRUTURA DO HEADER
+   ======================================== */
+
+/* Container principal */
+.header-container {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0 5px;
+}
+
+/* Header principal */
+.velohub-header {
+    background-color: var(--cor-container);
+    border-bottom: 1px solid var(--cor-borda);
+    padding: 19px 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    max-height: 105px;
+    overflow: hidden;
+    width: 100%;
+}
+
+/* Container do header */
+.header-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+/* ========================================
+   LOGO
+   ======================================== */
+
+.velohub-logo { 
+    position: absolute;
+    left: 40px;
+    top: 60%;
+    transform: translateY(-50%) scale(2.10);
+    z-index: 10;
+}
+
+.velohub-logo img {
+    width: 200px;
+    height: 30px;
+    object-fit: contain;
+    border-radius: 4px;
+    transition: transform 0.3s ease;
+}
+
+.velohub-logo img:hover {
+    transform: scale(1.1);
+}
+
+/* ========================================
+   NAVEGAÇÃO
+   ======================================== */
+
+.nav-menu {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.nav-link {
+    color: var(--cor-accent);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 1.125rem;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    position: relative;
+    cursor: pointer;
+}
+
+.nav-link:hover {
+    color: var(--cor-accent);
+    background-color: rgba(0, 123, 255, 0.08);
+}
+
+.nav-link.active {
+    color: white;
+    background-color: #007bff;
+    font-weight: 600;
+}
+
+/* ========================================
+   SEÇÃO DO USUÁRIO
+   ======================================== */
+
+.user-section {
+    position: absolute;
+    right: 80px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem;
+    border-radius: 8px;
+    transition: background-color 0.3s ease;
+}
+
+.user-info:hover {
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--cor-accent);
+}
+
+.user-name {
+    color: var(--cor-accent);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.logout-btn {
+    background: none;
+    border: none;
+    color: var(--cor-texto-secundario);
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.logout-btn:hover {
+    color: #dc3545;
+    background-color: rgba(220, 53, 69, 0.1);
+}
+
+/* ========================================
+   TOGGLE DE TEMA
+   ======================================== */
+
+.theme-switch-wrapper {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 40px;
+    background-color: var(--cor-container);
+    border: 1px solid var(--cor-borda);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 10;
+}
+
+.theme-switch-wrapper:hover {
+    background-color: rgba(0, 123, 255, 0.1);
+    border-color: var(--cor-accent);
+}
+
+.theme-icon {
+    font-size: 1.2rem;
+    color: var(--cor-texto-secundario);
+    transition: all 0.3s ease;
+}
+
+.theme-icon.active {
+    color: var(--cor-accent);
+}
+
+/* ========================================
+   RESPONSIVIDADE
+   ======================================== */
+
+/* Tablet (≤768px) */
+@media (max-width: 768px) {
+    .velohub-logo {
+        transform: translateY(-50%) scale(1.5);
+        left: 15px;
+    }
+    
+    .nav-menu {
+        gap: 1rem;
+    }
+    
+    .nav-link {
+        font-size: 0.9rem;
+        padding: 0.4rem 0.8rem;
+    }
+    
+    .user-section {
+        right: 60px;
+    }
+    
+    .theme-switch-wrapper {
+        right: 8px;
+        width: 35px;
+        height: 35px;
+    }
+}
+
+/* Mobile (≤480px) */
+@media (max-width: 480px) {
+    .velohub-logo {
+        transform: translateY(-50%) scale(1.2);
+        left: 10px;
+    }
+    
+    .nav-menu {
+        gap: 0.5rem;
+    }
+    
+    .nav-link {
+        font-size: 0.8rem;
+        padding: 0.3rem 0.6rem;
+    }
+    
+    .user-section {
+        right: 50px;
+    }
+    
+    .user-name {
+        display: none;
+    }
+    
+    .theme-switch-wrapper {
+        right: 5px;
+        width: 30px;
+        height: 30px;
+    }
+    
+    .theme-icon {
+        font-size: 1rem;
+    }
+}
+
+/* ========================================
+   ANIMAÇÕES
+   ======================================== */
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.velohub-header {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* ========================================
+   ESTADOS ESPECIAIS
+   ======================================== */
+
+.user-info.no-avatar .user-avatar {
+    display: none;
+}
+
+.user-info.no-avatar .user-name {
+    margin-left: 0;
+}
+
+/* ========================================
+   COMPATIBILIDADE COM TAILWIND
+   ======================================== */
+
+/* Garantir que os estilos do header tenham prioridade */
+.velohub-header * {
+    box-sizing: border-box;
+}
+
+/* Reset para elementos específicos */
+.velohub-header button {
+    background: none;
+    border: none;
+    outline: none;
+}
+
+.velohub-header a {
+    text-decoration: none;
+}

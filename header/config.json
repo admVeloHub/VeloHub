@@ -1,0 +1,16 @@
+{
+    "logo": {
+        "localPath": "./seu-logo.png",
+        "fallbackIcon": "bx-book-bookmark",
+        "width": "200px",
+        "height": "55px"
+    },
+    "theme": {
+        "default": "light",
+        "persistInLocalStorage": true
+    },
+    "app": {
+        "title": "Sua Empresa - Plataforma",
+        "description": "Plataforma de Treinamento"
+    }
+}
