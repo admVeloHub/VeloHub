@@ -1,0 +1,26 @@
+{
+    "logo": {
+        "localPath": "/VeloHubLogo 2.png",
+        "fallbackIcon": "bx-book-bookmark",
+        "width": "200px",
+        "height": "55px"
+    },
+    "theme": {
+        "default": "light",
+        "persistInLocalStorage": true,
+        "storageKey": "velohub-theme"
+    },
+    "app": {
+        "title": "VeloHub - Plataforma de Conhecimento",
+        "description": "Plataforma de Conhecimento sobre Ciclismo e Mobilidade Urbana"
+    },
+    "navigation": {
+        "items": ["Home", "Processos", "Artigos", "Apoio", "VeloAcademy"],
+        "veloAcademyUrl": "https://veloacademy.vercel.app"
+    },
+    "user": {
+        "defaultName": "Usuário VeloHub",
+        "showAvatar": true,
+        "showLogout": true
+    }
+}
