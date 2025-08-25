@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exemplo de Uso - Header VeloAcademy</title>
+    
+    <!-- CSS do Header -->
+    <link rel="stylesheet" href="./header.css">
+    
+    <!-- Fontes e Ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
+    
+    <!-- Fonte Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Estilos básicos para o exemplo */
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--cor-fundo);
+            color: var(--cor-texto-principal);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .content {
+            background: var(--cor-container);
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px var(--cor-sombra);
+            margin-top: 40px;
+        }
+        
+        h1 {
+            color: var(--cor-accent);
+            margin-bottom: 20px;
+        }
+        
+        p {
+            line-height: 1.6;
+            color: var(--cor-texto-secundario);
+        }
+    </style>
+</head>
+<body>
+    <!-- Incluir o Header -->
+    <!-- Copie o conteúdo do header.html aqui -->
+    <header>
+        <div class="container header-container">
+            <div class="logo" id="logo-container">
+                <img id="logo-image" class="logo-image" src="./academy.png" alt="VeloAcademy Logo">
+            </div>
+            
+            <nav class="nav-menu">
+                <a href="./index.html" class="nav-link active">Home</a>
+                <a href="./cursos.html" class="nav-link">Cursos</a>
+                <a href="./conquistas.html" class="nav-link">Conquistas</a>
+                <a href="./auto-feedback.html" class="nav-link">Auto Feedback</a>
+                <a href="https://velohub.vercel.app" class="nav-link" target="_blank">VeloHub</a>
+            </nav>
+
+            <div class="theme-switch-wrapper" id="theme-toggle">
+                <i class='bx bx-sun theme-icon'></i>
+                <i class='bx bx-moon theme-icon'></i>
+            </div>
+        </div>
+    </header>
+
+    <!-- Conteúdo da página -->
+    <main>
+        <div class="container">
+            <div class="content">
+                <h1>Exemplo de Uso do Header VeloAcademy</h1>
+                <p>Este é um exemplo de como usar o header modular do VeloAcademy em outro projeto.</p>
+                
+                <h2>Como usar:</h2>
+                <ol>
+                    <li>Copie o arquivo <code>header.css</code> para seu projeto</li>
+                    <li>Copie o arquivo <code>header.js</code> para seu projeto</li>
+                    <li>Inclua o HTML do header em sua página</li>
+                    <li>Adicione os links para CSS e JS no seu HTML</li>
+                    <li>Personalize conforme necessário</li>
+                </ol>
+                
+                <h2>Recursos incluídos:</h2>
+                <ul>
+                    <li>✅ Tema claro/escuro com toggle</li>
+                    <li>✅ Navegação responsiva</li>
+                    <li>✅ Logo com efeitos hover</li>
+                    <li>✅ Design moderno e profissional</li>
+                    <li>✅ Totalmente responsivo</li>
+                    <li>✅ Fácil personalização</li>
+                </ul>
+            </div>
+        </div>
+    </main>
+
+    <!-- JavaScript do Header -->
+    <script src="./header.js"></script>
+    
+    <script>
+        // Exemplo de personalização
+        document.addEventListener('DOMContentLoaded', () => {
+            // Exemplo: Atualizar logo
+            // header.updateLogo('./meu-logo.png');
+            
+            // Exemplo: Atualizar navegação
+            // header.updateNavigation([
+            //     { href: './home.html', text: 'Início' },
+            //     { href: './sobre.html', text: 'Sobre' },
+            //     { href: './contato.html', text: 'Contato' }
+            // ]);
+        });
+    </script>
+</body>
+</html>

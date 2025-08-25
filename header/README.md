@@ -1,170 +1,204 @@
-# Header Kit - Kit Completo
+# Header Modular VeloAcademy
 
-Este diretório contém todos os arquivos necessários para implementar um header profissional em qualquer projeto.
+Este é um header modular e reutilizável baseado no design do VeloAcademy, que pode ser facilmente integrado em outros projetos.
 
 ## 📁 Arquivos Incluídos
 
-### 🎨 Estilos
-- **`header-styles.css`** - CSS completo do header com todas as variáveis e responsividade
+- `header.html` - Estrutura HTML do header
+- `header.css` - Estilos CSS completos com tema claro/escuro
+- `header.js` - Funcionalidades JavaScript (toggle de tema, navegação)
+- `exemplo-uso.html` - Exemplo completo de implementação
+- `README.md` - Este arquivo com instruções
 
-### 🔧 Funcionalidade
-- **`header-theme.js`** - JavaScript para toggle de tema e funcionalidades do usuário
+## 🚀 Como Usar
 
-### 📄 Estrutura
-- **`header-structure.html`** - Estruturas HTML prontas (2 versões)
+### 1. Estrutura Básica
 
-### ⚙️ Configuração
-- **`config.json`** - Configurações do logo e tema
-
-## 🚀 Como Implementar
-
-### 1. **Dependências Externas**
-Inclua no `<head>` do seu HTML:
+Copie os arquivos para seu projeto e inclua no seu HTML:
 
 ```html
-<!-- Fonte Poppins -->
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seu Projeto</title>
+    
+    <!-- CSS do Header -->
+    <link rel="stylesheet" href="./header/header.css">
+    
+    <!-- Fontes e Ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container header-container">
+            <div class="logo" id="logo-container">
+                <img id="logo-image" class="logo-image" src="./seu-logo.png" alt="Logo">
+            </div>
+            
+            <nav class="nav-menu">
+                <a href="./index.html" class="nav-link active">Home</a>
+                <a href="./sobre.html" class="nav-link">Sobre</a>
+                <a href="./contato.html" class="nav-link">Contato</a>
+            </nav>
 
-<!-- Font Awesome -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+            <div class="theme-switch-wrapper" id="theme-toggle">
+                <i class='bx bx-sun theme-icon'></i>
+                <i class='bx bx-moon theme-icon'></i>
+            </div>
+        </div>
+    </header>
 
-<!-- Boxicons -->
-<link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
+    <!-- Seu conteúdo aqui -->
+    <main>
+        <!-- ... -->
+    </main>
 
-<!-- Header Styles -->
-<link rel="stylesheet" href="header/header-styles.css">
+    <!-- JavaScript do Header -->
+    <script src="./header/header.js"></script>
+</body>
+</html>
 ```
 
-### 2. **Estrutura HTML**
-Escolha uma das versões em `header-structure.html`:
+### 2. Personalização
 
-- **Versão 1:** Header simples (para página inicial)
-- **Versão 2:** Header com seção do usuário (para páginas internas)
-
-### 3. **JavaScript**
-Inclua antes do `</body>`:
-
-```html
-<script src="header/header-theme.js"></script>
+#### Alterar Logo
+```javascript
+// No seu JavaScript
+const header = new VeloAcademyHeader();
+header.updateLogo('./caminho/para/seu-logo.png');
 ```
 
-### 4. **Arquivos de Assets**
-- Adicione seu logo na raiz do projeto
-- Copie `config.json` se quiser usar as configurações
+#### Alterar Navegação
+```javascript
+// Atualizar links de navegação
+header.updateNavigation([
+    { href: './home.html', text: 'Início' },
+    { href: './produtos.html', text: 'Produtos' },
+    { href: './servicos.html', text: 'Serviços' },
+    { href: './contato.html', text: 'Contato' }
+]);
+```
 
-## 🎨 Personalização
-
-### Cores
-Edite as variáveis CSS no início do `header-styles.css`:
+#### Alterar Cores
+Edite as variáveis CSS no arquivo `header.css`:
 
 ```css
 :root {
-    --cor-accent: #007bff;        /* Cor principal */
-    --cor-fundo: #f0f4f8;         /* Fundo claro */
-    --cor-container: #ffffff;     /* Fundo do header */
-    /* ... */
+    --cor-accent: #007bff; /* Cor principal */
+    --cor-fundo: #f0f4f8; /* Cor de fundo */
+    --cor-container: #ffffff; /* Cor do container */
+    /* ... outras cores */
 }
 ```
 
-### Logo
-1. Substitua `seu-logo.png` pelo caminho do seu logo
-2. Ajuste as dimensões no `config.json`:
+## 🎨 Recursos Incluídos
 
-```json
-{
-    "logo": {
-        "width": "200px",
-        "height": "55px"
-    }
-}
+### ✅ Tema Claro/Escuro
+- Toggle automático entre temas
+- Persistência no localStorage
+- Transições suaves
+
+### ✅ Navegação Responsiva
+- Menu adaptativo para mobile
+- Indicador de página ativa
+- Links personalizáveis
+
+### ✅ Logo Interativo
+- Efeitos hover
+- Sombra suave
+- Redimensionamento responsivo
+
+### ✅ Design Moderno
+- Sombras e bordas suaves
+- Animações CSS
+- Tipografia Poppins
+
+### ✅ Totalmente Responsivo
+- Breakpoints: 768px, 480px
+- Layout adaptativo
+- Touch-friendly
+
+## 📱 Breakpoints Responsivos
+
+- **Desktop**: > 768px
+- **Tablet**: 768px - 481px
+- **Mobile**: ≤ 480px
+
+## 🎯 Funcionalidades JavaScript
+
+### Classe VeloAcademyHeader
+
+```javascript
+const header = new VeloAcademyHeader();
+
+// Métodos disponíveis:
+header.updateLogo(path)           // Atualizar logo
+header.updateNavigation(links)    // Atualizar navegação
+header.toggleTheme()              // Alternar tema
+header.applyTheme(theme)          // Aplicar tema específico
 ```
 
-### Navegação
-Edite os links no HTML conforme suas páginas:
+## 🔧 Customização Avançada
 
-```html
-<nav class="nav-menu">
-    <a href="./index.html" class="nav-link active">Home</a>
-    <a href="./sua-pagina.html" class="nav-link">Sua Página</a>
-    <!-- ... -->
-</nav>
-```
-
-## 🌗 Funcionalidades
-
-### Toggle de Tema
-- ✅ Tema claro/escuro automático
-- ✅ Persistência no localStorage
-- ✅ Ícones reativos (sol/lua)
-
-### Responsividade
-- ✅ Mobile-first design
-- ✅ Breakpoints: 768px e 480px
-- ✅ Logo e navegação se adaptam
-
-### Seção do Usuário
-- ✅ Avatar do usuário
-- ✅ Nome do usuário
-- ✅ Botão de logout
-- ✅ Dados do localStorage
-
-## 📱 Responsividade
-
-### Desktop (>768px)
-- Logo grande (scale: 2.10)
-- Navegação completa
-- Todos os elementos visíveis
-
-### Tablet (≤768px)
-- Logo médio (scale: 1.5)
-- Navegação compacta
-- Espaçamentos reduzidos
-
-### Mobile (≤480px)
-- Logo pequeno (scale: 1.2)
-- Navegação mínima
-- Interface otimizada
-
-## 🔧 Configurações Avançadas
-
-### Posicionamento do Logo
+### Alterar Altura do Header
 ```css
-.logo { 
-    left: 20px;           /* Distância da esquerda */
-    top: 60%;             /* Posição vertical */
-    transform: scale(2.10); /* Tamanho */
+header {
+    max-height: 90px; /* Ajuste conforme necessário */
 }
 ```
 
-### Tema Toggle
+### Alterar Posição do Logo
 ```css
-.theme-switch-wrapper {
-    right: 10px;          /* Distância da direita */
-    width: 40px;          /* Largura do botão */
-    height: 40px;         /* Altura do botão */
+.logo {
+    left: 60px; /* Distância da esquerda */
+    top: 60%;   /* Posição vertical */
 }
 ```
 
-## 🎯 Uso em Outros Projetos
+### Alterar Tamanho do Logo
+```css
+.logo-image {
+    width: 200px;  /* Largura */
+    height: 55px;  /* Altura */
+}
+```
 
-1. **Copie a pasta `header`** para seu projeto
-2. **Inclua as dependências** (Poppins, Font Awesome, Boxicons)
-3. **Adicione o CSS** ao seu HTML
-4. **Copie a estrutura HTML** desejada
-5. **Inclua o JavaScript** para funcionalidade
-6. **Personalize** conforme necessário
+## 📋 Dependências
 
-## 🚀 Resultado Final
+- **Font Awesome 6.4.0** - Ícones gerais
+- **Boxicons 2.1.4** - Ícones de tema
+- **Google Fonts (Poppins)** - Tipografia
 
-Um header completo e profissional com:
-- ✅ Design moderno e responsivo
-- ✅ Toggle de tema claro/escuro
-- ✅ Navegação intuitiva
-- ✅ Logo personalizado
-- ✅ Seção do usuário (opcional)
-- ✅ Animações suaves
-- ✅ Compatibilidade total
+## 🐛 Solução de Problemas
+
+### Logo não aparece
+- Verifique se o caminho do arquivo está correto
+- Certifique-se de que o arquivo existe
+- Verifique as permissões do arquivo
+
+### Tema não alterna
+- Verifique se o JavaScript está carregado
+- Verifique o console do navegador para erros
+- Certifique-se de que os ícones Boxicons estão carregados
+
+### Layout quebrado em mobile
+- Verifique se o viewport meta tag está presente
+- Teste em diferentes dispositivos
+- Verifique se o CSS está sendo carregado corretamente
+
+## 📄 Licença
+
+Este header é baseado no design do VeloAcademy e pode ser usado livremente em projetos pessoais e comerciais.
+
+## 🤝 Contribuição
+
+Para melhorias ou correções, sinta-se à vontade para contribuir!
 
 ---
 
-**Kit de Header Profissional** 🎨
+**Desenvolvido com ❤️ para o VeloAcademy**
