@@ -131,7 +131,26 @@ app.get('/api/velo-news', async (req, res) => {
     const db = client.db('console_conteudo');
     const collection = db.collection('Velonews');
     
+    console.log('🔍 Buscando dados da collection Velonews...');
     const news = await collection.find({}).sort({ createdAt: -1 }).toArray();
+    console.log(`📰 Encontrados ${news.length} documentos na collection Velonews`);
+    
+    // Debug: mostrar estrutura dos primeiros 3 documentos
+    if (news.length > 0) {
+      console.log('🔍 Estrutura dos primeiros documentos:');
+      news.slice(0, 3).forEach((item, index) => {
+        console.log(`Documento ${index + 1}:`, {
+          _id: item._id,
+          title: item.title,
+          velonews_titulo: item.velonews_titulo,
+          content: item.content ? item.content.substring(0, 100) + '...' : null,
+          velonews_conteudo: item.velonews_conteudo ? item.velonews_conteudo.substring(0, 100) + '...' : null,
+          alerta_critico: item.alerta_critico,
+          is_critical: item.is_critical,
+          createdAt: item.createdAt
+        });
+      });
+    }
     
     const mappedNews = news.map(item => ({
       _id: item._id,
@@ -141,6 +160,8 @@ app.get('/api/velo-news', async (req, res) => {
       createdAt: item.createdAt,
       updatedAt: item.updatedAt
     }));
+    
+    console.log('✅ Dados mapeados com sucesso:', mappedNews.length, 'velonews');
     
     res.json({
       success: true,
