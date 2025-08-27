@@ -10,7 +10,7 @@ app.use(cors());
 app.use(express.json());
 
 // MongoDB Connection
-const uri = "mongodb+srv://REDACTED";
+const uri = process.env.MONGODB_URI || "mongodb+srv://REDACTED";
 const client = new MongoClient(uri);
 
 // Test connection endpoint
