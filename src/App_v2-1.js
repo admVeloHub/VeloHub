@@ -307,12 +307,12 @@ const HomePage = ({ setCriticalNews }) => {
                     });
                 }
                 
+                // Ordenar velonews por data (mais recente primeiro)
+                const sortedVeloNews = velonewsResponse.data
+                    .filter(news => news.createdAt)
+                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                
                 if (velonewsResponse.data && velonewsResponse.data.length > 0) {
-                    // Ordenar velonews por data (mais recente primeiro)
-                    const sortedVeloNews = velonewsResponse.data
-                        .filter(news => news.createdAt)
-                        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-                    
                     setVeloNews(sortedVeloNews);
                     
                     // Debug: mostrar todos os velonews
@@ -357,6 +357,14 @@ const HomePage = ({ setCriticalNews }) => {
                         const recentVeloNews = sortedVeloNews
                             .filter(news => news.createdAt)
                             .slice(0, 3);
+
+                        console.log('🔍 DEBUG - Itens recentes que serão exibidos:', recentVeloNews);
+                        console.log('🔍 DEBUG - Estrutura dos itens recentes:', recentVeloNews.map(item => ({
+                            _id: item._id,
+                            title: item.title,
+                            content: item.content ? item.content.substring(0, 50) + '...' : null,
+                            createdAt: item.createdAt
+                        })));
 
                         setRecentItems(recentVeloNews);
                     } catch (error) {
