@@ -1,5 +1,6 @@
 // Configuração da API - funciona tanto local quanto remoto
-const API_BASE_URL = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'production' ? 'https://velohub-backend.vercel.app/api' : 'http://localhost:5000/api');
+// Em produção, precisamos de uma URL de API válida
+const API_BASE_URL = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'production' ? 'https://velohub-api.vercel.app/api' : 'http://localhost:5000/api');
 
 // Função genérica para fazer requisições
 async function apiRequest(endpoint, options = {}) {
