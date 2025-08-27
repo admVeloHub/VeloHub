@@ -1,14 +1,83 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Map, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen } from 'lucide-react';
 import { mainAPI, veloNewsAPI, articlesAPI, faqAPI } from './services/api';
-import { getMockData } from './data/mockData';
 import './header-styles.css';
+
+// Sistema de gerenciamento de estado para modal crítico
+const CriticalModalManager = {
+  // Chaves para localStorage
+  ACKNOWLEDGED_KEY: 'velohub-critical-acknowledged',
+  REMIND_LATER_KEY: 'velohub-remind-later',
+  SHOW_REMIND_BUTTON_KEY: 'velohub-show-remind-button',
+  
+  // Verificar se o usuário já foi ciente
+  isAcknowledged: () => {
+    return localStorage.getItem(CriticalModalManager.ACKNOWLEDGED_KEY) === 'true';
+  },
+  
+  // Marcar como ciente
+  setAcknowledged: () => {
+    localStorage.setItem(CriticalModalManager.ACKNOWLEDGED_KEY, 'true');
+  },
+  
+  // Verificar se deve lembrar mais tarde
+  shouldRemindLater: () => {
+    const remindLater = localStorage.getItem(CriticalModalManager.REMIND_LATER_KEY);
+    if (!remindLater) return false;
+    
+    const remindTime = parseInt(remindLater);
+    const now = Date.now();
+    const threeMinutes = 3 * 60 * 1000; // 3 minutos em millisegundos
+    
+    return now >= remindTime;
+  },
+  
+  // Definir lembrete para 3 minutos
+  setRemindLater: () => {
+    const threeMinutesFromNow = Date.now() + (3 * 60 * 1000);
+    localStorage.setItem(CriticalModalManager.REMIND_LATER_KEY, threeMinutesFromNow.toString());
+    // Marcar que o botão "Me lembre mais tarde" já foi usado
+    localStorage.setItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY, 'false');
+  },
+  
+  // Limpar lembrete
+  clearRemindLater: () => {
+    localStorage.removeItem(CriticalModalManager.REMIND_LATER_KEY);
+  },
+  
+  // Verificar se deve mostrar o botão "Me lembre mais tarde"
+  shouldShowRemindButton: () => {
+    return localStorage.getItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY) !== 'false';
+  },
+  
+  // Resetar o estado para uma nova notícia crítica
+  resetForNewCriticalNews: () => {
+    localStorage.setItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY, 'true');
+  },
+  
+  // Verificar se deve mostrar o modal
+  shouldShowModal: (criticalNews) => {
+    if (!criticalNews) return false;
+    
+    // Se já foi ciente, não mostrar
+    if (CriticalModalManager.isAcknowledged()) return false;
+    
+    // Se tem lembrete ativo, mostrar
+    if (CriticalModalManager.shouldRemindLater()) {
+      CriticalModalManager.clearRemindLater(); // Limpar após verificar
+      return true;
+    }
+    
+    // Se não tem lembrete, mostrar normalmente
+    return true;
+  }
+};
 
 
 
 // Componente do Cabeçalho
 const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
-  const navItems = ['Home', 'Processos', 'Artigos', 'Apoio', 'VeloAcademy'];
+  const navItems = ['Home', 'VeloBot', 'Artigos', 'Apoio', 'VeloAcademy'];
 
   const handleNavClick = (item) => {
     console.log('Clicou em:', item); // Debug
@@ -61,36 +130,62 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
   );
 };
 
-// Componente do Modal de Notícia Crítica
+// Componente do Modal de Notícia Crítica - VERSÃO MELHORADA
 const CriticalNewsModal = ({ news, onClose }) => {
   const [isAcknowledged, setIsAcknowledged] = useState(false);
+
+  const handleClose = () => {
+    if (isAcknowledged) {
+      CriticalModalManager.setAcknowledged();
+    }
+    onClose();
+  };
+
+  const handleRemindLater = () => {
+    CriticalModalManager.setRemindLater();
+    onClose();
+  };
+
+  // Verificar se deve mostrar o botão "Me lembre mais tarde"
+  const shouldShowRemindButton = CriticalModalManager.shouldShowRemindButton();
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-8 max-w-2xl w-full mx-4">
         <h2 className="text-2xl font-bold text-red-600 mb-4">{news.title}</h2>
-        <div className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
-            <p>{news.content}</p>
-        </div>
+                 <div 
+             className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
+             dangerouslySetInnerHTML={{ __html: news.content || '' }}
+         />
         <div className="mt-8 flex justify-between items-center">
           <button
-            onClick={onClose}
+            onClick={handleClose}
             disabled={!isAcknowledged}
             className={`px-6 py-2 rounded-md font-semibold text-white transition-colors duration-300 ${isAcknowledged ? 'bg-blue-600 hover:bg-blue-700' : 'bg-red-500 cursor-not-allowed'}`}
           >
             Fechar
           </button>
-          <div className="flex items-center">
-            <input
-              id="acknowledge"
-              type="checkbox"
-              checked={isAcknowledged}
-              onChange={() => setIsAcknowledged(!isAcknowledged)}
-              className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            />
-            <label htmlFor="acknowledge" className="ml-2 text-gray-700 dark:text-gray-300 font-medium">
-              Ciente
-            </label>
+          <div className="flex flex-col items-end gap-3">
+            <div className="flex items-center">
+              <input
+                id="acknowledge"
+                type="checkbox"
+                checked={isAcknowledged}
+                onChange={() => setIsAcknowledged(!isAcknowledged)}
+                className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <label htmlFor="acknowledge" className="ml-2 text-gray-700 dark:text-gray-300 font-medium">
+                Ciente
+              </label>
+            </div>
+            {shouldShowRemindButton && (
+              <button
+                onClick={handleRemindLater}
+                className="text-[#272A30] hover:underline font-medium text-sm -mt-1"
+              >
+                Me lembre mais tarde
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -98,11 +193,12 @@ const CriticalNewsModal = ({ news, onClose }) => {
   );
 };
 
-// Componente da Página Principal
+// Componente da Página Principal - VERSÃO MELHORADA
 export default function App_v2() {
   const [activePage, setActivePage] = useState('Home');
   const [criticalNews, setCriticalNews] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [showRemindLater, setShowRemindLater] = useState(true);
 
   useEffect(() => {
     // Carregar tema salvo
@@ -152,7 +248,7 @@ export default function App_v2() {
     switch (activePage) {
       case 'Home':
         return <HomePage setCriticalNews={setCriticalNews} />;
-      case 'Processos':
+             case 'VeloBot':
         return <ProcessosPage />;
       case 'Artigos':
         return <ArtigosPage />;
@@ -178,11 +274,13 @@ export default function App_v2() {
   );
 }
 
-// Conteúdo da Página Home
+// Conteúdo da Página Home - VERSÃO MELHORADA
 const HomePage = ({ setCriticalNews }) => {
     const [selectedNews, setSelectedNews] = useState(null);
     const [veloNews, setVeloNews] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [lastRefresh, setLastRefresh] = useState(Date.now());
+    const [lastCriticalNewsId, setLastCriticalNewsId] = useState(null);
 
     useEffect(() => {
         const fetchAllData = async () => {
@@ -195,10 +293,18 @@ const HomePage = ({ setCriticalNews }) => {
                 if (response.data && response.data.velonews && response.data.velonews.length > 0) {
                     setVeloNews(response.data.velonews);
                     
-                    // Verificar notícias críticas
+                    // Verificar notícias críticas com novo sistema
                     const critical = response.data.velonews.find(n => n.is_critical === 'Y');
                     if (critical) {
-                        setCriticalNews(critical);
+                        // Se é uma nova notícia crítica (ID diferente), resetar o estado
+                        if (critical._id !== lastCriticalNewsId) {
+                            CriticalModalManager.resetForNewCriticalNews();
+                            setLastCriticalNewsId(critical._id);
+                        }
+                        
+                        if (CriticalModalManager.shouldShowModal(critical)) {
+                            setCriticalNews(critical);
+                        }
                     }
                 } else {
                     console.warn('⚠️ Dados de velonews não encontrados ou vazios, usando mock...');
@@ -208,22 +314,26 @@ const HomePage = ({ setCriticalNews }) => {
                 console.error('❌ Erro ao carregar dados da API:', error);
                 console.log('📋 Usando dados mock como fallback...');
                 
-                // Usar dados mock como fallback
-                const mockData = getMockData();
-                setVeloNews(mockData.velonews);
-                
-                // Verificar notícias críticas nos dados mock
-                const critical = mockData.velonews.find(n => n.is_critical === 'Y');
-                if (critical) {
-                    setCriticalNews(critical);
-                }
+                // Em caso de erro, usar arrays vazios
+                console.warn('⚠️ Usando arrays vazios como fallback');
+                setVeloNews([]);
+                setCriticalNews(null);
             } finally {
                 setLoading(false);
             }
         };
         
         fetchAllData();
-    }, [setCriticalNews]);
+        
+        // Refresh invisível a cada 3 minutos
+        const refreshInterval = setInterval(() => {
+            console.log('🔄 Refresh invisível executado...');
+            setLastRefresh(Date.now());
+            fetchAllData();
+        }, 3 * 60 * 1000); // 3 minutos
+        
+        return () => clearInterval(refreshInterval);
+    }, [setCriticalNews, lastCriticalNewsId]);
 
     return (
         <div className="container mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -239,7 +349,10 @@ const HomePage = ({ setCriticalNews }) => {
                         {veloNews.slice(0, 3).map(news => (
                             <div key={news._id} className="border-b dark:border-gray-700 pb-3 last:border-b-0">
                                 <h4 className="font-semibold text-sm text-gray-800 dark:text-gray-200 mb-1 line-clamp-2">{news.title}</h4>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{news.content}</p>
+                                 <div 
+                                     className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 prose prose-xs dark:prose-invert max-w-none"
+                                     dangerouslySetInnerHTML={{ __html: news.content || '' }}
+                                 />
                                 <span className="text-xs text-blue-600 dark:text-blue-400">{new Date(news.createdAt).toLocaleDateString('pt-BR')}</span>
                             </div>
                         ))}
@@ -263,7 +376,9 @@ const HomePage = ({ setCriticalNews }) => {
                         </div>
                     ) : veloNews.length > 0 ? (
                         veloNews.slice(0, 4).map(news => (
-                            <div key={news._id} className="border-b dark:border-gray-700 pb-4 last:border-b-0">
+                            <div key={news._id} className={`border-b dark:border-gray-700 pb-4 last:border-b-0 ${
+                                news.is_critical === 'Y' ? 'critical-news-frame' : ''
+                            }`}>
                                 <div className="flex justify-between items-start mb-2">
                                     <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-200">{news.title}</h3>
                                     {news.is_critical === 'Y' && (
@@ -272,7 +387,10 @@ const HomePage = ({ setCriticalNews }) => {
                                         </span>
                                     )}
                                 </div>
-                                <p className="text-gray-600 dark:text-gray-400 line-clamp-3 mb-2">{news.content}</p>
+                                                                 <div 
+                                     className="text-gray-600 dark:text-gray-400 line-clamp-3 mb-2 prose prose-sm dark:prose-invert max-w-none"
+                                     dangerouslySetInnerHTML={{ __html: news.content || '' }}
+                                 />
                                 <div className="flex justify-between items-center">
                                     <button onClick={() => setSelectedNews(news)} className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
                                         Ler mais
@@ -326,9 +444,10 @@ const HomePage = ({ setCriticalNews }) => {
                            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">{selectedNews.title}</h2>
                            <button onClick={() => setSelectedNews(null)} className="text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white text-3xl">&times;</button>
                         </div>
-                        <div className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
-                            <p>{selectedNews.content}</p>
-                        </div>
+                                                 <div 
+                             className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
+                             dangerouslySetInnerHTML={{ __html: selectedNews.content || '' }}
+                         />
                     </div>
                 </div>
             )}
@@ -365,6 +484,13 @@ const ArtigosPage = () => {
     const [loading, setLoading] = useState(true);
     const [selectedCategory, setSelectedCategory] = useState('Todas');
     const [categories, setCategories] = useState([]);
+    const [selectedArticle, setSelectedArticle] = useState(null);
+
+    // Função para renderizar HTML de forma segura
+    const renderHTML = (htmlContent) => {
+        if (!htmlContent) return '';
+        return { __html: htmlContent };
+    };
 
     useEffect(() => {
         const fetchArticles = async () => {
@@ -383,9 +509,9 @@ const ArtigosPage = () => {
                 console.error('Erro ao carregar artigos da API:', error);
                 console.log('📋 Usando dados mock como fallback...');
                 
-                // Usar dados mock como fallback
-                const mockData = getMockData();
-                setArticles(mockData.articles);
+                // Em caso de erro, usar arrays vazios
+                console.warn('⚠️ Usando arrays vazios como fallback');
+                setArticles([]);
             } finally {
                 setLoading(false);
             }
@@ -414,6 +540,10 @@ const ArtigosPage = () => {
 
     const handleCategoryChange = (category) => {
         setSelectedCategory(category);
+    };
+
+    const handleArticleClick = (article) => {
+        setSelectedArticle(article);
     };
 
     return (
@@ -473,7 +603,11 @@ const ArtigosPage = () => {
                             {filteredArticles.length > 0 ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {filteredArticles.map(article => (
-                                        <div key={article._id || article.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+                                         <div 
+                                             key={article._id || article.id} 
+                                             className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer"
+                                             onClick={() => handleArticleClick(article)}
+                                         >
                                             <div className="mb-3 flex justify-between items-start">
                                                 <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full text-xs font-medium">
                                                     {article.category}
@@ -486,7 +620,10 @@ const ArtigosPage = () => {
                                             </div>
                                             <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-3">{article.title}</h3>
                                             {article.content && (
-                                                <p className="text-gray-600 dark:text-gray-400 mb-4 line-clamp-3">{article.content}</p>
+                                                 <div 
+                                                     className="text-gray-600 dark:text-gray-400 mb-4 line-clamp-3 prose prose-sm dark:prose-invert max-w-none"
+                                                     dangerouslySetInnerHTML={renderHTML(article.content)}
+                                                 />
                                             )}
                                             {article.keywords && article.keywords.length > 0 && (
                                                 <div className="flex flex-wrap gap-2">
@@ -516,6 +653,56 @@ const ArtigosPage = () => {
                     )}
                 </div>
             </div>
+
+            {/* Modal do Artigo */}
+            {selectedArticle && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+                        <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+                            <div>
+                                <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full text-sm font-medium">
+                                    {selectedArticle.category}
+                                </span>
+                                {selectedArticle.createdAt && (
+                                    <span className="ml-3 text-sm text-gray-500 dark:text-gray-400">
+                                        {new Date(selectedArticle.createdAt).toLocaleDateString('pt-BR')}
+                                    </span>
+                                )}
+                            </div>
+                            <button 
+                                onClick={() => setSelectedArticle(null)}
+                                className="text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white text-2xl font-bold"
+                            >
+                                ×
+                            </button>
+                        </div>
+                        
+                        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                            <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-6">
+                                {selectedArticle.title}
+                            </h2>
+                            
+                            <div 
+                                className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
+                                dangerouslySetInnerHTML={renderHTML(selectedArticle.content)}
+                            />
+                            
+                            {selectedArticle.keywords && selectedArticle.keywords.length > 0 && (
+                                <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                                    <h4 className="text-lg font-semibold text-gray-800 dark:text-white mb-3">Palavras-chave:</h4>
+                                    <div className="flex flex-wrap gap-2">
+                                        {selectedArticle.keywords.map((keyword, index) => (
+                                            <span key={index} className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full text-sm">
+                                                {keyword}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -543,9 +730,9 @@ const ProcessosPage = () => {
                 console.error('Erro ao carregar FAQ da API:', error);
                 console.log('📋 Usando dados mock como fallback...');
                 
-                // Usar dados mock como fallback
-                const mockData = getMockData();
-                setFaq(mockData.faq);
+                // Em caso de erro, usar arrays vazios
+                console.warn('⚠️ Usando arrays vazios como fallback');
+                setFaq([]);
             } finally {
                 setLoading(false);
             }
@@ -664,12 +851,9 @@ const Chatbot = ({ prompt }) => {
             console.error('Erro ao buscar artigos da API:', error);
             console.log('📋 Usando dados mock para sugestões...');
             
-            // Usar dados mock como fallback
-            const mockData = getMockData();
-            const queryWords = query.toLowerCase().split(/\s+/);
-            return mockData.articles.filter(article => 
-                article.keywords && article.keywords.some(keyword => queryWords.includes(keyword))
-            );
+            // Em caso de erro, retornar array vazio
+            console.warn('⚠️ Erro ao buscar artigos, retornando array vazio');
+            return [];
         }
     };
 
@@ -686,14 +870,9 @@ const Chatbot = ({ prompt }) => {
             console.error('Erro ao buscar FAQ da API:', error);
             console.log('📋 Usando dados mock para FAQ...');
             
-            // Usar dados mock como fallback
-            const mockData = getMockData();
-            const queryWords = query.toLowerCase().split(/\s+/);
-            return mockData.faq.find(faq => 
-                faq.keywords && queryWords.some(word => 
-                    faq.keywords.toLowerCase().includes(word)
-                )
-            );
+            // Em caso de erro, retornar null
+            console.warn('⚠️ Erro ao buscar FAQ, retornando null');
+            return null;
         }
     };
 

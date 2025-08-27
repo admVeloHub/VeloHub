@@ -302,3 +302,27 @@
         font-size: 1rem;
     }
 }
+
+/* Moldura especial para notícias críticas */
+.critical-news-frame {
+    position: relative;
+    border-radius: 8px;
+    box-shadow: 
+        0 0 0 6px #FCC200,
+        0 0 0 7px #000058,
+        0 0 15px rgba(252, 194, 0, 0.4);
+}
+
+.critical-news-frame::before {
+    content: '';
+    position: absolute;
+    top: -7px;
+    left: -7px;
+    right: -7px;
+    bottom: -7px;
+    background: #FCC200;
+    border-radius: 10px;
+    z-index: -1;
+    filter: blur(4px);
+    opacity: 0.8;
+}
