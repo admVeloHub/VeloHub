@@ -307,11 +307,8 @@ const HomePage = ({ setCriticalNews }) => {
                     });
                 }
                 
-                // ✅ Segurança extra: aceite apenas itens marcados como Velonews
-                const onlyVeloNews = velonewsResponse.data.filter(item => item?.source === 'Velonews');
-                
-                // ✅ Remova o filtro por createdAt; ordene com fallback
-                const sortedVeloNews = [...onlyVeloNews].sort((a, b) => {
+                // ✅ Usar todos os velonews recebidos da API
+                const sortedVeloNews = [...velonewsResponse.data].sort((a, b) => {
                     const da = new Date(a.createdAt || a.updatedAt || 0) || 0;
                     const db = new Date(b.createdAt || b.updatedAt || 0) || 0;
                     return db - da;
@@ -319,11 +316,7 @@ const HomePage = ({ setCriticalNews }) => {
                 
                 setVeloNews(sortedVeloNews);
                 
-                // 🔍 Log de sanidade para pegar vazamento de Artigos, se houver
-                const aliens = velonewsResponse.data.filter(x => x?.source !== 'Velonews');
-                if (aliens.length) {
-                    console.warn('⚠️ Itens não-Velonews recebidos no endpoint /velo-news:', aliens);
-                }
+
                     
                     // Debug: mostrar todos os velonews
                     console.log('📰 Todos os velonews:', velonewsResponse.data);
@@ -360,10 +353,10 @@ const HomePage = ({ setCriticalNews }) => {
                     throw new Error('Dados vazios da API');
                 }
 
-                // Buscar apenas velonews recentes
+                // Buscar velonews recentes (todos, críticos e não críticos)
                 const fetchRecentItems = async () => {
                     try {
-                        // Usar apenas os velonews já carregados
+                        // Usar todos os velonews já carregados (críticos e não críticos)
                         const recentVeloNews = sortedVeloNews
                             .filter(news => news.createdAt)
                             .slice(0, 3);
@@ -373,7 +366,8 @@ const HomePage = ({ setCriticalNews }) => {
                             _id: item._id,
                             title: item.title,
                             content: item.content ? item.content.substring(0, 50) + '...' : null,
-                            createdAt: item.createdAt
+                            createdAt: item.createdAt,
+                            is_critical: item.is_critical
                         })));
 
                         setRecentItems(recentVeloNews);
