@@ -308,11 +308,12 @@ const HomePage = ({ setCriticalNews }) => {
                 }
                 
                 // Ordenar velonews por data (mais recente primeiro)
-                const sortedVeloNews = velonewsResponse.data
-                    .filter(news => news.createdAt)
-                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-                
+                let sortedVeloNews = [];
                 if (velonewsResponse.data && velonewsResponse.data.length > 0) {
+                    sortedVeloNews = velonewsResponse.data
+                        .filter(news => news.createdAt)
+                        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                    
                     setVeloNews(sortedVeloNews);
                     
                     // Debug: mostrar todos os velonews
