@@ -291,20 +291,20 @@ const HomePage = ({ setCriticalNews }) => {
         const fetchAllData = async () => {
             try {
                 setLoading(true);
-                console.log('🔄 Buscando todos os dados...');
-                const response = await mainAPI.getAllData();
-                console.log('✅ Dados recebidos:', response.data);
+                console.log('🔄 Buscando dados do Velonews...');
+                const velonewsResponse = await veloNewsAPI.getAll();
+                console.log('✅ Velonews recebidos:', velonewsResponse.data);
                 
-                if (response.data && response.data.velonews && response.data.velonews.length > 0) {
+                if (velonewsResponse.data && velonewsResponse.data.length > 0) {
                     // Ordenar velonews por data (mais recente primeiro)
-                    const sortedVeloNews = response.data.velonews
+                    const sortedVeloNews = velonewsResponse.data
                         .filter(news => news.createdAt)
                         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
                     
                     setVeloNews(sortedVeloNews);
                     
                     // Debug: mostrar todos os velonews
-                    console.log('📰 Todos os velonews:', response.data.velonews);
+                    console.log('📰 Todos os velonews:', velonewsResponse.data);
                     console.log('📅 Velonews ordenados por data:', sortedVeloNews.map(n => ({ 
                         title: n.title, 
                         date: n.createdAt,
@@ -314,7 +314,7 @@ const HomePage = ({ setCriticalNews }) => {
                     // Verificar notícias críticas com novo sistema
                     const critical = sortedVeloNews.find(n => n.is_critical === 'Y');
                     console.log('🔍 Procurando por is_critical === "Y"');
-                    console.log('🔍 Velonews com is_critical:', response.data.velonews.map(n => ({ id: n._id, title: n.title, is_critical: n.is_critical })));
+                    console.log('🔍 Velonews com is_critical:', velonewsResponse.data.map(n => ({ id: n._id, title: n.title, is_critical: n.is_critical })));
                     
                     if (critical) {
                         console.log('🚨 Notícia crítica encontrada:', critical);
