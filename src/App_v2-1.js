@@ -294,6 +294,18 @@ const HomePage = ({ setCriticalNews }) => {
                 console.log('🔄 Buscando dados do Velonews...');
                 const velonewsResponse = await veloNewsAPI.getAll();
                 console.log('✅ Velonews recebidos:', velonewsResponse.data);
+                console.log('🔍 Estrutura detalhada dos velonews:');
+                if (velonewsResponse.data && velonewsResponse.data.length > 0) {
+                    velonewsResponse.data.forEach((item, index) => {
+                        console.log(`Velonews ${index + 1}:`, {
+                            _id: item._id,
+                            title: item.title,
+                            content: item.content ? item.content.substring(0, 100) + '...' : null,
+                            is_critical: item.is_critical,
+                            createdAt: item.createdAt
+                        });
+                    });
+                }
                 
                 if (velonewsResponse.data && velonewsResponse.data.length > 0) {
                     // Ordenar velonews por data (mais recente primeiro)
