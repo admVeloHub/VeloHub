@@ -350,42 +350,15 @@ const HomePage = ({ setCriticalNews }) => {
                     throw new Error('Dados vazios da API');
                 }
 
-                // Buscar itens recentes (artigos e processos do bot)
+                // Buscar apenas velonews recentes
                 const fetchRecentItems = async () => {
                     try {
-                        const [articlesResponse, faqResponse] = await Promise.all([
-                            articlesAPI.getAll(),
-                            faqAPI.getAll()
-                        ]);
-
-                        const articles = articlesResponse.data || [];
-                        const faqItems = faqResponse.data || [];
-
-                        // Combinar e formatar os itens
-                        const allItems = [
-                            ...articles.map(article => ({
-                                ...article,
-                                type: 'article',
-                                displayTitle: article.title,
-                                displayContent: article.content,
-                                createdAt: article.createdAt
-                            })),
-                            ...faqItems.map(faq => ({
-                                ...faq,
-                                type: 'process',
-                                displayTitle: faq.question || faq,
-                                displayContent: faq.context || faq,
-                                createdAt: faq.createdAt || new Date().toISOString()
-                            }))
-                        ];
-
-                        // Ordenar por data de criação (mais recente primeiro) e pegar os 3 primeiros
-                        const sortedItems = allItems
-                            .filter(item => item.createdAt)
-                            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                        // Usar apenas os velonews já carregados
+                        const recentVeloNews = sortedVeloNews
+                            .filter(news => news.createdAt)
                             .slice(0, 3);
 
-                        setRecentItems(sortedItems);
+                        setRecentItems(recentVeloNews);
                     } catch (error) {
                         console.error('Erro ao buscar itens recentes:', error);
                         setRecentItems([]);
@@ -447,18 +420,14 @@ const HomePage = ({ setCriticalNews }) => {
                          {recentItems.map(item => (
                              <div key={item._id || item.id} className="border-b dark:border-gray-700 pb-3 last:border-b-0">
                                  <div className="flex items-center gap-2 mb-1">
-                                     <span className={`text-xs px-2 py-1 rounded-full ${
-                                         item.type === 'article' 
-                                             ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' 
-                                             : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                     }`}>
-                                         {item.type === 'article' ? 'Artigo' : 'Processo'}
+                                     <span className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 text-xs px-2 py-1 rounded-full">
+                                         VeloNews
                                      </span>
-                                     <h4 className="font-semibold text-sm text-gray-800 dark:text-gray-200 line-clamp-2">{item.displayTitle}</h4>
+                                     <h4 className="font-semibold text-sm text-gray-800 dark:text-gray-200 line-clamp-2">{item.title}</h4>
                                  </div>
                                  <div 
                                      className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 prose prose-xs dark:prose-invert max-w-none"
-                                     dangerouslySetInnerHTML={{ __html: item.displayContent || '' }}
+                                     dangerouslySetInnerHTML={{ __html: item.content || '' }}
                                  />
                                  <span className="text-xs text-blue-600 dark:text-blue-400">{new Date(item.createdAt).toLocaleDateString('pt-BR')}</span>
                             </div>
