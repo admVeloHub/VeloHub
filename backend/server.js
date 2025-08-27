@@ -130,15 +130,28 @@ app.get('/api/velo-news', async (req, res) => {
     await connectToMongo();
     const db = client.db('console_conteudo');
     const collection = db.collection('Velonews');
-    
+
+    // Heurística para evitar "artigos" que vazaram pra cá
+    const raw = await collection.find({
+      $nor: [
+        { artigo_titulo: { $exists: true } },
+        { artigo_conteudo: { $exists: true } },
+        { tipo: 'artigo' },
+      ]
+    })
+    .sort({ createdAt: -1, _id: -1 })
+    .toArray();
+
     console.log('🔍 Buscando dados da collection Velonews...');
-    const news = await collection.find({}).sort({ createdAt: -1 }).toArray();
-    console.log(`📰 Encontrados ${news.length} documentos na collection Velonews`);
+    console.log(`📰 Encontrados ${raw.length} documentos na collection Velonews`);
+    
+    // ADICIONE ESTE LOG PARA DEPURAR
+    console.log('DADOS BRUTOS DA COLLECTION VELONEWS:', JSON.stringify(raw, null, 2));
     
     // Debug: mostrar estrutura dos primeiros 3 documentos
-    if (news.length > 0) {
+    if (raw.length > 0) {
       console.log('🔍 Estrutura dos primeiros documentos:');
-      news.slice(0, 3).forEach((item, index) => {
+      raw.slice(0, 3).forEach((item, index) => {
         console.log(`Documento ${index + 1}:`, {
           _id: item._id,
           title: item.title,
@@ -151,15 +164,29 @@ app.get('/api/velo-news', async (req, res) => {
         });
       });
     }
-    
-    const mappedNews = news.map(item => ({
-      _id: item._id,
-      title: item.title || item.velonews_titulo,
-      content: item.content || item.velonews_conteudo,
-      is_critical: item.alerta_critico === 'Y' || item.alerta_critico === true || item.is_critical === 'Y' || item.is_critical === true ? 'Y' : 'N',
-      createdAt: item.createdAt,
-      updatedAt: item.updatedAt
-    }));
+
+    const mappedNews = raw.map(item => {
+      // Normalização de datas
+      const createdAt =
+        item.createdAt ??
+        item.updatedAt ??
+        (item._id && item._id.getTimestamp ? item._id.getTimestamp() : null);
+
+      return {
+        _id: item._id,
+        // Priorize os campos ESPECÍFICOS de Velonews antes dos genéricos
+        title: item.velonews_titulo ?? item.title ?? '(sem título)',
+        content: item.velonews_conteudo ?? item.content ?? '',
+        is_critical:
+          item.alerta_critico === 'Y' || item.alerta_critico === true ||
+          item.is_critical === 'Y' || item.is_critical === true
+            ? 'Y'
+            : 'N',
+        createdAt,
+        updatedAt: item.updatedAt ?? createdAt,
+        source: 'Velonews' // <- rótulo explícito
+      };
+    });
     
     console.log('✅ Dados mapeados com sucesso:', mappedNews.length, 'velonews');
     

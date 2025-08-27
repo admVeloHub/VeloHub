@@ -307,14 +307,23 @@ const HomePage = ({ setCriticalNews }) => {
                     });
                 }
                 
-                // Ordenar velonews por data (mais recente primeiro)
-                let sortedVeloNews = [];
-                if (velonewsResponse.data && velonewsResponse.data.length > 0) {
-                    sortedVeloNews = velonewsResponse.data
-                        .filter(news => news.createdAt)
-                        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-                    
-                    setVeloNews(sortedVeloNews);
+                // ✅ Segurança extra: aceite apenas itens marcados como Velonews
+                const onlyVeloNews = velonewsResponse.data.filter(item => item?.source === 'Velonews');
+                
+                // ✅ Remova o filtro por createdAt; ordene com fallback
+                const sortedVeloNews = [...onlyVeloNews].sort((a, b) => {
+                    const da = new Date(a.createdAt || a.updatedAt || 0) || 0;
+                    const db = new Date(b.createdAt || b.updatedAt || 0) || 0;
+                    return db - da;
+                });
+                
+                setVeloNews(sortedVeloNews);
+                
+                // 🔍 Log de sanidade para pegar vazamento de Artigos, se houver
+                const aliens = velonewsResponse.data.filter(x => x?.source !== 'Velonews');
+                if (aliens.length) {
+                    console.warn('⚠️ Itens não-Velonews recebidos no endpoint /velo-news:', aliens);
+                }
                     
                     // Debug: mostrar todos os velonews
                     console.log('📰 Todos os velonews:', velonewsResponse.data);
