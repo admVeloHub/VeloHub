@@ -507,7 +507,7 @@ const HomePage = ({ setCriticalNews }) => {
                     )}
                 </div>
             </section>
-                                                   <aside className="lg:col-span-1 bg-white dark:bg-gray-800 rounded-lg shadow-sm flex flex-col h-[calc(100vh-200px)]">
+                                                   <aside className="lg:col-span-1 bg-white dark:bg-gray-800 rounded-lg shadow-sm flex flex-col min-h-[calc(100vh-200px)]">
                                     <h3 className="font-bold text-xl p-4 border-b border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-200 text-center">VeloChat</h3>
                   
                                      {/* Status do Agente */}
