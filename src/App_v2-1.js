@@ -296,11 +296,28 @@ const HomePage = ({ setCriticalNews }) => {
                 console.log('✅ Dados recebidos:', response.data);
                 
                 if (response.data && response.data.velonews && response.data.velonews.length > 0) {
-                    setVeloNews(response.data.velonews);
+                    // Ordenar velonews por data (mais recente primeiro)
+                    const sortedVeloNews = response.data.velonews
+                        .filter(news => news.createdAt)
+                        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                    
+                    setVeloNews(sortedVeloNews);
+                    
+                    // Debug: mostrar todos os velonews
+                    console.log('📰 Todos os velonews:', response.data.velonews);
+                    console.log('📅 Velonews ordenados por data:', sortedVeloNews.map(n => ({ 
+                        title: n.title, 
+                        date: n.createdAt,
+                        is_critical: n.is_critical 
+                    })));
                     
                     // Verificar notícias críticas com novo sistema
-                    const critical = response.data.velonews.find(n => n.is_critical === 'Y');
+                    const critical = sortedVeloNews.find(n => n.is_critical === 'Y');
+                    console.log('🔍 Procurando por is_critical === "Y"');
+                    console.log('🔍 Velonews com is_critical:', response.data.velonews.map(n => ({ id: n._id, title: n.title, is_critical: n.is_critical })));
+                    
                     if (critical) {
+                        console.log('🚨 Notícia crítica encontrada:', critical);
                         // Se é uma nova notícia crítica (ID diferente), resetar o estado
                         if (critical._id !== lastCriticalNewsId) {
                             CriticalModalManager.resetForNewCriticalNews();
@@ -308,8 +325,13 @@ const HomePage = ({ setCriticalNews }) => {
                         }
                         
                         if (CriticalModalManager.shouldShowModal(critical)) {
+                            console.log('✅ Modal será exibido para notícia crítica');
                             setCriticalNews(critical);
+                        } else {
+                            console.log('❌ Modal não será exibido (já foi ciente)');
                         }
+                    } else {
+                        console.log('❌ Nenhuma notícia crítica encontrada');
                     }
                 } else {
                     console.warn('⚠️ Dados de velonews não encontrados ou vazios, usando mock...');

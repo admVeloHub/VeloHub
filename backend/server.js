@@ -13,10 +13,26 @@ app.use(express.json());
 const uri = process.env.MONGODB_URI || "mongodb+srv://REDACTED";
 const client = new MongoClient(uri);
 
+// Conectar ao MongoDB uma vez no início
+let isConnected = false;
+const connectToMongo = async () => {
+  if (!isConnected) {
+    try {
+      await client.connect();
+      isConnected = true;
+      console.log('✅ Conexão MongoDB estabelecida!');
+    } catch (error) {
+      console.error('❌ Erro ao conectar MongoDB:', error);
+      throw error;
+    }
+  }
+  return client;
+};
+
 // Test connection endpoint
 app.get('/api/test', async (req, res) => {
   try {
-    await client.connect();
+    await connectToMongo();
     res.json({ success: true, message: 'Conexão com MongoDB OK!' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -27,7 +43,7 @@ app.get('/api/test', async (req, res) => {
 app.get('/api/data', async (req, res) => {
   try {
     console.log('🔌 Conectando ao MongoDB...');
-    await client.connect();
+    await connectToMongo();
     console.log('✅ Conexão estabelecida!');
     
     const db = client.db('console_conteudo');
@@ -36,14 +52,19 @@ app.get('/api/data', async (req, res) => {
     console.log('📊 Buscando dados das collections...');
     
     const [velonews, artigos, faq] = await Promise.all([
-      db.collection('Velonews').find({}).toArray(),
-      db.collection('Artigos').find({}).toArray(),
-      db.collection('Bot_perguntas').find({}).toArray()
+      db.collection('Velonews').find({}).sort({ createdAt: -1 }).toArray(),
+      db.collection('Artigos').find({}).sort({ createdAt: -1 }).toArray(),
+      db.collection('Bot_perguntas').find({}).sort({ createdAt: -1 }).toArray()
     ]);
     
     console.log(`📰 Velonews encontrados: ${velonews.length}`);
     console.log(`📚 Artigos encontrados: ${artigos.length}`);
     console.log(`❓ FAQ encontrados: ${faq.length}`);
+    
+    // Debug: mostrar estrutura dos primeiros velonews
+    if (velonews.length > 0) {
+      console.log('🔍 Estrutura do primeiro velonews:', JSON.stringify(velonews[0], null, 2));
+    }
     
     // Mapear dados para o formato esperado pelo frontend
     const mappedData = {
@@ -51,7 +72,7 @@ app.get('/api/data', async (req, res) => {
         _id: item._id,
         title: item.title || item.velonews_titulo,
         content: item.content || item.velonews_conteudo,
-        is_critical: item.alerta_critico || item.is_critical || 'N',
+        is_critical: item.alerta_critico === 'Y' || item.alerta_critico === true || item.is_critical === 'Y' || item.is_critical === true ? 'Y' : 'N',
         createdAt: item.createdAt,
         updatedAt: item.updatedAt
       })),
@@ -81,6 +102,13 @@ app.get('/api/data', async (req, res) => {
     console.log('✅ Dados mapeados com sucesso!');
     console.log(`📊 Resumo: ${mappedData.velonews.length} velonews, ${mappedData.articles.length} artigos, ${mappedData.faq.length} faq`);
     
+    // Debug: mostrar velonews críticos mapeados
+    const criticalNews = mappedData.velonews.filter(n => n.is_critical === 'Y');
+    console.log(`🚨 Velonews críticos encontrados: ${criticalNews.length}`);
+    if (criticalNews.length > 0) {
+      console.log('🚨 Primeiro velonews crítico:', JSON.stringify(criticalNews[0], null, 2));
+    }
+    
     res.json({
       success: true,
       data: mappedData
@@ -99,17 +127,17 @@ app.get('/api/data', async (req, res) => {
 // Endpoints individuais mantidos para compatibilidade
 app.get('/api/velo-news', async (req, res) => {
   try {
-    await client.connect();
+    await connectToMongo();
     const db = client.db('console_conteudo');
     const collection = db.collection('Velonews');
     
-    const news = await collection.find({}).toArray();
+    const news = await collection.find({}).sort({ createdAt: -1 }).toArray();
     
     const mappedNews = news.map(item => ({
       _id: item._id,
       title: item.title || item.velonews_titulo,
       content: item.content || item.velonews_conteudo,
-      is_critical: item.alerta_critico || item.is_critical || 'N',
+      is_critical: item.alerta_critico === 'Y' || item.alerta_critico === true || item.is_critical === 'Y' || item.is_critical === true ? 'Y' : 'N',
       createdAt: item.createdAt,
       updatedAt: item.updatedAt
     }));
@@ -130,7 +158,7 @@ app.get('/api/velo-news', async (req, res) => {
 
 app.get('/api/articles', async (req, res) => {
   try {
-    await client.connect();
+    await connectToMongo();
     const db = client.db('console_conteudo');
     const collection = db.collection('Artigos');
     
@@ -163,7 +191,7 @@ app.get('/api/articles', async (req, res) => {
 
 app.get('/api/faq', async (req, res) => {
   try {
-    await client.connect();
+    await connectToMongo();
     const db = client.db('console_conteudo');
     const collection = db.collection('Bot_perguntas');
     
