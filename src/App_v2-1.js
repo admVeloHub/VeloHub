@@ -564,12 +564,12 @@ const HomePage = ({ setCriticalNews }) => {
                      </div>
                  </div>
             </aside>
-            <section className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
+            <section className="lg:col-span-2 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
                 <h2 className="text-center font-bold text-3xl mb-6">
                     <span className="text-blue-600">Velo</span>
                     <span className="text-black dark:text-white">News</span>
                 </h2>
-                <div className="space-y-6">
+                <div className="space-y-4">
                     {loading ? (
                         <div className="text-center py-8">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
@@ -577,8 +577,8 @@ const HomePage = ({ setCriticalNews }) => {
                         </div>
                     ) : veloNews.length > 0 ? (
                         veloNews.slice(0, 4).map(news => (
-                            <div key={news._id} className={`border-b dark:border-gray-700 pb-4 last:border-b-0 ${
-                                news.is_critical === 'Y' ? 'critical-news-frame' : ''
+                            <div key={news._id} className={`${
+                                news.is_critical === 'Y' ? 'critical-news-frame' : 'border-b dark:border-gray-700 pb-4 last:border-b-0'
                             }`}>
                                 <div className="flex justify-between items-start mb-2">
                                     <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-200">{news.title}</h3>
