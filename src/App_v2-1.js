@@ -442,26 +442,34 @@ const HomePage = ({ setCriticalNews }) => {
                     console.log('❌ Nenhuma notícia crítica encontrada');
                 }
 
-                // Buscar velonews recentes (todos, críticos e não críticos)
+                // Buscar artigos recentes para o sidebar
                 const fetchRecentItems = async () => {
                     try {
-                        // Usar todos os velonews já carregados (críticos e não críticos)
-                        const recentVeloNews = sortedVeloNews
-                            .filter(news => news.createdAt)
-                            .slice(0, 3);
+                        console.log('📚 Buscando artigos recentes...');
+                        const articlesResponse = await articlesAPI.getAll();
+                        
+                        if (articlesResponse.data && articlesResponse.data.length > 0) {
+                            const recentArticles = articlesResponse.data
+                                .filter(article => article.createdAt)
+                                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                                .slice(0, 3);
 
-                        console.log('🔍 DEBUG - Itens recentes que serão exibidos:', recentVeloNews);
-                        console.log('🔍 DEBUG - Estrutura dos itens recentes:', recentVeloNews.map(item => ({
-                            _id: item._id,
-                            title: item.title,
-                            content: item.content ? item.content.substring(0, 50) + '...' : null,
-                            createdAt: item.createdAt,
-                            is_critical: item.is_critical
-                        })));
+                            console.log('🔍 DEBUG - Artigos recentes que serão exibidos:', recentArticles);
+                            console.log('🔍 DEBUG - Estrutura dos artigos recentes:', recentArticles.map(item => ({
+                                _id: item._id,
+                                title: item.title,
+                                content: item.content ? item.content.substring(0, 50) + '...' : null,
+                                category: item.category,
+                                createdAt: item.createdAt
+                            })));
 
-                        setRecentItems(recentVeloNews);
+                            setRecentItems(recentArticles);
+                        } else {
+                            console.log('❌ Nenhum artigo encontrado');
+                            setRecentItems([]);
+                        }
                     } catch (error) {
-                        console.error('Erro ao buscar itens recentes:', error);
+                        console.error('Erro ao buscar artigos recentes:', error);
                         setRecentItems([]);
                     }
                 };
@@ -521,16 +529,21 @@ const HomePage = ({ setCriticalNews }) => {
                          {recentItems.map(item => (
                              <div key={item._id || item.id} className="border-b dark:border-gray-700 pb-3 last:border-b-0">
                                  <div className="flex items-center gap-2 mb-1">
-                                     <span className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 text-xs px-2 py-1 rounded-full">
-                                         VeloNews
+                                     <span className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs px-2 py-1 rounded-full">
+                                         Artigo
                                      </span>
-                                     <h4 className="font-semibold text-sm text-gray-800 dark:text-gray-200 line-clamp-2">{item.title}</h4>
+                                     {item.category && (
+                                         <span className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 text-xs px-2 py-1 rounded-full">
+                                             {item.category}
+                                         </span>
+                                     )}
                                  </div>
+                                 <h4 className="font-semibold text-sm text-gray-800 dark:text-gray-200 line-clamp-2 mb-1">{item.title}</h4>
                                  <div 
                                      className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 prose prose-xs dark:prose-invert max-w-none"
                                      dangerouslySetInnerHTML={{ __html: item.content || '' }}
                                  />
-                                 <span className="text-xs text-blue-600 dark:text-blue-400">{new Date(item.createdAt).toLocaleDateString('pt-BR')}</span>
+                                 <span className="text-xs text-green-600 dark:text-green-400">{new Date(item.createdAt).toLocaleDateString('pt-BR')}</span>
                             </div>
                         ))}
                     </div>
