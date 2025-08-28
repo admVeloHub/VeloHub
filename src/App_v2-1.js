@@ -9,6 +9,7 @@ const CriticalModalManager = {
   ACKNOWLEDGED_KEY: 'velohub-critical-acknowledged',
   REMIND_LATER_KEY: 'velohub-remind-later',
   SHOW_REMIND_BUTTON_KEY: 'velohub-show-remind-button',
+  LAST_CRITICAL_KEY: 'velohub-last-critical-news',
   
   // Verificar se o usuário já foi ciente de uma notícia específica
   isAcknowledged: (newsTitle = null) => {
@@ -70,7 +71,8 @@ const CriticalModalManager = {
     console.log('📝 Estado antes do reset:', {
       acknowledged: localStorage.getItem(CriticalModalManager.ACKNOWLEDGED_KEY),
       remindLater: localStorage.getItem(CriticalModalManager.REMIND_LATER_KEY),
-      showRemindButton: localStorage.getItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY)
+      showRemindButton: localStorage.getItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY),
+      lastCriticalNews: CriticalModalManager.getLastCriticalNews()
     });
     
     // RESETAR COMPLETAMENTE O ESTADO
@@ -82,7 +84,8 @@ const CriticalModalManager = {
     console.log('📝 Estado após reset:', {
       acknowledged: localStorage.getItem(CriticalModalManager.ACKNOWLEDGED_KEY),
       remindLater: localStorage.getItem(CriticalModalManager.REMIND_LATER_KEY),
-      showRemindButton: localStorage.getItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY)
+      showRemindButton: localStorage.getItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY),
+      lastCriticalNews: CriticalModalManager.getLastCriticalNews()
     });
   },
   
@@ -119,6 +122,28 @@ const CriticalModalManager = {
     localStorage.removeItem(CriticalModalManager.REMIND_LATER_KEY);
     localStorage.setItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY, 'true');
     console.log('✅ Estado limpo manualmente');
+  },
+  
+  // Gerenciar a última notícia crítica vista
+  getLastCriticalNews: () => {
+    return localStorage.getItem(CriticalModalManager.LAST_CRITICAL_KEY);
+  },
+  
+  setLastCriticalNews: (criticalKey) => {
+    localStorage.setItem(CriticalModalManager.LAST_CRITICAL_KEY, criticalKey);
+    console.log('💾 Última notícia crítica salva:', criticalKey);
+  },
+  
+  // Verificar se é uma notícia crítica nova
+  isNewCriticalNews: (criticalKey) => {
+    const lastCritical = CriticalModalManager.getLastCriticalNews();
+    const isNew = lastCritical !== criticalKey;
+    console.log('🔍 Verificando se é notícia nova:', {
+      lastCritical,
+      currentCritical: criticalKey,
+      isNew
+    });
+    return isNew;
   }
 };
 
@@ -128,9 +153,11 @@ window.debugCriticalModal = () => {
   console.log('📝 Estado atual:', {
     acknowledged: localStorage.getItem(CriticalModalManager.ACKNOWLEDGED_KEY),
     remindLater: localStorage.getItem(CriticalModalManager.REMIND_LATER_KEY),
-    showRemindButton: localStorage.getItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY)
+    showRemindButton: localStorage.getItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY),
+    lastCriticalNews: CriticalModalManager.getLastCriticalNews()
   });
   console.log('🧹 Para limpar o estado, execute: CriticalModalManager.debugClearState()');
+  console.log('🔄 Para forçar nova notícia, execute: CriticalModalManager.setLastCriticalNews("")');
 };
 
 // Componente do Cabeçalho
@@ -393,15 +420,16 @@ const HomePage = ({ setCriticalNews }) => {
                     // Criar uma chave única para a notícia crítica (ID + título)
                     const criticalKey = `${critical._id}-${critical.title}`;
                     
-                    // Se é uma nova notícia crítica (chave diferente), resetar o estado
-                    if (criticalKey !== lastCriticalNewsId) {
+                    // Verificar se é uma notícia crítica nova usando localStorage
+                    if (CriticalModalManager.isNewCriticalNews(criticalKey)) {
                         console.log('🔄 Nova notícia crítica detectada! Resetando estado...');
                         console.log('📝 Título anterior:', localStorage.getItem(CriticalModalManager.ACKNOWLEDGED_KEY));
-                        console.log('🔑 Chave anterior:', lastCriticalNewsId);
-                        console.log('🔑 Nova chave:', criticalKey);
                         CriticalModalManager.resetForNewCriticalNews();
+                        CriticalModalManager.setLastCriticalNews(criticalKey);
                         setLastCriticalNewsId(criticalKey);
                         console.log('✅ Estado resetado para nova notícia crítica');
+                    } else {
+                        console.log('📰 Mesma notícia crítica - não resetando estado');
                     }
                     
                     if (CriticalModalManager.shouldShowModal(critical)) {
