@@ -10,14 +10,28 @@ const CriticalModalManager = {
   REMIND_LATER_KEY: 'velohub-remind-later',
   SHOW_REMIND_BUTTON_KEY: 'velohub-show-remind-button',
   
-  // Verificar se o usuário já foi ciente
-  isAcknowledged: () => {
+  // Verificar se o usuário já foi ciente de uma notícia específica
+  isAcknowledged: (newsTitle = null) => {
+    if (newsTitle) {
+      // Se tem título específico, verificar por título
+      const acknowledgedNews = localStorage.getItem(CriticalModalManager.ACKNOWLEDGED_KEY);
+      return acknowledgedNews === newsTitle;
+    }
+    // Fallback para compatibilidade
     return localStorage.getItem(CriticalModalManager.ACKNOWLEDGED_KEY) === 'true';
   },
   
-  // Marcar como ciente
-  setAcknowledged: () => {
-    localStorage.setItem(CriticalModalManager.ACKNOWLEDGED_KEY, 'true');
+  // Marcar como ciente de uma notícia específica
+  setAcknowledged: (newsTitle = null) => {
+    if (newsTitle) {
+      // Salvar o título da notícia como chave de reconhecimento
+      localStorage.setItem(CriticalModalManager.ACKNOWLEDGED_KEY, newsTitle);
+      console.log('✅ Usuário marcou como ciente da notícia:', newsTitle);
+    } else {
+      // Fallback para compatibilidade
+      localStorage.setItem(CriticalModalManager.ACKNOWLEDGED_KEY, 'true');
+      console.log('✅ Usuário marcou como ciente (modo compatibilidade)');
+    }
   },
   
   // Verificar se deve lembrar mais tarde
@@ -53,22 +67,33 @@ const CriticalModalManager = {
   // Resetar o estado para uma nova notícia crítica
   resetForNewCriticalNews: () => {
     localStorage.setItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY, 'true');
+    // RESETAR O STATUS DE "CIENTE" PARA NOVAS NOTÍCIAS CRÍTICAS
+    localStorage.removeItem(CriticalModalManager.ACKNOWLEDGED_KEY);
+    localStorage.removeItem(CriticalModalManager.REMIND_LATER_KEY);
   },
   
   // Verificar se deve mostrar o modal
   shouldShowModal: (criticalNews) => {
     if (!criticalNews) return false;
     
-    // Se já foi ciente, não mostrar
-    if (CriticalModalManager.isAcknowledged()) return false;
+    console.log('🔍 Verificando se deve mostrar modal para:', criticalNews.title);
+    console.log('📝 Status atual de ciente:', CriticalModalManager.isAcknowledged(criticalNews.title));
+    
+    // Se já foi ciente desta notícia específica, não mostrar
+    if (CriticalModalManager.isAcknowledged(criticalNews.title)) {
+      console.log('❌ Modal não será exibido - usuário já foi ciente desta notícia');
+      return false;
+    }
     
     // Se tem lembrete ativo, mostrar
     if (CriticalModalManager.shouldRemindLater()) {
+      console.log('⏰ Modal será exibido devido a lembrete ativo');
       CriticalModalManager.clearRemindLater(); // Limpar após verificar
       return true;
     }
     
     // Se não tem lembrete, mostrar normalmente
+    console.log('✅ Modal será exibido normalmente');
     return true;
   }
 };
@@ -136,7 +161,7 @@ const CriticalNewsModal = ({ news, onClose }) => {
 
   const handleClose = () => {
     if (isAcknowledged) {
-      CriticalModalManager.setAcknowledged();
+      CriticalModalManager.setAcknowledged(news.title);
     }
     onClose();
   };
@@ -335,8 +360,11 @@ const HomePage = ({ setCriticalNews }) => {
                         console.log('🚨 Notícia crítica encontrada:', critical);
                         // Se é uma nova notícia crítica (ID diferente), resetar o estado
                         if (critical._id !== lastCriticalNewsId) {
+                            console.log('🔄 Nova notícia crítica detectada! Resetando estado...');
+                            console.log('📝 Título anterior:', localStorage.getItem(CriticalModalManager.ACKNOWLEDGED_KEY));
                             CriticalModalManager.resetForNewCriticalNews();
                             setLastCriticalNewsId(critical._id);
+                            console.log('✅ Estado resetado para nova notícia crítica');
                         }
                         
                         if (CriticalModalManager.shouldShowModal(critical)) {
