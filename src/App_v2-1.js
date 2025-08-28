@@ -66,10 +66,24 @@ const CriticalModalManager = {
   
   // Resetar o estado para uma nova notícia crítica
   resetForNewCriticalNews: () => {
-    localStorage.setItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY, 'true');
-    // RESETAR O STATUS DE "CIENTE" PARA NOVAS NOTÍCIAS CRÍTICAS
+    console.log('🔄 Resetando estado do modal crítico...');
+    console.log('📝 Estado antes do reset:', {
+      acknowledged: localStorage.getItem(CriticalModalManager.ACKNOWLEDGED_KEY),
+      remindLater: localStorage.getItem(CriticalModalManager.REMIND_LATER_KEY),
+      showRemindButton: localStorage.getItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY)
+    });
+    
+    // RESETAR COMPLETAMENTE O ESTADO
     localStorage.removeItem(CriticalModalManager.ACKNOWLEDGED_KEY);
     localStorage.removeItem(CriticalModalManager.REMIND_LATER_KEY);
+    localStorage.setItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY, 'true');
+    
+    console.log('✅ Estado resetado com sucesso');
+    console.log('📝 Estado após reset:', {
+      acknowledged: localStorage.getItem(CriticalModalManager.ACKNOWLEDGED_KEY),
+      remindLater: localStorage.getItem(CriticalModalManager.REMIND_LATER_KEY),
+      showRemindButton: localStorage.getItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY)
+    });
   },
   
   // Verificar se deve mostrar o modal
@@ -78,6 +92,7 @@ const CriticalModalManager = {
     
     console.log('🔍 Verificando se deve mostrar modal para:', criticalNews.title);
     console.log('📝 Status atual de ciente:', CriticalModalManager.isAcknowledged(criticalNews.title));
+    console.log('🔑 Chave atual no localStorage:', localStorage.getItem(CriticalModalManager.ACKNOWLEDGED_KEY));
     
     // Se já foi ciente desta notícia específica, não mostrar
     if (CriticalModalManager.isAcknowledged(criticalNews.title)) {
@@ -95,10 +110,28 @@ const CriticalModalManager = {
     // Se não tem lembrete, mostrar normalmente
     console.log('✅ Modal será exibido normalmente');
     return true;
+  },
+  
+  // Função de debug para limpar manualmente o estado (útil para testes)
+  debugClearState: () => {
+    console.log('🧹 Limpando estado manualmente para debug...');
+    localStorage.removeItem(CriticalModalManager.ACKNOWLEDGED_KEY);
+    localStorage.removeItem(CriticalModalManager.REMIND_LATER_KEY);
+    localStorage.setItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY, 'true');
+    console.log('✅ Estado limpo manualmente');
   }
 };
 
-
+// Função global para debug (disponível no console do navegador)
+window.debugCriticalModal = () => {
+  console.log('🔧 Debug do Modal Crítico');
+  console.log('📝 Estado atual:', {
+    acknowledged: localStorage.getItem(CriticalModalManager.ACKNOWLEDGED_KEY),
+    remindLater: localStorage.getItem(CriticalModalManager.REMIND_LATER_KEY),
+    showRemindButton: localStorage.getItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY)
+  });
+  console.log('🧹 Para limpar o estado, execute: CriticalModalManager.debugClearState()');
+};
 
 // Componente do Cabeçalho
 const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
@@ -341,44 +374,44 @@ const HomePage = ({ setCriticalNews }) => {
                 
                 setVeloNews(sortedVeloNews);
                 
-
+                // Debug: mostrar todos os velonews
+                console.log('📰 Todos os velonews:', velonewsResponse.data);
+                console.log('📅 Velonews ordenados por data:', sortedVeloNews.map(n => ({ 
+                    title: n.title, 
+                    date: n.createdAt,
+                    is_critical: n.is_critical 
+                })));
+                
+                // Verificar notícias críticas com novo sistema
+                const critical = sortedVeloNews.find(n => n.is_critical === 'Y');
+                console.log('🔍 Procurando por is_critical === "Y"');
+                console.log('🔍 Velonews com is_critical:', velonewsResponse.data.map(n => ({ id: n._id, title: n.title, is_critical: n.is_critical })));
+                
+                if (critical) {
+                    console.log('🚨 Notícia crítica encontrada:', critical);
                     
-                    // Debug: mostrar todos os velonews
-                    console.log('📰 Todos os velonews:', velonewsResponse.data);
-                    console.log('📅 Velonews ordenados por data:', sortedVeloNews.map(n => ({ 
-                        title: n.title, 
-                        date: n.createdAt,
-                        is_critical: n.is_critical 
-                    })));
+                    // Criar uma chave única para a notícia crítica (ID + título)
+                    const criticalKey = `${critical._id}-${critical.title}`;
                     
-                    // Verificar notícias críticas com novo sistema
-                    const critical = sortedVeloNews.find(n => n.is_critical === 'Y');
-                    console.log('🔍 Procurando por is_critical === "Y"');
-                    console.log('🔍 Velonews com is_critical:', velonewsResponse.data.map(n => ({ id: n._id, title: n.title, is_critical: n.is_critical })));
+                    // Se é uma nova notícia crítica (chave diferente), resetar o estado
+                    if (criticalKey !== lastCriticalNewsId) {
+                        console.log('🔄 Nova notícia crítica detectada! Resetando estado...');
+                        console.log('📝 Título anterior:', localStorage.getItem(CriticalModalManager.ACKNOWLEDGED_KEY));
+                        console.log('🔑 Chave anterior:', lastCriticalNewsId);
+                        console.log('🔑 Nova chave:', criticalKey);
+                        CriticalModalManager.resetForNewCriticalNews();
+                        setLastCriticalNewsId(criticalKey);
+                        console.log('✅ Estado resetado para nova notícia crítica');
+                    }
                     
-                    if (critical) {
-                        console.log('🚨 Notícia crítica encontrada:', critical);
-                        // Se é uma nova notícia crítica (ID diferente), resetar o estado
-                        if (critical._id !== lastCriticalNewsId) {
-                            console.log('🔄 Nova notícia crítica detectada! Resetando estado...');
-                            console.log('📝 Título anterior:', localStorage.getItem(CriticalModalManager.ACKNOWLEDGED_KEY));
-                            CriticalModalManager.resetForNewCriticalNews();
-                            setLastCriticalNewsId(critical._id);
-                            console.log('✅ Estado resetado para nova notícia crítica');
-                        }
-                        
-                        if (CriticalModalManager.shouldShowModal(critical)) {
-                            console.log('✅ Modal será exibido para notícia crítica');
-                            setCriticalNews(critical);
-                        } else {
-                            console.log('❌ Modal não será exibido (já foi ciente)');
-                        }
+                    if (CriticalModalManager.shouldShowModal(critical)) {
+                        console.log('✅ Modal será exibido para notícia crítica');
+                        setCriticalNews(critical);
                     } else {
-                        console.log('❌ Nenhuma notícia crítica encontrada');
+                        console.log('❌ Modal não será exibido (já foi ciente)');
                     }
                 } else {
-                    console.warn('⚠️ Dados de velonews não encontrados ou vazios, usando mock...');
-                    throw new Error('Dados vazios da API');
+                    console.log('❌ Nenhuma notícia crítica encontrada');
                 }
 
                 // Buscar velonews recentes (todos, críticos e não críticos)
