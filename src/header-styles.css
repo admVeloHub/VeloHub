@@ -4,19 +4,19 @@
 
 /* Configuração da fonte Poppins */
 * {
-    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    font-family: 'Poppins', 'Anton', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
 }
 
 /* Variáveis CSS necessárias */
 :root {
-    /* Tema Claro (Padrão) */
-    --cor-fundo: #f0f4f8;
-    --cor-container: #ffffff;
-    --cor-card: #ffffff;
-    --cor-texto-principal: #071a2f;
-    --cor-texto-secundario: #5a677e;
-    --cor-accent: #007bff;
+    /* Tema Claro (Padrão) - Usando Paleta Oficial VeloHub */
+    --cor-fundo: var(--white);
+    --cor-container: var(--white);
+    --cor-card: var(--white);
+    --cor-texto-principal: var(--gray);
+    --cor-texto-secundario: var(--blue-dark);
+    --cor-accent: var(--blue-medium);
     --cor-borda: rgba(0, 0, 0, 0.1);
     --cor-sombra: rgba(0, 0, 0, 0.1);
 
@@ -26,7 +26,7 @@
     --cor-card-escuro: #1d3557;
     --cor-texto-principal-escuro: #e6f1ff;
     --cor-texto-secundario-escuro: #a8b2d1;
-    --cor-accent-escuro: #4dabf7;
+    --cor-accent-escuro: var(--blue-light);
     --cor-borda-escuro: rgba(77, 171, 247, 0.2);
     --cor-sombra-escuro: rgba(0, 0, 0, 0.4);
 

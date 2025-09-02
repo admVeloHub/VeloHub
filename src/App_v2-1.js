@@ -236,7 +236,7 @@ const CriticalNewsModal = ({ news, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-8 max-w-2xl w-full mx-4">
+      <div className="rounded-lg shadow-2xl p-8 max-w-2xl w-full mx-4" style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
         <h2 className="text-2xl font-bold text-red-600 mb-4">{news.title}</h2>
                  <div 
              className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
@@ -347,7 +347,7 @@ export default function App_v2() {
   };
 
   return (
-    <div className="min-h-screen bg-blue-500 bg-opacity-15 dark:bg-gray-900 font-sans">
+    <div className="min-h-screen font-sans velohub-bg">
       <Header activePage={activePage} setActivePage={setActivePage} isDarkMode={isDarkMode} toggleDarkMode={() => setIsDarkMode(!isDarkMode)} />
       <main>
         {renderContent()}
@@ -358,6 +358,131 @@ export default function App_v2() {
     </div>
   );
 }
+
+// Componente do Widget de Ponto
+const PontoWidget = () => {
+  const [status, setStatus] = useState('loading');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const handlePonto = async (tipo) => {
+    try {
+      setLoading(true);
+      setMessage('');
+      
+      const response = await fetch(`/api/ponto/${tipo}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setMessage(data.message);
+        // Atualizar status após bater ponto
+        setTimeout(() => fetchStatus(), 1000);
+      } else {
+        setMessage(`Erro: ${data.error}`);
+      }
+    } catch (error) {
+      setMessage('Erro ao conectar com o sistema');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStatus = async () => {
+    try {
+      const response = await fetch('/api/ponto/status');
+      const data = await response.json();
+      
+      if (data.success) {
+        setStatus(data.data.status || 'unknown');
+      } else {
+        setStatus('error');
+      }
+    } catch (error) {
+      setStatus('error');
+    }
+  };
+
+  useEffect(() => {
+    fetchStatus();
+  }, []);
+
+  const getStatusColor = () => {
+    switch (status) {
+      case 'in': return 'bg-green-500';
+      case 'out': return 'bg-gray-400';
+      case 'loading': return 'bg-yellow-500';
+      default: return 'bg-gray-400';
+    }
+  };
+
+  const getStatusText = () => {
+    switch (status) {
+      case 'in': return 'Dentro';
+      case 'out': return 'Fora';
+      case 'loading': return 'Carregando...';
+      default: return 'Indefinido';
+    }
+  };
+
+  return (
+    <div className="bg-white dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+      {/* Status Atual */}
+      <div className="text-center mb-4">
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <span className={`h-3 w-3 ${getStatusColor()} rounded-full`}></span>
+          <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
+            {getStatusText()}
+          </span>
+        </div>
+        <p className="text-xs text-gray-600 dark:text-gray-400">
+          {new Date().toLocaleTimeString('pt-BR')}
+        </p>
+      </div>
+
+      {/* Botões de Ponto */}
+      <div className="space-y-2">
+        <button
+          onClick={() => handlePonto('entrada')}
+          disabled={loading || status === 'in'}
+          className={`w-full py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+            status === 'in' 
+              ? 'bg-green-100 text-green-800 cursor-not-allowed' 
+              : 'bg-blue-600 hover:bg-blue-700 text-white'
+          }`}
+        >
+          {loading ? 'Registrando...' : 'Entrada'}
+        </button>
+        
+        <button
+          onClick={() => handlePonto('saida')}
+          disabled={loading || status === 'out'}
+          className={`w-full py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+            status === 'out' 
+              ? 'bg-gray-100 text-gray-800 cursor-not-allowed' 
+              : 'bg-red-600 hover:bg-red-700 text-white'
+          }`}
+        >
+          {loading ? 'Registrando...' : 'Saída'}
+        </button>
+      </div>
+
+      {/* Mensagem de Status */}
+      {message && (
+        <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+          <p className="text-xs text-blue-800 dark:text-blue-200 text-center">
+            {message}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Conteúdo da Página Home - VERSÃO MELHORADA
 const HomePage = ({ setCriticalNews }) => {
@@ -517,8 +642,8 @@ const HomePage = ({ setCriticalNews }) => {
 
     return (
         <div className="container mx-auto px-2 py-8 grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <aside className="lg:col-span-1 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
-                                 <h3 className="font-bold text-xl mb-4 border-b pb-2 text-gray-800 dark:text-gray-200 dark:border-gray-600 text-center">Adicionado Recentemente</h3>
+            <aside className="lg:col-span-1 p-4 rounded-lg shadow-sm" style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', padding: '24px', margin: '16px'}}>
+                                 <h3 className="font-bold text-xl mb-4 border-b pb-2 text-center" style={{color: 'var(--blue-dark)', borderColor: 'var(--blue-opaque)'}}>Recentes</h3>
                 {loading ? (
                     <div className="text-center py-8">
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
@@ -553,34 +678,203 @@ const HomePage = ({ setCriticalNews }) => {
                     </div>
                 )}
 
-                 {/* Divisor */}
+                                  {/* Divisor */}
                  <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-600">
-                                           <h3 className="font-bold text-lg mb-4 text-gray-800 dark:text-gray-200 text-center">Software de Ponto</h3>
-                     
-                     {/* Quadro da API do Software de Ponto */}
-                     <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-                         <div className="text-center">
-                             <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full mx-auto mb-3 flex items-center justify-center">
-                                 <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                 </svg>
+                     {/* Widget de Ponto */}
+                     <div style={{
+                         background: 'transparent',
+                         border: '1.5px solid var(--blue-dark)',
+                         borderRadius: '8px',
+                         padding: '16px',
+                         margin: '8px',
+                         marginTop: 'auto',
+                         flexGrow: 1,
+                         minHeight: '330px',
+                         display: 'flex',
+                         flexDirection: 'column',
+                         justifyContent: 'space-between',
+                         alignItems: 'center',
+                         gap: '16px'
+                     }}>
+                         {/* Título Ponto */}
+                         <h3 className="font-bold text-lg text-center" style={{color: 'var(--blue-dark)'}}>Ponto</h3>
+                         
+                         {/* Marcador de Status do Agente */}
+                         <img 
+                             src="/simbolo_velotax_ajustada_cor (1).png" 
+                             alt="Status VeloTax" 
+                             style={{
+                                 width: '60px',
+                                 height: 'auto',
+                                 opacity: '0.3',
+                                 filter: 'grayscale(100%)',
+                                 transition: 'all 0.3s ease'
+                             }}
+                             className="agent-status-indicator offline"
+                         />
+                         
+                         {/* Relógio */}
+                         <div style={{
+                             display: 'flex',
+                             flexDirection: 'column',
+                             alignItems: 'center',
+                             gap: '2px',
+                             marginTop: '32px'
+                         }}>
+                             <div style={{
+                                 fontSize: '24px',
+                                 fontWeight: 'bold',
+                                 color: 'var(--blue-dark)',
+                                 fontFamily: 'monospace'
+                             }}>
+                                 {new Date().toLocaleTimeString('pt-BR', {
+                                     hour: '2-digit',
+                                     minute: '2-digit',
+                                     second: '2-digit'
+                                 })}
                              </div>
-                             <h4 className="font-semibold text-sm text-gray-800 dark:text-gray-200 mb-2">Status do Sistema</h4>
-                             <div className="flex items-center justify-center gap-2 mb-3">
-                                 <span className="h-2 w-2 bg-green-500 rounded-full"></span>
-                                 <span className="text-xs text-green-600 dark:text-green-400 font-medium">Online</span>
+                             <div style={{
+                                 fontSize: '14px',
+                                 color: 'var(--blue-opaque)',
+                                 fontWeight: '500',
+                                 whiteSpace: 'nowrap'
+                             }}>
+                                 {new Date().toLocaleDateString('pt-BR', {
+                                     weekday: 'short',
+                                     day: '2-digit',
+                                     month: 'short',
+                                     year: 'numeric'
+                                 })}
                              </div>
-                             <p className="text-xs text-gray-600 dark:text-gray-400">
-                                 API do software de ponto dos agentes
-                             </p>
+                         </div>
+                         
+                         {/* Botões de Ponto */}
+                         <div style={{
+                             display: 'flex',
+                             gap: '20px',
+                             alignItems: 'center',
+                             marginTop: 'auto'
+                         }}>
+                             {/* Botão de Entrada */}
+                             <div style={{
+                                 position: 'relative',
+                                 width: '64px',
+                                 height: '64px',
+                                 display: 'flex',
+                                 alignItems: 'center',
+                                 justifyContent: 'center'
+                             }}>
+                                 {/* Círculo externo vazio */}
+                                 <div style={{
+                                     position: 'absolute',
+                                     width: '67px',
+                                     height: '67px',
+                                     borderRadius: '50%',
+                                     border: '2px solid var(--blue-opaque)',
+                                     top: '50%',
+                                     left: '50%',
+                                     transform: 'translate(-50%, -50%)'
+                                 }}></div>
+                                 {/* Círculo interno sólido */}
+                                 <div 
+                                     style={{
+                                         position: 'absolute',
+                                         width: '60px',
+                                         height: '60px',
+                                         borderRadius: '50%',
+                                         backgroundColor: 'var(--blue-opaque)',
+                                         top: '50%',
+                                         left: '50%',
+                                         transform: 'translate(-50%, -50%)',
+                                         display: 'flex',
+                                         alignItems: 'center',
+                                         justifyContent: 'center',
+                                         color: 'white',
+                                         fontSize: '12px',
+                                         fontWeight: 'bold',
+                                         cursor: 'pointer'
+                                     }}
+                                     onClick={() => {
+                                         const indicator = document.querySelector('.agent-status-indicator');
+                                         indicator.classList.remove('offline');
+                                         indicator.classList.add('online');
+                                     }}
+                                 >
+                                     Entrada
+                                 </div>
+                             </div>
+                             
+                             {/* Botão de Saída */}
+                             <div style={{
+                                 position: 'relative',
+                                 width: '64px',
+                                 height: '64px',
+                                 display: 'flex',
+                                 alignItems: 'center',
+                                 justifyContent: 'center'
+                             }}>
+                                 {/* Círculo externo vazio */}
+                                 <div style={{
+                                     position: 'absolute',
+                                     width: '67px',
+                                     height: '67px',
+                                     borderRadius: '50%',
+                                     border: '2px solid var(--yellow)',
+                                     top: '50%',
+                                     left: '50%',
+                                     transform: 'translate(-50%, -50%)'
+                                 }}></div>
+                                 {/* Círculo interno sólido */}
+                                 <div 
+                                     style={{
+                                         position: 'absolute',
+                                         width: '60px',
+                                         height: '60px',
+                                         borderRadius: '50%',
+                                         backgroundColor: 'var(--yellow)',
+                                         top: '50%',
+                                         left: '50%',
+                                         transform: 'translate(-50%, -50%)',
+                                         display: 'flex',
+                                         alignItems: 'center',
+                                         justifyContent: 'center',
+                                         color: 'var(--blue-dark)',
+                                         fontSize: '12px',
+                                         fontWeight: 'bold',
+                                         cursor: 'pointer'
+                                     }}
+                                     onClick={() => {
+                                         const indicator = document.querySelector('.agent-status-indicator');
+                                         indicator.classList.remove('online');
+                                         indicator.classList.add('offline');
+                                     }}
+                                 >
+                                     Saída
+                                 </div>
+                             </div>
                          </div>
                      </div>
                  </div>
+                 
+                 {/* CSS para estados do agente */}
+                 <style jsx>{`
+                     .agent-status-indicator.online {
+                         opacity: 1 !important;
+                         filter: none !important;
+                         filter: drop-shadow(0 0 40px var(--green)) !important;
+                     }
+                     
+                     .agent-status-indicator.offline {
+                         opacity: 0.3 !important;
+                         filter: grayscale(100%) !important;
+                         filter: grayscale(100%) !important;
+                     }
+                 `}</style>
             </aside>
-            <section className="lg:col-span-2 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
+            <section className="lg:col-span-2 p-4 rounded-lg shadow-sm" style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', padding: '24px', margin: '16px'}}>
                 <h2 className="text-center font-bold text-3xl mb-6">
-                    <span className="text-blue-600">Velo</span>
-                    <span className="text-black dark:text-white">News</span>
+                    <span style={{color: 'var(--blue-medium)'}}>velo</span>
+                    <span style={{color: 'var(--blue-dark)'}}>news</span>
                 </h2>
                 <div className="space-y-4">
                     {loading ? (
@@ -624,8 +918,8 @@ const HomePage = ({ setCriticalNews }) => {
                     )}
                 </div>
             </section>
-                                                   <aside className="lg:col-span-1 bg-white dark:bg-gray-800 rounded-lg shadow-sm flex flex-col min-h-[calc(100vh-200px)]">
-                                    <h3 className="font-bold text-xl p-4 border-b border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-200 text-center">VeloChat</h3>
+                                                   <aside className="lg:col-span-1 rounded-lg shadow-sm flex flex-col min-h-[calc(100vh-200px)]" style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', padding: '24px', margin: '16px'}}>
+                                    <h3 className="font-bold text-xl border-b text-center" style={{color: 'var(--blue-dark)', borderColor: 'var(--blue-opaque)'}}>Chat</h3>
                   
                                      {/* Status do Agente */}
                    <div className="p-4 border-b border-gray-200 dark:border-gray-600">
@@ -667,7 +961,7 @@ const HomePage = ({ setCriticalNews }) => {
                                
                                {/* Dropdown de Status */}
                                {showStatusDropdown && (
-                                   <div className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10 min-w-[120px]">
+                                   <div className="absolute right-0 top-full mt-1 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10 min-w-[120px]" style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
                                        <div className="py-1">
                                            <button 
                                                onClick={() => {
@@ -770,7 +1064,7 @@ const HomePage = ({ setCriticalNews }) => {
               </aside>
             {selectedNews && (
                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedNews(null)}>
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-8 max-w-2xl w-full mx-4" onClick={e => e.stopPropagation()}>
+                    <div className="rounded-lg shadow-2xl p-8 max-w-2xl w-full mx-4" onClick={e => e.stopPropagation()} style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
                         <div className="flex justify-between items-center mb-4">
                            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">{selectedNews.title}</h2>
                            <button onClick={() => setSelectedNews(null)} className="text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white text-3xl">&times;</button>
@@ -786,7 +1080,7 @@ const HomePage = ({ setCriticalNews }) => {
                          {/* Modal do Google Chat PWA */}
              {showGoogleChat && (
                  <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-                     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col">
+                     <div className="rounded-lg shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col" style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
                                                    {/* Header do Modal */}
                           <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
                               <div className="flex items-center gap-3">
@@ -864,7 +1158,7 @@ const HomePage = ({ setCriticalNews }) => {
                               </div>
                               
                               {/* Área de Input */}
-                              <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                              <div className="p-4 border-t border-gray-200 dark:border-gray-700" style={{backgroundColor: '#ffffff'}}>
                                   <div className="flex items-center gap-3">
                                       <input
                                           type="text"
@@ -895,10 +1189,45 @@ const ApoioPage = () => {
     ];
     return (
         <div className="container mx-auto px-6 py-12">
-            <h1 className="text-center text-4xl font-bold text-gray-800 dark:text-white mb-12">Precisa de Apoio?</h1>
+            <h1 className="text-center text-4xl font-bold mb-12" style={{color: 'var(--blue-dark)'}}>Precisa de Apoio?</h1>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {supportItems.map(item => (
-                    <button key={item.name} className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transform transition-all duration-300 flex flex-col items-center justify-center">
+                    <button key={item.name} className="p-8 rounded-lg flex flex-col items-center justify-center" style={{
+                        backgroundColor: '#ffffff', 
+                        borderRadius: '16px',
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                        transition: 'box-shadow 0.3s ease, border 0.3s ease',
+                        cursor: 'pointer',
+                        position: 'relative',
+                        overflow: 'hidden',
+                        width: '100%',
+                        height: 'auto'
+                    }}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.boxShadow = '0 20px 40px rgba(0, 0, 0, 0.15)';
+                        e.currentTarget.style.outline = '2px solid var(--blue-medium)';
+                        e.currentTarget.style.outlineOffset = '-2px';
+                        // Barra superior animada
+                        e.currentTarget.style.setProperty('--bar-width', '100%');
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.1)';
+                        e.currentTarget.style.outline = 'none';
+                        // Barra superior desaparece
+                        e.currentTarget.style.setProperty('--bar-width', '0%');
+                    }}>
+                        {/* Barra Superior Animada */}
+                        <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: '4px',
+                            background: 'linear-gradient(90deg, var(--blue-medium), var(--blue-light), var(--blue-medium))',
+                            transform: 'scaleX(var(--bar-width, 0%))',
+                            transition: 'transform 0.3s ease',
+                            zIndex: 1
+                        }}></div>
                         <div className="text-blue-500 dark:text-blue-400 mb-4">{item.icon}</div>
                         <span className="text-2xl font-semibold text-gray-700 dark:text-gray-200">{item.name}</span>
                     </button>
@@ -979,12 +1308,12 @@ const ArtigosPage = () => {
 
     return (
         <div className="container mx-auto px-6 py-8">
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-8">Artigos</h1>
+            <h1 className="text-3xl font-bold mb-8" style={{color: 'var(--blue-dark)'}}>Artigos</h1>
             
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                 {/* Sidebar de Categorias */}
-                <aside className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm h-fit">
-                                         <h3 className="font-bold text-xl mb-4 border-b pb-2 text-gray-800 dark:text-gray-200 dark:border-gray-600 text-center">
+                <aside className="lg:col-span-1 p-6 rounded-lg shadow-sm h-fit" style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', padding: '24px', margin: '16px'}}>
+                                         <h3 className="font-bold text-xl mb-4 border-b pb-2 text-center" style={{color: 'var(--blue-dark)', borderColor: 'var(--blue-opaque)'}}>
                         Categorias
                     </h3>
                     
@@ -1036,9 +1365,45 @@ const ArtigosPage = () => {
                                     {filteredArticles.map(article => (
                                          <div 
                                              key={article._id || article.id} 
-                                             className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer"
+                                             className="rounded-lg shadow-md p-6 cursor-pointer"
+                                             style={{
+                                                 backgroundColor: '#ffffff', 
+                                                 borderRadius: '16px',
+                                                 boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                                                 transition: 'box-shadow 0.3s ease, border 0.3s ease',
+                                                 cursor: 'pointer',
+                                                 position: 'relative',
+                                                 overflow: 'hidden',
+                                                 width: '100%',
+                                                 height: 'auto'
+                                             }}
+                                             onMouseEnter={(e) => {
+                                                 e.currentTarget.style.boxShadow = '0 20px 40px rgba(0, 0, 0, 0.15)';
+                                                 e.currentTarget.style.outline = '2px solid var(--blue-medium)';
+                                                 e.currentTarget.style.outlineOffset = '-2px';
+                                                 // Barra superior animada
+                                                 e.currentTarget.style.setProperty('--bar-width', '100%');
+                                             }}
+                                             onMouseLeave={(e) => {
+                                                 e.currentTarget.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.1)';
+                                                 e.currentTarget.style.outline = 'none';
+                                                 // Barra superior desaparece
+                                                 e.currentTarget.style.setProperty('--bar-width', '0%');
+                                             }}
                                              onClick={() => handleArticleClick(article)}
                                          >
+                                             {/* Barra Superior Animada */}
+                                             <div style={{
+                                                 position: 'absolute',
+                                                 top: 0,
+                                                 left: 0,
+                                                 right: 0,
+                                                 height: '4px',
+                                                 background: 'linear-gradient(90deg, var(--blue-medium), var(--blue-light), var(--blue-medium))',
+                                                 transform: 'scaleX(var(--bar-width, 0%))',
+                                                 transition: 'transform 0.3s ease',
+                                                 zIndex: 1
+                                             }}></div>
                                             <div className="mb-3 flex justify-between items-start">
                                                 <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full text-xs font-medium">
                                                     {article.category}
@@ -1088,7 +1453,7 @@ const ArtigosPage = () => {
             {/* Modal do Artigo */}
             {selectedArticle && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+                    <div className="rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden" style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
                         <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
                             <div>
                                 <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full text-sm font-medium">
@@ -1182,8 +1547,8 @@ const ProcessosPage = () => {
                 <div className="lg:col-span-3">
                     <Chatbot prompt={promptFromFaq} />
                 </div>
-                <aside className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm h-fit">
-                                         <h3 className="font-bold text-xl mb-4 border-b pb-2 text-gray-800 dark:text-gray-200 dark:border-gray-600 text-center">Perguntas Frequentes</h3>
+                                <aside className="lg:col-span-1 p-6 rounded-lg shadow-sm h-fit" style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', padding: '24px', margin: '16px'}}>
+                    <h3 className="font-bold text-xl mb-4 border-b pb-2 text-center" style={{color: 'var(--blue-dark)', borderColor: 'var(--blue-opaque)'}}>Perguntas Frequentes</h3>
                     
                     {loading && (
                         <div className="text-center py-4">
@@ -1225,7 +1590,7 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit, comment, setComment }) => {
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+            <div className="rounded-lg shadow-xl p-6 w-full max-w-md mx-4" style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
                 <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Melhorar esta Resposta</h2>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Obrigado pelo seu feedback! Por favor, nos diga o que estava errado ou faltando na resposta.</p>
                 <form onSubmit={handleSubmit} className="mt-4">
@@ -1360,11 +1725,11 @@ const Chatbot = ({ prompt }) => {
 
     return (
         <>
-            <div className="flex flex-col h-[80vh] bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col h-[80vh] rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700" style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
                 <div className="flex-shrink-0 flex items-center gap-4 p-4 border-b border-gray-200 dark:border-gray-700">
                     <img src="https://github.com/VeloProcess/PDP-Portal-de-Processos-/blob/main/unnamed%20(2).png?raw=true" alt="Logo" className="w-10 h-10 rounded-full" />
                     <div>
-                        <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Veloprocess</h2>
+                        <h2 className="text-lg font-semibold" style={{color: 'var(--blue-dark)'}}>Veloprocess</h2>
                         <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                             <span className="flex items-center gap-1"><span className="h-2 w-2 bg-green-500 rounded-full"></span>Online</span>
                             <span>v.4.0.1</span>
