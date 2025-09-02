@@ -2,9 +2,59 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================= */
+/* == PALETA OFICIAL DE CORES VELOHUB == */
+/* ============================================= */
+:root {
+  /* CORES PRINCIPAIS */
+  --white: #F3F7FC;        /* Tom de branco */
+  --gray: #272A30;         /* Cinza */
+  --blue-dark: #000058;    /* Azul Escuro */
+  --blue-medium: #1634FF;  /* Azul Médio */
+  --blue-light: #1694FF;   /* Azul Claro */
+  
+  /* CORES SECUNDÁRIAS */
+  --blue-opaque: #006AB9;  /* Azul Opaco */
+  --yellow: #FCC200;       /* Amarelo */
+  --green: #15A237;        /* Verde */
+  
+  /* CORES DE FUNDO E CONTAINERS */
+  --cor-fundo: #f0f4f8;        /* Fundo principal da aplicação */
+  --cor-container: #ffffff;     /* Container principal */
+  --cor-card: #ffffff;         /* Fundo dos cards */
+}
+
+/* ============================================= */
+/* == CLASSES CSS PERSONALIZADAS VELOHUB == */
+/* ============================================= */
+
+/* Fundo principal do site */
+.velohub-bg {
+  background-color: var(--cor-fundo);
+}
+
+/* Container principal */
+.velohub-container {
+  background-color: var(--cor-container);
+}
+
+/* Card padrão */
+.velohub-card {
+  background-color: var(--cor-card);
+}
+
+/* Tema escuro */
+.dark .velohub-container {
+  background-color: #112240;
+}
+
+.dark .velohub-card {
+  background-color: #1d3557;
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+  font-family: 'Poppins', 'Anton', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;

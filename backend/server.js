@@ -269,6 +269,91 @@ app.get('/api/faq', async (req, res) => {
   }
 });
 
+// Sistema de Ponto - Endpoints seguros (não interferem nas APIs existentes)
+app.post('/api/ponto/entrada', async (req, res) => {
+  try {
+    // Validar se usuário está autenticado (implementar conforme sua lógica)
+    // const user = req.user; // Sua validação de usuário
+    
+    // Chamar API do Ponto Mais
+    const response = await fetch('https://api.pontomais.com.br/time_clock', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.PONTO_MAIS_API_KEY}`,
+      },
+      body: JSON.stringify({
+        type: 'in',
+        timestamp: new Date().toISOString(),
+        company_id: process.env.PONTO_MAIS_COMPANY_ID
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao registrar entrada no Ponto Mais');
+    }
+
+    res.json({ success: true, message: 'Entrada registrada com sucesso!' });
+  } catch (error) {
+    console.error('Erro ao registrar entrada:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/ponto/saida', async (req, res) => {
+  try {
+    // Validar se usuário está autenticado (implementar conforme sua lógica)
+    // const user = req.user; // Sua validação de usuário
+    
+    // Chamar API do Ponto Mais
+    const response = await fetch('https://api.pontomais.com.br/time_clock', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.PONTO_MAIS_API_KEY}`,
+      },
+      body: JSON.stringify({
+        type: 'out',
+        timestamp: new Date().toISOString(),
+        company_id: process.env.PONTO_MAIS_COMPANY_ID
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao registrar saída no Ponto Mais');
+    }
+
+    res.json({ success: true, message: 'Saída registrada com sucesso!' });
+  } catch (error) {
+    console.error('Erro ao registrar saída:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/ponto/status', async (req, res) => {
+  try {
+    // Validar se usuário está autenticado (implementar conforme sua lógica)
+    // const user = req.user; // Sua validação de usuário
+    
+    // Chamar API do Ponto Mais para status
+    const response = await fetch('https://api.pontomais.com.br/time_clock/current', {
+      headers: {
+        'Authorization': `Bearer ${process.env.PONTO_MAIS_API_KEY}`,
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao buscar status no Ponto Mais');
+    }
+
+    const data = await response.json();
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Erro ao buscar status:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor backend rodando na porta ${PORT}`);
   console.log(`🌐 Acessível em: http://localhost:${PORT}`);
