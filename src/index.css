@@ -20,8 +20,8 @@
   
   /* CORES DE FUNDO E CONTAINERS */
   --cor-fundo: #f0f4f8;        /* Fundo principal da aplicação */
-  --cor-container: #ffffff;     /* Container principal */
-  --cor-card: #ffffff;         /* Fundo dos cards */
+  --cor-container: #f2f6fa;     /* Container principal - Cinza 2% mais claro que o fundo */
+  --cor-card: #f2f6fa;         /* Fundo dos cards - Cinza 2% mais claro que o fundo */
 }
 
 /* ============================================= */
@@ -45,11 +45,11 @@
 
 /* Tema escuro */
 .dark .velohub-container {
-  background-color: #112240;
+  background-color: #323a42;
 }
 
 .dark .velohub-card {
-  background-color: #1d3557;
+  background-color: #323a42;
 }
 
 body {

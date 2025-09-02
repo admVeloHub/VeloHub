@@ -21,8 +21,8 @@
 ### **CORES DE FUNDO E CONTAINERS (VeloAcademy)**
 ```css
 --cor-fundo: #f0f4f8        /* Fundo principal da aplicação */
---cor-container: #ffffff     /* Container principal */
---cor-card: #ffffff         /* Fundo dos cards */
+--cor-container: #f2f6fa     /* Container principal - Cinza 2% mais claro que o fundo */
+--cor-card: #f2f6fa         /* Fundo dos cards - Cinza 2% mais claro que o fundo */
 ```
 
 ---
@@ -97,6 +97,189 @@ font-size: 0.875rem; /* 14px */
 --bg-secondary: var(--gray);     /* Fundo secundário */
 --bg-accent: var(--blue-light);  /* Fundo de destaque */
 ```
+
+## 🌙 **TEMA ESCURO (NOTURNO) - IMPLEMENTADO E FUNCIONANDO**
+
+### **Cores do Tema Escuro (IMPLEMENTADAS)**
+```css
+/* Fundo principal */
+--cor-fundo-escuro: var(--gray);        /* #272A30 - Cinza escuro */
+
+/* Containers principais */
+--cor-container-escuro: rgb(50, 58, 66);        /* #323a42 - Cinza 2% mais claro que o fundo claro */
+--cor-card-escuro: #323a42;                     /* #323a42 - Cinza 2% mais claro que o fundo claro */
+
+/* Especificação */
+/* A cor #323a42 (rgb(50, 58, 66)) é 2% mais clara que o fundo claro (#f0f4f8) */
+/* Mantém contraste adequado entre fundo e containers no tema escuro */
+```
+
+### **🎯 IMPLEMENTAÇÃO DO SISTEMA DE TEMA ESCURO**
+
+#### **1. Variáveis CSS no :root**
+```css
+:root {
+  /* CORES PRINCIPAIS */
+  --white: #F3F7FC;        /* Tom de branco */
+  --gray: #272A30;         /* Cinza */
+  
+  /* CORES DE FUNDO E CONTAINERS */
+  --cor-fundo: #f0f4f8;        /* Fundo principal da aplicação */
+  --cor-container: #f2f6fa;     /* Container principal - Cinza 2% mais claro que o fundo */
+  --cor-card: #f2f6fa;         /* Fundo dos cards - Cinza 2% mais claro que o fundo */
+}
+```
+
+#### **2. Classes CSS para Containers**
+```css
+/* Container principal */
+.velohub-container {
+  background-color: var(--cor-container);
+}
+
+/* Card padrão */
+.velohub-card {
+  background-color: var(--cor-card);
+}
+
+/* Modal e popups */
+.velohub-modal {
+  background-color: var(--white);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+```
+
+#### **3. Regras para Tema Escuro**
+```css
+/* Tema escuro - APLICADO AUTOMATICAMENTE */
+.dark .velohub-container {
+  background-color: #323a42;  /* rgb(50, 58, 66) */
+}
+
+.dark .velohub-card {
+  background-color: #323a42;  /* rgb(50, 58, 66) */
+}
+
+.dark .velohub-modal {
+  background-color: #323a42;  /* rgb(50, 58, 66) */
+}
+```
+
+#### **4. Sistema de Toggle de Tema (JavaScript)**
+```javascript
+// Função para alternar tema
+const toggleDarkMode = () => {
+  const isDark = !isDarkMode;
+  setIsDarkMode(isDark);
+  
+  if (isDark) {
+    document.documentElement.classList.add('dark');
+    localStorage.setItem('velohub-theme', 'dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+    localStorage.setItem('velohub-theme', 'light');
+  }
+};
+
+// Aplicar tema salvo ao carregar
+useEffect(() => {
+  const savedTheme = localStorage.getItem('velohub-theme') || 'light';
+  const isDark = savedTheme === 'dark';
+  
+  if (isDark) {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+}, []);
+```
+
+#### **5. Layout do Header - Especificações Especiais**
+```css
+/* Header - Tema Claro */
+.velohub-header {
+  background-color: var(--cor-container);  /* #f2f6fa - Cinza claro */
+  border-bottom: 1px solid var(--cor-borda);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Header - Tema Escuro */
+[data-theme="dark"] .velohub-header {
+  background-color: var(--blue-opaque);    /* #006AB9 - Azul opaco específico */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 20px rgba(0, 102, 171, 0.3);
+}
+
+/* Container das Abas de Navegação */
+.nav-menu {
+  background-color: var(--cor-container);  /* Usa cor padrão dos containers */
+  border-radius: 8px;
+  padding: 8px 16px;
+}
+
+/* IMPORTANTE: Header mantém azul opaco no tema escuro */
+/* Containers das abas usam cinza escuro (#323a42) */
+/* Esta diferenciação cria hierarquia visual */
+```
+
+### **📋 COMO APLICAR EM OUTROS PROJETOS**
+
+#### **Passo 1: Adicionar Variáveis CSS**
+```css
+:root {
+  --white: #F3F7FC;
+  --gray: #272A30;
+  --cor-container: #f2f6fa;
+  --cor-card: #f2f6fa;
+}
+```
+
+#### **Passo 2: Criar Classes CSS**
+```css
+.velohub-container {
+  background-color: var(--cor-container);
+}
+
+.velohub-card {
+  background-color: var(--cor-card);
+}
+```
+
+#### **Passo 3: Adicionar Regras do Tema Escuro**
+```css
+.dark .velohub-container {
+  background-color: #323a42;
+}
+
+.dark .velohub-card {
+  background-color: #323a42;
+}
+```
+
+#### **Passo 4: Aplicar Classes nos Containers**
+```jsx
+// ❌ NÃO FAZER (estilo inline hardcoded)
+<div style={{backgroundColor: '#ffffff'}}>
+
+// ✅ FAZER (usar classes CSS)
+<div className="velohub-container">
+<div className="velohub-card">
+```
+
+#### **Passo 5: Implementar Toggle de Tema**
+```javascript
+// Adicionar classe 'dark' no elemento raiz
+document.documentElement.classList.add('dark');    // Ativa tema escuro
+document.documentElement.classList.remove('dark'); // Ativa tema claro
+```
+
+### **🎨 RESULTADO FINAL**
+- **Modo Claro:** Containers usam `#f2f6fa` (cinza claro)
+- **Modo Escuro:** Containers automaticamente mudam para `#323a42` (rgb(50, 58, 66))
+- **Transição:** Automática e suave via CSS
+- **Persistência:** Salva preferência no localStorage
+- **Compatibilidade:** Funciona com Tailwind CSS e CSS puro
 
 ### **Textos**
 ```css

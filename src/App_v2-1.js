@@ -236,7 +236,7 @@ const CriticalNewsModal = ({ news, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-      <div className="rounded-lg shadow-2xl p-8 max-w-2xl w-full mx-4" style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
+              <div className="rounded-lg shadow-2xl p-8 max-w-2xl w-full mx-4 velohub-modal" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
         <h2 className="text-2xl font-bold text-red-600 mb-4">{news.title}</h2>
                  <div 
              className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
@@ -642,7 +642,7 @@ const HomePage = ({ setCriticalNews }) => {
 
     return (
         <div className="container mx-auto px-2 py-8 grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <aside className="lg:col-span-1 p-4 rounded-lg shadow-sm" style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', padding: '24px', margin: '16px'}}>
+            <aside className="lg:col-span-1 p-4 rounded-lg shadow-sm velohub-container" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', padding: '24px', margin: '16px'}}>
                                  <h3 className="font-bold text-xl mb-4 border-b pb-2 text-center" style={{color: 'var(--blue-dark)', borderColor: 'var(--blue-opaque)'}}>Recentes</h3>
                 {loading ? (
                     <div className="text-center py-8">
@@ -706,8 +706,8 @@ const HomePage = ({ setCriticalNews }) => {
                              style={{
                                  width: '60px',
                                  height: 'auto',
-                                 opacity: '0.3',
-                                 filter: 'grayscale(100%)',
+                                 opacity: '0.9',
+                                 filter: 'brightness(0) invert(1)',
                                  transition: 'all 0.3s ease'
                              }}
                              className="agent-status-indicator offline"
@@ -866,12 +866,11 @@ const HomePage = ({ setCriticalNews }) => {
                      
                      .agent-status-indicator.offline {
                          opacity: 0.3 !important;
-                         filter: grayscale(100%) !important;
-                         filter: grayscale(100%) !important;
+                         filter: grayscale(100%) drop-shadow(0 0 40px var(--yellow)) !important;
                      }
                  `}</style>
             </aside>
-            <section className="lg:col-span-2 p-4 rounded-lg shadow-sm" style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', padding: '24px', margin: '16px'}}>
+                            <section className="lg:col-span-2 p-4 rounded-lg shadow-sm velohub-container" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', padding: '24px', margin: '16px'}}>
                 <h2 className="text-center font-bold text-3xl mb-6">
                     <span style={{color: 'var(--blue-medium)'}}>velo</span>
                     <span style={{color: 'var(--blue-dark)'}}>news</span>
@@ -918,7 +917,7 @@ const HomePage = ({ setCriticalNews }) => {
                     )}
                 </div>
             </section>
-                                                   <aside className="lg:col-span-1 rounded-lg shadow-sm flex flex-col min-h-[calc(100vh-200px)]" style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', padding: '24px', margin: '16px'}}>
+                                                   <aside className="lg:col-span-1 rounded-lg shadow-sm flex flex-col min-h-[calc(100vh-200px)] velohub-container" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', padding: '24px', margin: '16px'}}>
                                     <h3 className="font-bold text-xl border-b text-center" style={{color: 'var(--blue-dark)', borderColor: 'var(--blue-opaque)'}}>Chat</h3>
                   
                                      {/* Status do Agente */}
@@ -943,7 +942,7 @@ const HomePage = ({ setCriticalNews }) => {
                                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
                                            : agentStatus === 'away'
                                            ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                                           : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                                           : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
                                    }`}
                                >
                                    <span className={`w-2 h-2 rounded-full ${
@@ -951,7 +950,7 @@ const HomePage = ({ setCriticalNews }) => {
                                            ? 'bg-green-500' 
                                            : agentStatus === 'away'
                                            ? 'bg-yellow-500'
-                                           : 'bg-blue-500'
+                                           : 'bg-yellow-500'
                                    }`}></span>
                                    {agentStatus === 'online' ? 'Online' : agentStatus === 'away' ? 'Ausente' : 'Reunião'}
                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -961,7 +960,7 @@ const HomePage = ({ setCriticalNews }) => {
                                
                                {/* Dropdown de Status */}
                                {showStatusDropdown && (
-                                   <div className="absolute right-0 top-full mt-1 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10 min-w-[120px]" style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
+                                   <div className="absolute right-0 top-full mt-1 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10 min-w-[120px] velohub-modal" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
                                        <div className="py-1">
                                            <button 
                                                onClick={() => {
@@ -1064,7 +1063,7 @@ const HomePage = ({ setCriticalNews }) => {
               </aside>
             {selectedNews && (
                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedNews(null)}>
-                    <div className="rounded-lg shadow-2xl p-8 max-w-2xl w-full mx-4" onClick={e => e.stopPropagation()} style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
+                                         <div className="rounded-lg shadow-2xl p-8 max-w-2xl w-full mx-4 velohub-modal" onClick={e => e.stopPropagation()} style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
                         <div className="flex justify-between items-center mb-4">
                            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">{selectedNews.title}</h2>
                            <button onClick={() => setSelectedNews(null)} className="text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white text-3xl">&times;</button>
@@ -1080,7 +1079,7 @@ const HomePage = ({ setCriticalNews }) => {
                          {/* Modal do Google Chat PWA */}
              {showGoogleChat && (
                  <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-                     <div className="rounded-lg shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col" style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
+                                           <div className="rounded-lg shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col velohub-modal" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
                                                    {/* Header do Modal */}
                           <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
                               <div className="flex items-center gap-3">
@@ -1158,7 +1157,7 @@ const HomePage = ({ setCriticalNews }) => {
                               </div>
                               
                               {/* Área de Input */}
-                              <div className="p-4 border-t border-gray-200 dark:border-gray-700" style={{backgroundColor: '#ffffff'}}>
+                              <div className="p-4 border-t border-gray-200 dark:border-gray-700 velohub-container">
                                   <div className="flex items-center gap-3">
                                       <input
                                           type="text"
@@ -1192,8 +1191,7 @@ const ApoioPage = () => {
             <h1 className="text-center text-4xl font-bold mb-12" style={{color: 'var(--blue-dark)'}}>Precisa de Apoio?</h1>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {supportItems.map(item => (
-                    <button key={item.name} className="p-8 rounded-lg flex flex-col items-center justify-center" style={{
-                        backgroundColor: '#ffffff', 
+                    <button key={item.name} className="p-8 rounded-lg flex flex-col items-center justify-center velohub-card" style={{
                         borderRadius: '16px',
                         boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
                         transition: 'box-shadow 0.3s ease, border 0.3s ease',
@@ -1312,7 +1310,7 @@ const ArtigosPage = () => {
             
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                 {/* Sidebar de Categorias */}
-                <aside className="lg:col-span-1 p-6 rounded-lg shadow-sm h-fit" style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', padding: '24px', margin: '16px'}}>
+                <aside className="lg:col-span-1 p-6 rounded-lg shadow-sm h-fit velohub-container" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', padding: '24px', margin: '16px'}}>
                                          <h3 className="font-bold text-xl mb-4 border-b pb-2 text-center" style={{color: 'var(--blue-dark)', borderColor: 'var(--blue-opaque)'}}>
                         Categorias
                     </h3>
@@ -1365,9 +1363,8 @@ const ArtigosPage = () => {
                                     {filteredArticles.map(article => (
                                          <div 
                                              key={article._id || article.id} 
-                                             className="rounded-lg shadow-md p-6 cursor-pointer"
+                                             className="rounded-lg shadow-md p-6 cursor-pointer velohub-card"
                                              style={{
-                                                 backgroundColor: '#ffffff', 
                                                  borderRadius: '16px',
                                                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
                                                  transition: 'box-shadow 0.3s ease, border 0.3s ease',
@@ -1453,7 +1450,7 @@ const ArtigosPage = () => {
             {/* Modal do Artigo */}
             {selectedArticle && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden" style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
+                                         <div className="rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden velohub-modal" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
                         <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
                             <div>
                                 <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full text-sm font-medium">
@@ -1547,7 +1544,7 @@ const ProcessosPage = () => {
                 <div className="lg:col-span-3">
                     <Chatbot prompt={promptFromFaq} />
                 </div>
-                                <aside className="lg:col-span-1 p-6 rounded-lg shadow-sm h-fit" style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', padding: '24px', margin: '16px'}}>
+                                <aside className="lg:col-span-1 p-6 rounded-lg shadow-sm h-fit velohub-container" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', padding: '24px', margin: '16px'}}>
                     <h3 className="font-bold text-xl mb-4 border-b pb-2 text-center" style={{color: 'var(--blue-dark)', borderColor: 'var(--blue-opaque)'}}>Perguntas Frequentes</h3>
                     
                     {loading && (
@@ -1590,7 +1587,7 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit, comment, setComment }) => {
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 backdrop-blur-sm">
-            <div className="rounded-lg shadow-xl p-6 w-full max-w-md mx-4" style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
+            <div className="rounded-lg shadow-xl p-6 w-full max-w-md mx-4 velohub-modal" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
                 <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Melhorar esta Resposta</h2>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Obrigado pelo seu feedback! Por favor, nos diga o que estava errado ou faltando na resposta.</p>
                 <form onSubmit={handleSubmit} className="mt-4">
@@ -1725,7 +1722,7 @@ const Chatbot = ({ prompt }) => {
 
     return (
         <>
-            <div className="flex flex-col h-[80vh] rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700" style={{backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
+            <div className="flex flex-col h-[80vh] rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 velohub-modal" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
                 <div className="flex-shrink-0 flex items-center gap-4 p-4 border-b border-gray-200 dark:border-gray-700">
                     <img src="https://github.com/VeloProcess/PDP-Portal-de-Processos-/blob/main/unnamed%20(2).png?raw=true" alt="Logo" className="w-10 h-10 rounded-full" />
                     <div>
