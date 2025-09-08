@@ -18,10 +18,10 @@
 // 7. Copie o Client ID gerado e substitua abaixo
 
 export const GOOGLE_CONFIG = {
-  // Substitua pelo seu Client ID do Google Cloud Console
-  CLIENT_ID: process.env.REACT_APP_GOOGLE_CLIENT_ID || 'SEU_CLIENT_ID_AQUI.apps.googleusercontent.com',
+  // Client ID do Google Cloud Console para VeloHub
+  CLIENT_ID: process.env.REACT_APP_GOOGLE_CLIENT_ID || '278491073220-eb4ogvn3aifu0ut9mq3rvu5r9r9l3137.apps.googleusercontent.com',
   
-  // Domínio de email autorizado (altere para o da sua empresa)
+  // Domínio de email autorizado
   AUTHORIZED_DOMAIN: process.env.REACT_APP_AUTHORIZED_DOMAIN || '@velotax.com.br',
   
   // Duração da sessão em milissegundos (6 horas)
