@@ -60,7 +60,8 @@ const LoginPage = ({ onLoginSuccess }) => {
               size: 'large',
               width: '100%',
               text: 'continue_with',
-              shape: 'rectangular'
+              shape: 'rectangular',
+              logo_alignment: 'center'
             });
           }
         }, 100);
@@ -164,7 +165,7 @@ const LoginPage = ({ onLoginSuccess }) => {
           </div>
 
           {/* Botão do Google */}
-          <div id="google-signin-button" className="w-full"></div>
+          <div id="google-signin-button" className="w-full" style={{width: '100%', display: 'flex', justifyContent: 'center'}}></div>
           
           {/* Botão de fallback (caso o Google não carregue) */}
           <button
