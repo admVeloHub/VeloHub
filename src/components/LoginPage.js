@@ -205,6 +205,4 @@ const LoginPage = ({ onLoginSuccess }) => {
   );
 };
 
-// Funções auxiliares agora importadas de auth.js
-
 export default LoginPage;
