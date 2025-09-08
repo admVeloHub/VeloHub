@@ -68,38 +68,50 @@ function logout() {
 function updateUserInfo(userData) {
     console.log('Atualizando informações do usuário:', userData);
     
-    // Atualizar nome do usuário
-    const userNameElement = document.getElementById('user-name');
-    if (userNameElement) {
-        userNameElement.textContent = userData.name || 'Usuário';
-    }
-    
-    // Atualizar avatar do usuário
-    const userAvatar = document.getElementById('user-avatar');
-    if (userAvatar) {
-        if (userData.picture) {
-            userAvatar.src = userData.picture;
-            userAvatar.style.display = 'block';
+    // Aguardar um pouco para garantir que o DOM esteja pronto
+    setTimeout(() => {
+        // Atualizar nome do usuário
+        const userNameElement = document.getElementById('user-name');
+        if (userNameElement) {
+            userNameElement.textContent = userData.name || 'Usuário';
+            console.log('Nome do usuário atualizado:', userData.name);
         } else {
-            userAvatar.style.display = 'none';
+            console.warn('Elemento user-name não encontrado');
         }
-    }
-    
-    // Adicionar listener para logout
-    const logoutBtn = document.getElementById('logout-btn');
-    if (logoutBtn) {
-        // Remove listeners existentes
-        const newLogoutBtn = logoutBtn.cloneNode(true);
-        logoutBtn.parentNode.replaceChild(newLogoutBtn, logoutBtn);
         
-        newLogoutBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            logout();
-        });
-    }
-    
-    console.log('Informações do usuário atualizadas com sucesso');
+        // Atualizar avatar do usuário
+        const userAvatar = document.getElementById('user-avatar');
+        if (userAvatar) {
+            if (userData.picture) {
+                userAvatar.src = userData.picture;
+                userAvatar.style.display = 'block';
+                console.log('Avatar do usuário atualizado:', userData.picture);
+            } else {
+                userAvatar.style.display = 'none';
+            }
+        } else {
+            console.warn('Elemento user-avatar não encontrado');
+        }
+        
+        // Adicionar listener para logout
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) {
+            // Remove listeners existentes
+            const newLogoutBtn = logoutBtn.cloneNode(true);
+            logoutBtn.parentNode.replaceChild(newLogoutBtn, logoutBtn);
+            
+            newLogoutBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                logout();
+            });
+            console.log('Botão de logout configurado');
+        } else {
+            console.warn('Elemento logout-btn não encontrado');
+        }
+        
+        console.log('Informações do usuário atualizadas com sucesso');
+    }, 100);
 }
 
 /**
