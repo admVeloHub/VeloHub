@@ -1,0 +1,40 @@
+# INSTRUÇÕES PARA CONFIGURAR O GOOGLE OAUTH 2.0
+
+## 1. Acesse o Google Cloud Console:
+https://console.cloud.google.com/
+
+## 2. Crie um projeto ou selecione existente
+
+## 3. Ative a API "Google Identity Services"
+
+## 4. Vá para "APIs & Services" > "Credentials"
+
+## 5. Clique em "Create Credentials" > "OAuth 2.0 Client IDs"
+
+## 6. Configure:
+- Application type: Web application
+- Name: VeloHub Web Client
+- Authorized JavaScript origins:
+  http://localhost:3000
+  http://localhost:3001
+  http://192.168.0.221:3000
+  http://192.168.0.221:3001
+  https://velohub.velotax.com.br
+  https://seudominio.com
+
+- Authorized redirect URIs:
+  http://localhost:3000
+  http://localhost:3001
+  http://192.168.0.221:3000
+  http://192.168.0.221:3001
+  https://velohub.velotax.com.br
+  https://seudominio.com
+
+## 7. Copie o Client ID gerado
+
+## 8. Crie um arquivo .env na raiz do projeto com:
+REACT_APP_GOOGLE_CLIENT_ID=seu_client_id_aqui.apps.googleusercontent.com
+REACT_APP_AUTHORIZED_DOMAIN=@velotax.com.br
+
+## 9. Reinicie o servidor:
+npm start
