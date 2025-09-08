@@ -1,3 +1,4 @@
+isso
 import React, { useState, useEffect } from 'react';
 import { 
   saveUserSession, 
@@ -43,7 +44,27 @@ const LoginPage = ({ onLoginSuccess }) => {
 
     script.onload = () => {
       if (window.google) {
-        initializeGoogleSignIn(getClientId(), handleCredentialResponse);
+        window.google.accounts.id.initialize({
+          client_id: getClientId(),
+          callback: handleCredentialResponse,
+          auto_select: false,
+          cancel_on_tap_outside: true
+        });
+        console.log('Google Sign-In inicializado com Client ID:', getClientId());
+        
+        // Renderizar o botão do Google automaticamente
+        setTimeout(() => {
+          const buttonDiv = document.getElementById('google-signin-button');
+          if (buttonDiv && window.google.accounts.id) {
+            window.google.accounts.id.renderButton(buttonDiv, {
+              theme: 'outline',
+              size: 'large',
+              width: '100%',
+              text: 'continue_with',
+              shape: 'rectangular'
+            });
+          }
+        }, 100);
       }
     };
 
@@ -98,7 +119,20 @@ const LoginPage = ({ onLoginSuccess }) => {
 
   const handleGoogleSignIn = () => {
     if (window.google && window.google.accounts) {
-      window.google.accounts.id.prompt();
+      // Usar o método renderButton para criar o botão do Google
+      const buttonDiv = document.getElementById('google-signin-button');
+      if (buttonDiv) {
+        window.google.accounts.id.renderButton(buttonDiv, {
+          theme: 'outline',
+          size: 'large',
+          width: '100%',
+          text: 'continue_with',
+          shape: 'rectangular'
+        });
+      } else {
+        // Fallback: usar prompt se o botão não estiver disponível
+        window.google.accounts.id.prompt();
+      }
     } else {
       setError('Google Sign-In não está disponível. Tente recarregar a página.');
     }
@@ -131,10 +165,14 @@ const LoginPage = ({ onLoginSuccess }) => {
           </div>
 
           {/* Botão do Google */}
+          <div id="google-signin-button" className="w-full"></div>
+          
+          {/* Botão de fallback (caso o Google não carregue) */}
           <button
             onClick={handleGoogleSignIn}
             disabled={isLoading}
-            className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-white border-2 border-gray-300 rounded-xl hover:border-gray-400 hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-white border-2 border-gray-300 rounded-xl hover:border-gray-400 hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+            style={{ display: 'none' }}
           >
             {isLoading ? (
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-600"></div>
@@ -155,19 +193,6 @@ const LoginPage = ({ onLoginSuccess }) => {
             </div>
           )}
 
-          {/* Informações adicionais */}
-          <div className="mt-6 text-center">
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Ao fazer login, você concorda com nossos{' '}
-              <a href="#" className="text-blue-600 hover:underline">
-                Termos de Uso
-              </a>{' '}
-              e{' '}
-              <a href="#" className="text-blue-600 hover:underline">
-                Política de Privacidade
-              </a>
-            </p>
-          </div>
         </div>
 
         {/* Footer */}
