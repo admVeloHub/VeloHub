@@ -120,7 +120,7 @@
 }
 
 .nav-link {
-    color: #4A90E2;
+    color: #1634FF;
     text-decoration: none;
     font-weight: 500;
     padding: 10px 20px;
@@ -134,14 +134,14 @@
 }
 
 .nav-link:hover {
-    color: #357ABD;
-    background-color: rgba(74, 144, 226, 0.1);
+    color: #000058;
+    background-color: rgba(22, 52, 255, 0.1);
 }
 
 .nav-link.active {
     color: white;
-    background-color: #4A90E2;
-    box-shadow: 0 2px 8px rgba(74, 144, 226, 0.3);
+    background-color: #1634FF;
+    box-shadow: 0 2px 8px rgba(22, 52, 255, 0.3);
 }
 
 /* Seção do Usuário */
