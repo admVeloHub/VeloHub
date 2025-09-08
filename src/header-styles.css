@@ -157,8 +157,8 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 0.75rem;
-    border-radius: 12px;
-    border: 2px solid #000000;
+    border-radius: 16px;
+    border: 1px solid #666666;
     transition: background-color 0.3s ease;
     background-color: var(--cor-container);
 }
@@ -176,15 +176,15 @@
 }
 
 .user-name {
-    color: #272A30;
-    font-weight: 500;
+    color: #666666;
+    font-weight: 400;
     font-size: 0.8rem;
 }
 
 .logout-btn {
     background: none;
     border: none;
-    color: var(--cor-texto-secundario);
+    color: #666666;
     cursor: pointer;
     padding: 0.2rem;
     border-radius: 4px;
@@ -225,6 +225,25 @@
     font-size: 1.2rem;
     color: var(--cor-texto-secundario);
     transition: all 0.3s ease;
+    position: absolute;
+}
+
+/* Mostrar apenas o sol no tema claro */
+.theme-icon.bx-sun {
+    opacity: 1;
+}
+
+.theme-icon.bx-moon {
+    opacity: 0;
+}
+
+/* Mostrar apenas a lua no tema escuro */
+[data-theme="dark"] .theme-icon.bx-sun {
+    opacity: 0;
+}
+
+[data-theme="dark"] .theme-icon.bx-moon {
+    opacity: 1;
 }
 
 .theme-icon.active {
