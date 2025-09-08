@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Map, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen } from 'lucide-react';
 import { mainAPI, veloNewsAPI, articlesAPI, faqAPI } from './services/api';
+import { checkAuthenticationState, updateUserInfo } from './services/auth';
+import LoginPage from './components/LoginPage';
 import './header-styles.css';
 
 // Sistema de gerenciamento de estado para modal crítico
@@ -284,6 +286,20 @@ export default function App_v2() {
   const [criticalNews, setCriticalNews] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showRemindLater, setShowRemindLater] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    // Verificar autenticação primeiro
+    const checkAuth = () => {
+      const isAuth = checkAuthenticationState();
+      setIsAuthenticated(isAuth);
+      setIsCheckingAuth(false);
+    };
+
+    // Aguardar um pouco para garantir que o DOM está pronto
+    setTimeout(checkAuth, 100);
+  }, []);
 
   useEffect(() => {
     // Carregar tema salvo
@@ -329,6 +345,12 @@ export default function App_v2() {
     initHeader();
   }, []);
 
+  const handleLoginSuccess = (userData) => {
+    console.log('Login realizado com sucesso:', userData);
+    setIsAuthenticated(true);
+    updateUserInfo(userData);
+  };
+
   const renderContent = () => {
     switch (activePage) {
       case 'Home':
@@ -346,6 +368,24 @@ export default function App_v2() {
     }
   };
 
+  // Mostrar tela de carregamento enquanto verifica autenticação
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Verificando autenticação...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Mostrar tela de login se não estiver autenticado
+  if (!isAuthenticated) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // Mostrar aplicação principal se estiver autenticado
   return (
     <div className="min-h-screen font-sans velohub-bg">
       <Header activePage={activePage} setActivePage={setActivePage} isDarkMode={isDarkMode} toggleDarkMode={() => setIsDarkMode(!isDarkMode)} />
