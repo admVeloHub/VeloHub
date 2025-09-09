@@ -15,6 +15,7 @@
     --cor-container: var(--white);
     --cor-card: var(--white);
     --cor-texto-principal: var(--gray);
+    --cor-texto: var(--gray);
     --cor-texto-secundario: var(--blue-dark);
     --cor-accent: var(--blue-medium);
     --cor-borda: rgba(0, 0, 0, 0.1);
@@ -30,7 +31,7 @@
     --cor-borda-escuro: rgba(255, 255, 255, 0.1); /* Bordas: Branco transparente */
     --cor-sombra-escuro: rgba(0, 0, 0, 0.6); /* Sombras: Preto mais intenso */
 
-    --borda-raio: 8px;
+    --borda-raio: 12px;
     --espaco: 16px;
 }
 
@@ -39,6 +40,7 @@
     --cor-container: var(--cor-container-escuro);
     --cor-card: var(--cor-card-escuro);
     --cor-texto-principal: var(--cor-texto-principal-escuro);
+    --cor-texto: var(--cor-texto-principal-escuro);
     --cor-texto-secundario: var(--cor-texto-secundario-escuro);
     --cor-accent: var(--cor-accent-escuro);
     --cor-borda: var(--cor-borda-escuro);
@@ -144,60 +146,68 @@
     box-shadow: 0 2px 8px rgba(22, 52, 255, 0.3);
 }
 
-/* Seção do Usuário */
-.user-section {
-    position: absolute;
-    right: 80px;
-    top: 50%;
-    transform: translateY(-50%);
-}
+/* ============================================= */
+/* == BOTÃO DE USUÁRIO LOGADO - ESTILOS EXATOS == */
+/* ============================================= */
 
+/* Container principal do botão de usuário */
 .user-info {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    border-radius: 16px;
-    border: 1px solid #666666;
-    transition: background-color 0.3s ease;
+    gap: 10px;
+    padding: 8px 12px;
     background-color: var(--cor-container);
+    border: 1px solid var(--cor-borda);
+    border-radius: 20px;
+    transition: all 0.3s ease;
+    position: absolute;
+    right: 70px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
 }
 
+/* Hover do container */
 .user-info:hover {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: var(--cor-borda);
 }
 
+/* Avatar do usuário */
 .user-avatar {
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     object-fit: cover;
-    border: 1px solid var(--cor-accent);
 }
 
+/* Nome do usuário */
 .user-name {
-    color: #666666;
-    font-weight: 400;
-    font-size: 0.8rem;
+    color: var(--cor-texto);
+    font-weight: 500;
+    font-size: 0.9rem;
 }
 
+/* Botão de logout */
 .logout-btn {
     background: none;
     border: none;
-    color: #666666;
+    color: var(--cor-texto-secundario);
     cursor: pointer;
-    padding: 0.2rem;
+    padding: 4px;
     border-radius: 4px;
-    transition: all 0.3s ease;
-    font-size: 0.8rem;
+    transition: color 0.3s ease;
 }
 
+/* Hover do botão de logout */
 .logout-btn:hover {
-    color: #dc3545;
-    background-color: rgba(220, 53, 69, 0.1);
+    color: var(--cor-accent);
 }
 
-/* Theme Toggle */
+/* ============================================= */
+/* == BOTÃO DE TROCA DE TEMA - ESTILOS EXATOS == */
+/* ============================================= */
+
+/* Container principal do botão de tema */
 .theme-switch-wrapper {
     cursor: pointer;
     position: absolute;
@@ -207,7 +217,7 @@
     z-index: 10;
     width: 40px;
     height: 40px;
-    border-radius: 8px;
+    border-radius: var(--borda-raio);
     background: var(--cor-fundo);
     border: 1px solid var(--cor-borda);
     display: flex;
@@ -216,39 +226,25 @@
     transition: all 0.3s ease;
 }
 
+/* Hover do container */
 .theme-switch-wrapper:hover {
     background: var(--cor-borda);
     transform: translateY(-50%) scale(1.05);
 }
 
+/* Ícone do tema */
 .theme-icon { 
     font-size: 1.2rem;
     color: var(--cor-texto-secundario);
     transition: all 0.3s ease;
-    position: absolute;
+    display: block;
 }
 
-/* Mostrar apenas o sol no tema claro */
-.theme-icon.bx-sun {
-    opacity: 1;
-}
-
-.theme-icon.bx-moon {
-    opacity: 0;
-}
-
-/* Mostrar apenas a lua no tema escuro */
-[data-theme="dark"] .theme-icon.bx-sun {
-    opacity: 0;
-}
-
-[data-theme="dark"] .theme-icon.bx-moon {
-    opacity: 1;
-}
-
+/* Estado ativo do ícone */
 .theme-icon.active {
     opacity: 1;
     color: var(--cor-accent);
+    transform: scale(1.1);
 }
 
 /* Responsividade */
@@ -294,6 +290,16 @@
         flex-direction: column;
         gap: 15px;
         text-align: center;
+    }
+    
+    .theme-switch-wrapper {
+        right: 10px;
+        width: 32px;
+        height: 32px;
+    }
+    
+    .theme-icon {
+        font-size: 1rem;
     }
 
     .velohub-logo {
