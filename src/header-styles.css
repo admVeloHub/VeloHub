@@ -243,19 +243,25 @@
 /* Mostrar apenas o sol no tema claro */
 .theme-icon.bx-sun {
     opacity: 1;
+    color: #FFD700;
+    z-index: 2;
 }
 
 .theme-icon.bx-moon {
     opacity: 0;
+    z-index: 1;
 }
 
 /* Mostrar apenas a lua no tema escuro */
 [data-theme="dark"] .theme-icon.bx-sun {
     opacity: 0;
+    z-index: 1;
 }
 
 [data-theme="dark"] .theme-icon.bx-moon {
     opacity: 1;
+    color: var(--cor-texto-secundario);
+    z-index: 2;
 }
 
 /* Estado ativo do ícone */
