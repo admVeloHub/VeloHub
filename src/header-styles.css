@@ -237,7 +237,25 @@
     font-size: 1.2rem;
     color: var(--cor-texto-secundario);
     transition: all 0.3s ease;
-    display: block;
+    position: absolute;
+}
+
+/* Mostrar apenas o sol no tema claro */
+.theme-icon.bx-sun {
+    opacity: 1;
+}
+
+.theme-icon.bx-moon {
+    opacity: 0;
+}
+
+/* Mostrar apenas a lua no tema escuro */
+[data-theme="dark"] .theme-icon.bx-sun {
+    opacity: 0;
+}
+
+[data-theme="dark"] .theme-icon.bx-moon {
+    opacity: 1;
 }
 
 /* Estado ativo do ícone */
