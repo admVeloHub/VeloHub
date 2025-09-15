@@ -1,15 +1,24 @@
 # Dockerfile para Google Cloud Run - VeloHub V3
-# Multi-stage build para aplicação full-stack
+# Multi-stage build para React + Node.js
 
-# Stage 1: Build do Frontend
+# Stage 1: Build do frontend React
 FROM node:18-alpine AS frontend-builder
 WORKDIR /app
+
+# Copiar package.json do frontend
 COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
+RUN npm ci
+
+# Copiar código do frontend
+COPY public/ ./public/
+COPY src/ ./src/
+COPY tailwind.config.js ./
+COPY postcss.config.js ./
+
+# Build do frontend
 RUN npm run build
 
-# Stage 2: Build do Backend e servidor final
+# Stage 2: Backend + Frontend build
 FROM node:18-alpine AS production
 WORKDIR /app
 
@@ -22,14 +31,6 @@ COPY backend/ ./
 
 # Copiar build do frontend
 COPY --from=frontend-builder /app/build ./public
-
-# Criar usuário não-root para segurança
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S velohub -u 1001
-
-# Mudar propriedade dos arquivos
-RUN chown -R velohub:nodejs /app
-USER velohub
 
 # Expor porta (Cloud Run usa PORT dinâmica)
 EXPOSE 8080
