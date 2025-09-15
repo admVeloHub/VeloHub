@@ -17,7 +17,7 @@ const feedbackService = require('./services/chatbot/feedbackService');
 const userActivityLogger = require('./services/logging/userActivityLogger');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8080;
 
 // Middleware
 app.use(cors({
@@ -52,6 +52,16 @@ const connectToMongo = async () => {
   }
   return client;
 };
+
+// Health check endpoint (não depende do MongoDB)
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'Servidor funcionando!',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
 
 // Test connection endpoint
 app.get('/api/test', async (req, res) => {
@@ -685,10 +695,27 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Iniciar servidor
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor backend rodando na porta ${PORT}`);
   console.log(`🌐 Acessível em: http://localhost:${PORT}`);
   console.log(`🌐 Acessível na rede local: http://0.0.0.0:${PORT}`);
   console.log(`📡 Endpoint principal: http://localhost:${PORT}/api/data`);
   console.log(`📡 Teste a API em: http://localhost:${PORT}/api/test`);
+  
+  // Tentar conectar ao MongoDB em background (não bloqueia o startup)
+  connectToMongo().catch(error => {
+    console.warn('⚠️ MongoDB: Falha na conexão inicial, tentando reconectar...', error.message);
+  });
+});
+
+// Tratamento de erros não capturados
+process.on('uncaughtException', (error) => {
+  console.error('❌ Erro não capturado:', error);
+  // Não encerrar o processo, apenas logar o erro
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Promise rejeitada não tratada:', reason);
+  // Não encerrar o processo, apenas logar o erro
 });
