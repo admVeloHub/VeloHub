@@ -4,10 +4,20 @@ require('dotenv').config();
 
 class OpenAIService {
   constructor() {
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    this.openai = null;
     this.model = "gpt-4o-mini"; // Modelo otimizado para custo
+  }
+
+  /**
+   * Inicializa o cliente OpenAI apenas quando necessário
+   */
+  _initializeOpenAI() {
+    if (!this.openai && this.isConfigured()) {
+      this.openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+    }
+    return this.openai;
   }
 
   /**
@@ -20,12 +30,23 @@ class OpenAIService {
    */
   async generateResponse(question, context = "", sessionHistory = [], userId = null) {
     try {
+      // Verificar se OpenAI está configurado
+      if (!this.isConfigured()) {
+        throw new Error('OpenAI API Key não configurada');
+      }
+
+      // Inicializar cliente OpenAI se necessário
+      const openai = this._initializeOpenAI();
+      if (!openai) {
+        throw new Error('Falha ao inicializar cliente OpenAI');
+      }
+
       // Construir prompt com contexto e histórico
       const prompt = this.buildPrompt(question, context, sessionHistory);
       
       console.log(`🤖 OpenAI: Processando pergunta para usuário ${userId || 'anônimo'}`);
       
-      const completion = await this.openai.chat.completions.create({
+      const completion = await openai.chat.completions.create({
         model: this.model,
         messages: [
           {
@@ -107,7 +128,14 @@ ${sessionHistory.length > 0 ?
         return false;
       }
 
-      const completion = await this.openai.chat.completions.create({
+      // Inicializar cliente OpenAI se necessário
+      const openai = this._initializeOpenAI();
+      if (!openai) {
+        console.warn('⚠️ OpenAI: Falha ao inicializar cliente');
+        return false;
+      }
+
+      const completion = await openai.chat.completions.create({
         model: this.model,
         messages: [{ role: "user", content: "Teste de conexão" }],
         max_tokens: 10,
