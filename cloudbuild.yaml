@@ -1,0 +1,61 @@
+# cloudbuild.yaml - CI/CD para Google Cloud Build
+# Configuração para deploy automático do VeloHub V3
+
+steps:
+  # Instalar dependências
+  - name: 'gcr.io/cloud-builders/npm'
+    args: ['install']
+    dir: '.'
+
+  # Deploy para App Engine
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args: 
+      - 'app'
+      - 'deploy'
+      - 'app.yaml'
+      - '--version=$BUILD_ID'
+      - '--promote'
+    dir: '.'
+
+  # Deploy para Cloud Run (opcional - descomente se necessário)
+  # - name: 'gcr.io/cloud-builders/docker'
+  #   args: 
+  #     - 'build'
+  #     - '-t'
+  #     - 'gcr.io/$PROJECT_ID/velohub:$BUILD_ID'
+  #     - '.'
+  #   dir: '.'
+
+  # - name: 'gcr.io/cloud-builders/docker'
+  #   args: 
+  #     - 'push'
+  #     - 'gcr.io/$PROJECT_ID/velohub:$BUILD_ID'
+  #   dir: '.'
+
+  # - name: 'gcr.io/cloud-builders/gcloud'
+  #   args:
+  #     - 'run'
+  #     - 'deploy'
+  #     - 'velohub'
+  #     - '--image'
+  #     - 'gcr.io/$PROJECT_ID/velohub:$BUILD_ID'
+  #     - '--region'
+  #     - 'us-central1'
+  #     - '--platform'
+  #     - 'managed'
+  #     - '--allow-unauthenticated'
+  #   dir: '.'
+
+# Configurações do build
+options:
+  machineType: 'E2_HIGHCPU_8'
+  diskSizeGb: 100
+  logging: CLOUD_LOGGING_ONLY
+
+# Timeout do build (10 minutos)
+timeout: '600s'
+
+# Substituições de variáveis
+substitutions:
+  _SERVICE_NAME: 'velohub-main'
+  _REGION: 'us-central1'

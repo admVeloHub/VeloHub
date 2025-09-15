@@ -1,13 +1,37 @@
+/**
+ * VeloHub V3 - Backend Server
+ * VERSION: v1.0.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
+ */
+
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { MongoClient } = require('mongodb');
+require('dotenv').config();
+
+// Importar serviços do chatbot
+const openaiService = require('./services/chatbot/openaiService');
+const searchService = require('./services/chatbot/searchService');
+const sessionService = require('./services/chatbot/sessionService');
+const feedbackService = require('./services/chatbot/feedbackService');
+const userActivityLogger = require('./services/logging/userActivityLogger');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://velohub-v3-278491073220.southamerica-east1.run.app',
+    'http://localhost:3000',
+    'http://localhost:5000'
+  ],
+  credentials: true
+}));
 app.use(express.json());
+
+// Servir arquivos estáticos do frontend
+app.use(express.static(path.join(__dirname, 'public')));
 
 // MongoDB Connection
 const uri = process.env.MONGODB_URI || "mongodb+srv://REDACTED";
@@ -352,6 +376,313 @@ app.get('/api/ponto/status', async (req, res) => {
     console.error('Erro ao buscar status:', error);
     res.status(500).json({ success: false, error: error.message });
   }
+});
+
+// Iniciar limpeza automática de sessões
+sessionService.startAutoCleanup();
+
+// ===== API DO CHATBOT INTELIGENTE =====
+
+// API de Chat Inteligente
+app.post('/api/chatbot/ask', async (req, res) => {
+  try {
+    const { question, userId, sessionId } = req.body;
+
+    // Validação básica
+    if (!question || typeof question !== 'string' || question.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Pergunta é obrigatória e deve ser uma string válida'
+      });
+    }
+
+    const cleanQuestion = question.trim();
+    const cleanUserId = userId || 'anonymous';
+    const cleanSessionId = sessionId || null;
+
+    console.log(`🤖 Chat: Nova pergunta de ${cleanUserId}: "${cleanQuestion}"`);
+
+    // Obter ou criar sessão
+    const session = sessionService.getOrCreateSession(cleanUserId, cleanSessionId);
+    
+    // Adicionar pergunta à sessão
+    sessionService.addMessage(session.id, 'user', cleanQuestion, {
+      timestamp: new Date(),
+      userId: cleanUserId
+    });
+
+    // Log da atividade
+    await userActivityLogger.logQuestion(cleanUserId, cleanQuestion, session.id);
+
+    // Buscar dados do MongoDB
+    const client = await connectToMongo();
+    const db = client.db('console_conteudo');
+    const faqCollection = db.collection('bot_perguntas');
+    const articlesCollection = db.collection('artigos');
+
+    // Buscar FAQ e artigos em paralelo
+    const [faqData, articlesData] = await Promise.all([
+      faqCollection.find({}).toArray(),
+      articlesCollection.find({}).toArray()
+    ]);
+
+    console.log(`📋 Chat: ${faqData.length} FAQs e ${articlesData.length} artigos carregados`);
+
+    // Busca híbrida (FAQ + Artigos)
+    const searchResults = await searchService.hybridSearch(cleanQuestion, faqData, articlesData);
+
+    // Obter histórico da sessão
+    const sessionHistory = sessionService.getSessionHistory(session.id);
+
+    // Construir contexto para OpenAI
+    let context = '';
+    if (searchResults.faq) {
+      context += `FAQ relevante: ${searchResults.faq.question} - ${searchResults.faq.answer}\n`;
+    }
+    if (searchResults.articles.length > 0) {
+      context += `Artigos relacionados:\n`;
+      searchResults.articles.forEach(article => {
+        context += `- ${article.title}: ${article.content.substring(0, 200)}...\n`;
+      });
+    }
+
+    // Gerar resposta com OpenAI
+    let response;
+    let responseSource = 'fallback';
+
+    if (openaiService.isConfigured()) {
+      try {
+        response = await openaiService.generateResponse(
+          cleanQuestion,
+          context,
+          sessionHistory,
+          cleanUserId
+        );
+        responseSource = 'openai';
+        console.log(`✅ Chat: Resposta gerada pela OpenAI`);
+      } catch (openaiError) {
+        console.error('❌ Chat: Erro na OpenAI:', openaiError.message);
+        response = 'Desculpe, não consegui processar sua pergunta no momento. Tente novamente.';
+        responseSource = 'error';
+      }
+    } else {
+      // Fallback para FAQ se OpenAI não estiver configurada
+      if (searchResults.faq) {
+        response = searchResults.faq.answer;
+        responseSource = 'faq';
+        console.log(`✅ Chat: Resposta do FAQ (OpenAI não configurada)`);
+      } else {
+        response = 'Desculpe, não encontrei uma resposta para sua pergunta. Entre em contato com nosso suporte para mais informações.';
+        responseSource = 'no_results';
+        console.log(`❌ Chat: Nenhuma resposta encontrada`);
+      }
+    }
+
+    // Adicionar resposta à sessão
+    const messageId = sessionService.addMessage(session.id, 'bot', response, {
+      timestamp: new Date(),
+      source: responseSource,
+      faqUsed: searchResults.faq ? searchResults.faq._id : null,
+      articlesUsed: searchResults.articles.map(a => a._id)
+    });
+
+    // Preparar resposta para o frontend
+    const responseData = {
+      success: true,
+      data: {
+        messageId: messageId,
+        response: response,
+        source: responseSource,
+        sessionId: session.id,
+        suggestedArticles: searchResults.articles.slice(0, 3).map(article => ({
+          id: article._id,
+          title: article.title,
+          content: article.content.substring(0, 150) + '...',
+          relevanceScore: article.relevanceScore
+        })),
+        faqUsed: searchResults.faq ? {
+          id: searchResults.faq._id,
+          question: searchResults.faq.question,
+          answer: searchResults.faq.answer,
+          relevanceScore: searchResults.faq.relevanceScore
+        } : null,
+        timestamp: new Date().toISOString()
+      }
+    };
+
+    console.log(`✅ Chat: Resposta enviada para ${cleanUserId} (${responseSource})`);
+    
+    res.json(responseData);
+
+  } catch (error) {
+    console.error('❌ Chat Error:', error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// API de Feedback
+app.post('/api/chatbot/feedback', async (req, res) => {
+  try {
+    const { messageId, feedbackType, comment, userId, sessionId, question, answer } = req.body;
+
+    // Validação básica
+    if (!messageId || !feedbackType) {
+      return res.status(400).json({
+        success: false,
+        error: 'messageId e feedbackType são obrigatórios'
+      });
+    }
+
+    if (!['positive', 'negative'].includes(feedbackType)) {
+      return res.status(400).json({
+        success: false,
+        error: 'feedbackType deve ser "positive" ou "negative"'
+      });
+    }
+
+    const cleanUserId = userId || 'anonymous';
+    const cleanSessionId = sessionId || null;
+
+    console.log(`📝 Feedback: Novo feedback de ${cleanUserId} - ${feedbackType} para mensagem ${messageId}`);
+
+    // Preparar dados do feedback
+    const feedbackData = {
+      userId: cleanUserId,
+      messageId: messageId,
+      feedbackType: feedbackType,
+      comment: comment || '',
+      question: question || '',
+      answer: answer || '',
+      sessionId: cleanSessionId,
+      metadata: {
+        timestamp: new Date(),
+        userAgent: req.get('User-Agent'),
+        ip: req.ip
+      }
+    };
+
+    // Registrar feedback no MongoDB
+    const feedbackSuccess = await feedbackService.logFeedback(feedbackData);
+
+    if (!feedbackSuccess) {
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao registrar feedback no banco de dados'
+      });
+    }
+
+    // Log da atividade
+    await userActivityLogger.logFeedback(cleanUserId, feedbackType, messageId, cleanSessionId, {
+      hasComment: !!comment,
+      commentLength: comment ? comment.length : 0
+    });
+
+    // Resposta de sucesso
+    const responseData = {
+      success: true,
+      data: {
+        messageId: messageId,
+        feedbackType: feedbackType,
+        timestamp: new Date().toISOString(),
+        message: feedbackType === 'positive' ? 
+          'Obrigado pelo seu feedback positivo!' : 
+          'Obrigado pelo seu feedback. Vamos melhorar com base na sua sugestão.'
+      }
+    };
+
+    console.log(`✅ Feedback: Feedback registrado com sucesso para ${cleanUserId}`);
+    
+    res.json(responseData);
+
+  } catch (error) {
+    console.error('❌ Feedback Error:', error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// API de Log de Atividade
+app.post('/api/chatbot/activity', async (req, res) => {
+  try {
+    const { action, details, userId, sessionId, source } = req.body;
+
+    // Validação básica
+    if (!action) {
+      return res.status(400).json({
+        success: false,
+        error: 'action é obrigatório'
+      });
+    }
+
+    const cleanUserId = userId || 'anonymous';
+    const cleanSessionId = sessionId || null;
+    const cleanSource = source || 'chatbot';
+
+    console.log(`📊 Activity: Nova atividade de ${cleanUserId} - ${action}`);
+
+    // Preparar dados da atividade
+    const activityData = {
+      userId: cleanUserId,
+      action: action,
+      details: details || {},
+      sessionId: cleanSessionId,
+      source: cleanSource,
+      metadata: {
+        timestamp: new Date(),
+        userAgent: req.get('User-Agent'),
+        ip: req.ip
+      }
+    };
+
+    // Registrar atividade no MongoDB
+    const activitySuccess = await userActivityLogger.logActivity(activityData);
+
+    if (!activitySuccess) {
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao registrar atividade no banco de dados'
+      });
+    }
+
+    // Resposta de sucesso
+    const responseData = {
+      success: true,
+      data: {
+        action: action,
+        userId: cleanUserId,
+        sessionId: cleanSessionId,
+        timestamp: new Date().toISOString(),
+        message: 'Atividade registrada com sucesso'
+      }
+    };
+
+    console.log(`✅ Activity: Atividade registrada com sucesso para ${cleanUserId}`);
+    
+    res.json(responseData);
+
+  } catch (error) {
+    console.error('❌ Activity Error:', error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Rota para servir o React app (SPA)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.listen(PORT, '0.0.0.0', () => {

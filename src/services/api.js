@@ -1,5 +1,10 @@
+/**
+ * VeloHub V3 - API Service
+ * VERSION: v1.0.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
+ */
+
 // Configuração da API - funciona tanto local quanto remoto
-const API_BASE_URL = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'production' ? 'https://velohub-backend.vercel.app/api' : 'http://localhost:5000/api');
+const API_BASE_URL = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'production' ? 'https://velohub-v3-278491073220.southamerica-east1.run.app/api' : 'http://localhost:5000/api');
 
 // Função genérica para fazer requisições
 async function apiRequest(endpoint, options = {}) {

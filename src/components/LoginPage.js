@@ -98,11 +98,6 @@ const LoginPage = ({ onLoginSuccess }) => {
         // Salvar sessão
         saveUserSession(userData);
 
-        // Salvar dados do usuário (compatibilidade)
-        localStorage.setItem('userEmail', payload.email);
-        localStorage.setItem('userName', payload.name);
-        localStorage.setItem('userPicture', payload.picture);
-
         console.log('Login realizado com sucesso');
         onLoginSuccess(userData);
       } else {

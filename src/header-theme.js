@@ -73,20 +73,42 @@ const VeloHubHeader = {
 
     // Inicializar informações do usuário
     initUserInfo() {
-        const userName = localStorage.getItem('userName') || 'Usuário VeloHub';
+        // Verificar se há dados no localStorage (compatibilidade)
+        const userEmail = localStorage.getItem('userEmail');
+        const userName = localStorage.getItem('userName');
         const userPicture = localStorage.getItem('userPicture');
+        
+        // Verificar se há sessão válida
+        const sessionData = localStorage.getItem('velohub_user_session');
+        let finalUserName = 'Usuário VeloHub';
+        let finalUserPicture = null;
+        
+        if (sessionData) {
+            try {
+                const session = JSON.parse(sessionData);
+                if (session.user) {
+                    finalUserName = session.user.name || userName || 'Usuário VeloHub';
+                    finalUserPicture = session.user.picture || userPicture;
+                }
+            } catch (error) {
+                console.warn('Erro ao decodificar sessão:', error);
+            }
+        } else if (userName) {
+            finalUserName = userName;
+            finalUserPicture = userPicture;
+        }
         
         // Atualizar nome do usuário
         const userNameElement = document.getElementById('user-name');
         if (userNameElement) {
-            userNameElement.textContent = userName;
+            userNameElement.textContent = finalUserName;
         }
         
         // Atualizar avatar do usuário
         const userAvatar = document.getElementById('user-avatar');
         if (userAvatar) {
-            if (userPicture) {
-                userAvatar.src = userPicture;
+            if (finalUserPicture) {
+                userAvatar.src = finalUserPicture;
                 userAvatar.style.display = 'block';
             } else {
                 // Avatar padrão do VeloHub
@@ -102,9 +124,11 @@ const VeloHubHeader = {
         if (logoutBtn) {
             logoutBtn.addEventListener('click', () => {
                 if (confirm('Tem certeza que deseja sair?')) {
-                    // Limpar dados do localStorage
+                    // Limpar dados do localStorage (compatibilidade)
                     localStorage.removeItem('userName');
                     localStorage.removeItem('userPicture');
+                    localStorage.removeItem('userEmail');
+                    localStorage.removeItem('velohub_user_session');
                     localStorage.removeItem('velohub-theme');
                     
                     // Redirecionar para página de login ou home
