@@ -132,18 +132,8 @@ function checkAuthenticationState() {
         console.log('Sessão válida encontrada:', session);
         updateUserInfo(session.user);
         return true;
-    } else if (userEmail && userName) {
-        // Fallback: usar dados antigos do localStorage se existirem
-        console.log('Usando dados antigos do localStorage como fallback');
-        const userData = {
-            name: userName,
-            email: userEmail,
-            picture: userPicture
-        };
-        updateUserInfo(userData);
-        return true;
     } else {
-        console.log('Sessão inválida ou expirada');
+        console.log('Sessão inválida ou expirada - fazendo logout');
         // Se a sessão for inválida ou não existir, limpa qualquer resquício
         localStorage.removeItem(USER_SESSION_KEY);
         localStorage.removeItem('userEmail');

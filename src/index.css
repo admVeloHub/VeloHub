@@ -1,6 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/**
+ * VeloHub V3 - Main Styles
+ * VERSION: v1.0.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
+ */
 
 /* ============================================= */
 /* == PALETA OFICIAL DE CORES VELOHUB == */
@@ -17,12 +18,41 @@
   --blue-opaque: #006AB9;  /* Azul Opaco */
   --yellow: #FCC200;       /* Amarelo */
   --green: #15A237;        /* Verde */
-  
-  /* CORES DE FUNDO E CONTAINERS */
-  --cor-fundo: #f0f4f8;        /* Fundo principal da aplicação */
-  --cor-container: #f2f6fa;     /* Container principal - Cinza 2% mais claro que o fundo */
-  --cor-card: #f2f6fa;         /* Fundo dos cards - Cinza 2% mais claro que o fundo */
 }
+
+/* ============================================= */
+/* == TEMA CLARO - DEFINIÇÕES EXCLUSIVAS == */
+/* ============================================= */
+:root {
+  /* CORES DE FUNDO E CONTAINERS - TEMA CLARO */
+  --cor-fundo: #f0f4f8;        /* Fundo principal da aplicação */
+  --cor-container: #F3F7FC;     /* Container principal - BRANCO PADRONIZADO */
+  --cor-card: #F3F7FC;         /* Fundo dos cards - BRANCO PADRONIZADO */
+  
+  /* CORES DE BORDA E TEXTO - TEMA CLARO */
+  --cor-borda: #000058;        /* Borda padrão - Azul Escuro */
+  --cor-texto-principal: #272A30;  /* Texto principal - Cinza */
+  --cor-texto-secundario: #6b7280; /* Texto secundário - Cinza claro */
+}
+
+/* ============================================= */
+/* == TEMA ESCURO - DEFINIÇÕES EXCLUSIVAS == */
+/* ============================================= */
+.dark {
+  /* CORES DE FUNDO E CONTAINERS - TEMA ESCURO */
+  --cor-fundo: #272A30;      /* Fundo no tema escuro - Cinza do padrão de marca */
+  --cor-container: #323a42;   /* Container no tema escuro - Cinza médio */
+  --cor-card: #323a42;       /* Cards no tema escuro - Cinza médio */
+
+  /* CORES DE BORDA E TEXTO - TEMA ESCURO */
+  --cor-borda: #006AB9;      /* Borda no tema escuro - Azul Opaco */
+  --cor-texto-principal: #F3F7FC;  /* Texto principal no tema escuro */
+  --cor-texto-secundario: #9ca3af; /* Texto secundário no tema escuro */
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* ============================================= */
 /* == CLASSES CSS PERSONALIZADAS VELOHUB == */
@@ -30,17 +60,61 @@
 
 /* Fundo principal do site */
 .velohub-bg {
-  background-color: var(--cor-fundo);
+  background-color: #f0f4f8;
+}
+
+/* Tema escuro para velohub-bg */
+.dark .velohub-bg {
+  background-color: #272A30;
+}
+
+/* Moldura para notícias críticas */
+.critical-news-frame {
+  border: 2px solid #dc2626 !important;
+  border-radius: 12px !important;
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%) !important;
+  padding: 16px !important;
+  margin: 8px 0 !important;
+  box-shadow: 0 4px 20px rgba(220, 38, 38, 0.2) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.critical-news-frame::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #dc2626, #ef4444, #f87171, #ef4444, #dc2626);
+  animation: critical-pulse 2s ease-in-out infinite;
+}
+
+@keyframes critical-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Tema escuro para notícias críticas */
+.dark .critical-news-frame {
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.1) 0%, rgba(153, 27, 27, 0.1) 100%) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  box-shadow: 0 4px 20px rgba(220, 38, 38, 0.05) !important;
+}
+
+.dark .critical-news-frame::before {
+  background: linear-gradient(90deg, #ef4444, #f87171, #fca5a5, #f87171, #ef4444);
 }
 
 /* Container principal */
 .velohub-container {
-  background-color: var(--cor-container);
+  background-color: var(--cor-container) !important;
 }
 
 /* Card padrão */
 .velohub-card {
-  background-color: var(--cor-card);
+  background-color: var(--cor-card) !important;
 }
 
 /* Tema escuro */
@@ -52,6 +126,7 @@
   background-color: #323a42;
 }
 
+
 body {
   margin: 0;
   font-family: 'Poppins', 'Anton', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -59,9 +134,341 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: #f0f4f8;
+  color: #272A30;
+}
+
+/* Tema escuro para body */
+.dark body {
+  background-color: #272A30;
+  color: #F3F7FC;
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+/* ============================================= */
+/* == HEADER COMPLETO VELOHUB == */
+/* ============================================= */
+
+/* Header */
+.velohub-header {
+    background-color: var(--white) ;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    padding: 12px 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    max-height: 90px;
+    overflow: hidden;
+    width: 100%;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+/* Header no tema escuro */
+[data-theme="dark"] .velohub-header {
+    background-color: var(--blue-opaque) ;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 20px rgba(0, 102, 171, 0.3);
+}
+
+.header-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    padding: 0 20px;
+}
+
+/* Logo */
+.velohub-logo { 
+    position: absolute;
+    left: 60px;
+    top: 60%;
+    transform: translateY(-50%) scale(1.2);
+    z-index: 10;
+    transition: all 0.3s ease;
+}
+
+.velohub-logo img {
+    width: 200px;
+    height: 55px;
+    object-fit: contain;
+    border-radius: 4px;
+    transition: transform 0.3s ease;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.velohub-logo img:hover {
+    transform: scale(1.05);
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
+}
+
+/* Navegação */
+.nav-menu {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    background-color: var(--cor-container);
+    padding: 8px 16px;
+    border-radius: 8px;
+}
+
+.nav-link {
+    color: #1634FF;
+    text-decoration: none;
+    font-weight: 500;
+    padding: 10px 20px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    position: relative;
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.nav-link:hover {
+    color: #000058;
+    background-color: rgba(22, 52, 255, 0.1);
+}
+
+.nav-link.active {
+    color: white;
+    background-color: #1634FF;
+    box-shadow: 0 2px 8px rgba(22, 52, 255, 0.3);
+}
+
+/* User Info */
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background-color: var(--cor-container);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 20px;
+    transition: all 0.3s ease;
+    position: absolute;
+    right: 70px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+}
+
+.user-info:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.user-name {
+    color: var(--gray);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.logout-btn {
+    background: none;
+    border: none;
+    color: var(--blue-dark);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: color 0.3s ease;
+}
+
+.logout-btn:hover {
+    color: var(--blue-medium);
+}
+
+/* Theme Switch */
+.theme-switch-wrapper {
+    cursor: pointer;
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: #f0f4f8;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.theme-switch-wrapper:hover {
+    background: rgba(0, 0, 0, 0.1);
+    transform: translateY(-50%) scale(1.05);
+}
+
+/* Tema escuro para theme-switch-wrapper */
+.dark .theme-switch-wrapper {
+  background: #272A30;
+}
+
+.theme-icon { 
+    font-size: 1.2rem;
+    color: var(--blue-dark);
+    transition: all 0.3s ease;
+    position: absolute;
+}
+
+.theme-icon.bx-sun {
+    opacity: 1;
+    color: #FFD700;
+    z-index: 2;
+}
+
+.theme-icon.bx-moon {
+    opacity: 0;
+    z-index: 1;
+}
+
+[data-theme="dark"] .theme-icon.bx-sun {
+    opacity: 0;
+    z-index: 1;
+}
+
+[data-theme="dark"] .theme-icon.bx-moon {
+    opacity: 1;
+    color: var(--white);
+    z-index: 2;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .header-container {
+        padding: 0 10px;
+    }
+    
+    .velohub-logo {
+        left: 10px;
+    }
+    
+    .velohub-logo img {
+        width: 140px;
+        height: 40px;
+    }
+    
+    .theme-switch-wrapper {
+        right: 10px;
+        width: 35px;
+        height: 35px;
+    }
+    
+    .nav-menu {
+        gap: 10px;
+        padding: 6px 12px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .nav-link {
+        padding: 8px 12px;
+        font-size: 0.85rem;
+    }
+    
+    .user-info {
+        right: 60px;
+    }
+}
+
+@media (max-width: 480px) {
+    .velohub-header .header-container {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+    
+    .theme-switch-wrapper {
+        right: 10px;
+        width: 32px;
+        height: 32px;
+    }
+    
+    .theme-icon {
+        font-size: 1rem;
+    }
+
+    .velohub-logo {
+        position: relative;
+        left: auto;
+        top: auto;
+        transform: none;
+        margin-bottom: 10px;
+    }
+    
+    .velohub-logo img {
+        width: 120px;
+        height: 35px;
+    }
+
+    .nav-menu {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .user-info {
+        right: 50px;
+    }
+    
+    .user-name {
+        display: none;
+    }
+    
+    .theme-switch-wrapper {
+        right: 5px;
+        width: 30px;
+        height: 30px;
+    }
+    
+    .theme-icon {
+        font-size: 1rem;
+    }
+}
+
+/* ============================================= */
+/* == CONTAINERS DO HEADER - SEMPRE BRANCOS == */
+/* ============================================= */
+
+/* Menu de navegação - sempre branco */
+.nav-menu {
+    background-color: var(--white) !important;
+}
+
+/* Botão do usuário - sempre branco */
+.user-info {
+    background-color: var(--white) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.user-info:hover {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Tema escuro - manter containers brancos */
+.dark .nav-menu {
+    background-color: var(--white) !important;
+}
+
+.dark .user-info {
+    background-color: var(--white) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.dark .user-info:hover {
+    background-color: rgba(0, 0, 0, 0.05) !important;
 }

@@ -1,0 +1,45 @@
+# app.yaml para Google App Engine - VeloHub V3
+# Configuração para desenvolvimento com variáveis diretas
+
+runtime: nodejs18
+service: velohub-main
+
+# Variáveis de ambiente (desenvolvimento)
+env_variables:
+  NODE_ENV: production
+  PORT: 8080
+  
+  # MongoDB - URI completa
+  MONGODB_URI: "mongodb+srv://lucasgravina:nKQu8bSN6iZl8FPo@clustercentral.quqgq6x.mongodb.net/console_conteudo?retryWrites=true&w=majority&appName=ClusterCentral"
+  
+  # Google OAuth - Credenciais
+  GOOGLE_CLIENT_ID: "278491073220-eb4ogvn3aifu0ut9mq3rvu5r9r9l3137.apps.googleusercontent.com"
+  GOOGLE_CLIENT_SECRET: "SEU_GOOGLE_CLIENT_SECRET_AQUI"
+  
+  # Configurações adicionais
+  CORS_ORIGIN: "https://velohub-471220.uc.r.appspot.com"
+
+# Configuração de scaling automático
+automatic_scaling:
+  min_instances: 1
+  max_instances: 10
+  target_cpu_utilization: 0.6
+  target_throughput_utilization: 0.6
+
+# Configuração de rede
+network:
+  session_affinity: true
+
+# Handlers para roteamento
+handlers:
+  # API endpoints
+  - url: /api/.*
+    script: auto
+    
+  # Arquivos estáticos (se houver)
+  - url: /static
+    static_dir: public
+    
+  # Todas as outras requisições
+  - url: /.*
+    script: auto

@@ -1,9 +1,14 @@
+/**
+ * VeloHub V3 - Main Application Component
+ * VERSION: v1.0.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
+ */
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Map, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen } from 'lucide-react';
 import { mainAPI, veloNewsAPI, articlesAPI, faqAPI } from './services/api';
 import { checkAuthenticationState, updateUserInfo } from './services/auth';
 import LoginPage from './components/LoginPage';
-import './header-styles.css';
+import Chatbot from './components/Chatbot';
 
 // Sistema de gerenciamento de estado para modal crítico
 const CriticalModalManager = {
@@ -29,11 +34,9 @@ const CriticalModalManager = {
     if (newsTitle) {
       // Salvar o título da notícia como chave de reconhecimento
       localStorage.setItem(CriticalModalManager.ACKNOWLEDGED_KEY, newsTitle);
-      console.log('✅ Usuário marcou como ciente da notícia:', newsTitle);
     } else {
       // Fallback para compatibilidade
       localStorage.setItem(CriticalModalManager.ACKNOWLEDGED_KEY, 'true');
-      console.log('✅ Usuário marcou como ciente (modo compatibilidade)');
     }
   },
   
@@ -69,51 +72,28 @@ const CriticalModalManager = {
   
   // Resetar o estado para uma nova notícia crítica
   resetForNewCriticalNews: () => {
-    console.log('🔄 Resetando estado do modal crítico...');
-    console.log('📝 Estado antes do reset:', {
-      acknowledged: localStorage.getItem(CriticalModalManager.ACKNOWLEDGED_KEY),
-      remindLater: localStorage.getItem(CriticalModalManager.REMIND_LATER_KEY),
-      showRemindButton: localStorage.getItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY),
-      lastCriticalNews: CriticalModalManager.getLastCriticalNews()
-    });
-    
     // RESETAR COMPLETAMENTE O ESTADO
     localStorage.removeItem(CriticalModalManager.ACKNOWLEDGED_KEY);
     localStorage.removeItem(CriticalModalManager.REMIND_LATER_KEY);
     localStorage.setItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY, 'true');
-    
-    console.log('✅ Estado resetado com sucesso');
-    console.log('📝 Estado após reset:', {
-      acknowledged: localStorage.getItem(CriticalModalManager.ACKNOWLEDGED_KEY),
-      remindLater: localStorage.getItem(CriticalModalManager.REMIND_LATER_KEY),
-      showRemindButton: localStorage.getItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY),
-      lastCriticalNews: CriticalModalManager.getLastCriticalNews()
-    });
   },
   
   // Verificar se deve mostrar o modal
   shouldShowModal: (criticalNews) => {
     if (!criticalNews) return false;
     
-    console.log('🔍 Verificando se deve mostrar modal para:', criticalNews.title);
-    console.log('📝 Status atual de ciente:', CriticalModalManager.isAcknowledged(criticalNews.title));
-    console.log('🔑 Chave atual no localStorage:', localStorage.getItem(CriticalModalManager.ACKNOWLEDGED_KEY));
-    
     // Se já foi ciente desta notícia específica, não mostrar
     if (CriticalModalManager.isAcknowledged(criticalNews.title)) {
-      console.log('❌ Modal não será exibido - usuário já foi ciente desta notícia');
       return false;
     }
     
     // Se tem lembrete ativo, mostrar
     if (CriticalModalManager.shouldRemindLater()) {
-      console.log('⏰ Modal será exibido devido a lembrete ativo');
       CriticalModalManager.clearRemindLater(); // Limpar após verificar
       return true;
     }
     
     // Se não tem lembrete, mostrar normalmente
-    console.log('✅ Modal será exibido normalmente');
     return true;
   },
   
@@ -133,19 +113,12 @@ const CriticalModalManager = {
   
   setLastCriticalNews: (criticalKey) => {
     localStorage.setItem(CriticalModalManager.LAST_CRITICAL_KEY, criticalKey);
-    console.log('💾 Última notícia crítica salva:', criticalKey);
   },
   
   // Verificar se é uma notícia crítica nova
   isNewCriticalNews: (criticalKey) => {
     const lastCritical = CriticalModalManager.getLastCriticalNews();
-    const isNew = lastCritical !== criticalKey;
-    console.log('🔍 Verificando se é notícia nova:', {
-      lastCritical,
-      currentCritical: criticalKey,
-      isNew
-    });
-    return isNew;
+    return lastCritical !== criticalKey;
   }
 };
 
@@ -237,11 +210,11 @@ const CriticalNewsModal = ({ news, onClose }) => {
   const shouldShowRemindButton = CriticalModalManager.shouldShowRemindButton();
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-              <div className="rounded-lg shadow-2xl p-8 max-w-2xl w-full mx-4 velohub-modal" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
+    <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
+              <div className="rounded-lg shadow-2xl p-8 max-w-2xl w-full mx-4 velohub-container" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'}}>
         <h2 className="text-2xl font-bold text-red-600 mb-4">{news.title}</h2>
                  <div 
-             className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
+             className="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200"
              dangerouslySetInnerHTML={{ __html: news.content || '' }}
          />
         <div className="mt-8 flex justify-between items-center">
@@ -261,7 +234,7 @@ const CriticalNewsModal = ({ news, onClose }) => {
                 onChange={() => setIsAcknowledged(!isAcknowledged)}
                 className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
               />
-              <label htmlFor="acknowledge" className="ml-2 text-gray-700 dark:text-gray-300 font-medium">
+              <label htmlFor="acknowledge" className="ml-2 text-gray-800 dark:text-gray-200 font-medium">
                 Ciente
               </label>
             </div>
@@ -471,7 +444,7 @@ const PontoWidget = () => {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+    <div className="velohub-container rounded-lg p-4" style={{border: '1px solid var(--cor-borda)'}}>
       {/* Status Atual */}
       <div className="text-center mb-4">
         <div className="flex items-center justify-center gap-2 mb-2">
@@ -541,21 +514,7 @@ const HomePage = ({ setCriticalNews }) => {
         const fetchAllData = async () => {
             try {
                 setLoading(true);
-                console.log('🔄 Buscando dados do Velonews...');
                 const velonewsResponse = await veloNewsAPI.getAll();
-                console.log('✅ Velonews recebidos:', velonewsResponse.data);
-                console.log('🔍 Estrutura detalhada dos velonews:');
-                if (velonewsResponse.data && velonewsResponse.data.length > 0) {
-                    velonewsResponse.data.forEach((item, index) => {
-                        console.log(`Velonews ${index + 1}:`, {
-                            _id: item._id,
-                            title: item.title,
-                            content: item.content ? item.content.substring(0, 100) + '...' : null,
-                            is_critical: item.is_critical,
-                            createdAt: item.createdAt
-                        });
-                    });
-                }
                 
                 // ✅ Usar todos os velonews recebidos da API
                 const sortedVeloNews = [...velonewsResponse.data].sort((a, b) => {
@@ -566,51 +525,30 @@ const HomePage = ({ setCriticalNews }) => {
                 
                 setVeloNews(sortedVeloNews);
                 
-                // Debug: mostrar todos os velonews
-                console.log('📰 Todos os velonews:', velonewsResponse.data);
-                console.log('📅 Velonews ordenados por data:', sortedVeloNews.map(n => ({ 
-                    title: n.title, 
-                    date: n.createdAt,
-                    is_critical: n.is_critical 
-                })));
+                // Verificar notícias críticas - buscar a MAIS RECENTE
+                const criticalNews = sortedVeloNews.filter(n => n.is_critical === 'Y');
+                const mostRecentCritical = criticalNews.length > 0 ? criticalNews[0] : null;
                 
-                // Verificar notícias críticas com novo sistema
-                const critical = sortedVeloNews.find(n => n.is_critical === 'Y');
-                console.log('🔍 Procurando por is_critical === "Y"');
-                console.log('🔍 Velonews com is_critical:', velonewsResponse.data.map(n => ({ id: n._id, title: n.title, is_critical: n.is_critical })));
-                
-                if (critical) {
-                    console.log('🚨 Notícia crítica encontrada:', critical);
-                    
-                    // Criar uma chave única para a notícia crítica (ID + título)
-                    const criticalKey = `${critical._id}-${critical.title}`;
+                if (mostRecentCritical) {
+                    // Criar uma chave única para a notícia crítica mais recente (ID + título)
+                    const criticalKey = `${mostRecentCritical._id}-${mostRecentCritical.title}`;
                     
                     // Verificar se é uma notícia crítica nova usando localStorage
                     if (CriticalModalManager.isNewCriticalNews(criticalKey)) {
-                        console.log('🔄 Nova notícia crítica detectada! Resetando estado...');
-                        console.log('📝 Título anterior:', localStorage.getItem(CriticalModalManager.ACKNOWLEDGED_KEY));
                         CriticalModalManager.resetForNewCriticalNews();
                         CriticalModalManager.setLastCriticalNews(criticalKey);
                         setLastCriticalNewsId(criticalKey);
-                        console.log('✅ Estado resetado para nova notícia crítica');
-                    } else {
-                        console.log('📰 Mesma notícia crítica - não resetando estado');
                     }
                     
-                    if (CriticalModalManager.shouldShowModal(critical)) {
-                        console.log('✅ Modal será exibido para notícia crítica');
-                        setCriticalNews(critical);
-                    } else {
-                        console.log('❌ Modal não será exibido (já foi ciente)');
+                    if (CriticalModalManager.shouldShowModal(mostRecentCritical)) {
+                        console.log('🚨 Modal crítico exibido para notícia mais recente:', mostRecentCritical.title);
+                        setCriticalNews(mostRecentCritical);
                     }
-                } else {
-                    console.log('❌ Nenhuma notícia crítica encontrada');
                 }
 
                 // Buscar artigos recentes para o sidebar
                 const fetchRecentItems = async () => {
                     try {
-                        console.log('📚 Buscando artigos recentes...');
                         const articlesResponse = await articlesAPI.getAll();
                         
                         if (articlesResponse.data && articlesResponse.data.length > 0) {
@@ -619,18 +557,8 @@ const HomePage = ({ setCriticalNews }) => {
                                 .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
                                 .slice(0, 3);
 
-                            console.log('🔍 DEBUG - Artigos recentes que serão exibidos:', recentArticles);
-                            console.log('🔍 DEBUG - Estrutura dos artigos recentes:', recentArticles.map(item => ({
-                                _id: item._id,
-                                title: item.title,
-                                content: item.content ? item.content.substring(0, 50) + '...' : null,
-                                category: item.category,
-                                createdAt: item.createdAt
-                            })));
-
                             setRecentItems(recentArticles);
                         } else {
-                            console.log('❌ Nenhum artigo encontrado');
                             setRecentItems([]);
                         }
                     } catch (error) {
@@ -642,13 +570,9 @@ const HomePage = ({ setCriticalNews }) => {
                 fetchRecentItems();
             } catch (error) {
                 console.error('❌ Erro ao carregar dados da API:', error);
-                console.log('📋 Usando dados mock como fallback...');
-                
-                // Em caso de erro, usar arrays vazios
-                console.warn('⚠️ Usando arrays vazios como fallback');
                 setVeloNews([]);
                 setCriticalNews(null);
-                 setRecentItems([]);
+                setRecentItems([]);
             } finally {
                 setLoading(false);
             }
@@ -658,7 +582,6 @@ const HomePage = ({ setCriticalNews }) => {
         
         // Refresh invisível a cada 3 minutos
         const refreshInterval = setInterval(() => {
-            console.log('🔄 Refresh invisível executado...');
             setLastRefresh(Date.now());
             fetchAllData();
         }, 3 * 60 * 1000); // 3 minutos
@@ -734,8 +657,49 @@ const HomePage = ({ setCriticalNews }) => {
                          flexDirection: 'column',
                          justifyContent: 'space-between',
                          alignItems: 'center',
-                         gap: '16px'
+                         gap: '16px',
+                         position: 'relative'
                      }}>
+                         {/* Overlay "Em Breve" */}
+                         <div style={{
+                             position: 'absolute',
+                             top: 0,
+                             left: 0,
+                             right: 0,
+                             bottom: 0,
+                             backgroundColor: 'rgba(128, 128, 128, 0.8)',
+                             borderRadius: '8px',
+                             display: 'flex',
+                             alignItems: 'center',
+                             justifyContent: 'center',
+                             zIndex: 10,
+                             backdropFilter: 'blur(2px)'
+                         }}>
+                             <div style={{
+                                 backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                                 padding: '20px 30px',
+                                 borderRadius: '12px',
+                                 textAlign: 'center',
+                                 boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+                                 border: '2px solid var(--blue-dark)'
+                             }}>
+                                 <h4 style={{
+                                     color: 'var(--blue-dark)',
+                                     fontSize: '18px',
+                                     fontWeight: 'bold',
+                                     margin: 0
+                                 }}>
+                                     Em Breve
+                                 </h4>
+                                 <p style={{
+                                     color: 'var(--blue-opaque)',
+                                     fontSize: '14px',
+                                     margin: '8px 0 0 0'
+                                 }}>
+                                     Funcionalidade em desenvolvimento
+                                 </p>
+                             </div>
+                         </div>
                          {/* Título Ponto */}
                          <h3 className="font-bold text-lg text-center" style={{color: 'var(--blue-dark)'}}>Ponto</h3>
                          
@@ -957,8 +921,49 @@ const HomePage = ({ setCriticalNews }) => {
                     )}
                 </div>
             </section>
-                                                   <aside className="lg:col-span-1 rounded-lg shadow-sm flex flex-col min-h-[calc(100vh-200px)] velohub-container" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', padding: '24px', margin: '16px'}}>
+                                                   <aside className="lg:col-span-1 rounded-lg shadow-sm flex flex-col min-h-[calc(100vh-200px)] velohub-container" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', padding: '24px', margin: '16px', position: 'relative'}}>
                                     <h3 className="font-bold text-xl border-b text-center" style={{color: 'var(--blue-dark)', borderColor: 'var(--blue-opaque)'}}>Chat</h3>
+                                    
+                                    {/* Overlay "Em Breve" para o Chat */}
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 0,
+                                        backgroundColor: 'rgba(128, 128, 128, 0.8)',
+                                        borderRadius: '12px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        zIndex: 10,
+                                        backdropFilter: 'blur(2px)'
+                                    }}>
+                                        <div style={{
+                                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                                            padding: '20px 30px',
+                                            borderRadius: '12px',
+                                            textAlign: 'center',
+                                            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+                                            border: '2px solid var(--blue-dark)'
+                                        }}>
+                                            <h4 style={{
+                                                color: 'var(--blue-dark)',
+                                                fontSize: '18px',
+                                                fontWeight: 'bold',
+                                                margin: 0
+                                            }}>
+                                                Em Breve
+                                            </h4>
+                                            <p style={{
+                                                color: 'var(--blue-opaque)',
+                                                fontSize: '14px',
+                                                margin: '8px 0 0 0'
+                                            }}>
+                                                Sistema de chat em desenvolvimento
+                                            </p>
+                                        </div>
+                                    </div>
                   
                                      {/* Status do Agente */}
                    <div className="p-4 border-b border-gray-200 dark:border-gray-600">
@@ -1102,8 +1107,8 @@ const HomePage = ({ setCriticalNews }) => {
                   </div>
               </aside>
             {selectedNews && (
-                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedNews(null)}>
-                                         <div className="rounded-lg shadow-2xl p-8 max-w-2xl w-full mx-4 velohub-modal" onClick={e => e.stopPropagation()} style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
+                 <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50" onClick={() => setSelectedNews(null)}>
+                                         <div className="rounded-lg shadow-2xl p-8 max-w-2xl w-full mx-4 bg-white dark:bg-gray-800" onClick={e => e.stopPropagation()} style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'}}>
                         <div className="flex justify-between items-center mb-4">
                            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">{selectedNews.title}</h2>
                            <button onClick={() => setSelectedNews(null)} className="text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white text-3xl">&times;</button>
@@ -1118,8 +1123,8 @@ const HomePage = ({ setCriticalNews }) => {
 
                          {/* Modal do Google Chat PWA */}
              {showGoogleChat && (
-                 <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-                                           <div className="rounded-lg shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col velohub-modal" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
+                 <div className="fixed inset-0 bg-black bg-opacity-85 flex items-center justify-center z-50 p-4">
+                                           <div className="rounded-lg shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col bg-white dark:bg-gray-800" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'}}>
                                                    {/* Header do Modal */}
                           <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
                               <div className="flex items-center gap-3">
@@ -1283,11 +1288,41 @@ const ArtigosPage = () => {
     const [selectedCategory, setSelectedCategory] = useState('Todas');
     const [categories, setCategories] = useState([]);
     const [selectedArticle, setSelectedArticle] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
     // Função para renderizar HTML de forma segura
     const renderHTML = (htmlContent) => {
         if (!htmlContent) return '';
         return { __html: htmlContent };
+    };
+
+    // Função para buscar artigos por título e palavras-chave
+    const searchArticles = (term, articlesList) => {
+        if (!term || term.trim() === '') {
+            return articlesList;
+        }
+
+        const searchTerm = term.toLowerCase().trim();
+        
+        return articlesList.filter(article => {
+            // Buscar no título
+            const titleMatch = article.title && article.title.toLowerCase().includes(searchTerm);
+            
+            // Buscar no conteúdo (removendo tags HTML)
+            const contentText = article.content ? article.content.replace(/<[^>]*>/g, '').toLowerCase() : '';
+            const contentMatch = contentText.includes(searchTerm);
+            
+            // Buscar nas palavras-chave
+            const keywordsMatch = article.keywords && article.keywords.some(keyword => 
+                keyword.toLowerCase().includes(searchTerm)
+            );
+            
+            // Buscar na categoria
+            const categoryMatch = article.category && article.category.toLowerCase().includes(searchTerm);
+            
+            return titleMatch || contentMatch || keywordsMatch || categoryMatch;
+        });
     };
 
     useEffect(() => {
@@ -1326,18 +1361,38 @@ const ArtigosPage = () => {
         }
     }, [articles]);
 
-    // Filtrar artigos por categoria
+    // Debounce para o termo de busca
     useEffect(() => {
-        if (selectedCategory === 'Todas') {
-            setFilteredArticles(articles);
-        } else {
-            const filtered = articles.filter(article => article.category === selectedCategory);
-            setFilteredArticles(filtered);
+        const timer = setTimeout(() => {
+            setDebouncedSearchTerm(searchTerm);
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+
+    // Filtrar artigos por categoria e busca
+    useEffect(() => {
+        let filtered = articles;
+        
+        // Filtrar por categoria
+        if (selectedCategory !== 'Todas') {
+            filtered = filtered.filter(article => article.category === selectedCategory);
         }
-    }, [selectedCategory, articles]);
+        
+        // Aplicar busca se houver termo de busca
+        if (debouncedSearchTerm && debouncedSearchTerm.trim() !== '') {
+            filtered = searchArticles(debouncedSearchTerm, filtered);
+        }
+        
+        setFilteredArticles(filtered);
+    }, [selectedCategory, articles, debouncedSearchTerm]);
 
     const handleCategoryChange = (category) => {
         setSelectedCategory(category);
+    };
+
+    const handleSearchChange = (term) => {
+        setSearchTerm(term);
     };
 
     const handleArticleClick = (article) => {
@@ -1346,7 +1401,61 @@ const ArtigosPage = () => {
 
     return (
         <div className="container mx-auto px-6 py-8">
-            <h1 className="text-3xl font-bold mb-8" style={{color: 'var(--blue-dark)'}}>Artigos</h1>
+            {/* Cabeçalho com título e busca */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
+                <h1 className="text-3xl font-bold" style={{color: 'var(--blue-dark)'}}>Artigos</h1>
+                
+                {/* Campo de Busca */}
+                <div className="flex flex-col sm:items-end">
+                    <div className="relative w-full sm:w-80">
+                        <input
+                            type="text"
+                            value={searchTerm}
+                            onChange={(e) => handleSearchChange(e.target.value)}
+                            placeholder="Buscar artigos..."
+                            className="w-full px-4 pl-12 pr-4 border focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                            style={{
+                                backgroundColor: 'var(--cor-container)',
+                                color: 'var(--cor-texto-principal)',
+                                borderColor: 'var(--cor-borda)',
+                                paddingTop: '8px',
+                                paddingBottom: '8px',
+                                borderRadius: '16px'
+                            }}
+                        />
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </div>
+                        {searchTerm && (
+                            <button
+                                onClick={() => handleSearchChange('')}
+                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        )}
+                    </div>
+                    
+                    {/* Indicador de resultados */}
+                    {debouncedSearchTerm && (
+                        <div className="mt-2 text-sm text-gray-600 dark:text-gray-400 text-right">
+                            {filteredArticles.length > 0 ? (
+                                <span>
+                                    {filteredArticles.length} artigo{filteredArticles.length !== 1 ? 's' : ''} encontrado{filteredArticles.length !== 1 ? 's' : ''} para "{debouncedSearchTerm}"
+                                </span>
+                            ) : (
+                                <span className="text-red-500 dark:text-red-400">
+                                    Nenhum artigo encontrado para "{debouncedSearchTerm}"
+                                </span>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                 {/* Sidebar de Categorias */}
@@ -1381,14 +1490,22 @@ const ArtigosPage = () => {
                     {!loading && (
                         <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
                             <p className="text-sm text-gray-600 dark:text-gray-400">
-                                {filteredArticles.length} artigo{filteredArticles.length !== 1 ? 's' : ''} encontrado{filteredArticles.length !== 1 ? 's' : ''}
+                                {debouncedSearchTerm ? (
+                                    <span>
+                                        {filteredArticles.length} de {articles.length} artigo{articles.length !== 1 ? 's' : ''}
+                                    </span>
+                                ) : (
+                                    <span>
+                                        {filteredArticles.length} artigo{filteredArticles.length !== 1 ? 's' : ''} encontrado{filteredArticles.length !== 1 ? 's' : ''}
+                                    </span>
+                                )}
                             </p>
                         </div>
                     )}
                 </aside>
 
                 {/* Lista de Artigos */}
-                <div className="lg:col-span-3">
+                <div className="lg:col-span-3" style={{padding: '16px'}}>
                     {loading && (
                         <div className="text-center py-12">
                             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
@@ -1489,8 +1606,8 @@ const ArtigosPage = () => {
 
             {/* Modal do Artigo */}
             {selectedArticle && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                                         <div className="rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden velohub-modal" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
+                <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+                                         <div className="rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden bg-white dark:bg-gray-800" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'}}>
                         <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
                             <div>
                                 <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full text-sm font-medium">
@@ -1614,250 +1731,6 @@ const ProcessosPage = () => {
     );
 };
 
-// Componente do Modal de Feedback
-const FeedbackModal = ({ isOpen, onClose, onSubmit, comment, setComment }) => {
-    if (!isOpen) return null;
+// Componente FeedbackModal - REMOVIDO (agora no componente Chatbot)
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (comment.trim()) {
-            onSubmit(comment);
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 backdrop-blur-sm">
-            <div className="rounded-lg shadow-xl p-6 w-full max-w-md mx-4 velohub-modal" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
-                <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Melhorar esta Resposta</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Obrigado pelo seu feedback! Por favor, nos diga o que estava errado ou faltando na resposta.</p>
-                <form onSubmit={handleSubmit} className="mt-4">
-                    <textarea
-                        value={comment}
-                        onChange={(e) => setComment(e.target.value)}
-                        placeholder="Ex: A resposta está desatualizada, o link está quebrado..."
-                        className="w-full h-32 p-3 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                        required
-                    />
-                    <div className="flex justify-end gap-3 mt-4">
-                        <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 font-semibold">
-                            Cancelar
-                        </button>
-                        <button type="submit" className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 font-semibold">
-                            Enviar Feedback
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-};
-
-// Componente do Chatbot
-const Chatbot = ({ prompt }) => {
-    const [messages, setMessages] = useState([]);
-    const [inputValue, setInputValue] = useState('');
-    const [isTyping, setIsTyping] = useState(false);
-    const chatBoxRef = useRef(null);
-    const [feedbackForMessage, setFeedbackForMessage] = useState(null);
-    const [feedbackComment, setFeedbackComment] = useState('');
-
-    useEffect(() => {
-        if (prompt) {
-            handleSendMessage(prompt.text);
-        }
-    }, [prompt]);
-
-    useEffect(() => {
-        if (chatBoxRef.current) {
-            chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
-        }
-    }, [messages, isTyping]);
-
-    const findSuggestedArticles = async (query) => {
-        try {
-            const response = await articlesAPI.getAll();
-            const queryWords = query.toLowerCase().split(/\s+/);
-            return response.data.filter(article => 
-                article.keywords && article.keywords.some(keyword => queryWords.includes(keyword))
-            );
-        } catch (error) {
-            console.error('Erro ao buscar artigos da API:', error);
-            console.log('📋 Usando dados mock para sugestões...');
-            
-            // Em caso de erro, retornar array vazio
-            console.warn('⚠️ Erro ao buscar artigos, retornando array vazio');
-            return [];
-        }
-    };
-
-    const findRelevantFAQ = async (query) => {
-        try {
-            const response = await faqAPI.getAll();
-            const queryWords = query.toLowerCase().split(/\s+/);
-            return response.data.find(faq => 
-                faq.keywords && queryWords.some(word => 
-                    faq.keywords.toLowerCase().includes(word)
-                )
-            );
-        } catch (error) {
-            console.error('Erro ao buscar FAQ da API:', error);
-            console.log('📋 Usando dados mock para FAQ...');
-            
-            // Em caso de erro, retornar null
-            console.warn('⚠️ Erro ao buscar FAQ, retornando null');
-            return null;
-        }
-    };
-
-    const handleSendMessage = async (text) => {
-        const trimmedInput = text.trim();
-        if (!trimmedInput || isTyping) return;
-
-        const newMessages = [...messages, { id: Date.now(), text: trimmedInput, sender: 'user' }];
-        setMessages(newMessages);
-        setInputValue('');
-        setIsTyping(true);
-
-        // Buscar resposta relevante nos dados
-        const relevantFAQ = await findRelevantFAQ(trimmedInput);
-        const suggestedArticles = await findSuggestedArticles(trimmedInput);
-        
-        let botResponse;
-        if (relevantFAQ) {
-            botResponse = relevantFAQ.context;
-        } else {
-            // Se não encontrar FAQ específico, buscar em artigos
-            const relevantArticle = suggestedArticles.find(article => 
-                article.content && article.content.toLowerCase().includes(trimmedInput.toLowerCase())
-            );
-            if (relevantArticle) {
-                botResponse = relevantArticle.content;
-            } else {
-                botResponse = `Desculpe, não encontrei informações específicas sobre "${trimmedInput}". Posso ajudá-lo com outras dúvidas sobre nossos serviços.`;
-            }
-        }
-        
-        let finalMessages = [...newMessages, { id: Date.now() + 1, text: botResponse, sender: 'bot', feedbackState: 'pending' }];
-
-        if(suggestedArticles.length > 0) {
-            finalMessages.push({ id: Date.now() + 2, type: 'articles', articles: suggestedArticles, sender: 'bot' });
-        }
-        
-        setMessages(finalMessages);
-        setIsTyping(false);
-    };
-
-    const handleFeedback = (messageId, feedbackType, comment = '') => {
-        console.log({ messageId, feedbackType, comment, question: messages.find(m => m.id === messageId)?.text });
-        setMessages(currentMessages =>
-            currentMessages.map(msg =>
-                msg.id === messageId ? { ...msg, feedbackState: 'given' } : msg
-            )
-        );
-    };
-    
-    const openFeedbackModal = (message) => { setFeedbackForMessage(message); };
-    const closeFeedbackModal = () => { setFeedbackForMessage(null); setFeedbackComment(''); };
-    const submitFeedbackModal = (comment) => { handleFeedback(feedbackForMessage.id, 'negative', comment); closeFeedbackModal(); };
-
-    return (
-        <>
-            <div className="flex flex-col h-[80vh] rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 velohub-modal" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
-                <div className="flex-shrink-0 flex items-center gap-4 p-4 border-b border-gray-200 dark:border-gray-700">
-                    <img src="https://github.com/VeloProcess/PDP-Portal-de-Processos-/blob/main/unnamed%20(2).png?raw=true" alt="Logo" className="w-10 h-10 rounded-full" />
-                    <div>
-                        <h2 className="text-lg font-semibold" style={{color: 'var(--blue-dark)'}}>Veloprocess</h2>
-                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                            <span className="flex items-center gap-1"><span className="h-2 w-2 bg-green-500 rounded-full"></span>Online</span>
-                            <span>v.4.0.1</span>
-                        </div>
-                    </div>
-                </div>
-                <div ref={chatBoxRef} className="flex-grow p-6 overflow-y-auto space-y-6">
-                    {messages.length === 0 && !isTyping && (
-                        <div className="flex justify-center items-center h-full">
-                            <div className="text-center">
-                                <div className="w-24 h-24 bg-blue-100 dark:bg-blue-900/50 rounded-full mx-auto animate-pulse flex items-center justify-center">
-                                    <Bot size={48} className="text-blue-500"/>
-                                </div>
-                                <p className="mt-4 text-gray-600 dark:text-gray-400">Faça uma pergunta para começar.</p>
-                            </div>
-                        </div>
-                    )}
-                    {messages.map(msg => {
-                        if (msg.type === 'articles') {
-                            return (
-                                <div key={msg.id} className="flex gap-3 justify-start">
-                                    <img src="https://github.com/VeloProcess/PDP-Portal-de-Processos-/blob/main/unnamed%20(2).png?raw=true" alt="Bot" className="w-8 h-8 rounded-full" />
-                                    <div className="max-w-md p-4 rounded-2xl bg-gray-200 dark:bg-gray-700 rounded-bl-none">
-                                        <h4 className="font-semibold text-sm mb-2 text-gray-800 dark:text-gray-200">Artigos relacionados:</h4>
-                                        <ul className="space-y-2">
-                                            {msg.articles.map(article => (
-                                                <li key={article.id} className="text-blue-600 dark:text-blue-400 hover:underline cursor-pointer text-sm flex items-center gap-2">
-                                                    <BookOpen size={14} /> {article.title}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                </div>
-                            )
-                        }
-                        return (
-                            <div key={msg.id} className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                {msg.sender === 'bot' && <img src="https://github.com/VeloProcess/PDP-Portal-de-Processos-/blob/main/unnamed%20(2).png?raw=true" alt="Bot" className="w-8 h-8 rounded-full" />}
-                                <div className={`max-w-md p-3 rounded-2xl ${msg.sender === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-bl-none'}`}>
-                                    <p>{msg.text}</p>
-                                    {msg.feedbackState === 'pending' && (
-                                        <div className="flex gap-2 mt-2">
-                                            <button onClick={() => handleFeedback(msg.id, 'positive')} className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500"><ThumbsUp size={16}/></button>
-                                            <button onClick={() => openFeedbackModal(msg)} className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-500"><ThumbsDown size={16}/></button>
-                                        </div>
-                                    )}
-                                    {msg.feedbackState === 'given' && (
-                                        <p className="text-xs text-green-600 dark:text-green-500 mt-2 font-semibold">Obrigado pelo feedback!</p>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })}
-                    {isTyping && (
-                        <div className="flex gap-3 justify-start">
-                            <img src="https://github.com/VeloProcess/PDP-Portal-de-Processos-/blob/main/unnamed%20(2).png?raw=true" alt="Bot" className="w-8 h-8 rounded-full" />
-                            <div className="max-w-md p-3 rounded-2xl bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-bl-none">
-                            <div className="flex items-center gap-1">
-                                    <span className="h-2 w-2 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                                    <span className="h-2 w-2 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                                    <span className="h-2 w-2 bg-blue-500 rounded-full animate-bounce"></span>
-                            </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                <div className="flex-shrink-0 p-4 border-t border-gray-200 dark:border-gray-700">
-                    <div className="relative">
-                        <input
-                            type="text"
-                            value={inputValue}
-                            onChange={(e) => setInputValue(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage(inputValue)}
-                            placeholder="Digite sua mensagem..."
-                            className="w-full bg-gray-100 dark:bg-gray-700 border-transparent rounded-full py-3 px-5 pr-14 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        <button onClick={() => handleSendMessage(inputValue)} className="absolute right-3 top-1/2 -translate-y-1/2 bg-blue-600 text-white rounded-full p-2 hover:bg-blue-700 transition-colors disabled:bg-blue-300" disabled={isTyping || !inputValue}>
-                            <Send size={20} />
-                        </button>
-                    </div>
-                </div>
-            </div>
-            
-            <FeedbackModal 
-                isOpen={!!feedbackForMessage}
-                onClose={closeFeedbackModal}
-                onSubmit={submitFeedbackModal}
-                comment={feedbackComment}
-                setComment={setFeedbackComment}
-            />
-        </>
-    );
-};
+// Componente do Chatbot - REMOVIDO (agora usando componente separado)

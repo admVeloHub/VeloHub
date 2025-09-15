@@ -1,5 +1,0 @@
-[33mb81c481[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m feat: aplicação completa do padrão header VeloAcademy com todas as características originais
-[33ma1f50ac[m update: logo VeloHub atualizado com novas dimensões e CSS ajustado
-[33md1baf8b[m update: logo VeloHub atualizado
-[33mbf34d81[m feat: implementação do header VeloAcademy no VeloHub - Header visual baseado no VeloAcademy com logo VeloHub - Toggle de tema claro/escuro - Redirecionamento exclusivo para VeloAcademy - Altura e fonte ajustadas - Responsividade completa
-[33m9a5e7a2[m fix: corrigir estrutura de arquivos para deploy no Vercel - Criar index.js padrão que importa App_v2-1.js - Criar index.css padrão com estilos Tailwind - Corrigir importação no index-1.js
