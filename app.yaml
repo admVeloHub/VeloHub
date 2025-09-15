@@ -2,7 +2,7 @@
 # Configuração para desenvolvimento com variáveis diretas
 
 runtime: nodejs18
-service: velohub-main
+service: velohub-v3
 
 # Variáveis de ambiente (desenvolvimento)
 env_variables:
