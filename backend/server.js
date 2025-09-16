@@ -23,6 +23,7 @@ const PORT = process.env.PORT || 8080;
 app.use(cors({
   origin: [
     'https://velohub-v3-278491073220.southamerica-east1.run.app',
+    'https://velohub-*.southamerica-east1.run.app', // Wildcard para todas as revisões
     'http://localhost:3000',
     'http://localhost:5000'
   ],
@@ -35,7 +36,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // MongoDB Connection
 const uri = process.env.MONGODB_URI || "mongodb+srv://lucasgravina:nKQu8bSN6iZl8FPo@clustercentral.quqgq6x.mongodb.net/console_conteudo?retryWrites=true&w=majority&appName=ClusterCentral";
-const client = new MongoClient(uri);
+const client = new MongoClient(uri, {
+  serverSelectionTimeoutMS: 5000, // 5 segundos timeout
+  connectTimeoutMS: 10000, // 10 segundos timeout
+  socketTimeoutMS: 45000, // 45 segundos timeout
+});
 
 // Conectar ao MongoDB uma vez no início
 let isConnected = false;
@@ -59,7 +64,9 @@ app.get('/api/health', (req, res) => {
     success: true, 
     message: 'Servidor funcionando!',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 
