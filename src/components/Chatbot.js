@@ -6,6 +6,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, BookOpen, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { getUserSession } from '../services/auth';
+import { API_BASE_URL } from '../config/api-config';
 import ArticleModal from './ArticleModal';
 
 // Componente do Chatbot Inteligente - Mantendo Layout Original
@@ -58,7 +59,6 @@ const Chatbot = ({ prompt }) => {
             console.log('🤖 Chatbot: Enviando pergunta para API inteligente:', trimmedInput);
 
             // Chamar a nova API de chat inteligente
-            const API_BASE_URL = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'production' ? 'https://velohub-278491073220.southamerica-east1.run.app/api' : 'http://localhost:5000/api');
             const response = await fetch(`${API_BASE_URL}/chatbot/ask`, {
                 method: 'POST',
                 headers: {
@@ -112,7 +112,6 @@ const Chatbot = ({ prompt }) => {
 
                 // Log da atividade (opcional - pode ser feito no backend)
                 try {
-                    const API_BASE_URL = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'production' ? 'https://velohub-278491073220.southamerica-east1.run.app/api' : 'http://localhost:5000/api');
                     await fetch(`${API_BASE_URL}/chatbot/activity`, {
                         method: 'POST',
                         headers: {
@@ -161,7 +160,6 @@ const Chatbot = ({ prompt }) => {
         try {
             console.log('📝 Chatbot: Enviando feedback:', { messageId, feedbackType, comment });
 
-            const API_BASE_URL = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'production' ? 'https://velohub-278491073220.southamerica-east1.run.app/api' : 'http://localhost:5000/api');
             const response = await fetch(`${API_BASE_URL}/chatbot/feedback`, {
                 method: 'POST',
                 headers: {
@@ -203,7 +201,6 @@ const Chatbot = ({ prompt }) => {
             console.log('📖 Chatbot: Artigo clicado:', article.title);
 
             // Log da atividade
-            const API_BASE_URL = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'production' ? 'https://velohub-278491073220.southamerica-east1.run.app/api' : 'http://localhost:5000/api');
             await fetch(`${API_BASE_URL}/chatbot/activity`, {
                 method: 'POST',
                 headers: {
