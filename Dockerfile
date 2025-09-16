@@ -1,5 +1,6 @@
 # Dockerfile para Google Cloud Run - VeloHub V3
 # Multi-stage build para React + Node.js
+# Updated: 2025-01-15 - Improved startup reliability
 
 # Stage 1: Build do frontend React
 FROM node:18-alpine AS frontend-builder
