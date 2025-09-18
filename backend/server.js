@@ -113,7 +113,7 @@ app.get('/api/data', async (req, res) => {
         _id: item._id,
         title: item.title || item.velonews_titulo,
         content: item.content || item.velonews_conteudo,
-        is_critical: item.alerta_critico === 'Y' || item.alerta_critico === true || item.is_critical === 'Y' || item.is_critical === true ? 'Y' : 'N',
+        is_critical: item.alerta_critico === 'Y' || item.alerta_critico === true || item.is_critical === 'Y' || item.is_critical === true || item.isCritical === 'Y' || item.isCritical === true ? 'Y' : 'N',
         createdAt: item.createdAt,
         updatedAt: item.updatedAt
       })),
@@ -220,7 +220,8 @@ app.get('/api/velo-news', async (req, res) => {
         content: item.velonews_conteudo ?? item.content ?? '',
         is_critical:
           item.alerta_critico === 'Y' || item.alerta_critico === true ||
-          item.is_critical === 'Y' || item.is_critical === true
+          item.is_critical === 'Y' || item.is_critical === true ||
+          item.isCritical === 'Y' || item.isCritical === true
             ? 'Y'
             : 'N',
         createdAt,
