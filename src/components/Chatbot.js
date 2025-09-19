@@ -23,13 +23,18 @@ const Chatbot = ({ prompt }) => {
 
     // Obter userId do SSO
     useEffect(() => {
-        const session = getUserSession();
-        if (session && session.user && session.user.email) {
-            setUserId(session.user.email); // Usar email como userId
-            console.log('🤖 Chatbot: Usuário identificado:', session.user.email);
-        } else {
+        try {
+            const session = getUserSession();
+            if (session && session.user && session.user.email) {
+                setUserId(session.user.email); // Usar email como userId
+                console.log('🤖 Chatbot: Usuário identificado:', session.user.email);
+            } else {
+                setUserId('anonymous');
+                console.log('🤖 Chatbot: Usuário anônimo');
+            }
+        } catch (error) {
+            console.error('❌ Chatbot: Erro ao obter sessão:', error);
             setUserId('anonymous');
-            console.log('🤖 Chatbot: Usuário anônimo');
         }
     }, []);
 
@@ -47,7 +52,8 @@ const Chatbot = ({ prompt }) => {
 
     // Função para enviar mensagem para a nova API inteligente
     const handleSendMessage = async (text) => {
-        const trimmedInput = text.trim();
+        try {
+            const trimmedInput = text.trim();
         if (!trimmedInput || isTyping) return;
 
         const newMessages = [...messages, { id: Date.now(), text: trimmedInput, sender: 'user' }];
@@ -151,6 +157,10 @@ const Chatbot = ({ prompt }) => {
 
             setMessages([...newMessages, errorMessage]);
         } finally {
+            setIsTyping(false);
+        }
+        } catch (error) {
+            console.error('❌ Chatbot: Erro crítico na função handleSendMessage:', error);
             setIsTyping(false);
         }
     };
