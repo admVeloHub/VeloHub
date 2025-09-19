@@ -1500,11 +1500,14 @@ const ProcessosPage = () => {
                     {!loading && (
                         <>
                             <ul className="space-y-3">
-                                {faq.slice(0, 10).map((item, index) => (
-                                    <li key={index} onClick={() => handleFaqClick(item.question || item)} className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer text-sm">
-                                        {item.question || item}
-                                    </li>
-                                ))}
+                                {faq.slice(0, 10).map((item, index) => {
+                                    const questionText = typeof item === 'string' ? item : (item.question || 'Pergunta não disponível');
+                                    return (
+                                        <li key={index} onClick={() => handleFaqClick(questionText)} className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer text-sm">
+                                            {questionText}
+                                        </li>
+                                    );
+                                })}
                             </ul>
                             <button className="w-full mt-6 bg-blue-500 text-white font-semibold py-2 rounded-md hover:bg-blue-600 transition-colors">
                                 Mais Perguntas
