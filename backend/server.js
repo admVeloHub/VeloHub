@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v1.0.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.1 | DATE: 2025-09-18 | AUTHOR: VeloHub Development Team
  */
 
 const express = require('express');
@@ -10,10 +10,12 @@ const { MongoClient } = require('mongodb');
 require('dotenv').config();
 
 // Importar serviços do chatbot
+// VERSION: v2.0.0 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
 const openaiService = require('./services/chatbot/openaiService');
 const searchService = require('./services/chatbot/searchService');
 const sessionService = require('./services/chatbot/sessionService');
 const feedbackService = require('./services/chatbot/feedbackService');
+const logsService = require('./services/chatbot/logsService');
 const userActivityLogger = require('./services/logging/userActivityLogger');
 
 const app = express();
@@ -404,7 +406,7 @@ sessionService.startAutoCleanup();
 // API de Chat Inteligente
 app.post('/api/chatbot/ask', async (req, res) => {
   try {
-    const { question, userId, sessionId } = req.body;
+    const { question, userId, sessionId, email } = req.body;
 
     // Validação básica
     if (!question || typeof question !== 'string' || question.trim().length === 0) {
@@ -417,8 +419,9 @@ app.post('/api/chatbot/ask', async (req, res) => {
     const cleanQuestion = question.trim();
     const cleanUserId = userId || 'anonymous';
     const cleanSessionId = sessionId || null;
+    const userEmail = email || '';
 
-    console.log(`🤖 Chat: Nova pergunta de ${cleanUserId}: "${cleanQuestion}"`);
+    console.log(`🤖 Chat V2: Nova pergunta de ${cleanUserId}: "${cleanQuestion}"`);
 
     // Obter ou criar sessão
     const session = sessionService.getOrCreateSession(cleanUserId, cleanSessionId);
@@ -426,7 +429,8 @@ app.post('/api/chatbot/ask', async (req, res) => {
     // Adicionar pergunta à sessão
     sessionService.addMessage(session.id, 'user', cleanQuestion, {
       timestamp: new Date(),
-      userId: cleanUserId
+      userId: cleanUserId,
+      email: userEmail
     });
 
     // Log da atividade
@@ -444,29 +448,61 @@ app.post('/api/chatbot/ask', async (req, res) => {
       articlesCollection.find({}).toArray()
     ]);
 
-    console.log(`📋 Chat: ${faqData.length} FAQs e ${articlesData.length} artigos carregados`);
+    console.log(`📋 Chat V2: ${faqData.length} FAQs e ${articlesData.length} artigos carregados`);
 
-    // Busca híbrida (FAQ + Artigos)
+    // Busca híbrida avançada (FAQ + Artigos + Sites)
     const searchResults = await searchService.hybridSearch(cleanQuestion, faqData, articlesData);
+
+    // Verificar se precisa de esclarecimento (sistema de desduplicação)
+    const clarificationResult = searchService.findMatchesWithDeduplication(cleanQuestion, faqData);
+    
+    if (clarificationResult.needsClarification) {
+      const clarificationMenu = searchService.generateClarificationMenu(clarificationResult.matches, cleanQuestion);
+      
+      // Log da necessidade de esclarecimento
+      if (logsService.isConfigured()) {
+        await logsService.logAIUsage(userEmail, cleanQuestion, 'Clarificação Necessária');
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          ...clarificationMenu,
+          sessionId: session.id,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
 
     // Obter histórico da sessão
     const sessionHistory = sessionService.getSessionHistory(session.id);
 
-    // Construir contexto para OpenAI
+    // Construir contexto aprimorado
     let context = '';
+    
+    // Contexto do FAQ
     if (searchResults.faq) {
-      context += `FAQ relevante: ${searchResults.faq.question} - ${searchResults.faq.answer}\n`;
+      context += `FAQ relevante:\nPergunta: ${searchResults.faq.question}\nResposta: ${searchResults.faq.answer}\n\n`;
     }
+    
+    // Contexto dos artigos
     if (searchResults.articles.length > 0) {
       context += `Artigos relacionados:\n`;
       searchResults.articles.forEach(article => {
         context += `- ${article.title}: ${article.content.substring(0, 200)}...\n`;
       });
+      context += '\n';
+    }
+    
+    // Contexto dos sites autorizados
+    if (searchResults.sitesContext) {
+      context += `Informações de sites oficiais:\n${searchResults.sitesContext}\n`;
     }
 
-    // Gerar resposta com OpenAI
+    // Gerar resposta com IA (Gemini primário, OpenAI fallback)
     let response;
     let responseSource = 'fallback';
+    let aiProvider = null;
 
     if (openaiService.isConfigured()) {
       try {
@@ -474,25 +510,56 @@ app.post('/api/chatbot/ask', async (req, res) => {
           cleanQuestion,
           context,
           sessionHistory,
-          cleanUserId
+          cleanUserId,
+          userEmail
         );
-        responseSource = 'openai';
-        console.log(`✅ Chat: Resposta gerada pela OpenAI`);
-      } catch (openaiError) {
-        console.error('❌ Chat: Erro na OpenAI:', openaiError.message);
+        
+        // Determinar qual IA foi usada
+        if (openaiService.isGeminiConfigured()) {
+          responseSource = 'gemini';
+          aiProvider = 'Gemini';
+        } else {
+          responseSource = 'openai';
+          aiProvider = 'OpenAI';
+        }
+        
+        console.log(`✅ Chat V2: Resposta gerada pela ${aiProvider}`);
+        
+        // Log do uso da IA
+        if (logsService.isConfigured()) {
+          await logsService.logAIResponse(userEmail, cleanQuestion, aiProvider);
+        }
+        
+      } catch (aiError) {
+        console.error('❌ Chat V2: Erro na IA:', aiError.message);
         response = 'Desculpe, não consegui processar sua pergunta no momento. Tente novamente.';
         responseSource = 'error';
+        
+        // Log do erro
+        if (logsService.isConfigured()) {
+          await logsService.logNotFoundQuestion(userEmail, cleanQuestion);
+        }
       }
     } else {
-      // Fallback para FAQ se OpenAI não estiver configurada
+      // Fallback para FAQ se nenhuma IA estiver configurada
       if (searchResults.faq) {
         response = searchResults.faq.answer;
         responseSource = 'faq';
-        console.log(`✅ Chat: Resposta do FAQ (OpenAI não configurada)`);
+        console.log(`✅ Chat V2: Resposta do FAQ (IA não configurada)`);
+        
+        // Log da resposta da planilha
+        if (logsService.isConfigured()) {
+          await logsService.logSpreadsheetResponse(userEmail, cleanQuestion, searchResults.faq._id);
+        }
       } else {
         response = 'Desculpe, não encontrei uma resposta para sua pergunta. Entre em contato com nosso suporte para mais informações.';
         responseSource = 'no_results';
-        console.log(`❌ Chat: Nenhuma resposta encontrada`);
+        console.log(`❌ Chat V2: Nenhuma resposta encontrada`);
+        
+        // Log da pergunta não encontrada
+        if (logsService.isConfigured()) {
+          await logsService.logNotFoundQuestion(userEmail, cleanQuestion);
+        }
       }
     }
 
@@ -500,8 +567,10 @@ app.post('/api/chatbot/ask', async (req, res) => {
     const messageId = sessionService.addMessage(session.id, 'bot', response, {
       timestamp: new Date(),
       source: responseSource,
+      aiProvider: aiProvider,
       faqUsed: searchResults.faq ? searchResults.faq._id : null,
-      articlesUsed: searchResults.articles.map(a => a._id)
+      articlesUsed: searchResults.articles.map(a => a._id),
+      sitesUsed: searchResults.sitesContext ? true : false
     });
 
     // Preparar resposta para o frontend
@@ -511,6 +580,7 @@ app.post('/api/chatbot/ask', async (req, res) => {
         messageId: messageId,
         response: response,
         source: responseSource,
+        aiProvider: aiProvider,
         sessionId: session.id,
         suggestedArticles: searchResults.articles.slice(0, 3).map(article => ({
           id: article._id,
@@ -524,16 +594,17 @@ app.post('/api/chatbot/ask', async (req, res) => {
           answer: searchResults.faq.answer,
           relevanceScore: searchResults.faq.relevanceScore
         } : null,
+        sitesUsed: searchResults.sitesContext ? true : false,
         timestamp: new Date().toISOString()
       }
     };
 
-    console.log(`✅ Chat: Resposta enviada para ${cleanUserId} (${responseSource})`);
+    console.log(`✅ Chat V2: Resposta enviada para ${cleanUserId} (${responseSource}${aiProvider ? ` - ${aiProvider}` : ''})`);
     
     res.json(responseData);
 
   } catch (error) {
-    console.error('❌ Chat Error:', error.message);
+    console.error('❌ Chat V2 Error:', error.message);
     
     res.status(500).json({
       success: false,

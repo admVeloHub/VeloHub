@@ -1,4 +1,5 @@
 // Feedback Service - Gerenciamento de feedback dos usuários
+// VERSION: v2.0.0 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
 const { MongoClient } = require('mongodb');
 require('dotenv').config();
 
@@ -221,6 +222,171 @@ class FeedbackService {
 
     } catch (error) {
       console.error('❌ Feedback: Erro ao obter perguntas problemáticas:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Registra feedback aprimorado com mais detalhes (baseado no chatbot Vercel)
+   * @param {Object} feedbackData - Dados do feedback
+   * @returns {Promise<boolean>} Sucesso da operação
+   */
+  async logEnhancedFeedback(feedbackData) {
+    try {
+      await this.connect();
+
+      const feedback = {
+        userId: feedbackData.userId,
+        email: feedbackData.email || '',
+        messageId: feedbackData.messageId,
+        feedbackType: feedbackData.feedbackType, // 'positive' ou 'negative'
+        comment: feedbackData.comment || '',
+        question: feedbackData.question || '',
+        answer: feedbackData.answer || '',
+        source: feedbackData.source || 'chatbot', // IA, Planilha, Sites
+        aiProvider: feedbackData.aiProvider || null, // OpenAI, Gemini
+        sourceRow: feedbackData.sourceRow || null,
+        timestamp: new Date(),
+        sessionId: feedbackData.sessionId || null,
+        metadata: {
+          ...feedbackData.metadata,
+          userAgent: feedbackData.userAgent || '',
+          ipAddress: feedbackData.ipAddress || '',
+          responseTime: feedbackData.responseTime || null,
+          clarificationNeeded: feedbackData.clarificationNeeded || false
+        }
+      };
+
+      const result = await this.collection.insertOne(feedback);
+      
+      console.log(`✅ Feedback: Feedback aprimorado registrado com ID ${result.insertedId}`);
+      
+      return true;
+
+    } catch (error) {
+      console.error('❌ Feedback: Erro ao registrar feedback aprimorado:', error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Obtém métricas de performance do chatbot
+   * @param {Date} startDate - Data de início
+   * @param {Date} endDate - Data de fim
+   * @returns {Promise<Object>} Métricas de performance
+   */
+  async getPerformanceMetrics(startDate = null, endDate = null) {
+    try {
+      await this.connect();
+
+      const filter = {};
+      if (startDate || endDate) {
+        filter.timestamp = {};
+        if (startDate) filter.timestamp.$gte = startDate;
+        if (endDate) filter.timestamp.$lte = endDate;
+      }
+
+      const pipeline = [
+        { $match: filter },
+        {
+          $group: {
+            _id: null,
+            totalInteractions: { $sum: 1 },
+            positiveFeedback: { $sum: { $cond: [{ $eq: ['$feedbackType', 'positive'] }, 1, 0] } },
+            negativeFeedback: { $sum: { $cond: [{ $eq: ['$feedbackType', 'negative'] }, 1, 0] } },
+            aiResponses: { $sum: { $cond: [{ $eq: ['$source', 'IA'] }, 1, 0] } },
+            spreadsheetResponses: { $sum: { $cond: [{ $eq: ['$source', 'Planilha'] }, 1, 0] } },
+            siteResponses: { $sum: { $cond: [{ $regex: ['$source', 'Site'] }, 1, 0] } },
+            openaiResponses: { $sum: { $cond: [{ $eq: ['$aiProvider', 'OpenAI'] }, 1, 0] } },
+            geminiResponses: { $sum: { $cond: [{ $eq: ['$aiProvider', 'Gemini'] }, 1, 0] } },
+            clarificationsNeeded: { $sum: { $cond: ['$metadata.clarificationNeeded', 1, 0] } },
+            avgResponseTime: { $avg: '$metadata.responseTime' }
+          }
+        }
+      ];
+
+      const metrics = await this.collection.aggregate(pipeline).toArray();
+      
+      if (metrics.length === 0) {
+        return {
+          totalInteractions: 0,
+          satisfactionRate: 0,
+          sourceDistribution: {},
+          aiProviderDistribution: {},
+          performance: {}
+        };
+      }
+
+      const data = metrics[0];
+      const totalFeedback = data.positiveFeedback + data.negativeFeedback;
+      
+      return {
+        totalInteractions: data.totalInteractions,
+        satisfactionRate: totalFeedback > 0 ? (data.positiveFeedback / totalFeedback) * 100 : 0,
+        sourceDistribution: {
+          ai: data.aiResponses,
+          spreadsheet: data.spreadsheetResponses,
+          sites: data.siteResponses
+        },
+        aiProviderDistribution: {
+          openai: data.openaiResponses,
+          gemini: data.geminiResponses
+        },
+        performance: {
+          clarificationsNeeded: data.clarificationsNeeded,
+          avgResponseTime: data.avgResponseTime || 0
+        }
+      };
+
+    } catch (error) {
+      console.error('❌ Feedback: Erro ao obter métricas de performance:', error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Obtém tendências de feedback ao longo do tempo
+   * @param {number} days - Número de dias para análise
+   * @returns {Promise<Array>} Tendências diárias
+   */
+  async getFeedbackTrends(days = 30) {
+    try {
+      await this.connect();
+
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      const pipeline = [
+        { $match: { timestamp: { $gte: startDate } } },
+        {
+          $group: {
+            _id: {
+              year: { $year: '$timestamp' },
+              month: { $month: '$timestamp' },
+              day: { $dayOfMonth: '$timestamp' }
+            },
+            total: { $sum: 1 },
+            positive: { $sum: { $cond: [{ $eq: ['$feedbackType', 'positive'] }, 1, 0] } },
+            negative: { $sum: { $cond: [{ $eq: ['$feedbackType', 'negative'] }, 1, 0] } },
+            aiResponses: { $sum: { $cond: [{ $eq: ['$source', 'IA'] }, 1, 0] } }
+          }
+        },
+        { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } }
+      ];
+
+      const trends = await this.collection.aggregate(pipeline).toArray();
+      
+      return trends.map(trend => ({
+        date: new Date(trend._id.year, trend._id.month - 1, trend._id.day),
+        total: trend.total,
+        positive: trend.positive,
+        negative: trend.negative,
+        aiResponses: trend.aiResponses,
+        satisfactionRate: trend.total > 0 ? (trend.positive / trend.total) * 100 : 0
+      }));
+
+    } catch (error) {
+      console.error('❌ Feedback: Erro ao obter tendências:', error.message);
       return [];
     }
   }

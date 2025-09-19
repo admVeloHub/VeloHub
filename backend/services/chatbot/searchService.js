@@ -1,5 +1,7 @@
 // Search Service - Busca inteligente em FAQ e Artigos
+// VERSION: v2.0.0 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
 const cosineSimilarity = require('cosine-similarity');
+const axios = require('axios');
 
 class SearchService {
   constructor() {
@@ -213,7 +215,38 @@ class SearchService {
   }
 
   /**
-   * Busca híbrida: FAQ + Artigos
+   * Busca em sites autorizados (baseado no chatbot Vercel)
+   * @param {string} question - Pergunta do usuário
+   * @returns {Promise<string|null>} Contexto encontrado nos sites
+   */
+  async searchAuthorizedSites(question) {
+    const sites = [
+      "https://www.gov.br/receitafederal",
+      "https://cav.receita.fazenda.gov.br",
+      "https://www.gov.br",
+      "https://velotax.com.br"
+    ];
+    
+    let contexto = "";
+    
+    console.log(`🌐 Search: Buscando em sites autorizados para: "${question}"`);
+    
+    for (const site of sites) {
+      try {
+        const { data } = await axios.get(site, { timeout: 5000 });
+        if (data.toLowerCase().includes(question.toLowerCase())) {
+          contexto += `Fonte: ${site}\nTrecho encontrado que menciona a pergunta.\n\n`;
+        }
+      } catch (e) {
+        console.error(`❌ Search: Falha ao processar site ${site}:`, e.message);
+      }
+    }
+    
+    return contexto || null;
+  }
+
+  /**
+   * Busca híbrida avançada: FAQ + Artigos + Sites
    * @param {string} question - Pergunta do usuário
    * @param {Array} faqData - Dados do FAQ
    * @param {Array} articlesData - Dados dos artigos
@@ -222,15 +255,102 @@ class SearchService {
   async hybridSearch(question, faqData, articlesData) {
     console.log(`🔍 Search: Iniciando busca híbrida para: "${question}"`);
     
-    const [faqResult, articlesResult] = await Promise.all([
+    const [faqResult, articlesResult, sitesContext] = await Promise.all([
       this.findRelevantFAQ(question, faqData),
-      this.findRelevantArticles(question, articlesData)
+      this.findRelevantArticles(question, articlesData),
+      this.searchAuthorizedSites(question)
     ]);
 
     return {
       faq: faqResult,
       articles: articlesResult,
-      hasResults: !!(faqResult || articlesResult.length > 0)
+      sitesContext: sitesContext,
+      hasResults: !!(faqResult || articlesResult.length > 0 || sitesContext)
+    };
+  }
+
+  /**
+   * Sistema de desduplicação e menu de esclarecimento (baseado no chatbot Vercel)
+   * @param {string} question - Pergunta do usuário
+   * @param {Array} faqData - Dados do FAQ
+   * @returns {Object} Resultado com desduplicação e opções de esclarecimento
+   */
+  findMatchesWithDeduplication(question, faqData) {
+    if (!faqData || faqData.length === 0) {
+      return { matches: [], needsClarification: false };
+    }
+
+    const cabecalho = faqData[0];
+    const dados = faqData.slice(1);
+    const idxPergunta = cabecalho.indexOf("Pergunta");
+    const idxPalavrasChave = cabecalho.indexOf("Palavras-chave");
+    const idxResposta = cabecalho.indexOf("Resposta");
+
+    if (idxPergunta === -1 || idxResposta === -1 || idxPalavrasChave === -1) {
+      console.error("❌ Search: Colunas essenciais não encontradas");
+      return { matches: [], needsClarification: false };
+    }
+
+    const palavrasDaBusca = this.normalizeText(question).split(' ').filter(p => p.length > 2);
+    let todasAsCorrespondencias = [];
+
+    for (let i = 0; i < dados.length; i++) {
+      const linhaAtual = dados[i];
+      const textoPalavrasChave = this.normalizeText(linhaAtual[idxPalavrasChave] || '');
+      let relevanceScore = 0;
+      
+      palavrasDaBusca.forEach(palavra => {
+        if (textoPalavrasChave.includes(palavra)) relevanceScore++;
+      });
+      
+      if (relevanceScore > 0) {
+        todasAsCorrespondencias.push({
+          resposta: linhaAtual[idxResposta],
+          perguntaOriginal: linhaAtual[idxPergunta],
+          sourceRow: i + 2,
+          score: relevanceScore,
+          tabulacoes: linhaAtual[3] || null
+        });
+      }
+    }
+
+    // Desduplicação e ordenação
+    const uniqueMatches = {};
+    todasAsCorrespondencias.forEach(match => {
+      const key = match.perguntaOriginal.trim();
+      if (!uniqueMatches[key] || match.score > uniqueMatches[key].score) {
+        uniqueMatches[key] = match;
+      }
+    });
+    
+    let correspondenciasUnicas = Object.values(uniqueMatches);
+    correspondenciasUnicas.sort((a, b) => b.score - a.score);
+
+    // Verificar se precisa de esclarecimento
+    const needsClarification = correspondenciasUnicas.length > 1 && 
+      correspondenciasUnicas[0].score === correspondenciasUnicas[1].score;
+
+    return {
+      matches: correspondenciasUnicas,
+      needsClarification: needsClarification
+    };
+  }
+
+  /**
+   * Gera menu de esclarecimento para perguntas ambíguas
+   * @param {Array} matches - Matches encontrados
+   * @param {string} question - Pergunta original
+   * @returns {Object} Menu de esclarecimento
+   */
+  generateClarificationMenu(matches, question) {
+    const options = matches.slice(0, 12).map(match => match.perguntaOriginal);
+    
+    return {
+      status: "clarification_needed",
+      resposta: `Encontrei vários tópicos sobre "${question}". Qual deles se encaixa melhor na sua dúvida?`,
+      options: options,
+      source: "Planilha",
+      sourceRow: 'Pergunta de Esclarecimento'
     };
   }
 }
