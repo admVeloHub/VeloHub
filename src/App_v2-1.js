@@ -1450,31 +1450,44 @@ const ProcessosPage = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchFAQ = async () => {
+        const fetchTop10FAQ = async () => {
             try {
                 setLoading(true);
-                const response = await faqAPI.getAll();
-                console.log('FAQ carregado:', response.data);
                 
-                if (response.data && response.data.length > 0) {
-                    setFaq(response.data);
+                // Consultar Apps Script para as 10 perguntas mais frequentes
+                const response = await fetch('https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec?action=getTop10FrequentQuestions');
+                const data = await response.json();
+                
+                console.log('Top 10 FAQ carregado:', data);
+                
+                if (data && data.length > 0) {
+                    setFaq(data);
                 } else {
-                    console.warn('⚠️ Dados de FAQ não encontrados ou vazios, usando mock...');
-                    throw new Error('Dados vazios da API');
+                    console.warn('⚠️ Nenhuma pergunta frequente encontrada');
+                    setFaq([]);
                 }
             } catch (error) {
-                console.error('Erro ao carregar FAQ da API:', error);
-                console.log('📋 Usando dados mock como fallback...');
+                console.error('Erro ao carregar Top 10 FAQ do Apps Script:', error);
+                console.log('📋 Usando fallback para FAQ padrão...');
                 
-                // Em caso de erro, usar arrays vazios
-                console.warn('⚠️ Usando arrays vazios como fallback');
-                setFaq([]);
+                // Fallback para FAQ padrão se Apps Script falhar
+                try {
+                    const fallbackResponse = await faqAPI.getAll();
+                    if (fallbackResponse.data && fallbackResponse.data.length > 0) {
+                        setFaq(fallbackResponse.data.slice(0, 10)); // Pegar apenas 10
+                    } else {
+                        setFaq([]);
+                    }
+                } catch (fallbackError) {
+                    console.error('Erro no fallback FAQ:', fallbackError);
+                    setFaq([]);
+                }
             } finally {
                 setLoading(false);
             }
         };
         
-        fetchFAQ();
+        fetchTop10FAQ();
     }, []);
 
     const handleFaqClick = (question) => {
@@ -1501,7 +1514,9 @@ const ProcessosPage = () => {
                         <>
                             <ul className="space-y-3">
                                 {faq.slice(0, 10).map((item, index) => {
-                                    const questionText = typeof item === 'string' ? item : (item.question || 'Pergunta não disponível');
+                                    // Estrutura do Apps Script: {pergunta: string, frequencia: number}
+                                    // Estrutura do MongoDB: {pergunta: string, palavras_chave: string, resposta: string, ...}
+                                    const questionText = item.pergunta || item.question || 'Pergunta não disponível';
                                     return (
                                         <li key={index} onClick={() => handleFaqClick(questionText)} className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer text-sm">
                                             {questionText}

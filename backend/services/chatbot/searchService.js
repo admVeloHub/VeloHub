@@ -139,18 +139,23 @@ class SearchService {
   extractRelevantText(item) {
     const texts = [];
     
-    // Para FAQ
+    // Para FAQ (estrutura MongoDB: Bot_perguntas)
+    if (item.pergunta) texts.push(item.pergunta);
+    if (item.palavras_chave) texts.push(item.palavras_chave);
+    if (item.categoria) texts.push(item.categoria);
+    if (item.resposta) texts.push(item.resposta.substring(0, 300)); // Primeiros 300 chars da resposta
+    
+    // Fallback para estrutura antiga
     if (item.question) texts.push(item.question);
     if (item.context) texts.push(item.context);
-    if (item.keywords) texts.push(item.keywords);
-    
-    // Para Artigos
-    if (item.title) texts.push(item.title);
-    if (item.content) texts.push(item.content.substring(0, 500)); // Primeiros 500 chars
     if (item.keywords) {
       const keywordsText = Array.isArray(item.keywords) ? item.keywords.join(' ') : item.keywords;
       texts.push(keywordsText);
     }
+    
+    // Para Artigos
+    if (item.title) texts.push(item.title);
+    if (item.content) texts.push(item.content.substring(0, 500)); // Primeiros 500 chars
     
     return texts.join(' ');
   }
