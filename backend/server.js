@@ -444,7 +444,7 @@ app.post('/api/chatbot/ask', async (req, res) => {
     // Buscar dados do MongoDB
     const client = await connectToMongo();
     const db = client.db('console_conteudo');
-    const faqCollection = db.collection('bot_perguntas');
+    const faqCollection = db.collection('Bot_perguntas'); // Nome correto da coleção
     const articlesCollection = db.collection('artigos');
 
     // Buscar FAQ e artigos em paralelo
@@ -485,9 +485,9 @@ app.post('/api/chatbot/ask', async (req, res) => {
     // Construir contexto aprimorado
     let context = '';
     
-    // Contexto do FAQ
+    // Contexto do FAQ (estrutura MongoDB: Bot_perguntas)
     if (searchResults.faq) {
-      context += `FAQ relevante:\nPergunta: ${searchResults.faq.question}\nResposta: ${searchResults.faq.answer}\n\n`;
+      context += `FAQ relevante:\nPergunta: ${searchResults.faq.pergunta || searchResults.faq.question}\nResposta: ${searchResults.faq.resposta || searchResults.faq.answer}\n\n`;
     }
     
     // Contexto dos artigos

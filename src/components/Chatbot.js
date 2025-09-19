@@ -127,7 +127,7 @@ const Chatbot = ({ prompt }) => {
                             action: 'question_answered',
                             details: {
                                 question: trimmedInput,
-                                responseLength: data.response.length,
+                                responseLength: data.response ? data.response.length : 0,
                                 source: data.source,
                                 hasArticles: data.articles && data.articles.length > 0
                             },
