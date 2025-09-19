@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v1.0.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.3.0 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -9,6 +9,7 @@ import { mainAPI, veloNewsAPI, articlesAPI, faqAPI } from './services/api';
 import { checkAuthenticationState, updateUserInfo } from './services/auth';
 import LoginPage from './components/LoginPage';
 import Chatbot from './components/Chatbot';
+import SupportModal from './components/SupportModal';
 
 // Sistema de gerenciamento de estado para modal crítico
 const CriticalModalManager = {
@@ -505,10 +506,6 @@ const HomePage = ({ setCriticalNews }) => {
     const [loading, setLoading] = useState(true);
     const [lastRefresh, setLastRefresh] = useState(Date.now());
     const [lastCriticalNewsId, setLastCriticalNewsId] = useState(null);
-    const [showGoogleChat, setShowGoogleChat] = useState(false);
-    const [selectedContact, setSelectedContact] = useState(null);
-    const [agentStatus, setAgentStatus] = useState('online');
-    const [showStatusDropdown, setShowStatusDropdown] = useState(false);
 
     useEffect(() => {
         const fetchAllData = async () => {
@@ -589,19 +586,6 @@ const HomePage = ({ setCriticalNews }) => {
         return () => clearInterval(refreshInterval);
     }, [setCriticalNews, lastCriticalNewsId]);
 
-    // Fechar dropdown de status quando clicar fora
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (showStatusDropdown && !event.target.closest('.status-dropdown')) {
-                setShowStatusDropdown(false);
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, [showStatusDropdown]);
 
     return (
         <div className="container mx-auto px-2 py-8 grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -924,185 +908,13 @@ const HomePage = ({ setCriticalNews }) => {
                                                    <aside className="lg:col-span-1 rounded-lg shadow-sm flex flex-col min-h-[calc(100vh-200px)] velohub-container" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', padding: '24px', margin: '16px', position: 'relative'}}>
                                     <h3 className="font-bold text-xl border-b text-center" style={{color: 'var(--blue-dark)', borderColor: 'var(--blue-opaque)'}}>Chat</h3>
                                     
-                                    {/* Overlay "Em Breve" para o Chat */}
-                                    <div style={{
-                                        position: 'absolute',
-                                        top: 0,
-                                        left: 0,
-                                        right: 0,
-                                        bottom: 0,
-                                        backgroundColor: 'rgba(128, 128, 128, 0.8)',
-                                        borderRadius: '12px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        zIndex: 10,
-                                        backdropFilter: 'blur(2px)'
-                                    }}>
-                                        <div style={{
-                                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                                            padding: '20px 30px',
-                                            borderRadius: '12px',
-                                            textAlign: 'center',
-                                            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-                                            border: '2px solid var(--blue-dark)'
-                                        }}>
-                                            <h4 style={{
-                                                color: 'var(--blue-dark)',
-                                                fontSize: '18px',
-                                                fontWeight: 'bold',
-                                                margin: 0
-                                            }}>
-                                                Em Breve
-                                            </h4>
-                                            <p style={{
-                                                color: 'var(--blue-opaque)',
-                                                fontSize: '14px',
-                                                margin: '8px 0 0 0'
-                                            }}>
-                                                Sistema de chat em desenvolvimento
-                                            </p>
-                                        </div>
-                                    </div>
-                  
-                                     {/* Status do Agente */}
-                   <div className="p-4 border-b border-gray-200 dark:border-gray-600">
-                       <div className="flex items-center justify-between mb-3">
-                           <div className="flex items-center gap-3">
-                               <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                                   <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                                       <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
+                                    {/* Container preparado para implementação futura do chat */}
+                                    <div className="flex-1 flex items-center justify-center">
+                                        <div className="text-center text-gray-500 dark:text-gray-400">
+                                            <svg className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                                    </svg>
-                               </div>
-                               <div>
-                                   <h4 className="font-semibold text-sm text-gray-800 dark:text-gray-200">Meu Nome</h4>
-                                   <p className="text-xs text-gray-500 dark:text-gray-400">Sistema de comunicação</p>
-                               </div>
-                           </div>
-                           <div className="relative status-dropdown">
-                               <button 
-                                   onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                                   className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 transition-colors ${
-                                       agentStatus === 'online' 
-                                           ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                                           : agentStatus === 'away'
-                                           ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                                           : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                                   }`}
-                               >
-                                   <span className={`w-2 h-2 rounded-full ${
-                                       agentStatus === 'online' 
-                                           ? 'bg-green-500' 
-                                           : agentStatus === 'away'
-                                           ? 'bg-yellow-500'
-                                           : 'bg-yellow-500'
-                                   }`}></span>
-                                   {agentStatus === 'online' ? 'Online' : agentStatus === 'away' ? 'Ausente' : 'Reunião'}
-                                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                   </svg>
-                               </button>
-                               
-                               {/* Dropdown de Status */}
-                               {showStatusDropdown && (
-                                   <div className="absolute right-0 top-full mt-1 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10 min-w-[120px] velohub-modal" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'}}>
-                                       <div className="py-1">
-                                           <button 
-                                               onClick={() => {
-                                                   setAgentStatus('online');
-                                                   setShowStatusDropdown(false);
-                                               }}
-                                               className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                                           >
-                                               <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                                               <span className="text-green-600 dark:text-green-400">Online</span>
-                                           </button>
-                                           <button 
-                                               onClick={() => {
-                                                   setAgentStatus('away');
-                                                   setShowStatusDropdown(false);
-                                               }}
-                                               className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                                           >
-                                               <span className="w-2 h-2 bg-yellow-500 rounded-full" style={{backgroundColor: '#FCC200', opacity: 0.4}}></span>
-                                               <span className="text-yellow-600 dark:text-yellow-400">Ausente</span>
-                                           </button>
-                                           <button 
-                                               onClick={() => {
-                                                   setAgentStatus('meeting');
-                                                   setShowStatusDropdown(false);
-                                               }}
-                                               className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                                           >
-                                               <span className="w-2 h-2 rounded-full" style={{backgroundColor: '#1694FF', opacity: 0.4}}></span>
-                                               <span className="text-blue-600 dark:text-blue-400">Reunião</span>
-                                           </button>
-                                       </div>
-                                   </div>
-                               )}
-                           </div>
-                       </div>
-                   </div>
-
-                  {/* Lista de Contatos */}
-                  <div className="flex-1 overflow-y-auto">
-                      <div className="p-2">
-                          <h5 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 px-2">Contatos</h5>
-                          <div className="space-y-1">
-                              {[
-                                  { name: 'Gerente', status: 'online', lastSeen: 'Agora' },
-                                  { name: 'Supervisor', status: 'online', lastSeen: '2 min' },
-                                  { name: 'Colega 1', status: 'away', lastSeen: '5 min' },
-                                  { name: 'Colega 2', status: 'online', lastSeen: 'Agora' },
-                                  { name: 'Colega 3', status: 'offline', lastSeen: '1 hora' },
-                                  { name: 'Grupo de Gestão', status: 'online', lastSeen: 'Agora', isGroup: true }
-                              ].map((contact, index) => (
-                                  <div 
-                                      key={index}
-                                      onClick={() => {
-                                          setSelectedContact(contact);
-                                          setShowGoogleChat(true);
-                                      }}
-                                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
-                                  >
-                                      <div className="relative">
-                                          <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
-                                              <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
-                                                  {contact.isGroup ? '👥' : contact.name.charAt(0)}
-                                              </span>
-                                          </div>
-                                          <span className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white dark:border-gray-800 ${
-                                              contact.status === 'online' ? 'bg-green-500' : 
-                                              contact.status === 'away' ? 'bg-yellow-500' : 'bg-gray-400'
-                                          }`}></span>
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                          <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
-                                              {contact.name}
-                                          </p>
-                                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                                              {contact.status === 'online' ? 'Online' : 
-                                               contact.status === 'away' ? 'Ausente' : 
-                                               `Visto por último ${contact.lastSeen}`}
-                                          </p>
-                                      </div>
-                                  </div>
-                              ))}
-                          </div>
-                      </div>
-                  </div>
-
-                  {/* Barra de Busca */}
-                  <div className="p-4 border-t border-gray-200 dark:border-gray-600">
-                      <div className="relative">
-                          <input
-                              type="text"
-                              placeholder="Buscar contato..."
-                              className="w-full bg-gray-100 dark:bg-gray-700 border-transparent rounded-lg py-2 px-3 pr-10 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                          <svg className="absolute right-3 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                          </svg>
+                                            <p className="text-sm">Chat em desenvolvimento</p>
                       </div>
                   </div>
               </aside>
@@ -1121,144 +933,105 @@ const HomePage = ({ setCriticalNews }) => {
                 </div>
             )}
 
-                         {/* Modal do Google Chat PWA */}
-             {showGoogleChat && (
-                 <div className="fixed inset-0 bg-black bg-opacity-85 flex items-center justify-center z-50 p-4">
-                                           <div className="rounded-lg shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col bg-white dark:bg-gray-800" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'}}>
-                                                   {/* Header do Modal */}
-                          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-                              <div className="flex items-center gap-3">
-                                  <div className="relative">
-                                      <div className="w-10 h-10 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
-                                          <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                                              {selectedContact?.isGroup ? '👥' : selectedContact?.name?.charAt(0) || 'U'}
-                                          </span>
-                                      </div>
-                                      <span className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white dark:border-gray-800 ${
-                                          selectedContact?.status === 'online' ? 'bg-green-500' : 
-                                          selectedContact?.status === 'away' ? 'bg-yellow-500' : 'bg-gray-400'
-                                      }`}></span>
-                                  </div>
-                                  <div>
-                                      <h3 className="font-semibold text-gray-800 dark:text-white">
-                                          {selectedContact?.name || 'Conversa'}
-                                      </h3>
-                                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                                          {selectedContact?.status === 'online' ? 'Online' : 
-                                           selectedContact?.status === 'away' ? 'Ausente' : 
-                                           selectedContact?.status === 'offline' ? 'Offline' : 'Disponível'}
-                                      </p>
-                                  </div>
-                              </div>
-                             <button 
-                                 onClick={() => setShowGoogleChat(false)}
-                                 className="text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white text-2xl font-bold"
-                             >
-                                 ×
-                             </button>
-                         </div>
-                         
-                                                   {/* Conteúdo do Chat */}
-                          <div className="flex-1 flex flex-col">
-                              {/* Área de Mensagens */}
-                              <div className="flex-1 p-4 overflow-y-auto bg-gray-50 dark:bg-gray-900">
-                                  <div className="space-y-4">
-                                      {/* Mensagem de boas-vindas */}
-                                      <div className="flex justify-start">
-                                          <div className="max-w-xs bg-white dark:bg-gray-700 rounded-lg p-3 shadow-sm">
-                                              <p className="text-sm text-gray-800 dark:text-gray-200">
-                                                  Olá! Como posso ajudar você hoje?
-                                              </p>
-                                              <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 block">
-                                                  {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                              </span>
-                                          </div>
-                                      </div>
-                                      
-                                      {/* Mensagem do usuário */}
-                                      <div className="flex justify-end">
-                                          <div className="max-w-xs bg-blue-600 text-white rounded-lg p-3 shadow-sm">
-                                              <p className="text-sm">
-                                                  Oi! Preciso de ajuda com um processo.
-                                              </p>
-                                              <span className="text-xs text-blue-100 mt-1 block">
-                                                  {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                              </span>
-                                          </div>
-                                      </div>
-                                      
-                                      {/* Resposta do contato */}
-                                      <div className="flex justify-start">
-                                          <div className="max-w-xs bg-white dark:bg-gray-700 rounded-lg p-3 shadow-sm">
-                                              <p className="text-sm text-gray-800 dark:text-gray-200">
-                                                  Claro! Estou aqui para ajudar. Qual processo você precisa?
-                                              </p>
-                                              <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 block">
-                                                  {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                              </span>
-                                          </div>
-                                      </div>
-                                  </div>
-                              </div>
-                              
-                              {/* Área de Input */}
-                              <div className="p-4 border-t border-gray-200 dark:border-gray-700 velohub-container">
-                                  <div className="flex items-center gap-3">
-                                      <input
-                                          type="text"
-                                          placeholder="Digite sua mensagem..."
-                                          className="flex-1 bg-gray-100 dark:bg-gray-700 border-transparent rounded-full py-2 px-4 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                      />
-                                      <button className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-2 transition-colors">
-                                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                                          </svg>
-                                      </button>
-                                  </div>
-                              </div>
-                          </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
 
 // Conteúdo da Página de Apoio
 const ApoioPage = () => {
+    const [activeModal, setActiveModal] = useState(null);
+    
     const supportItems = [
-        { name: 'Artigo', icon: <FileText size={40} /> }, { name: 'Processo', icon: <Bot size={40} /> },
-        { name: 'Treinamento', icon: <GraduationCap size={40} /> }, { name: 'Roteiro', icon: <Map size={40} /> },
-        { name: 'Funcionalidade', icon: <Puzzle size={40} /> }, { name: 'Recurso Adicional', icon: <PlusSquare size={40} /> },
+        { 
+            name: 'Artigo', 
+            icon: <FileText size={40} />, 
+            type: 'artigo',
+            title: 'Solicitar Artigo',
+            description: 'Solicite a criação de um novo artigo para a base de conhecimento'
+        }, 
+        { 
+            name: 'Processo', 
+            icon: <Bot size={40} />, 
+            type: 'bot',
+            title: 'Solicitar Processo/Informação',
+            description: 'Solicite informações ou processos para o VeloBot'
+        },
+        { 
+            name: 'Treinamento', 
+            icon: <GraduationCap size={40} />, 
+            type: 'treinamento',
+            title: 'Solicitar Treinamento',
+            description: 'Solicite treinamentos e capacitações'
+        }, 
+        { 
+            name: 'Roteiro', 
+            icon: <Map size={40} />, 
+            type: 'roteiro',
+            title: 'Solicitar Roteiro',
+            description: 'Solicite roteiros e guias passo-a-passo'
+        },
+        { 
+            name: 'Funcionalidade', 
+            icon: <Puzzle size={40} />, 
+            type: 'funcionalidade',
+            title: 'Solicitar Funcionalidade',
+            description: 'Solicite melhorias ou novas funcionalidades'
+        }, 
+        { 
+            name: 'Recurso Adicional', 
+            icon: <PlusSquare size={40} />, 
+            type: 'recurso',
+            title: 'Solicitar Recurso Adicional',
+            description: 'Solicite recursos adicionais para o sistema'
+        },
     ];
+
+    const handleCardClick = (item) => {
+        setActiveModal(item);
+    };
+
+    const handleCloseModal = () => {
+        setActiveModal(null);
+    };
+
     return (
         <div className="container mx-auto px-6 py-12">
             <h1 className="text-center text-4xl font-bold mb-12" style={{color: 'var(--blue-dark)'}}>Precisa de Apoio?</h1>
+            <p className="text-center text-lg mb-8" style={{color: 'var(--cor-texto-secundario)'}}>
+                Selecione o tipo de suporte que você precisa e preencha o formulário correspondente
+            </p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {supportItems.map(item => (
-                    <button key={item.name} className="p-8 rounded-lg flex flex-col items-center justify-center velohub-card" style={{
-                        borderRadius: '16px',
-                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-                        transition: 'box-shadow 0.3s ease, border 0.3s ease',
-                        cursor: 'pointer',
-                        position: 'relative',
-                        overflow: 'hidden',
-                        width: '100%',
-                        height: 'auto'
-                    }}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.boxShadow = '0 20px 40px rgba(0, 0, 0, 0.15)';
-                        e.currentTarget.style.outline = '2px solid var(--blue-medium)';
-                        e.currentTarget.style.outlineOffset = '-2px';
-                        // Barra superior animada
-                        e.currentTarget.style.setProperty('--bar-width', '100%');
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.1)';
-                        e.currentTarget.style.outline = 'none';
-                        // Barra superior desaparece
-                        e.currentTarget.style.setProperty('--bar-width', '0%');
-                    }}>
+                    <button 
+                        key={item.name} 
+                        onClick={() => handleCardClick(item)}
+                        className="p-8 rounded-lg flex flex-col items-center justify-center velohub-card" 
+                        style={{
+                            borderRadius: '16px',
+                            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                            transition: 'box-shadow 0.3s ease, border 0.3s ease, transform 0.3s ease',
+                            cursor: 'pointer',
+                            position: 'relative',
+                            overflow: 'hidden',
+                            width: '100%',
+                            height: 'auto'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.boxShadow = '0 20px 40px rgba(0, 0, 0, 0.15)';
+                            e.currentTarget.style.outline = '2px solid var(--blue-medium)';
+                            e.currentTarget.style.outlineOffset = '-2px';
+                            e.currentTarget.style.transform = 'translateY(-4px)';
+                            // Barra superior animada
+                            e.currentTarget.style.setProperty('--bar-width', '100%');
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.1)';
+                            e.currentTarget.style.outline = 'none';
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            // Barra superior desaparece
+                            e.currentTarget.style.setProperty('--bar-width', '0%');
+                        }}
+                    >
                         {/* Barra Superior Animada */}
                         <div style={{
                             position: 'absolute',
@@ -1272,10 +1045,23 @@ const ApoioPage = () => {
                             zIndex: 1
                         }}></div>
                         <div className="text-blue-500 dark:text-blue-400 mb-4">{item.icon}</div>
-                        <span className="text-2xl font-semibold text-gray-700 dark:text-gray-200">{item.name}</span>
+                        <span className="text-2xl font-semibold text-gray-700 dark:text-gray-200 mb-2">{item.name}</span>
+                        <p className="text-sm text-center" style={{color: 'var(--cor-texto-secundario)'}}>
+                            {item.description}
+                        </p>
                     </button>
                 ))}
             </div>
+
+            {/* Modal */}
+            {activeModal && (
+                <SupportModal
+                    isOpen={!!activeModal}
+                    onClose={handleCloseModal}
+                    type={activeModal.type}
+                    title={activeModal.title}
+                />
+            )}
         </div>
     );
 };

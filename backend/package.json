@@ -13,11 +13,13 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "axios": "^1.11.0",
     "cors": "^2.8.5",
     "cosine-similarity": "^1.0.1",
     "dotenv": "^17.2.2",
     "express": "^4.18.2",
+    "googleapis": "^160.0.0",
     "mongodb": "^6.3.0",
     "openai": "^5.20.1",
     "uuid": "^9.0.1"
