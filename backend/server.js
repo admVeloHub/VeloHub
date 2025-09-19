@@ -37,7 +37,12 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // MongoDB Connection
-const uri = process.env.MONGODB_URI || "mongodb+srv://lucasgravina:nKQu8bSN6iZl8FPo@clustercentral.quqgq6x.mongodb.net/console_conteudo?retryWrites=true&w=majority&appName=ClusterCentral";
+const uri = process.env.MONGODB_URI;
+
+if (!uri) {
+  console.error('❌ MONGODB_URI não configurada');
+  process.exit(1);
+}
 const client = new MongoClient(uri, {
   serverSelectionTimeoutMS: 5000, // 5 segundos timeout
   connectTimeoutMS: 10000, // 10 segundos timeout
