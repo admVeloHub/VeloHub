@@ -1,5 +1,5 @@
 // Search Service - Busca inteligente em FAQ e Artigos
-// VERSION: v2.0.0 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v2.0.1 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
 const cosineSimilarity = require('cosine-similarity');
 const axios = require('axios');
 
@@ -238,12 +238,19 @@ class SearchService {
     
     for (const site of sites) {
       try {
-        const { data } = await axios.get(site, { timeout: 5000 });
+        const { data } = await axios.get(site, { 
+          timeout: 10000, // Aumentado para 10 segundos
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; VeloHub-Bot/1.0)'
+          }
+        });
         if (data.toLowerCase().includes(question.toLowerCase())) {
           contexto += `Fonte: ${site}\nTrecho encontrado que menciona a pergunta.\n\n`;
         }
       } catch (e) {
         console.error(`❌ Search: Falha ao processar site ${site}:`, e.message);
+        // Continuar para o próximo site em caso de erro
+        continue;
       }
     }
     
