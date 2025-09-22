@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v1.0.2 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.3 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
  */
 
 const express = require('express');
@@ -41,18 +41,22 @@ app.use(express.static(path.join(__dirname, 'public')));
 const uri = process.env.MONGODB_URI;
 
 if (!uri) {
-  console.error('❌ MONGODB_URI não configurada');
-  process.exit(1);
+  console.warn('⚠️ MONGODB_URI não configurada - servidor iniciará sem MongoDB');
+  console.warn('⚠️ APIs que dependem do MongoDB não funcionarão');
 }
-const client = new MongoClient(uri, {
+const client = uri ? new MongoClient(uri, {
   serverSelectionTimeoutMS: 5000, // 5 segundos timeout
   connectTimeoutMS: 10000, // 10 segundos timeout
   socketTimeoutMS: 45000, // 45 segundos timeout
-});
+}) : null;
 
 // Conectar ao MongoDB uma vez no início
 let isConnected = false;
 const connectToMongo = async () => {
+  if (!client) {
+    throw new Error('MongoDB não configurado');
+  }
+  
   if (!isConnected) {
     try {
       await client.connect();
@@ -81,6 +85,13 @@ app.get('/api/health', (req, res) => {
 // Test connection endpoint
 app.get('/api/test', async (req, res) => {
   try {
+    if (!client) {
+      return res.status(503).json({ 
+        success: false, 
+        error: 'MongoDB não configurado',
+        message: 'Servidor funcionando, mas MongoDB não disponível'
+      });
+    }
     await connectToMongo();
     res.json({ success: true, message: 'Conexão com MongoDB OK!' });
   } catch (error) {
@@ -91,6 +102,14 @@ app.get('/api/test', async (req, res) => {
 // Endpoint único para buscar todos os dados
 app.get('/api/data', async (req, res) => {
   try {
+    if (!client) {
+      return res.status(503).json({
+        success: false,
+        message: 'MongoDB não configurado',
+        data: { velonews: [], articles: [], faq: [] }
+      });
+    }
+    
     console.log('🔌 Conectando ao MongoDB...');
     await connectToMongo();
     console.log('✅ Conexão estabelecida!');
@@ -176,6 +195,14 @@ app.get('/api/data', async (req, res) => {
 // Endpoints individuais mantidos para compatibilidade
 app.get('/api/velo-news', async (req, res) => {
   try {
+    if (!client) {
+      return res.status(503).json({
+        success: false,
+        message: 'MongoDB não configurado',
+        data: []
+      });
+    }
+    
     await connectToMongo();
     const db = client.db('console_conteudo');
     const collection = db.collection('Velonews');
@@ -256,6 +283,14 @@ app.get('/api/velo-news', async (req, res) => {
 
 app.get('/api/articles', async (req, res) => {
   try {
+    if (!client) {
+      return res.status(503).json({
+        success: false,
+        message: 'MongoDB não configurado',
+        data: []
+      });
+    }
+    
     await connectToMongo();
     const db = client.db('console_conteudo');
     const collection = db.collection('Artigos');
@@ -289,6 +324,14 @@ app.get('/api/articles', async (req, res) => {
 
 app.get('/api/faq', async (req, res) => {
   try {
+    if (!client) {
+      return res.status(503).json({
+        success: false,
+        message: 'MongoDB não configurado',
+        data: []
+      });
+    }
+    
     await connectToMongo();
     const db = client.db('console_conteudo');
     const collection = db.collection('Bot_perguntas');
