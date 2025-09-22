@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v1.0.4 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.5 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
  */
 
 const express = require('express');
@@ -489,7 +489,7 @@ app.post('/api/chatbot/ask', async (req, res) => {
     const client = await connectToMongo();
     const db = client.db('console_conteudo');
     const faqCollection = db.collection('Bot_perguntas'); // Nome correto da coleção
-    const articlesCollection = db.collection('artigos');
+    const articlesCollection = db.collection('Artigos');
 
     // Buscar FAQ e artigos em paralelo
     const [faqData, articlesData] = await Promise.all([
