@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - API Configuration
- * VERSION: v1.0.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.1 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
  */
 
 /**
@@ -28,11 +28,11 @@ export const getApiBaseUrl = () => {
     }
     
     // Fallback para URL padrão
-    return 'https://velohub-278491073220.southamerica-east1.run.app/api';
+    return 'https://velohub-278491073220.us-east1.run.app/api';
   }
   
   // Fallback para server-side rendering
-  return 'https://velohub-278491073220.southamerica-east1.run.app/api';
+  return 'https://velohub-278491073220.us-east1.run.app/api';
 };
 
 /**

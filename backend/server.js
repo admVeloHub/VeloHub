@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v1.0.1 | DATE: 2025-09-18 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.2 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
  */
 
 const express = require('express');
@@ -24,8 +24,9 @@ const PORT = process.env.PORT || 8080;
 // Middleware
 app.use(cors({
   origin: [
-    'https://velohub-v3-278491073220.southamerica-east1.run.app',
-    'https://velohub-*.southamerica-east1.run.app', // Wildcard para todas as revisões
+    'https://app.velohub.velotax.com.br', // NOVO DOMÍNIO PERSONALIZADO
+    'https://velohub-v3-278491073220.us-east1.run.app',
+    'https://velohub-*.us-east1.run.app', // Wildcard para todas as revisões
     'http://localhost:3000',
     'http://localhost:5000'
   ],
