@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v1.0.9 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.1.0 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
  */
 
 const express = require('express');
@@ -10,8 +10,8 @@ const { MongoClient } = require('mongodb');
 require('dotenv').config();
 
 // Importar serviços do chatbot
-// VERSION: v2.0.1 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
-const openaiService = require('./services/chatbot/openaiService');
+// VERSION: v2.1.0 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
+const aiService = require('./services/chatbot/aiService');
 const searchService = require('./services/chatbot/searchService');
 const sessionService = require('./services/chatbot/sessionService');
 const feedbackService = require('./services/chatbot/feedbackService');
@@ -140,12 +140,24 @@ app.get('/api/test', async (req, res) => {
 app.get('/api/chatbot/test', async (req, res) => {
   try {
     const config = require('./config');
+    const aiStatus = aiService.getConfigurationStatus();
     
     res.json({
       success: true,
       data: {
-        openai_configured: config.OPENAI_API_KEY !== 'your_openai_api_key_here',
-        gemini_configured: config.GEMINI_API_KEY !== 'your_gemini_api_key_here',
+        ai_service: {
+          gemini: {
+            configured: aiStatus.gemini.configured,
+            model: aiStatus.gemini.model,
+            priority: aiStatus.gemini.priority
+          },
+          openai: {
+            configured: aiStatus.openai.configured,
+            model: aiStatus.openai.model,
+            priority: aiStatus.openai.priority
+          },
+          any_available: aiStatus.anyAvailable
+        },
         mongodb_configured: !!config.MONGODB_URI,
         environment: config.NODE_ENV
       }
@@ -602,19 +614,19 @@ app.post('/api/chatbot/ask', async (req, res) => {
     const faqCollection = db.collection('Bot_perguntas'); // Nome correto da coleção
     const articlesCollection = db.collection('Artigos');
 
-    // Buscar FAQ e artigos em paralelo
-    const [faqData, articlesData] = await Promise.all([
+    // Buscar Bot_perguntas e artigos em paralelo
+    const [botPerguntasData, articlesData] = await Promise.all([
       faqCollection.find({}).toArray(),
       articlesCollection.find({}).toArray()
     ]);
 
-    console.log(`📋 Chat V2: ${faqData.length} FAQs e ${articlesData.length} artigos carregados`);
+    console.log(`📋 Chat V2: ${botPerguntasData.length} perguntas do Bot_perguntas e ${articlesData.length} artigos carregados`);
 
-    // Busca híbrida avançada (FAQ + Artigos + Sites)
-    const searchResults = await searchService.hybridSearch(cleanQuestion, faqData, articlesData);
+    // Busca híbrida avançada (Bot_perguntas + Artigos)
+    const searchResults = await searchService.hybridSearch(cleanQuestion, botPerguntasData, articlesData);
 
     // Verificar se precisa de esclarecimento (sistema de desduplicação)
-    const clarificationResult = searchService.findMatchesWithDeduplication(cleanQuestion, faqData);
+    const clarificationResult = searchService.findMatchesWithDeduplication(cleanQuestion, botPerguntasData);
     
     if (clarificationResult.needsClarification) {
       const clarificationMenu = searchService.generateClarificationMenu(clarificationResult.matches, cleanQuestion);
@@ -640,9 +652,9 @@ app.post('/api/chatbot/ask', async (req, res) => {
     // Construir contexto aprimorado
     let context = '';
     
-    // Contexto do FAQ (estrutura MongoDB: Bot_perguntas)
-    if (searchResults.faq) {
-      context += `FAQ relevante:\nPergunta: ${searchResults.faq.pergunta || searchResults.faq.question}\nResposta: ${searchResults.faq.resposta || searchResults.faq.answer}\n\n`;
+    // Contexto do Bot_perguntas (estrutura MongoDB: Bot_perguntas)
+    if (searchResults.botPergunta) {
+      context += `Pergunta relevante encontrada:\nPergunta: ${searchResults.botPergunta.Pergunta || searchResults.botPergunta.pergunta}\nResposta: ${searchResults.botPergunta.Resposta || searchResults.botPergunta.resposta}\n\n`;
     }
     
     // Contexto dos artigos
@@ -653,20 +665,15 @@ app.post('/api/chatbot/ask', async (req, res) => {
       });
       context += '\n';
     }
-    
-    // Contexto dos sites autorizados
-    if (searchResults.sitesContext) {
-      context += `Informações de sites oficiais:\n${searchResults.sitesContext}\n`;
-    }
 
     // Gerar resposta com IA (Gemini primário, OpenAI fallback)
     let response;
     let responseSource = 'fallback';
     let aiProvider = null;
 
-    if (openaiService.isConfigured()) {
+    if (aiService.isConfigured()) {
       try {
-        response = await openaiService.generateResponse(
+        const aiResult = await aiService.generateResponse(
           cleanQuestion,
           context,
           sessionHistory,
@@ -674,19 +681,14 @@ app.post('/api/chatbot/ask', async (req, res) => {
           userEmail
         );
         
-        // Determinar qual IA foi usada
-        if (openaiService.isGeminiConfigured()) {
-          responseSource = 'gemini';
-          aiProvider = 'Gemini';
-        } else {
-          responseSource = 'openai';
-          aiProvider = 'OpenAI';
-        }
+        response = aiResult.response;
+        responseSource = aiResult.success ? 'ai' : 'error';
+        aiProvider = aiResult.provider;
         
-        console.log(`✅ Chat V2: Resposta gerada pela ${aiProvider}`);
+        console.log(`✅ Chat V2: Resposta gerada pela ${aiProvider} (${aiResult.model})`);
         
         // Log do uso da IA
-        if (logsService.isConfigured()) {
+        if (logsService.isConfigured() && aiResult.success) {
           await logsService.logAIResponse(userEmail, cleanQuestion, aiProvider);
         }
         
@@ -694,6 +696,7 @@ app.post('/api/chatbot/ask', async (req, res) => {
         console.error('❌ Chat V2: Erro na IA:', aiError.message);
         response = 'Desculpe, não consegui processar sua pergunta no momento. Tente novamente.';
         responseSource = 'error';
+        aiProvider = 'Error';
         
         // Log do erro
         if (logsService.isConfigured()) {
@@ -701,15 +704,15 @@ app.post('/api/chatbot/ask', async (req, res) => {
         }
       }
     } else {
-      // Fallback para FAQ se nenhuma IA estiver configurada
-      if (searchResults.faq) {
-        response = searchResults.faq.resposta || searchResults.faq.answer || 'Resposta encontrada na base de conhecimento.';
-        responseSource = 'faq';
-        console.log(`✅ Chat V2: Resposta do FAQ (IA não configurada)`);
+      // Fallback para Bot_perguntas se nenhuma IA estiver configurada
+      if (searchResults.botPergunta) {
+        response = searchResults.botPergunta.Resposta || searchResults.botPergunta.resposta || 'Resposta encontrada na base de conhecimento.';
+        responseSource = 'bot_perguntas';
+        console.log(`✅ Chat V2: Resposta do Bot_perguntas (IA não configurada)`);
         
-        // Log da resposta da planilha
+        // Log da resposta do banco de dados
         if (logsService.isConfigured()) {
-          await logsService.logSpreadsheetResponse(userEmail, cleanQuestion, searchResults.faq._id);
+          await logsService.logSpreadsheetResponse(userEmail, cleanQuestion, searchResults.botPergunta._id);
         }
       } else {
         response = 'Desculpe, não encontrei uma resposta para sua pergunta. Entre em contato com nosso suporte para mais informações.';
@@ -728,7 +731,7 @@ app.post('/api/chatbot/ask', async (req, res) => {
       timestamp: new Date(),
       source: responseSource,
       aiProvider: aiProvider,
-      faqUsed: searchResults.faq ? searchResults.faq._id : null,
+      botPerguntaUsed: searchResults.botPergunta ? searchResults.botPergunta._id : null,
       articlesUsed: searchResults.articles.map(a => a._id),
       sitesUsed: false // Sites externos removidos
     });
@@ -825,13 +828,13 @@ app.post('/api/chatbot/feedback', async (req, res) => {
       }
     };
 
-    // Registrar feedback no MongoDB
+    // Registrar feedback no Google Sheets
     const feedbackSuccess = await feedbackService.logFeedback(feedbackData);
 
     if (!feedbackSuccess) {
       return res.status(500).json({
         success: false,
-        error: 'Erro ao registrar feedback no banco de dados'
+        error: 'Erro ao registrar feedback no Google Sheets'
       });
     }
 

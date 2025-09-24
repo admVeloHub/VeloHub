@@ -3,6 +3,21 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Reorganização Aba Apoio e Correções Chatbot**
+- **Data/Hora**: 2025-01-27 18:45:00
+- **Tipo**: GitHub Push
+- **Versão**: App v1.3.4, SupportModal v1.1.0
+- **Commit**: 75a61e1
+- **Arquivos Modificados**: 
+  - `src/App_v2-1.js` (v1.3.4 - reorganização cards, linhas separadoras)
+  - `src/components/SupportModal.js` (v1.1.0 - novos formulários)
+  - `backend/server.js` (correções chatbot, endpoint /api/faq/top10)
+  - `backend/services/chatbot/openaiService.js` (prompts consistentes)
+  - `backend/services/chatbot/searchService.js` (correção MongoDB)
+- **Arquivos Novos**:
+  - `backend/config.js` (configurações centralizadas)
+- **Descrição**: Reorganização da aba Apoio com 9 cards em 3 linhas, novos formulários para Gestão/RH-Financeiro/Facilities, correções do chatbot (CORS, MongoDB, prompts)
+
 ### **GitHub Push - Implementação Completa VeloBot V2.0**
 - **Data/Hora**: 2025-01-27 16:30:00
 - **Tipo**: GitHub Push
@@ -32,6 +47,22 @@
   - Logs detalhados no Google Sheets
   - Métricas de performance do chatbot
   - Integração completa com SSO do VeloHub
+- **Status**: ✅ Concluído com sucesso
+
+### **GitHub Push - Correção CORS e URLs para us-east1**
+- **Data/Hora**: 2025-01-27 17:15:00
+- **Tipo**: GitHub Push
+- **Versão**: backend/server.js v1.0.2, src/config/api-config.js v1.0.1
+- **Commit**: 5696841
+- **Arquivos Modificados**: 
+  - `backend/server.js` (CORS + URLs para us-east1)
+  - `src/config/api-config.js` (URLs para us-east1)
+- **Descrição**: 
+  - Adicionar novo domínio app.velohub.velotax.com.br ao CORS
+  - Atualizar URLs de southamerica-east1 para us-east1
+  - Corrigir problema de CORS após mudança de DNS personalizado
+  - Manter compatibilidade com domínios legados
+  - Resolver erro "No 'Access-Control-Allow-Origin' header"
 - **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - Correção Sistema Notícias Críticas**

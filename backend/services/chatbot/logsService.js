@@ -98,16 +98,6 @@ class LogsService {
     return await this.logAIUsage(email, question, `Planilha-${sourceRow}`);
   }
 
-  /**
-   * Registra resposta de sites
-   * @param {string} email - Email do usuário
-   * @param {string} question - Pergunta realizada
-   * @param {string} site - Site consultado
-   * @returns {Promise<boolean>} Sucesso da operação
-   */
-  async logSiteResponse(email, question, site) {
-    return await this.logAIUsage(email, question, `Site-${site}`);
-  }
 
   /**
    * Testa a conexão com Google Sheets

@@ -1,62 +1,99 @@
-// Feedback Service - Gerenciamento de feedback dos usuários
-// VERSION: v2.0.0 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
-const { MongoClient } = require('mongodb');
+// Feedback Service - Sistema de feedback no Google Sheets
+// VERSION: v2.1.0 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
+const { google } = require('googleapis');
 require('dotenv').config();
 
 class FeedbackService {
   constructor() {
-    this.client = null;
-    this.db = null;
-    this.collection = null;
-    this.isConnected = false;
+    this.sheets = null;
+    this.spreadsheetId = "1tnWusrOW-UXHFM8GT3o0Du93QDwv5G3Ylvgebof9wfQ";
+    this.feedbackSheetName = "Log_Feedback"; // Aba única para todos os feedbacks
+    this.isInitialized = false;
   }
 
   /**
-   * Conecta ao MongoDB
+   * Inicializa o cliente Google Sheets
    */
-  async connect() {
-    if (this.isConnected) return;
+  async initialize() {
+    if (this.isInitialized) return;
 
     try {
-      this.client = new MongoClient(process.env.MONGODB_URI);
-      await this.client.connect();
-      this.db = this.client.db('console_conteudo');
-      this.collection = this.db.collection('chatbot_feedback');
-      this.isConnected = true;
+      const auth = new google.auth.GoogleAuth({
+        credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+      });
+
+      this.sheets = google.sheets({ version: 'v4', auth });
+      this.isInitialized = true;
       
-      console.log('✅ Feedback: Conectado ao MongoDB');
+      console.log('✅ Feedback: Google Sheets inicializado');
     } catch (error) {
-      console.error('❌ Feedback: Erro ao conectar MongoDB:', error.message);
+      console.error('❌ Feedback: Erro ao inicializar Google Sheets:', error.message);
       throw error;
     }
   }
 
   /**
-   * Registra feedback do usuário
+   * Verifica se o serviço está configurado
+   * @returns {boolean} Status da configuração
+   */
+  isConfigured() {
+    return !!(process.env.GOOGLE_CREDENTIALS && this.isInitialized);
+  }
+
+  /**
+   * Registra feedback do usuário no Google Sheets
+   * Estrutura: data | Email do Atendente | Pergunta Original | Tipo de Feedback | Linha da Fonte | Sugestão
    * @param {Object} feedbackData - Dados do feedback
    * @returns {Promise<boolean>} Sucesso da operação
    */
   async logFeedback(feedbackData) {
     try {
-      await this.connect();
+      if (!this.isConfigured()) {
+        console.log('⚠️ Feedback: Google Sheets não configurado');
+        return false;
+      }
 
-      const feedback = {
-        userId: feedbackData.userId,
-        messageId: feedbackData.messageId,
-        feedbackType: feedbackData.feedbackType, // 'positive' ou 'negative'
-        comment: feedbackData.comment || '',
-        question: feedbackData.question || '',
-        answer: feedbackData.answer || '',
-        source: feedbackData.source || 'chatbot',
-        timestamp: new Date(),
-        sessionId: feedbackData.sessionId || null,
-        metadata: feedbackData.metadata || {}
-      };
+      await this.initialize();
 
-      const result = await this.collection.insertOne(feedback);
-      
-      console.log(`✅ Feedback: Feedback registrado com ID ${result.insertedId}`);
-      
+      const timestamp = new Date().toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+
+      const {
+        email,
+        question = '',
+        feedbackType,
+        sourceRow = '',
+        comment = ''
+      } = feedbackData;
+
+      // Preparar dados para inserção seguindo a estrutura da planilha
+      const newRow = [
+        timestamp,                    // A: data
+        email || '',                 // B: Email do Atendente
+        question,                    // C: Pergunta Original
+        feedbackType === 'positive' ? 'Positivo 👍' : 'Negativo 👎', // D: Tipo de Feedback
+        sourceRow,                   // E: Linha da Fonte
+        comment                      // F: Sugestão
+      ];
+
+      // Inserir na planilha
+      await this.sheets.spreadsheets.values.append({
+        spreadsheetId: this.spreadsheetId,
+        range: this.feedbackSheetName,
+        valueInputOption: 'RAW',
+        resource: {
+          values: [newRow]
+        }
+      });
+
+      console.log(`✅ Feedback: Feedback registrado no Google Sheets`);
       return true;
 
     } catch (error) {
@@ -66,7 +103,88 @@ class FeedbackService {
   }
 
   /**
-   * Obtém estatísticas de feedback
+   * Registra feedback aprimorado com mais detalhes
+   * Usa a mesma estrutura da planilha: data | Email do Atendente | Pergunta Original | Tipo de Feedback | Linha da Fonte | Sugestão
+   * @param {Object} feedbackData - Dados do feedback
+   * @returns {Promise<boolean>} Sucesso da operação
+   */
+  async logEnhancedFeedback(feedbackData) {
+    try {
+      if (!this.isConfigured()) {
+        console.log('⚠️ Feedback: Google Sheets não configurado');
+        return false;
+      }
+
+      await this.initialize();
+
+      const timestamp = new Date().toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+
+      const {
+        email,
+        question = '',
+        feedbackType,
+        sourceRow = '',
+        comment = '',
+        // Campos adicionais que podem ser incluídos na sugestão
+        answer = '',
+        aiProvider = '',
+        responseTime = null,
+        clarificationNeeded = false
+      } = feedbackData;
+
+      // Preparar sugestão com informações adicionais
+      let enhancedComment = comment;
+      if (answer) {
+        enhancedComment += ` | Resposta: ${answer.substring(0, 100)}...`;
+      }
+      if (aiProvider) {
+        enhancedComment += ` | IA: ${aiProvider}`;
+      }
+      if (responseTime) {
+        enhancedComment += ` | Tempo: ${responseTime}ms`;
+      }
+      if (clarificationNeeded) {
+        enhancedComment += ` | Esclarecimento necessário`;
+      }
+
+      // Preparar dados para inserção seguindo a estrutura da planilha
+      const newRow = [
+        timestamp,                    // A: data
+        email || '',                 // B: Email do Atendente
+        question,                    // C: Pergunta Original
+        feedbackType === 'positive' ? 'Positivo 👍' : 'Negativo 👎', // D: Tipo de Feedback
+        sourceRow,                   // E: Linha da Fonte
+        enhancedComment              // F: Sugestão (com informações adicionais)
+      ];
+
+      // Inserir na planilha
+      await this.sheets.spreadsheets.values.append({
+        spreadsheetId: this.spreadsheetId,
+        range: this.feedbackSheetName,
+        valueInputOption: 'RAW',
+        resource: {
+          values: [newRow]
+        }
+      });
+
+      console.log(`✅ Feedback: Feedback aprimorado registrado no Google Sheets`);
+      return true;
+
+    } catch (error) {
+      console.error('❌ Feedback: Erro ao registrar feedback aprimorado:', error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Obtém estatísticas de feedback do Google Sheets
    * @param {string} userId - ID do usuário (opcional)
    * @param {Date} startDate - Data de início (opcional)
    * @param {Date} endDate - Data de fim (opcional)
@@ -74,63 +192,63 @@ class FeedbackService {
    */
   async getFeedbackStats(userId = null, startDate = null, endDate = null) {
     try {
-      await this.connect();
-
-      // Construir filtro
-      const filter = {};
-      
-      if (userId) {
-        filter.userId = userId;
-      }
-      
-      if (startDate || endDate) {
-        filter.timestamp = {};
-        if (startDate) filter.timestamp.$gte = startDate;
-        if (endDate) filter.timestamp.$lte = endDate;
+      if (!this.isConfigured()) {
+        console.log('⚠️ Feedback: Google Sheets não configurado');
+        return null;
       }
 
-      // Agregação para estatísticas
-      const pipeline = [
-        { $match: filter },
-        {
-          $group: {
-            _id: '$feedbackType',
-            count: { $sum: 1 },
-            avgRating: { $avg: { $cond: [{ $eq: ['$feedbackType', 'positive'] }, 1, 0] } }
-          }
-        }
-      ];
+      await this.initialize();
 
-      const stats = await this.collection.aggregate(pipeline).toArray();
+      // Ler dados da planilha
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: this.feedbackSheetName,
+      });
+
+      const rows = response.data.values || [];
       
-      // Processar resultados
-      const result = {
+      if (rows.length <= 1) {
+        return {
         total: 0,
         positive: 0,
         negative: 0,
         satisfactionRate: 0,
-        period: {
-          start: startDate,
-          end: endDate
-        }
-      };
-
-      stats.forEach(stat => {
-        result.total += stat.count;
-        if (stat._id === 'positive') {
-          result.positive = stat.count;
-        } else if (stat._id === 'negative') {
-          result.negative = stat.count;
-        }
-      });
-
-      if (result.total > 0) {
-        result.satisfactionRate = (result.positive / result.total) * 100;
+          period: { start: startDate, end: endDate }
+        };
       }
 
-      console.log(`📊 Feedback: Estatísticas obtidas - ${result.total} feedbacks`);
+      // Processar dados (pular cabeçalho)
+      const dataRows = rows.slice(1);
+      let total = 0;
+      let positive = 0;
+      let negative = 0;
+
+      dataRows.forEach(row => {
+        const [timestamp, email, , feedbackType] = row;
+        
+        // Aplicar filtros
+        if (userId && email !== userId) return;
+        
+        const rowDate = new Date(timestamp);
+        if (startDate && rowDate < startDate) return;
+        if (endDate && rowDate > endDate) return;
+
+        total++;
+        if (feedbackType === 'Positivo 👍') positive++;
+        if (feedbackType === 'Negativo 👎') negative++;
+      });
+
+      const satisfactionRate = total > 0 ? (positive / total) * 100 : 0;
+
+      console.log(`📊 Feedback: Estatísticas obtidas - ${total} feedbacks`);
       
-      return result;
+      return {
+        total,
+        positive,
+        negative,
+        satisfactionRate,
+        period: { start: startDate, end: endDate }
+      };
 
     } catch (error) {
       console.error('❌ Feedback: Erro ao obter estatísticas:', error.message);
@@ -139,25 +257,54 @@ class FeedbackService {
   }
 
   /**
-   * Obtém feedbacks recentes
+   * Obtém feedbacks recentes do Google Sheets
    * @param {number} limit - Limite de resultados
    * @param {string} userId - ID do usuário (opcional)
    * @returns {Promise<Array>} Feedbacks recentes
    */
   async getRecentFeedback(limit = 10, userId = null) {
     try {
-      await this.connect();
+      if (!this.isConfigured()) {
+        console.log('⚠️ Feedback: Google Sheets não configurado');
+        return [];
+      }
 
-      const filter = userId ? { userId } : {};
+      await this.initialize();
+
+      // Ler dados da planilha
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: this.feedbackSheetName,
+      });
+
+      const rows = response.data.values || [];
       
-      const feedbacks = await this.collection
-        .find(filter)
-        .sort({ timestamp: -1 })
-        .limit(limit)
-        .toArray();
+      if (rows.length <= 1) return [];
+
+      // Processar dados (pular cabeçalho)
+      const dataRows = rows.slice(1);
+      
+      // Filtrar por usuário se especificado
+      let filteredRows = dataRows;
+      if (userId) {
+        filteredRows = dataRows.filter(row => row[1] === userId);
+      }
+
+      // Ordenar por timestamp (mais recente primeiro) e limitar
+      const sortedRows = filteredRows
+        .sort((a, b) => new Date(b[0]) - new Date(a[0]))
+        .slice(0, limit);
+
+      const feedbacks = sortedRows.map(row => ({
+        timestamp: row[0],
+        email: row[1],
+        question: row[2],
+        feedbackType: row[3],
+        sourceRow: row[4],
+        comment: row[5]
+      }));
 
       console.log(`📋 Feedback: ${feedbacks.length} feedbacks recentes obtidos`);
-      
       return feedbacks;
 
     } catch (error) {
@@ -173,20 +320,42 @@ class FeedbackService {
    */
   async getNegativeFeedback(limit = 20) {
     try {
-      await this.connect();
+      if (!this.isConfigured()) {
+        console.log('⚠️ Feedback: Google Sheets não configurado');
+        return [];
+      }
 
-      const feedbacks = await this.collection
-        .find({ 
-          feedbackType: 'negative',
-          comment: { $ne: '', $exists: true }
-        })
-        .sort({ timestamp: -1 })
-        .limit(limit)
-        .toArray();
+      await this.initialize();
 
-      console.log(`📋 Feedback: ${feedbacks.length} feedbacks negativos obtidos`);
+      // Ler dados da planilha
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: this.feedbackSheetName,
+      });
+
+      const rows = response.data.values || [];
       
-      return feedbacks;
+      if (rows.length <= 1) return [];
+
+      // Processar dados (pular cabeçalho)
+      const dataRows = rows.slice(1);
+      
+      // Filtrar feedbacks negativos com comentários
+      const negativeFeedbacks = dataRows
+        .filter(row => row[3] === 'Negativo 👎' && row[5] && row[5].trim() !== '')
+        .sort((a, b) => new Date(b[0]) - new Date(a[0]))
+        .slice(0, limit)
+        .map(row => ({
+          timestamp: row[0],
+          email: row[1],
+          question: row[2],
+          feedbackType: row[3],
+          sourceRow: row[4],
+          comment: row[5]
+        }));
+
+      console.log(`📋 Feedback: ${negativeFeedbacks.length} feedbacks negativos obtidos`);
+      return negativeFeedbacks;
 
     } catch (error) {
       console.error('❌ Feedback: Erro ao obter feedbacks negativos:', error.message);
@@ -201,71 +370,57 @@ class FeedbackService {
    */
   async getProblematicQuestions(limit = 10) {
     try {
-      await this.connect();
+      if (!this.isConfigured()) {
+        console.log('⚠️ Feedback: Google Sheets não configurado');
+        return [];
+      }
 
-      const pipeline = [
-        { $match: { feedbackType: 'negative' } },
-        { $group: { 
-          _id: '$question', 
-          count: { $sum: 1 },
-          comments: { $push: '$comment' }
-        }},
-        { $sort: { count: -1 } },
-        { $limit: limit }
-      ];
+      await this.initialize();
 
-      const problematicQuestions = await this.collection.aggregate(pipeline).toArray();
+      // Ler dados da planilha
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: this.feedbackSheetName,
+      });
+
+      const rows = response.data.values || [];
+      
+      if (rows.length <= 1) return [];
+
+      // Processar dados (pular cabeçalho)
+      const dataRows = rows.slice(1);
+      
+      // Filtrar feedbacks negativos
+      const negativeFeedbacks = dataRows.filter(row => row[3] === 'Negativo 👎');
+      
+      // Agrupar por pergunta
+      const questionGroups = {};
+      negativeFeedbacks.forEach(row => {
+        const question = row[2] || 'Pergunta não especificada';
+        if (!questionGroups[question]) {
+          questionGroups[question] = {
+            question,
+            count: 0,
+            comments: []
+          };
+        }
+        questionGroups[question].count++;
+        if (row[5] && row[5].trim() !== '') {
+          questionGroups[question].comments.push(row[5]);
+        }
+      });
+
+      // Converter para array e ordenar por frequência
+      const problematicQuestions = Object.values(questionGroups)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, limit);
       
       console.log(`📋 Feedback: ${problematicQuestions.length} perguntas problemáticas identificadas`);
-      
       return problematicQuestions;
 
     } catch (error) {
       console.error('❌ Feedback: Erro ao obter perguntas problemáticas:', error.message);
       return [];
-    }
-  }
-
-  /**
-   * Registra feedback aprimorado com mais detalhes (baseado no chatbot Vercel)
-   * @param {Object} feedbackData - Dados do feedback
-   * @returns {Promise<boolean>} Sucesso da operação
-   */
-  async logEnhancedFeedback(feedbackData) {
-    try {
-      await this.connect();
-
-      const feedback = {
-        userId: feedbackData.userId,
-        email: feedbackData.email || '',
-        messageId: feedbackData.messageId,
-        feedbackType: feedbackData.feedbackType, // 'positive' ou 'negative'
-        comment: feedbackData.comment || '',
-        question: feedbackData.question || '',
-        answer: feedbackData.answer || '',
-        source: feedbackData.source || 'chatbot', // IA, Planilha, Sites
-        aiProvider: feedbackData.aiProvider || null, // OpenAI, Gemini
-        sourceRow: feedbackData.sourceRow || null,
-        timestamp: new Date(),
-        sessionId: feedbackData.sessionId || null,
-        metadata: {
-          ...feedbackData.metadata,
-          userAgent: feedbackData.userAgent || '',
-          ipAddress: feedbackData.ipAddress || '',
-          responseTime: feedbackData.responseTime || null,
-          clarificationNeeded: feedbackData.clarificationNeeded || false
-        }
-      };
-
-      const result = await this.collection.insertOne(feedback);
-      
-      console.log(`✅ Feedback: Feedback aprimorado registrado com ID ${result.insertedId}`);
-      
-      return true;
-
-    } catch (error) {
-      console.error('❌ Feedback: Erro ao registrar feedback aprimorado:', error.message);
-      return false;
     }
   }
 
@@ -277,37 +432,22 @@ class FeedbackService {
    */
   async getPerformanceMetrics(startDate = null, endDate = null) {
     try {
-      await this.connect();
-
-      const filter = {};
-      if (startDate || endDate) {
-        filter.timestamp = {};
-        if (startDate) filter.timestamp.$gte = startDate;
-        if (endDate) filter.timestamp.$lte = endDate;
+      if (!this.isConfigured()) {
+        console.log('⚠️ Feedback: Google Sheets não configurado');
+        return null;
       }
 
-      const pipeline = [
-        { $match: filter },
-        {
-          $group: {
-            _id: null,
-            totalInteractions: { $sum: 1 },
-            positiveFeedback: { $sum: { $cond: [{ $eq: ['$feedbackType', 'positive'] }, 1, 0] } },
-            negativeFeedback: { $sum: { $cond: [{ $eq: ['$feedbackType', 'negative'] }, 1, 0] } },
-            aiResponses: { $sum: { $cond: [{ $eq: ['$source', 'IA'] }, 1, 0] } },
-            spreadsheetResponses: { $sum: { $cond: [{ $eq: ['$source', 'Planilha'] }, 1, 0] } },
-            siteResponses: { $sum: { $cond: [{ $regex: ['$source', 'Site'] }, 1, 0] } },
-            openaiResponses: { $sum: { $cond: [{ $eq: ['$aiProvider', 'OpenAI'] }, 1, 0] } },
-            geminiResponses: { $sum: { $cond: [{ $eq: ['$aiProvider', 'Gemini'] }, 1, 0] } },
-            clarificationsNeeded: { $sum: { $cond: ['$metadata.clarificationNeeded', 1, 0] } },
-            avgResponseTime: { $avg: '$metadata.responseTime' }
-          }
-        }
-      ];
+      await this.initialize();
 
-      const metrics = await this.collection.aggregate(pipeline).toArray();
+      // Ler dados da planilha
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: this.feedbackSheetName,
+      });
+
+      const rows = response.data.values || [];
       
-      if (metrics.length === 0) {
+      if (rows.length <= 1) {
         return {
           totalInteractions: 0,
           satisfactionRate: 0,
@@ -317,24 +457,66 @@ class FeedbackService {
         };
       }
 
-      const data = metrics[0];
-      const totalFeedback = data.positiveFeedback + data.negativeFeedback;
+      // Processar dados (pular cabeçalho)
+      const dataRows = rows.slice(1);
+      
+      let totalInteractions = 0;
+      let positiveFeedback = 0;
+      let negativeFeedback = 0;
+      let aiResponses = 0;
+      let spreadsheetResponses = 0;
+      let openaiResponses = 0;
+      let geminiResponses = 0;
+      let clarificationsNeeded = 0;
+      let totalResponseTime = 0;
+      let responseTimeCount = 0;
+
+      dataRows.forEach(row => {
+        const [timestamp, , , feedbackType, , comment] = row;
+        
+        // Aplicar filtros de data
+        const rowDate = new Date(timestamp);
+        if (startDate && rowDate < startDate) return;
+        if (endDate && rowDate > endDate) return;
+
+        totalInteractions++;
+        
+        if (feedbackType === 'Positivo 👍') positiveFeedback++;
+        if (feedbackType === 'Negativo 👎') negativeFeedback++;
+        
+        // Extrair informações adicionais do comentário se disponível
+        if (comment) {
+          if (comment.includes('IA:')) aiResponses++;
+          if (comment.includes('Tempo:')) {
+            const timeMatch = comment.match(/Tempo: (\d+)ms/);
+            if (timeMatch) {
+              totalResponseTime += parseFloat(timeMatch[1]);
+              responseTimeCount++;
+            }
+          }
+          if (comment.includes('Esclarecimento necessário')) clarificationsNeeded++;
+        }
+      });
+
+      const totalFeedback = positiveFeedback + negativeFeedback;
+      const satisfactionRate = totalFeedback > 0 ? (positiveFeedback / totalFeedback) * 100 : 0;
+      const avgResponseTime = responseTimeCount > 0 ? totalResponseTime / responseTimeCount : 0;
       
       return {
-        totalInteractions: data.totalInteractions,
-        satisfactionRate: totalFeedback > 0 ? (data.positiveFeedback / totalFeedback) * 100 : 0,
+        totalInteractions,
+        satisfactionRate,
         sourceDistribution: {
-          ai: data.aiResponses,
-          spreadsheet: data.spreadsheetResponses,
-          sites: data.siteResponses
+          ai: aiResponses,
+          spreadsheet: spreadsheetResponses,
+          sites: 0 // Sites removidos
         },
         aiProviderDistribution: {
-          openai: data.openaiResponses,
-          gemini: data.geminiResponses
+          openai: openaiResponses,
+          gemini: geminiResponses
         },
         performance: {
-          clarificationsNeeded: data.clarificationsNeeded,
-          avgResponseTime: data.avgResponseTime || 0
+          clarificationsNeeded,
+          avgResponseTime
         }
       };
 
@@ -351,39 +533,66 @@ class FeedbackService {
    */
   async getFeedbackTrends(days = 30) {
     try {
-      await this.connect();
+      if (!this.isConfigured()) {
+        console.log('⚠️ Feedback: Google Sheets não configurado');
+        return [];
+      }
+
+      await this.initialize();
 
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
 
-      const pipeline = [
-        { $match: { timestamp: { $gte: startDate } } },
-        {
-          $group: {
-            _id: {
-              year: { $year: '$timestamp' },
-              month: { $month: '$timestamp' },
-              day: { $dayOfMonth: '$timestamp' }
-            },
-            total: { $sum: 1 },
-            positive: { $sum: { $cond: [{ $eq: ['$feedbackType', 'positive'] }, 1, 0] } },
-            negative: { $sum: { $cond: [{ $eq: ['$feedbackType', 'negative'] }, 1, 0] } },
-            aiResponses: { $sum: { $cond: [{ $eq: ['$source', 'IA'] }, 1, 0] } }
-          }
-        },
-        { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } }
-      ];
+      // Ler dados da planilha
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: this.feedbackSheetName,
+      });
 
-      const trends = await this.collection.aggregate(pipeline).toArray();
+      const rows = response.data.values || [];
       
-      return trends.map(trend => ({
-        date: new Date(trend._id.year, trend._id.month - 1, trend._id.day),
-        total: trend.total,
-        positive: trend.positive,
-        negative: trend.negative,
-        aiResponses: trend.aiResponses,
-        satisfactionRate: trend.total > 0 ? (trend.positive / trend.total) * 100 : 0
-      }));
+      if (rows.length <= 1) return [];
+
+      // Processar dados (pular cabeçalho)
+      const dataRows = rows.slice(1);
+      
+      // Agrupar por dia
+      const dailyStats = {};
+      
+      dataRows.forEach(row => {
+        const [timestamp, , , feedbackType, , comment] = row;
+        const rowDate = new Date(timestamp);
+        
+        if (rowDate < startDate) return;
+        
+        const dateKey = rowDate.toISOString().split('T')[0];
+        
+        if (!dailyStats[dateKey]) {
+          dailyStats[dateKey] = {
+            date: new Date(dateKey),
+            total: 0,
+            positive: 0,
+            negative: 0,
+            aiResponses: 0
+          };
+        }
+        
+        dailyStats[dateKey].total++;
+        
+        if (feedbackType === 'Positivo 👍') dailyStats[dateKey].positive++;
+        if (feedbackType === 'Negativo 👎') dailyStats[dateKey].negative++;
+        if (comment && comment.includes('IA:')) dailyStats[dateKey].aiResponses++;
+      });
+
+      // Converter para array e ordenar por data
+      const trends = Object.values(dailyStats)
+        .sort((a, b) => a.date - b.date)
+        .map(stat => ({
+          ...stat,
+          satisfactionRate: stat.total > 0 ? (stat.positive / stat.total) * 100 : 0
+        }));
+
+      return trends;
 
     } catch (error) {
       console.error('❌ Feedback: Erro ao obter tendências:', error.message);
@@ -392,25 +601,25 @@ class FeedbackService {
   }
 
   /**
-   * Fecha a conexão com MongoDB
-   */
-  async close() {
-    if (this.client) {
-      await this.client.close();
-      this.isConnected = false;
-      console.log('🔌 Feedback: Conexão MongoDB fechada');
-    }
-  }
-
-  /**
-   * Testa a conexão com MongoDB
+   * Testa a conexão com Google Sheets
    * @returns {Promise<boolean>} Status da conexão
    */
   async testConnection() {
     try {
-      await this.connect();
-      await this.collection.findOne({});
-      console.log('✅ Feedback: Teste de conexão bem-sucedido');
+      if (!this.isConfigured()) {
+        console.log('⚠️ Feedback: Google Sheets não configurado');
+        return false;
+      }
+
+      await this.initialize();
+      
+      // Tentar ler uma célula para testar a conexão
+      await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: `${this.feedbackSheetName}!A1`,
+      });
+
+      console.log('✅ Feedback: Teste de conexão com Google Sheets bem-sucedido');
       return true;
     } catch (error) {
       console.error('❌ Feedback: Erro no teste de conexão:', error.message);
