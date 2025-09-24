@@ -1,26 +1,25 @@
-// Search Service - Busca inteligente em FAQ e Artigos
-// VERSION: v2.0.3 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// Search Service - Busca inteligente em Bot_perguntas e Artigos
+// VERSION: v2.1.0 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
 const cosineSimilarity = require('cosine-similarity');
-const axios = require('axios');
 
 class SearchService {
   constructor() {
-    this.faqCache = [];
+    this.botPerguntasCache = [];
     this.articlesCache = [];
     this.lastCacheUpdate = null;
     this.cacheTimeout = 5 * 60 * 1000; // 5 minutos
   }
 
   /**
-   * Busca FAQ relevante baseado na pergunta
+   * Busca pergunta relevante no banco Bot_perguntas
    * @param {string} question - Pergunta do usuário
-   * @param {Array} faqData - Dados do FAQ
-   * @returns {Object|null} FAQ mais relevante ou null
+   * @param {Array} botPerguntasData - Dados do MongoDB Bot_perguntas
+   * @returns {Object|null} Pergunta mais relevante ou null
    */
-  async findRelevantFAQ(question, faqData) {
+  async findRelevantBotPergunta(question, botPerguntasData) {
     try {
-      if (!faqData || faqData.length === 0) {
-        console.log('📋 Search: Nenhum FAQ disponível');
+      if (!botPerguntasData || botPerguntasData.length === 0) {
+        console.log('📋 Search: Nenhuma pergunta do Bot_perguntas disponível');
         return null;
       }
 
@@ -28,15 +27,15 @@ class SearchService {
       let bestMatch = null;
       let bestScore = 0;
 
-      console.log(`🔍 Search: Buscando FAQ para: "${question}"`);
+      console.log(`🔍 Search: Buscando em Bot_perguntas para: "${question}"`);
 
-      for (const faq of faqData) {
-        const score = this.calculateRelevanceScore(questionWords, faq);
+      for (const pergunta of botPerguntasData) {
+        const score = this.calculateRelevanceScore(questionWords, pergunta);
         
         if (score > bestScore) {
           bestScore = score;
           bestMatch = {
-            ...faq,
+            ...pergunta,
             relevanceScore: score
           };
         }
@@ -44,15 +43,15 @@ class SearchService {
 
       // Threshold mínimo de relevância
       if (bestScore > 0.3) {
-        console.log(`✅ Search: FAQ encontrado com score ${bestScore.toFixed(2)}`);
+        console.log(`✅ Search: Pergunta encontrada em Bot_perguntas com score ${bestScore.toFixed(2)}`);
         return bestMatch;
       }
 
-      console.log(`❌ Search: Nenhum FAQ relevante encontrado (melhor score: ${bestScore.toFixed(2)})`);
+      console.log(`❌ Search: Nenhuma pergunta relevante encontrada (melhor score: ${bestScore.toFixed(2)})`);
       return null;
 
     } catch (error) {
-      console.error('❌ Search Error (FAQ):', error.message);
+      console.error('❌ Search Error (Bot_perguntas):', error.message);
       return null;
     }
   }
@@ -101,7 +100,7 @@ class SearchService {
   /**
    * Calcula score de relevância entre pergunta e item
    * @param {string} questionWords - Palavras da pergunta normalizadas
-   * @param {Object} item - Item do FAQ ou artigo
+   * @param {Object} item - Item do Bot_perguntas ou artigo
    * @returns {number} Score de relevância (0-1)
    */
   calculateRelevanceScore(questionWords, item) {
@@ -132,14 +131,14 @@ class SearchService {
   }
 
   /**
-   * Extrai texto relevante do item (FAQ ou artigo)
-   * @param {Object} item - Item do FAQ ou artigo
+   * Extrai texto relevante do item (Bot_perguntas ou artigo)
+   * @param {Object} item - Item do Bot_perguntas ou artigo
    * @returns {string} Texto relevante
    */
   extractRelevantText(item) {
     const texts = [];
     
-    // Para FAQ (estrutura MongoDB: Bot_perguntas)
+    // Para Bot_perguntas (estrutura MongoDB: Bot_perguntas)
     if (item.Pergunta) texts.push(item.Pergunta);
     if (item["Palavras-chave"]) texts.push(item["Palavras-chave"]);
     if (item.Sinonimos) texts.push(item.Sinonimos);
@@ -203,7 +202,7 @@ class SearchService {
   /**
    * Calcula boost para matches em keywords
    * @param {string} questionWords - Palavras da pergunta
-   * @param {Object} item - Item do FAQ ou artigo
+   * @param {Object} item - Item do Bot_perguntas ou artigo
    * @returns {number} Boost score
    */
   calculateKeywordBoost(questionWords, item) {
@@ -226,75 +225,37 @@ class SearchService {
     return Math.min(0.3, boost); // Máximo 0.3 de boost
   }
 
-  /**
-   * Busca em sites autorizados (baseado no chatbot Vercel)
-   * @param {string} question - Pergunta do usuário
-   * @returns {Promise<string|null>} Contexto encontrado nos sites
-   */
-  async searchAuthorizedSites(question) {
-    const sites = [
-      "https://www.gov.br/receitafederal",
-      "https://cav.receita.fazenda.gov.br",
-      "https://www.gov.br",
-      "https://velotax.com.br"
-    ];
-    
-    let contexto = "";
-    
-    console.log(`🌐 Search: Buscando em sites autorizados para: "${question}"`);
-    
-    for (const site of sites) {
-      try {
-        const { data } = await axios.get(site, { 
-          timeout: 10000, // Aumentado para 10 segundos
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; VeloHub-Bot/1.0)'
-          }
-        });
-        if (data.toLowerCase().includes(question.toLowerCase())) {
-          contexto += `Fonte: ${site}\nTrecho encontrado que menciona a pergunta.\n\n`;
-        }
-      } catch (e) {
-        console.error(`❌ Search: Falha ao processar site ${site}:`, e.message);
-        // Continuar para o próximo site em caso de erro
-        continue;
-      }
-    }
-    
-    return contexto || null;
-  }
 
   /**
-   * Busca híbrida: FAQ + Artigos (sem sites externos)
+   * Busca híbrida: Bot_perguntas + Artigos (apenas banco de dados)
    * @param {string} question - Pergunta do usuário
-   * @param {Array} faqData - Dados do FAQ
+   * @param {Array} botPerguntasData - Dados do MongoDB Bot_perguntas
    * @param {Array} articlesData - Dados dos artigos
    * @returns {Object} Resultado da busca híbrida
    */
-  async hybridSearch(question, faqData, articlesData) {
+  async hybridSearch(question, botPerguntasData, articlesData) {
     console.log(`🔍 Search: Iniciando busca híbrida para: "${question}"`);
     
-    const [faqResult, articlesResult] = await Promise.all([
-      this.findRelevantFAQ(question, faqData),
+    const [botPerguntaResult, articlesResult] = await Promise.all([
+      this.findRelevantBotPergunta(question, botPerguntasData),
       this.findRelevantArticles(question, articlesData)
     ]);
 
     return {
-      faq: faqResult,
+      botPergunta: botPerguntaResult,
       articles: articlesResult,
-      sitesContext: null, // Removido sites externos
-      hasResults: !!(faqResult || articlesResult.length > 0)
+      hasResults: !!(botPerguntaResult || articlesResult.length > 0)
     };
   }
 
   /**
    * Sistema de desduplicação e menu de esclarecimento (adaptado para MongoDB)
    * @param {string} question - Pergunta do usuário
-   * @param {Array} faqData - Dados do FAQ do MongoDB
+   * @param {Array} botPerguntasData - Dados do MongoDB Bot_perguntas
    * @returns {Object} Resultado com desduplicação e opções de esclarecimento
    */
-  findMatchesWithDeduplication(question, faqData) {
-    if (!faqData || faqData.length === 0) {
+  findMatchesWithDeduplication(question, botPerguntasData) {
+    if (!botPerguntasData || botPerguntasData.length === 0) {
       return { matches: [], needsClarification: false };
     }
 
@@ -302,8 +263,8 @@ class SearchService {
     let todasAsCorrespondencias = [];
 
     // Processar cada documento do MongoDB
-    for (let i = 0; i < faqData.length; i++) {
-      const documento = faqData[i];
+    for (let i = 0; i < botPerguntasData.length; i++) {
+      const documento = botPerguntasData[i];
       
       // Extrair campos do documento MongoDB
       const pergunta = documento.Pergunta || documento.pergunta || '';
