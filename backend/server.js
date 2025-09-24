@@ -712,7 +712,7 @@ app.post('/api/chatbot/ask', async (req, res) => {
         
         // Log da resposta do banco de dados
         if (logsService.isConfigured()) {
-          await logsService.logSpreadsheetResponse(userEmail, cleanQuestion, searchResults.botPergunta._id);
+          await logsService.logMongoDBResponse(userEmail, cleanQuestion, searchResults.botPergunta._id);
         }
       } else {
         response = 'Desculpe, não encontrei uma resposta para sua pergunta. Entre em contato com nosso suporte para mais informações.';

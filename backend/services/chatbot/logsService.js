@@ -37,7 +37,7 @@ class LogsService {
    * Registra uso da IA no Google Sheets
    * @param {string} email - Email do usuário
    * @param {string} question - Pergunta realizada
-   * @param {string} source - Fonte da resposta (IA, Planilha, Sites)
+   * @param {string} source - Fonte da resposta (Bot_perguntas, IA)
    * @returns {Promise<boolean>} Sucesso da operação
    */
   async logAIUsage(email, question, source = 'IA') {
@@ -94,8 +94,8 @@ class LogsService {
    * @param {string} sourceRow - Linha da planilha
    * @returns {Promise<boolean>} Sucesso da operação
    */
-  async logSpreadsheetResponse(email, question, sourceRow) {
-    return await this.logAIUsage(email, question, `Planilha-${sourceRow}`);
+  async logMongoDBResponse(email, question, sourceRow) {
+    return await this.logAIUsage(email, question, `Bot_perguntas-${sourceRow}`);
   }
 
 

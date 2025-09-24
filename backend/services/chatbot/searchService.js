@@ -442,7 +442,7 @@ class SearchService {
       status: "clarification_needed",
       resposta: `Encontrei vários tópicos sobre "${question}". Qual deles se encaixa melhor na sua dúvida?`,
       options: options,
-      source: "Planilha",
+      source: "Bot_perguntas",
       sourceRow: 'Pergunta de Esclarecimento'
     };
   }
