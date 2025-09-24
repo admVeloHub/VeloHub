@@ -42,15 +42,16 @@ class AIService {
    * @param {Array} sessionHistory - Histórico da sessão
    * @param {string} userId - ID do usuário
    * @param {string} email - Email do usuário
+   * @param {Object} searchResults - Resultados da busca híbrida (opcional)
    * @returns {Promise<Object>} Resposta com provider usado
    */
-  async generateResponse(question, context = "", sessionHistory = [], userId = null, email = null) {
+  async generateResponse(question, context = "", sessionHistory = [], userId = null, email = null, searchResults = null) {
     try {
       // 1. TENTAR GEMINI PRIMEIRO (IA PRIMÁRIA)
       if (this.isGeminiConfigured()) {
         try {
           console.log(`🤖 AI Service: Tentando Gemini (primário) para usuário ${userId || 'anônimo'}`);
-          const response = await this._generateWithGemini(question, context, sessionHistory, userId, email);
+          const response = await this._generateWithGemini(question, context, sessionHistory, userId, email, searchResults);
           return {
             response: response,
             provider: 'Gemini',
@@ -66,7 +67,7 @@ class AIService {
       if (this.isOpenAIConfigured()) {
         try {
           console.log(`🤖 AI Service: Usando OpenAI (fallback) para usuário ${userId || 'anônimo'}`);
-          const response = await this._generateWithOpenAI(question, context, sessionHistory, userId, email);
+          const response = await this._generateWithOpenAI(question, context, sessionHistory, userId, email, searchResults);
           return {
             response: response,
             provider: 'OpenAI',
@@ -97,9 +98,44 @@ class AIService {
   }
 
   /**
+   * Obtém a persona padrão do VeloBot
+   * @returns {string} Persona formatada
+   */
+  getPersona() {
+    return `# VELOBOT - ASSISTENTE OFICIAL VELOTAX
+
+## IDENTIDADE
+- Nome: VeloBot
+- Empresa: Velotax
+- Função: Assistente de atendimento ao cliente
+- Tom: Profissional, direto, prestativo, conversacional, solidário.
+
+## COMPORTAMENTO
+- Função de reformulação da resposta para meios mais detalhistas de comunicação, como e-mail por exemplo. 
+- Responda APENAS com a informação solicitada
+- Seja direto, sem preâmbulos ou confirmações
+- Use português brasileiro claro e objetivo
+- As interações esperadas são de chunho textual, sem adicionar informações genéricas, criadas, ou realizar pesquisas externas.
+- Apenas os conhecimentos fornecidos são válidos. Não invente informações.
+- Se a resposta contiver muitos termos técnicos, simplifique para um nível de fácil compreensão.
+- Se não souber, diga: "Não encontrei essa informação na base de conhecimento disponível"
+
+## FONTES DE INFORMAÇÃO
+- Base de dados: Bot_perguntas (MongoDB)
+- Artigos: Documentação interna
+- Prioridade: Informação sólida > IA generativa
+
+## FORMATO DE RESPOSTA
+- Direto ao ponto
+- Sem "Entendi", "Compreendo", etc.
+- Máximo 200 palavras
+- Foco na solução prática`;
+  }
+
+  /**
    * Gera resposta usando Gemini (IA PRIMÁRIA)
    */
-  async _generateWithGemini(question, context, sessionHistory, userId, email) {
+  async _generateWithGemini(question, context, sessionHistory, userId, email, searchResults = null) {
     const gemini = this._initializeGemini();
     if (!gemini) {
       throw new Error('Falha ao inicializar cliente Gemini');
@@ -108,18 +144,9 @@ class AIService {
     const model = gemini.getGenerativeModel({ model: this.geminiModel });
     
     // Construir prompt completo (system + user) otimizado para Gemini
-    const systemPrompt = `### PERSONA
-Você é o VeloBot, assistente oficial da Velotax. Responda com base no histórico de conversa e no contexto da base de conhecimento fornecidos. Sua função é formatar a resposta de forma que ela fique apropriada e profissional para o uso no atendimento a clientes. Sua resposta deverá ser diretamente a resposta esperada, sem "aberturas", concorrdancias com a solicitação, informação de que compreendeu nem nada do gênero. 
+    const systemPrompt = this.getPersona();
 
-### REGRAS
-- Se a nova pergunta for ambígua, use o histórico para entender o que o usuário quis dizer.
-- Seja direto e claro, mas natural e prestativo.
-- Se o usuário disser "não entendi", reformule sua última resposta de forma mais simples.
-- Se não encontrar no contexto, diga: "Não encontrei essa informação na base de conhecimento disponível."
-- Sempre responda em português do Brasil.
-- Use o contexto fornecido para dar respostas precisas e relevantes.`;
-
-    const userPrompt = this.buildOptimizedPrompt(question, context, sessionHistory);
+    const userPrompt = this.buildOptimizedPrompt(question, context, sessionHistory, searchResults);
     
     // Combinar system + user prompt para Gemini
     const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
@@ -137,14 +164,14 @@ Você é o VeloBot, assistente oficial da Velotax. Responda com base no históri
   /**
    * Gera resposta usando OpenAI (IA FALLBACK)
    */
-  async _generateWithOpenAI(question, context, sessionHistory, userId, email) {
+  async _generateWithOpenAI(question, context, sessionHistory, userId, email, searchResults = null) {
     const openai = this._initializeOpenAI();
     if (!openai) {
       throw new Error('Falha ao inicializar cliente OpenAI');
     }
 
     // Construir prompt otimizado (baseado no chatbot Vercel)
-    const prompt = this.buildOptimizedPrompt(question, context, sessionHistory);
+    const prompt = this.buildOptimizedPrompt(question, context, sessionHistory, searchResults);
     
     console.log(`🤖 OpenAI: Processando pergunta para usuário ${userId || 'anônimo'}`);
     
@@ -153,24 +180,18 @@ Você é o VeloBot, assistente oficial da Velotax. Responda com base no históri
       messages: [
         {
           role: "system",
-          content: `### PERSONA
-Você é o VeloBot, assistente oficial da Velotax. Responda com base no histórico de conversa e no contexto da base de conhecimento.
-
-### REGRAS
-- Se a nova pergunta for ambígua, use o histórico para entender o que o usuário quis dizer.
-- Seja direto e claro, mas natural e prestativo.
-- Se o usuário disser "não entendi", reformule sua última resposta de forma mais simples.
-- Se não encontrar no contexto, diga: "Não encontrei essa informação na base de conhecimento disponível."
-- Sempre responda em português do Brasil.
-- Use o contexto fornecido para dar respostas precisas e relevantes.`
+          content: this.getPersona()
         },
         {
           role: "user",
           content: prompt
         }
       ],
-      temperature: 0.2,
-      max_tokens: 1024,
+      temperature: 0.1, // Mais determinístico
+      max_tokens: 512, // Respostas mais concisas
+      top_p: 0.8,
+      frequency_penalty: 0.1,
+      presence_penalty: 0.1
     });
 
     const response = completion.choices[0].message.content;
@@ -181,27 +202,121 @@ Você é o VeloBot, assistente oficial da Velotax. Responda com base no históri
   }
 
   /**
+   * Constrói contexto estruturado com informações organizadas
+   * @param {Object} searchResults - Resultados da busca híbrida
+   * @param {Array} sessionHistory - Histórico da sessão
+   * @returns {string} Contexto estruturado
+   */
+  buildStructuredContext(searchResults, sessionHistory) {
+    let context = `## CONTEXTO DA CONSULTA\n\n`;
+    
+    // Informação principal (Bot_perguntas)
+    if (searchResults && searchResults.botPergunta) {
+      context += `### INFORMAÇÃO PRINCIPAL
+**Pergunta:** ${searchResults.botPergunta.Pergunta || searchResults.botPergunta.pergunta}
+**Resposta:** ${searchResults.botPergunta.Resposta || searchResults.botPergunta.resposta}
+**Relevância:** ${searchResults.botPergunta.relevanceScore || 'N/A'}/10
+**Fonte:** Bot_perguntas (MongoDB)
+
+`;
+    }
+    
+    // Artigos relacionados
+    if (searchResults && searchResults.articles && searchResults.articles.length > 0) {
+      context += `### ARTIGOS RELACIONADOS\n`;
+      searchResults.articles.forEach((article, index) => {
+        context += `${index + 1}. **${article.title}**
+   - Relevância: ${article.relevanceScore || 'N/A'}/10
+   - Conteúdo: ${article.content.substring(0, 150)}...
+   
+`;
+      });
+    }
+    
+    // Histórico da sessão
+    if (sessionHistory && sessionHistory.length > 0) {
+      context += `### HISTÓRICO DA CONVERSA\n`;
+      sessionHistory.slice(-3).forEach(h => {
+        context += `- ${h.role}: ${h.content}\n`;
+      });
+      context += `\n`;
+    }
+    
+    return context;
+  }
+
+  /**
    * Constrói o prompt otimizado com contexto e histórico
    * @param {string} question - Pergunta atual
-   * @param {string} context - Contexto da base de conhecimento
+   * @param {string} context - Contexto da base de conhecimento (legado)
    * @param {Array} sessionHistory - Histórico da sessão
+   * @param {Object} searchResults - Resultados da busca híbrida (novo)
    * @returns {string} Prompt formatado
    */
-  buildOptimizedPrompt(question, context, sessionHistory) {
-    let prompt = `
+  buildOptimizedPrompt(question, context, sessionHistory, searchResults = null) {
+    // Usar contexto estruturado se searchResults estiver disponível
+    const structuredContext = searchResults ? 
+      this.buildStructuredContext(searchResults, sessionHistory) : 
+      `### CONTEXTO DA BASE DE CONHECIMENTO
+${context || "Nenhum contexto específico encontrado."}
+
 ### HISTÓRICO DE CONVERSA
 ${sessionHistory.length > 0 ? 
   sessionHistory.map(h => `${h.role}: ${h.content}`).join("\n") : 
-  'Primeira pergunta da sessão.'}
+  'Primeira pergunta da sessão.'}`;
 
-### CONTEXTO DA BASE DE CONHECIMENTO
-${context || "Nenhum contexto específico encontrado."}
+    return `${structuredContext}
+## PERGUNTA ATUAL
+**Usuário:** ${question}
 
-### PERGUNTA ATUAL
-"${question}"
-`;
+## INSTRUÇÕES
+- Use APENAS as informações do contexto acima
+- Se a pergunta for sobre crédito, foco em prazos e processos
+- Se for sobre documentos, liste exatamente o que é necessário
+- Se for sobre prazos, seja específico com datas e tempos
+- Se não houver informação suficiente, diga claramente
 
-    return prompt;
+## RESPOSTA:`;
+  }
+
+  /**
+   * Valida a qualidade da resposta gerada pela IA
+   * @param {string} response - Resposta da IA
+   * @param {string} question - Pergunta original
+   * @returns {Object} Resultado da validação
+   */
+  validateResponse(response, question) {
+    // Verificar se a resposta é muito genérica
+    const genericResponses = [
+      "não encontrei essa informação",
+      "não tenho essa informação",
+      "não posso ajudar com isso",
+      "não sei",
+      "não consigo"
+    ];
+    
+    const isGeneric = genericResponses.some(generic => 
+      response.toLowerCase().includes(generic)
+    );
+    
+    if (isGeneric && response.length < 50) {
+      return {
+        valid: false,
+        reason: "Resposta muito genérica",
+        suggestion: "Buscar em outras fontes ou reformular pergunta"
+      };
+    }
+    
+    // Verificar se a resposta é muito longa
+    if (response.length > 500) {
+      return {
+        valid: false,
+        reason: "Resposta muito longa",
+        suggestion: "Resumir para máximo 200 palavras"
+      };
+    }
+    
+    return { valid: true };
   }
 
   /**
