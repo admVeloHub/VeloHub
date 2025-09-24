@@ -1,5 +1,5 @@
 // AI Service - Integração híbrida com IA para respostas inteligentes
-// VERSION: v2.3.0 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v2.4.0 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
 const { OpenAI } = require('openai');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const config = require('../../config');
@@ -223,6 +223,101 @@ class AIService {
       default:
         console.log('🔍 Persona Debug: Selecionando persona conversacional (padrão)');
         return this.getPersona();
+    }
+  }
+
+  /**
+   * Analisa pergunta do usuário contra base de dados usando IA
+   * @param {string} question - Pergunta do usuário
+   * @param {Array} botPerguntasData - Dados do MongoDB Bot_perguntas
+   * @returns {Promise<Object>} Análise da IA com opções relevantes
+   */
+  async analyzeQuestionWithAI(question, botPerguntasData) {
+    try {
+      console.log(`🤖 AI Analyzer: Analisando pergunta: "${question}"`);
+      
+      if (!this.isGeminiConfigured()) {
+        throw new Error('IA não configurada para análise');
+      }
+
+      // Construir contexto com todas as perguntas da base
+      const contextData = botPerguntasData.map((item, index) => {
+        return `${index + 1}. **Pergunta:** ${item.Pergunta || item.pergunta || 'N/A'}
+   **Palavras-chave:** ${item["Palavras-chave"] || item.palavras_chave || 'N/A'}
+   **Sinônimos:** ${item.Sinonimos || item.sinonimos || 'N/A'}
+   **Resposta:** ${(item.Resposta || item.resposta || '').substring(0, 100)}...`;
+      }).join('\n\n');
+
+      const analysisPrompt = `# ANALISADOR DE PERGUNTAS - VELOBOT
+
+## SUA TAREFA
+Analise a pergunta do usuário e identifique quais opções da base de dados são relevantes.
+
+## PERGUNTA DO USUÁRIO
+"${question}"
+
+## BASE DE DADOS DISPONÍVEL
+${contextData}
+
+## INSTRUÇÕES
+1. Analise a pergunta do usuário
+2. Compare com perguntas, palavras-chave e sinônimos da base
+3. Identifique as 3-8 opções mais relevantes
+4. Retorne APENAS os números das opções relevantes
+
+## FORMATO DE RESPOSTA
+Responda APENAS com os números das opções relevantes, separados por vírgula.
+Exemplo: 1, 3, 7, 12
+
+## CRITÉRIOS DE RELEVÂNCIA
+- Match exato ou similar na pergunta
+- Palavras-chave relacionadas
+- Sinônimos relevantes
+- Contexto semântico similar
+
+## RESPOSTA:`;
+
+      const gemini = this._initializeGemini();
+      const model = gemini.getGenerativeModel({ model: this.geminiModel });
+      
+      const result = await model.generateContent(analysisPrompt);
+      const response = result.response.text().trim();
+      
+      console.log(`🤖 AI Analyzer: Resposta da IA: "${response}"`);
+      
+      // Extrair números da resposta
+      const relevantIndices = response.match(/\d+/g);
+      if (!relevantIndices || relevantIndices.length === 0) {
+        console.log('❌ AI Analyzer: Nenhuma opção relevante identificada');
+        return { relevantOptions: [], needsClarification: false };
+      }
+
+      // Converter para índices reais (subtrair 1)
+      const indices = relevantIndices.map(num => parseInt(num) - 1).filter(idx => idx >= 0 && idx < botPerguntasData.length);
+      
+      console.log(`✅ AI Analyzer: ${indices.length} opções relevantes identificadas: ${indices.join(', ')}`);
+      
+      // Se apenas 1 opção relevante, não precisa de esclarecimento
+      if (indices.length === 1) {
+        return {
+          relevantOptions: [botPerguntasData[indices[0]]],
+          needsClarification: false,
+          bestMatch: botPerguntasData[indices[0]]
+        };
+      }
+      
+      // Múltiplas opções = precisa de esclarecimento
+      const relevantOptions = indices.map(idx => botPerguntasData[idx]);
+      
+      return {
+        relevantOptions: relevantOptions,
+        needsClarification: true,
+        bestMatch: null
+      };
+
+    } catch (error) {
+      console.error('❌ AI Analyzer Error:', error.message);
+      return { relevantOptions: [], needsClarification: false, error: error.message };
     }
   }
 

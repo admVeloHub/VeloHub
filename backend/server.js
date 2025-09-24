@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v1.2.2 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.3.0 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
  */
 
 const express = require('express');
@@ -622,28 +622,73 @@ app.post('/api/chatbot/ask', async (req, res) => {
 
     console.log(`📋 Chat V2: ${botPerguntasData.length} perguntas do Bot_perguntas e ${articlesData.length} artigos carregados`);
 
-    // Busca híbrida avançada (Bot_perguntas + Artigos)
-    const searchResults = await searchService.hybridSearch(cleanQuestion, botPerguntasData, articlesData);
-
-    // Verificar se precisa de esclarecimento (sistema de desduplicação)
-    const clarificationResult = searchService.findMatchesWithDeduplication(cleanQuestion, botPerguntasData);
+    // Análise inteligente com IA (NOVO SISTEMA)
+    let aiAnalysis = null;
+    let searchResults = null;
     
-    if (clarificationResult.needsClarification) {
-      const clarificationMenu = searchService.generateClarificationMenu(clarificationResult.matches, cleanQuestion);
+    if (aiService.isConfigured()) {
+      console.log(`🤖 Chat V2: Usando análise inteligente da IA para: "${cleanQuestion}"`);
+      aiAnalysis = await aiService.analyzeQuestionWithAI(cleanQuestion, botPerguntasData);
       
-      // Log da necessidade de esclarecimento
-      if (logsService.isConfigured()) {
-        await logsService.logAIUsage(userEmail, cleanQuestion, 'Clarificação Necessária');
-      }
-
-      return res.json({
-        success: true,
-        data: {
-          ...clarificationMenu,
-          sessionId: session.id,
-          timestamp: new Date().toISOString()
+      if (aiAnalysis.error) {
+        console.warn('⚠️ Chat V2: Análise da IA falhou, usando busca tradicional:', aiAnalysis.error);
+        // Fallback para busca tradicional
+        searchResults = await searchService.hybridSearch(cleanQuestion, botPerguntasData, articlesData);
+      } else if (aiAnalysis.needsClarification) {
+        // IA identificou múltiplas opções relevantes - mostrar menu de esclarecimento
+        const clarificationMenu = searchService.generateClarificationMenuFromAI(aiAnalysis.relevantOptions, cleanQuestion);
+        
+        // Log da necessidade de esclarecimento
+        if (logsService.isConfigured()) {
+          await logsService.logAIUsage(userEmail, cleanQuestion, 'Clarificação IA');
         }
-      });
+
+        return res.json({
+          success: true,
+          data: {
+            ...clarificationMenu,
+            sessionId: session.id,
+            timestamp: new Date().toISOString()
+          }
+        });
+      } else if (aiAnalysis.bestMatch) {
+        // IA identificou uma opção específica - usar diretamente
+        console.log(`✅ Chat V2: IA identificou match específico: "${aiAnalysis.bestMatch.Pergunta}"`);
+        searchResults = {
+          botPergunta: aiAnalysis.bestMatch,
+          articles: [],
+          hasResults: true
+        };
+      } else {
+        // IA não encontrou opções relevantes - usar busca tradicional
+        console.log(`⚠️ Chat V2: IA não encontrou opções relevantes, usando busca tradicional`);
+        searchResults = await searchService.hybridSearch(cleanQuestion, botPerguntasData, articlesData);
+      }
+    } else {
+      // IA não configurada - usar busca tradicional
+      console.log(`⚠️ Chat V2: IA não configurada, usando busca tradicional`);
+      searchResults = await searchService.hybridSearch(cleanQuestion, botPerguntasData, articlesData);
+      
+      // Verificar se precisa de esclarecimento (sistema tradicional)
+      const clarificationResult = searchService.findMatchesWithDeduplication(cleanQuestion, botPerguntasData);
+      
+      if (clarificationResult.needsClarification) {
+        const clarificationMenu = searchService.generateClarificationMenu(clarificationResult.matches, cleanQuestion);
+        
+        // Log da necessidade de esclarecimento
+        if (logsService.isConfigured()) {
+          await logsService.logAIUsage(userEmail, cleanQuestion, 'Clarificação Tradicional');
+        }
+
+        return res.json({
+          success: true,
+          data: {
+            ...clarificationMenu,
+            sessionId: session.id,
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
     }
 
     // Obter histórico da sessão
