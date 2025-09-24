@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v1.1.0 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.1.1 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
  */
 
 const express = require('express');
@@ -183,12 +183,12 @@ app.get('/api/faq/top10', async (req, res) => {
     }
     
     const db = client.db('console_conteudo');
-    const faqCollection = db.collection('Bot_perguntas');
+    const botPerguntasCollection = db.collection('Bot_perguntas');
     
     // Buscar todas as perguntas
-    const faqData = await faqCollection.find({}).toArray();
+    const botPerguntasData = await botPerguntasCollection.find({}).toArray();
     
-    if (!faqData || faqData.length === 0) {
+    if (!botPerguntasData || botPerguntasData.length === 0) {
       return res.json({
         success: true,
         data: []
@@ -197,7 +197,7 @@ app.get('/api/faq/top10', async (req, res) => {
     
     // Simular frequência baseada em posição (temporário)
     // Em produção, isso deveria vir de logs de uso real
-    const top10FAQ = faqData.slice(0, 10).map((item, index) => ({
+    const top10FAQ = botPerguntasData.slice(0, 10).map((item, index) => ({
       pergunta: item.Pergunta || item.pergunta || 'Pergunta não disponível',
       frequencia: Math.max(100 - (index * 10), 10), // Simular frequência decrescente
       _id: item._id,
@@ -611,12 +611,12 @@ app.post('/api/chatbot/ask', async (req, res) => {
     // Buscar dados do MongoDB
     const client = await connectToMongo();
     const db = client.db('console_conteudo');
-    const faqCollection = db.collection('Bot_perguntas'); // Nome correto da coleção
+    const botPerguntasCollection = db.collection('Bot_perguntas'); // Nome correto da coleção
     const articlesCollection = db.collection('Artigos');
 
     // Buscar Bot_perguntas e artigos em paralelo
     const [botPerguntasData, articlesData] = await Promise.all([
-      faqCollection.find({}).toArray(),
+      botPerguntasCollection.find({}).toArray(),
       articlesCollection.find({}).toArray()
     ]);
 
@@ -750,11 +750,11 @@ app.post('/api/chatbot/ask', async (req, res) => {
         content: article.content.substring(0, 150) + '...',
         relevanceScore: article.relevanceScore
       })),
-      faqUsed: searchResults.faq ? {
-        id: searchResults.faq._id,
-        question: searchResults.faq.question,
-        answer: searchResults.faq.answer,
-        relevanceScore: searchResults.faq.relevanceScore
+      botPerguntaUsed: searchResults.botPergunta ? {
+        id: searchResults.botPergunta._id,
+        question: searchResults.botPergunta.Pergunta || searchResults.botPergunta.pergunta,
+        answer: searchResults.botPergunta.Resposta || searchResults.botPergunta.resposta,
+        relevanceScore: searchResults.botPergunta.relevanceScore
       } : null,
       sitesUsed: false, // Sites externos removidos
       timestamp: new Date().toISOString()
