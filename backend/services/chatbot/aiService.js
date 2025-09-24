@@ -210,13 +210,18 @@ class AIService {
    * @returns {string} Persona apropriada
    */
   _getPersonaByFormat(formatType) {
+    console.log(`🔍 Persona Debug: formatType recebido: "${formatType}"`);
+    
     switch (formatType) {
       case 'whatsapp':
+        console.log('🔍 Persona Debug: Selecionando persona WhatsApp');
         return this.getWhatsAppPersona();
       case 'email':
+        console.log('🔍 Persona Debug: Selecionando persona E-mail');
         return this.getEmailPersona();
       case 'conversational':
       default:
+        console.log('🔍 Persona Debug: Selecionando persona conversacional (padrão)');
         return this.getPersona();
     }
   }
@@ -225,6 +230,8 @@ class AIService {
    * Gera resposta usando Gemini (IA PRIMÁRIA)
    */
   async _generateWithGemini(question, context, sessionHistory, userId, email, searchResults = null, formatType = 'conversational') {
+    console.log(`🔍 Gemini Debug: formatType recebido: "${formatType}"`);
+    
     const gemini = this._initializeGemini();
     if (!gemini) {
       throw new Error('Falha ao inicializar cliente Gemini');
@@ -234,6 +241,7 @@ class AIService {
     
     // Construir prompt completo (system + user) otimizado para Gemini
     const systemPrompt = this._getPersonaByFormat(formatType);
+    console.log(`🔍 Gemini Debug: Persona selecionada para formatType "${formatType}"`);
 
     const userPrompt = this.buildOptimizedPrompt(question, context, sessionHistory, searchResults);
     
