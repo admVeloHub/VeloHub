@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Chatbot Component
- * VERSION: v1.1.0 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.2.0 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -181,20 +181,49 @@ const Chatbot = ({ prompt }) => {
                     setSessionId(data.sessionId);
                 }
 
+                // Determinar o texto da resposta (diferentes estruturas de resposta)
+                let responseText = '';
+                let responseData = null;
+                
+                if (data.data && data.data.status === 'clarification_needed') {
+                    // Resposta de esclarecimento
+                    responseText = data.data.resposta || 'Precisa de esclarecimento';
+                    responseData = data.data;
+                } else if (data.response) {
+                    // Resposta normal
+                    responseText = data.response;
+                    responseData = data;
+                } else if (data.data && data.data.resposta) {
+                    // Resposta alternativa
+                    responseText = data.data.resposta;
+                    responseData = data.data;
+                } else if (data.message) {
+                    // Resposta com message
+                    responseText = data.message;
+                    responseData = data;
+                } else {
+                    // Fallback para resposta desconhecida
+                    responseText = 'Resposta recebida, mas formato não reconhecido';
+                    responseData = data;
+                    console.warn('⚠️ Chatbot: Estrutura de resposta não reconhecida:', data);
+                }
+
                 // Adicionar resposta do bot
                 const botMessage = {
                     id: data.messageId || Date.now() + 1,
-                    text: data.response,
+                    text: responseText,
                     sender: 'bot',
                     feedbackState: 'pending',
-                    source: data.source,
-                    timestamp: data.timestamp,
+                    source: data.source || (data.data ? data.data.source : 'unknown'),
+                    timestamp: data.timestamp || (data.data ? data.data.timestamp : new Date().toISOString()),
                     // Dados para o botão IA
                     originalQuestion: trimmedInput,
-                    botPerguntaResponse: data.response,
+                    botPerguntaResponse: responseText,
                     articleContent: data.articles && data.articles.length > 0 ? data.articles[0].content : null,
                     hasArticle: data.articles && data.articles.length > 0,
-                    articleId: data.articles && data.articles.length > 0 ? data.articles[0].id : null
+                    articleId: data.articles && data.articles.length > 0 ? data.articles[0].id : null,
+                    // Dados específicos para esclarecimento
+                    clarificationData: data.data && data.data.status === 'clarification_needed' ? data.data : null
                 };
 
                 let finalMessages = [...newMessages, botMessage];
@@ -236,7 +265,20 @@ const Chatbot = ({ prompt }) => {
                 }
 
             } else {
-                throw new Error(data.error || 'Erro desconhecido na API');
+                // Tratar resposta de erro
+                console.error('❌ Chatbot: Erro na API:', data);
+                
+                const errorMessage = {
+                    id: Date.now() + Math.random(),
+                    text: data.error || 'Desculpe, ocorreu um erro. Tente novamente.',
+                    sender: 'bot',
+                    feedbackState: 'pending',
+                    source: 'error',
+                    timestamp: new Date().toISOString()
+                };
+
+                setMessages(prev => [...prev, errorMessage]);
+                return;
             }
 
         } catch (error) {
@@ -426,6 +468,25 @@ const Chatbot = ({ prompt }) => {
                                         {backgroundColor: 'var(--cor-container)', color: 'var(--cor-texto-principal)', border: '1px solid var(--cor-borda)'}
                                      }>
                                     <p>{msg.text}</p>
+                                    
+                                    {/* Opções de esclarecimento */}
+                                    {msg.clarificationData && msg.clarificationData.options && (
+                                        <div className="mt-3 space-y-2">
+                                            <p className="text-sm font-medium text-gray-600">Escolha uma das opções:</p>
+                                            <div className="space-y-1">
+                                                {msg.clarificationData.options.slice(0, 5).map((option, index) => (
+                                                    <button
+                                                        key={index}
+                                                        onClick={() => handleSendMessage(option)}
+                                                        className="w-full text-left p-2 text-sm rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                                                        style={{color: 'var(--cor-texto-principal)'}}
+                                                    >
+                                                        {option}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                     
                                     {/* Botão IA - Canto inferior direito */}
                                     {msg.sender === 'bot' && msg.originalQuestion && (

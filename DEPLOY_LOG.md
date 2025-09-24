@@ -3,6 +3,30 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Melhorias Significativas no Sistema de Busca do Chatbot**
+- **Data/Hora**: 2025-01-27 22:00:00
+- **Tipo**: GitHub Push
+- **Versão**: v2.2.0
+- **Commit**: daaf31c
+- **Arquivos Modificados**: 
+  - `backend/services/chatbot/searchService.js` (v2.2.0 - algoritmo de busca melhorado)
+- **Descrição**: Melhorias significativas no sistema de busca: threshold reduzido (0.1→0.05), algoritmo de fuzzy matching implementado, exact matching adicionado, keyword boost melhorado (0.3→0.4), busca corrigida para usar apenas campos corretos (Pergunta, Palavras-chave, Sinonimos), logs detalhados para debug, remoção de fallbacks que causavam inconsistência
+- **Status**: ✅ Concluído com sucesso
+
+### **GitHub Push - Implementação Completa do Botão AI e Integração com Artigos**
+- **Data/Hora**: 2025-01-27 21:45:00
+- **Tipo**: GitHub Push
+- **Versão**: v1.2.0
+- **Commit**: 38cd275
+- **Arquivos Modificados**: 
+  - `src/components/Chatbot.js` (v1.1.0 - botão AI e navegação para artigos)
+  - `backend/server.js` (v1.2.0 - endpoint /api/chatbot/ai-response)
+  - `DEPLOY_LOG.md` (atualização do log)
+- **Arquivos Novos**:
+  - `public/Gemini_SparkIcon_.width-500.format-webp-Photoroom.png` (ícone do Gemini)
+- **Descrição**: Implementação completa do botão AI com logo Gemini, integração com navegação automática para artigos via CustomEvent, endpoint para respostas conversacionais da IA, melhorias no sistema de busca híbrida e correções na nomenclatura FAQ -> Bot_perguntas
+- **Status**: ✅ Concluído com sucesso
+
 ### **GitHub Push - Atualização do Chatbot: Melhorias no Backend e Frontend**
 - **Data/Hora**: 2025-01-27 21:15:00
 - **Tipo**: GitHub Push
