@@ -1,5 +1,5 @@
 // Search Service - Busca inteligente em Bot_perguntas e Artigos
-// VERSION: v2.1.1 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v2.2.0 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
 const cosineSimilarity = require('cosine-similarity');
 
 class SearchService {
@@ -48,14 +48,16 @@ class SearchService {
         }
       }
 
-      // Threshold mínimo de relevância (reduzido para melhor detecção)
-      if (bestScore > 0.1) {
-        console.log(`✅ Search: Pergunta encontrada em Bot_perguntas com score ${bestScore.toFixed(2)}`);
-        console.log(`📋 Search: Match encontrado: "${bestMatch.Pergunta || bestMatch.pergunta}"`);
+      // Threshold mínimo de relevância (reduzido significativamente para melhor detecção)
+      if (bestScore > 0.05) {
+        console.log(`✅ Search: Pergunta encontrada em Bot_perguntas com score ${bestScore.toFixed(3)}`);
+        console.log(`📋 Search: Match encontrado: "${bestMatch.Pergunta}"`);
+        console.log(`🔍 Search: Palavras-chave: "${bestMatch["Palavras-chave"]}"`);
+        console.log(`🔍 Search: Sinônimos: "${bestMatch.Sinonimos}"`);
         return bestMatch;
       }
 
-      console.log(`❌ Search: Nenhuma pergunta relevante encontrada (melhor score: ${bestScore.toFixed(2)})`);
+      console.log(`❌ Search: Nenhuma pergunta relevante encontrada (melhor score: ${bestScore.toFixed(3)})`);
       console.log(`🔍 Search: Total de perguntas analisadas: ${botPerguntasData.length}`);
       return null;
 
@@ -118,20 +120,35 @@ class SearchService {
       const itemText = this.extractRelevantText(item);
       const itemWords = this.normalizeText(itemText);
 
-      // Calcular similaridade usando cosine similarity
+      console.log(`🔍 Search: Calculando score para pergunta: "${questionWords}"`);
+      console.log(`🔍 Search: Item texto: "${itemWords.substring(0, 100)}..."`);
+
+      // 1. Calcular similaridade usando cosine similarity
       const questionVector = this.createWordVector(questionWords);
       const itemVector = this.createWordVector(itemWords);
 
-      if (questionVector.length === 0 || itemVector.length === 0) {
-        return 0;
+      let similarity = 0;
+      if (questionVector.length > 0 && itemVector.length > 0) {
+        similarity = cosineSimilarity(questionVector, itemVector);
+        console.log(`🔍 Search: Cosine similarity: ${similarity.toFixed(3)}`);
       }
 
-      const similarity = cosineSimilarity(questionVector, itemVector);
-      
-      // Boost para matches exatos em keywords
+      // 2. Boost para matches exatos em keywords
       const keywordBoost = this.calculateKeywordBoost(questionWords, item);
+      console.log(`🔍 Search: Keyword boost: ${keywordBoost.toFixed(3)}`);
+
+      // 3. Fuzzy matching para palavras-chave e sinônimos
+      const fuzzyScore = this.calculateFuzzyMatch(questionWords, item);
+      console.log(`🔍 Search: Fuzzy match score: ${fuzzyScore.toFixed(3)}`);
+
+      // 4. Match exato na pergunta
+      const exactMatchScore = this.calculateExactMatch(questionWords, item);
+      console.log(`🔍 Search: Exact match score: ${exactMatchScore.toFixed(3)}`);
+
+      const finalScore = Math.min(1, similarity + keywordBoost + fuzzyScore + exactMatchScore);
+      console.log(`🔍 Search: Score final: ${finalScore.toFixed(3)}`);
       
-      return Math.min(1, similarity + keywordBoost);
+      return finalScore;
 
     } catch (error) {
       console.error('❌ Search Error (Score):', error.message);
@@ -147,33 +164,32 @@ class SearchService {
   extractRelevantText(item) {
     const texts = [];
     
-    // Para Bot_perguntas (estrutura MongoDB: Bot_perguntas)
-    if (item.Pergunta) texts.push(item.Pergunta);
-    if (item["Palavras-chave"]) texts.push(item["Palavras-chave"]);
-    if (item.Sinonimos) texts.push(item.Sinonimos);
-    if (item.Resposta) texts.push(item.Resposta.substring(0, 300)); // Primeiros 300 chars da resposta
-    
-    // Fallback para estrutura antiga (minúsculas)
-    if (item.pergunta) texts.push(item.pergunta);
-    if (item.palavras_chave) texts.push(item.palavras_chave);
-    if (item.sinonimos) texts.push(item.sinonimos);
-    if (item.resposta) texts.push(item.resposta.substring(0, 300));
-    if (item.categoria) texts.push(item.categoria);
-    
-    // Fallback para estrutura ainda mais antiga
-    if (item.question) texts.push(item.question);
-    if (item.context) texts.push(item.context);
-    if (item.keywords) {
-      const keywordsText = Array.isArray(item.keywords) ? item.keywords.join(' ') : item.keywords;
-      texts.push(keywordsText);
+    // Para Bot_perguntas (estrutura MongoDB correta)
+    if (item.Pergunta) {
+      texts.push(item.Pergunta);
+      console.log(`🔍 Search: Pergunta: "${item.Pergunta}"`);
+    }
+    if (item["Palavras-chave"]) {
+      texts.push(item["Palavras-chave"]);
+      console.log(`🔍 Search: Palavras-chave: "${item["Palavras-chave"]}"`);
+    }
+    if (item.Sinonimos) {
+      texts.push(item.Sinonimos);
+      console.log(`🔍 Search: Sinônimos: "${item.Sinonimos}"`);
     }
     
-    // Para Artigos
-    if (item.title) texts.push(item.title);
-    if (item.content) texts.push(item.content.substring(0, 500)); // Primeiros 500 chars
+    // Para Artigos (estrutura diferente)
+    if (item.title) {
+      texts.push(item.title);
+      console.log(`🔍 Search: Título do artigo: "${item.title}"`);
+    }
+    if (item.content) {
+      texts.push(item.content.substring(0, 500)); // Primeiros 500 chars
+      console.log(`🔍 Search: Conteúdo do artigo: "${item.content.substring(0, 100)}..."`);
+    }
     
     const result = texts.join(' ').trim();
-    console.log(`🔍 Search: Texto extraído para busca: "${result.substring(0, 100)}..."`);
+    console.log(`🔍 Search: Texto final extraído para busca: "${result.substring(0, 150)}..."`);
     return result;
   }
 
@@ -219,31 +235,101 @@ class SearchService {
   calculateKeywordBoost(questionWords, item) {
     let boost = 0;
     
-    // Buscar em diferentes campos de keywords (MongoDB Bot_perguntas)
-    const keywordsFields = [
-      item["Palavras-chave"], // Campo principal MongoDB
-      item.palavras_chave,    // Fallback minúsculas
-      item.palavrasChave,     // Fallback camelCase
-      item.keywords           // Fallback genérico
-    ];
-    
-    for (const keywords of keywordsFields) {
-      if (keywords) {
-        const keywordsText = Array.isArray(keywords) ? 
-          keywords.join(' ').toLowerCase() : 
-          keywords.toLowerCase();
-        
-        const questionWordsArray = questionWords.split(' ');
-        
-        questionWordsArray.forEach(word => {
-          if (word.length > 2 && keywordsText.includes(word)) {
-            boost += 0.1; // 0.1 de boost por keyword match
-          }
-        });
-      }
+    // Buscar apenas no campo correto do MongoDB
+    if (item["Palavras-chave"]) {
+      const keywordsText = item["Palavras-chave"].toLowerCase();
+      const questionWordsArray = questionWords.toLowerCase().split(' ');
+      
+      questionWordsArray.forEach(word => {
+        if (word.length > 2 && keywordsText.includes(word)) {
+          boost += 0.15; // Boost maior para matches exatos
+        }
+      });
     }
     
-    return Math.min(0.3, boost); // Máximo 0.3 de boost
+    return Math.min(0.4, boost); // Máximo 0.4 de boost
+  }
+
+  /**
+   * Calcula fuzzy matching para palavras-chave e sinônimos
+   * @param {string} questionWords - Palavras da pergunta
+   * @param {Object} item - Item do Bot_perguntas
+   * @returns {number} Fuzzy match score
+   */
+  calculateFuzzyMatch(questionWords, item) {
+    let fuzzyScore = 0;
+    const questionLower = questionWords.toLowerCase();
+    
+    // Fuzzy match em Palavras-chave
+    if (item["Palavras-chave"]) {
+      const keywords = item["Palavras-chave"].toLowerCase();
+      const questionWordsArray = questionLower.split(' ');
+      
+      questionWordsArray.forEach(word => {
+        if (word.length > 2) {
+          // Verificar se a palavra está contida nas keywords
+          if (keywords.includes(word)) {
+            fuzzyScore += 0.1;
+          }
+          // Verificar se alguma keyword está contida na palavra
+          const keywordArray = keywords.split(/[,\s]+/);
+          keywordArray.forEach(keyword => {
+            if (keyword.length > 2 && (word.includes(keyword) || keyword.includes(word))) {
+              fuzzyScore += 0.05;
+            }
+          });
+        }
+      });
+    }
+    
+    // Fuzzy match em Sinônimos
+    if (item.Sinonimos) {
+      const synonyms = item.Sinonimos.toLowerCase();
+      const questionWordsArray = questionLower.split(' ');
+      
+      questionWordsArray.forEach(word => {
+        if (word.length > 2 && synonyms.includes(word)) {
+          fuzzyScore += 0.08; // Boost menor para sinônimos
+        }
+      });
+    }
+    
+    return Math.min(0.3, fuzzyScore); // Máximo 0.3 de fuzzy score
+  }
+
+  /**
+   * Calcula match exato na pergunta
+   * @param {string} questionWords - Palavras da pergunta
+   * @param {Object} item - Item do Bot_perguntas
+   * @returns {number} Exact match score
+   */
+  calculateExactMatch(questionWords, item) {
+    if (!item.Pergunta) return 0;
+    
+    const questionLower = questionWords.toLowerCase();
+    const perguntaLower = item.Pergunta.toLowerCase();
+    
+    // Match exato completo
+    if (perguntaLower.includes(questionLower) || questionLower.includes(perguntaLower)) {
+      return 0.5; // Score alto para match exato
+    }
+    
+    // Match parcial significativo
+    const questionWordsArray = questionLower.split(' ');
+    let matchCount = 0;
+    
+    questionWordsArray.forEach(word => {
+      if (word.length > 3 && perguntaLower.includes(word)) {
+        matchCount++;
+      }
+    });
+    
+    // Se mais de 50% das palavras fazem match
+    if (matchCount / questionWordsArray.length > 0.5) {
+      return 0.3;
+    }
+    
+    return 0;
   }
 
 
