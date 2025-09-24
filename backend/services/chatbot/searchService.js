@@ -1,5 +1,5 @@
 // Search Service - Busca inteligente em Bot_perguntas e Artigos
-// VERSION: v2.1.0 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v2.1.1 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
 const cosineSimilarity = require('cosine-similarity');
 
 class SearchService {
@@ -28,9 +28,16 @@ class SearchService {
       let bestScore = 0;
 
       console.log(`🔍 Search: Buscando em Bot_perguntas para: "${question}"`);
+      console.log(`📊 Search: Analisando ${botPerguntasData.length} perguntas do Bot_perguntas`);
 
-      for (const pergunta of botPerguntasData) {
+      for (let i = 0; i < botPerguntasData.length; i++) {
+        const pergunta = botPerguntasData[i];
         const score = this.calculateRelevanceScore(questionWords, pergunta);
+        
+        // Log detalhado para as primeiras 3 perguntas ou scores > 0.05
+        if (i < 3 || score > 0.05) {
+          console.log(`🔍 Search: Pergunta ${i+1}: "${pergunta.Pergunta || pergunta.pergunta || 'Sem título'}" - Score: ${score.toFixed(3)}`);
+        }
         
         if (score > bestScore) {
           bestScore = score;
@@ -41,13 +48,15 @@ class SearchService {
         }
       }
 
-      // Threshold mínimo de relevância
-      if (bestScore > 0.3) {
+      // Threshold mínimo de relevância (reduzido para melhor detecção)
+      if (bestScore > 0.1) {
         console.log(`✅ Search: Pergunta encontrada em Bot_perguntas com score ${bestScore.toFixed(2)}`);
+        console.log(`📋 Search: Match encontrado: "${bestMatch.Pergunta || bestMatch.pergunta}"`);
         return bestMatch;
       }
 
       console.log(`❌ Search: Nenhuma pergunta relevante encontrada (melhor score: ${bestScore.toFixed(2)})`);
+      console.log(`🔍 Search: Total de perguntas analisadas: ${botPerguntasData.length}`);
       return null;
 
     } catch (error) {
@@ -163,7 +172,9 @@ class SearchService {
     if (item.title) texts.push(item.title);
     if (item.content) texts.push(item.content.substring(0, 500)); // Primeiros 500 chars
     
-    return texts.join(' ');
+    const result = texts.join(' ').trim();
+    console.log(`🔍 Search: Texto extraído para busca: "${result.substring(0, 100)}..."`);
+    return result;
   }
 
   /**
@@ -208,18 +219,28 @@ class SearchService {
   calculateKeywordBoost(questionWords, item) {
     let boost = 0;
     
-    if (item.keywords) {
-      const keywords = Array.isArray(item.keywords) ? 
-        item.keywords.join(' ').toLowerCase() : 
-        item.keywords.toLowerCase();
-      
-      const questionWordsArray = questionWords.split(' ');
-      
-      questionWordsArray.forEach(word => {
-        if (keywords.includes(word)) {
-          boost += 0.1; // 0.1 de boost por keyword match
-        }
-      });
+    // Buscar em diferentes campos de keywords (MongoDB Bot_perguntas)
+    const keywordsFields = [
+      item["Palavras-chave"], // Campo principal MongoDB
+      item.palavras_chave,    // Fallback minúsculas
+      item.palavrasChave,     // Fallback camelCase
+      item.keywords           // Fallback genérico
+    ];
+    
+    for (const keywords of keywordsFields) {
+      if (keywords) {
+        const keywordsText = Array.isArray(keywords) ? 
+          keywords.join(' ').toLowerCase() : 
+          keywords.toLowerCase();
+        
+        const questionWordsArray = questionWords.split(' ');
+        
+        questionWordsArray.forEach(word => {
+          if (word.length > 2 && keywordsText.includes(word)) {
+            boost += 0.1; // 0.1 de boost por keyword match
+          }
+        });
+      }
     }
     
     return Math.min(0.3, boost); // Máximo 0.3 de boost
