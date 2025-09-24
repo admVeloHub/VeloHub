@@ -251,33 +251,18 @@ class AIService {
 
       const analysisPrompt = `# ANALISADOR DE PERGUNTAS - VELOBOT
 
-## REGRAS CRÍTICAS - LEIA COM ATENÇÃO
-- Use APENAS as informações fornecidas na base de dados
-- NÃO faça associações externas ou use conhecimento próprio
-- NÃO invente conexões que não existem nos dados
-- Se não houver match claro, retorne vazio
+## TAREFA E REGRAS
+- A tarefa esperada é a depuraçao da pergunta do usuário com as palavras chave e títulos do banco de dados que serão fornecidos. 
+- Use APENAS as informações da base de dados - NÃO faça associações externas
+- Identifique APENAS matches diretos e óbvios
+- Se não houver match claro, responda: NENHUM
+- Retorne APENAS os números das opções com match direto, separados por vírgula
 
 ## PERGUNTA DO USUÁRIO
 "${question}"
 
 ## BASE DE DADOS DISPONÍVEL
 ${contextData}
-
-## INSTRUÇÕES
-1. Compare APENAS com as perguntas, palavras-chave e sinônimos fornecidos
-2. Identifique APENAS matches diretos e óbvios
-3. Se não houver match claro, retorne vazio
-4. Retorne APENAS os números das opções com match direto
-
-## FORMATO DE RESPOSTA
-Responda APENAS com os números das opções com match direto, separados por vírgula.
-Se não houver match, responda: NENHUM
-
-## CRITÉRIOS DE RELEVÂNCIA (RESTRITIVOS)
-- Match exato na pergunta
-- Palavras-chave idênticas
-- Sinônimos exatos fornecidos
-- NÃO use conhecimento externo
 
 ## RESPOSTA:`;
 
