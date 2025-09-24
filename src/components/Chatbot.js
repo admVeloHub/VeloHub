@@ -495,44 +495,24 @@ const Chatbot = ({ prompt }) => {
                                             {/* Botão WhatsApp */}
                                             <button 
                                                 onClick={() => handleAIButton(msg.originalQuestion, msg.botPerguntaResponse, msg.articleContent, 'whatsapp')}
-                                                className="p-1.5 transition-all duration-200 hover:scale-105"
-                                                style={{
-                                                    backgroundColor: '#25D366',
-                                                    borderRadius: '8px',
-                                                    width: '28px',
-                                                    height: '28px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center'
-                                                }}
                                                 title="Formatação para WhatsApp"
                                             >
                                                 <img 
                                                     src="/wpp logo.png" 
                                                     alt="WhatsApp" 
-                                                    style={{ width: '16px', height: '16px' }}
+                                                    style={{ width: '20px', height: '20px' }}
                                                 />
                                             </button>
                                             
                                             {/* Botão E-mail */}
                                             <button 
                                                 onClick={() => handleAIButton(msg.originalQuestion, msg.botPerguntaResponse, msg.articleContent, 'email')}
-                                                className="p-1.5 transition-all duration-200 hover:scale-105"
-                                                style={{
-                                                    backgroundColor: '#EA4335',
-                                                    borderRadius: '8px',
-                                                    width: '28px',
-                                                    height: '28px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center'
-                                                }}
                                                 title="Formatação para E-mail formal"
                                             >
                                                 <img 
                                                     src="/octa logo.png" 
                                                     alt="E-mail" 
-                                                    style={{ width: '16px', height: '16px' }}
+                                                    style={{ width: '20px', height: '20px' }}
                                                 />
                                             </button>
                                         </div>

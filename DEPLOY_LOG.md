@@ -159,6 +159,21 @@
 
 ---
 
+### **GitHub Push - Implementação de Botões de Formatação WhatsApp e E-mail**
+- **Data/Hora**: 2025-01-27 23:45:00
+- **Tipo**: GitHub Push
+- **Versão**: aiService v2.3.0, server v1.2.2
+- **Commit**: f8b45d7
+- **Arquivos Modificados**: 
+  - `backend/services/chatbot/aiService.js` (v2.3.0 - prompts específicos WhatsApp/E-mail, persona dinâmica)
+  - `backend/server.js` (v1.2.2 - suporte formatType no endpoint ai-response)
+  - `src/components/Chatbot.js` (2 botões menores com ícones oficiais)
+- **Arquivos Adicionados**:
+  - `public/wpp logo.png` (ícone WhatsApp)
+  - `public/octa logo.png` (ícone E-mail)
+- **Descrição**: Implementação de botões de formatação específicos - 2 botões menores (WhatsApp e E-mail) com prompts otimizados para cada canal, WhatsApp: informal com emojis (máx 150 palavras), E-mail: formal estruturado (máx 300 palavras), endpoint único com parâmetro formatType, persona dinâmica baseada no tipo, ícones oficiais da marca, funcionalidade de reformulação mais relevante e útil
+- **Status**: ✅ Concluído com sucesso
+
 ### **GitHub Push - Implementação Completa de Melhorias no Sistema de IA**
 - **Data/Hora**: 2025-01-27 22:30:00
 - **Tipo**: GitHub Push
