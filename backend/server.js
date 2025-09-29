@@ -16,6 +16,7 @@ const searchService = require('./services/chatbot/searchService');
 const sessionService = require('./services/chatbot/sessionService');
 const feedbackService = require('./services/chatbot/feedbackService');
 const logsService = require('./services/chatbot/logsService');
+const dataCache = require('./services/chatbot/dataCache');
 const userActivityLogger = require('./services/logging/userActivityLogger');
 
 const app = express();
@@ -639,7 +640,22 @@ app.get('/api/chatbot/init', async (req, res) => {
     const session = sessionService.getOrCreateSession(cleanUserId, null);
     console.log(`✅ VeloBot Init: Sessão criada/obtida: ${session.id}`);
     
-    // 2. HANDSHAKE DAS IAs
+    // 2. CARREGAR DADOS MONGODB NO CACHE
+    console.log('📦 VeloBot Init: Carregando dados MongoDB no cache...');
+    try {
+      const botPerguntasData = await getBotPerguntasData();
+      const articlesData = await getArticlesData();
+      
+      // Atualizar cache
+      dataCache.updateBotPerguntas(botPerguntasData);
+      dataCache.updateArticles(articlesData);
+      
+      console.log(`✅ VeloBot Init: Cache atualizado - Bot_perguntas: ${botPerguntasData.length}, Artigos: ${articlesData.length}`);
+    } catch (error) {
+      console.error('❌ VeloBot Init: Erro ao carregar dados no cache:', error.message);
+    }
+    
+    // 3. HANDSHAKE DAS IAs
     const aiStatus = await aiService.testConnection();
     let primaryAI = null;
     let fallbackAI = null;
@@ -702,8 +718,15 @@ app.post('/api/chatbot/clarification', async (req, res) => {
     
     console.log(`🔍 Clarification Direto: Buscando resposta para "${cleanQuestion}"`);
     
-    // 1. BUSCAR RESPOSTA DIRETA NO MONGODB
-    const botPerguntasData = await getBotPerguntasData();
+    // 1. BUSCAR RESPOSTA DIRETA NO CACHE
+    let botPerguntasData = dataCache.getBotPerguntasData();
+    
+    // Se cache inválido, carregar do MongoDB
+    if (!botPerguntasData) {
+      console.log('⚠️ Clarification Direto: Cache inválido, carregando do MongoDB...');
+      botPerguntasData = await getBotPerguntasData();
+      dataCache.updateBotPerguntas(botPerguntasData);
+    }
     const directMatch = botPerguntasData.find(item => 
       item.Pergunta && item.Pergunta.toLowerCase().includes(cleanQuestion.toLowerCase())
     );
@@ -807,6 +830,30 @@ app.post('/api/chatbot/clear-cache', async (req, res) => {
 });
 
 /**
+ * Status do Cache de Dados
+ * GET /api/chatbot/cache-status
+ */
+app.get('/api/chatbot/cache-status', async (req, res) => {
+  try {
+    const cacheStatus = dataCache.getCacheStatus();
+    
+    res.json({
+      success: true,
+      cacheStatus: cacheStatus,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Cache Status Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao obter status do cache',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
  * Health Check das IAs - Determina IA primária
  * GET /api/chatbot/health-check
  */
@@ -898,12 +945,24 @@ app.post('/api/chatbot/ask', async (req, res) => {
     const articlesCollection = db.collection('Artigos');
 
     // Buscar Bot_perguntas e artigos em paralelo
-    const [botPerguntasData, articlesData] = await Promise.all([
-      botPerguntasCollection.find({}).toArray(),
-      articlesCollection.find({}).toArray()
-    ]);
+    // 1. TENTAR USAR CACHE PRIMEIRO
+    let botPerguntasData = dataCache.getBotPerguntasData();
+    let articlesData = dataCache.getArticlesData();
+    
+    // Se cache inválido, carregar do MongoDB
+    if (!botPerguntasData || !articlesData) {
+      console.log('⚠️ Chat V2: Cache inválido, carregando do MongoDB...');
+      [botPerguntasData, articlesData] = await Promise.all([
+        botPerguntasCollection.find({}).toArray(),
+        articlesCollection.find({}).toArray()
+      ]);
+      
+      // Atualizar cache
+      dataCache.updateBotPerguntas(botPerguntasData);
+      dataCache.updateArticles(articlesData);
+    }
 
-    console.log(`📋 Chat V2: ${botPerguntasData.length} perguntas do Bot_perguntas e ${articlesData.length} artigos carregados`);
+    console.log(`📋 Chat V2: ${botPerguntasData.length} perguntas do Bot_perguntas e ${articlesData.length} artigos carregados (via cache)`);
 
     // FILTRO MONGODB por keywords/sinônimos
     const filteredBotPerguntas = filterByKeywords(cleanQuestion, botPerguntasData);
