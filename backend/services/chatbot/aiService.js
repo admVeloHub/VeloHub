@@ -1,5 +1,5 @@
 // AI Service - Integração híbrida com IA para respostas inteligentes
-// VERSION: v2.5.0 | DATE: 2025-09-29 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v2.6.1 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
 const { OpenAI } = require('openai');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const config = require('../../config');
@@ -124,8 +124,7 @@ class AIService {
       
       // 4. FALLBACK PARA RESPOSTA PADRÃO
       return {
-        response: `Desculpe, não consegui processar sua pergunta no momento. 
-        Por favor, tente novamente ou entre em contato com nosso suporte.`,
+        response: `Não consegui processar sua pergunta no momento. Pode reformular sua pergunta ou fornecer mais detalhes para que eu possa ajudá-lo melhor?`,
         provider: 'Fallback',
         model: 'none',
         success: false,
@@ -264,42 +263,66 @@ class AIService {
   }
 
   /**
-   * Analisa pergunta do usuário contra base de dados usando IA
+   * Cria prompt otimizado para análise eficiente
    * @param {string} question - Pergunta do usuário
-   * @param {Array} botPerguntasData - Dados do MongoDB Bot_perguntas
+   * @param {Array} filteredData - Dados já filtrados por keywords
+   * @param {Array} sessionHistory - Histórico da sessão
+   * @returns {string} Prompt otimizado
+   */
+  createOptimizedPrompt(question, filteredData, sessionHistory = []) {
+    // 1. PERSONA E REGRAS (fixo)
+    const persona = this.getPersona();
+    
+    // 2. PERGUNTA DO USUÁRIO
+    const userQuestion = `Pergunta: "${question}"`;
+    
+    // 3. PALAVRAS-CHAVE E SINÔNIMOS RELEVANTES (apenas os relevantes)
+    const relevantKeywords = filteredData.map((item, index) => {
+      return `${index + 1}. ${item.Pergunta}
+   Palavras-chave: ${item["Palavras-chave"]}
+   Sinônimos: ${item.Sinonimos}`;
+    }).join('\n\n');
+    
+    // 4. CONTEXTO DA SESSÃO (se houver)
+    const context = sessionHistory.length > 0 
+      ? `\n\nContexto da conversa:\n${sessionHistory.slice(-3).map(msg => `- ${msg.role}: ${msg.content}`).join('\n')}`
+      : '';
+    
+    return `${persona}
+
+${userQuestion}
+
+Dados relevantes:
+${relevantKeywords}${context}
+
+## TAREFA
+Identifique APENAS matches diretos e óbvios com a pergunta do usuário.
+Se não houver match claro, responda: NENHUM
+Retorne APENAS os números das opções com match direto, separados por vírgula
+
+## RESPOSTA:`;
+  }
+
+  /**
+   * Analisa pergunta do usuário contra base de dados usando IA (OTIMIZADO)
+   * @param {string} question - Pergunta do usuário
+   * @param {Array} filteredData - Dados já filtrados por keywords
+   * @param {Array} sessionHistory - Histórico da sessão
    * @returns {Promise<Object>} Análise da IA com opções relevantes
    */
-  async analyzeQuestionWithAI(question, botPerguntasData) {
+  async analyzeQuestionWithAI(question, filteredData, sessionHistory = []) {
     try {
       console.log(`🤖 AI Analyzer: Analisando pergunta: "${question}"`);
+      console.log(`🔍 AI Analyzer: ${filteredData.length} perguntas relevantes para análise`);
       
       if (!this.isGeminiConfigured()) {
         throw new Error('IA não configurada para análise');
       }
 
-      // Construir contexto com as perguntas filtradas por palavras chave e sinônimos da base
-      const contextData = botPerguntasData.map((item, index) => {
-        return `${index + 1}. **Pergunta:** ${item.Pergunta || 'N/A'}
-   **Palavras-chave:** ${item["Palavras-chave"] || 'N/A'}
-   **Sinônimos:** ${item.Sinonimos || 'N/A'}`;
-      }).join('\n\n');
-
-      const analysisPrompt = `# ANALISADOR DE PERGUNTAS - VELOBOT
-
-## TAREFA E REGRAS
-- A tarefa esperada é a depuraçao da pergunta do usuário com as palavras chave e títulos do banco de dados que serão fornecidos. 
-- Use APENAS as informações da base de dados - NÃO faça associações externas
-- Identifique APENAS matches diretos e óbvios
-- Se não houver match claro, responda: NENHUM
-- Retorne APENAS os números das opções com match direto, separados por vírgula
-
-## PERGUNTA DO USUÁRIO
-"${question}"
-
-## BASE DE DADOS DISPONÍVEL
-${contextData}
-
-## RESPOSTA:`;
+      // Criar prompt otimizado
+      const analysisPrompt = this.createOptimizedPrompt(question, filteredData, sessionHistory);
+      
+      console.log(`📝 AI Analyzer: Tamanho do prompt: ${analysisPrompt.length} caracteres`);
 
       const gemini = this._initializeGemini();
       const model = gemini.getGenerativeModel({ model: this.geminiModel });
@@ -324,21 +347,21 @@ ${contextData}
       }
 
       // Converter para índices reais (subtrair 1)
-      const indices = relevantIndices.map(num => parseInt(num) - 1).filter(idx => idx >= 0 && idx < botPerguntasData.length);
+      const indices = relevantIndices.map(num => parseInt(num) - 1).filter(idx => idx >= 0 && idx < filteredData.length);
       
       console.log(`✅ AI Analyzer: ${indices.length} opções relevantes identificadas: ${indices.join(', ')}`);
       
       // Se apenas 1 opção relevante, não precisa de esclarecimento
       if (indices.length === 1) {
         return {
-          relevantOptions: [botPerguntasData[indices[0]]],
+          relevantOptions: [filteredData[indices[0]]],
           needsClarification: false,
-          bestMatch: botPerguntasData[indices[0]]
+          bestMatch: filteredData[indices[0]]
         };
       }
       
       // Múltiplas opções = precisa de esclarecimento
-      const relevantOptions = indices.map(idx => botPerguntasData[idx]);
+      const relevantOptions = indices.map(idx => filteredData[idx]);
       
       return {
         relevantOptions: relevantOptions,

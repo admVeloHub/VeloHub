@@ -10,7 +10,7 @@ const { MongoClient } = require('mongodb');
 require('dotenv').config();
 
 // Importar serviços do chatbot
-// VERSION: v2.1.0 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v2.9.1 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
 const aiService = require('./services/chatbot/aiService');
 const searchService = require('./services/chatbot/searchService');
 const sessionService = require('./services/chatbot/sessionService');
@@ -609,38 +609,74 @@ function filterByKeywords(question, botPerguntasData) {
     return botPerguntasData.slice(0, 50);
   }
   
-  // Limitar a 100 perguntas para não sobrecarregar a IA
-  return filtered.slice(0, 100);
+  // Limitar a 30 perguntas para não sobrecarregar a IA
+  return filtered.slice(0, 30);
 }
+
+// ===== FUNÇÕES AUXILIARES =====
+
+/**
+ * Carrega dados do Bot_perguntas do MongoDB
+ * @returns {Promise<Array>} Dados do Bot_perguntas
+ */
+const getBotPerguntasData = async () => {
+  try {
+    const client = await connectToMongo();
+    const db = client.db('console_conteudo');
+    const collection = db.collection('Bot_perguntas');
+    const data = await collection.find({}).toArray();
+    console.log(`📊 Bot_perguntas: ${data.length} perguntas carregadas do MongoDB`);
+    return data;
+  } catch (error) {
+    console.error('❌ Erro ao carregar Bot_perguntas:', error);
+    return [];
+  }
+};
+
+/**
+ * Carrega dados dos Artigos do MongoDB
+ * @returns {Promise<Array>} Dados dos Artigos
+ */
+const getArticlesData = async () => {
+  try {
+    const client = await connectToMongo();
+    const db = client.db('console_conteudo');
+    const collection = db.collection('Artigos');
+    const data = await collection.find({}).toArray();
+    console.log(`📊 Artigos: ${data.length} artigos carregados do MongoDB`);
+    return data;
+  } catch (error) {
+    console.error('❌ Erro ao carregar Artigos:', error);
+    return [];
+  }
+};
 
 // ===== API DO CHATBOT INTELIGENTE =====
 
 /**
- * Inicialização do VeloBot - Validação + Sessão + Handshake IA
+ * Inicialização do VeloBot - 3 Ações Essenciais
  * GET /api/chatbot/init
  */
 app.get('/api/chatbot/init', async (req, res) => {
   try {
-    const { userId, email } = req.query;
+    const { userId } = req.query;
     
-    // Validação básica
-    if (!userId || !email) {
+    // Validação - usuário já autenticado via OAuth
+    if (!userId) {
       return res.status(400).json({
         success: false,
-        error: 'userId e email são obrigatórios'
+        error: 'userId é obrigatório'
       });
     }
     
     const cleanUserId = userId.trim();
-    const userEmail = email.trim();
+    console.log(`🚀 VeloBot Init: Inicializando para ${cleanUserId}`);
     
-    console.log(`🚀 VeloBot Init: Inicializando para ${cleanUserId} (${userEmail})`);
-    
-    // 1. VALIDAÇÃO E SESSÃO
+    // 1. VALIDAÇÃO DA SESSÃO (memória de conversa - 10 minutos)
     const session = sessionService.getOrCreateSession(cleanUserId, null);
     console.log(`✅ VeloBot Init: Sessão criada/obtida: ${session.id}`);
     
-    // 2. CARREGAR DADOS MONGODB NO CACHE
+    // 2. CARGA DO CACHE DO BOT_PERGUNTAS DO MONGODB
     console.log('📦 VeloBot Init: Carregando dados MongoDB no cache...');
     try {
       const botPerguntasData = await getBotPerguntasData();
@@ -655,32 +691,44 @@ app.get('/api/chatbot/init', async (req, res) => {
       console.error('❌ VeloBot Init: Erro ao carregar dados no cache:', error.message);
     }
     
-    // 3. HANDSHAKE DAS IAs
+    // 3. HANDSHAKE PARA DETERMINAR IA PRIMÁRIA
     const aiStatus = await aiService.testConnection();
     let primaryAI = null;
     let fallbackAI = null;
     
     if (aiStatus.openai.available) {
+      // Cenário 1: OpenAI OK → OpenAI primária + Gemini secundária + pesquisa convencional fallback
       primaryAI = 'OpenAI';
       fallbackAI = aiStatus.gemini.available ? 'Gemini' : null;
+      console.log(`✅ VeloBot Init: Cenário 1 - OpenAI primária, Gemini secundária`);
     } else if (aiStatus.gemini.available) {
+      // Cenário 2: OpenAI NULL + Gemini OK → Gemini primária + OpenAI secundária + pesquisa convencional fallback
       primaryAI = 'Gemini';
+      fallbackAI = 'OpenAI'; // Sempre OpenAI como secundária, mesmo se não disponível
+      console.log(`✅ VeloBot Init: Cenário 2 - Gemini primária, OpenAI secundária`);
+    } else {
+      // Cenário 3: OpenAI NULL + Gemini NULL → Mantém primeira opção + pesquisa convencional fallback
+      primaryAI = 'OpenAI'; // Mantém primeira opção
       fallbackAI = null;
+      console.log(`⚠️ VeloBot Init: Cenário 3 - Nenhuma IA disponível, usando pesquisa convencional`);
     }
     
     console.log(`✅ VeloBot Init: IA primária: ${primaryAI}, Fallback: ${fallbackAI}`);
     
-    // 3. RESPOSTA DE INICIALIZAÇÃO
+    // RESPOSTA COMPLETA
     const response = {
       success: true,
       sessionId: session.id,
-      userId: cleanUserId,
-      email: userEmail,
       aiStatus: {
         primaryAI: primaryAI,
         fallbackAI: fallbackAI,
         anyAvailable: aiStatus.openai.available || aiStatus.gemini.available
       },
+      cacheStatus: {
+        botPerguntas: dataCache.getBotPerguntasData()?.length || 0,
+        articles: dataCache.getArticlesData()?.length || 0
+      },
+      message: 'VeloBot inicializado - memória de conversa ativa por 10 minutos',
       timestamp: new Date().toISOString()
     };
     
@@ -775,7 +823,7 @@ app.post('/api/chatbot/clarification', async (req, res) => {
     // 5. RESPOSTA PADRÃO
     const response = {
       success: true,
-      response: 'Desculpe, não consegui encontrar uma resposta específica para essa pergunta.',
+      response: 'Não consegui encontrar uma resposta precisa para sua pergunta. Pode fornecer mais detalhes ou reformular sua pergunta para que eu possa ajudá-lo melhor?',
       source: 'fallback',
       timestamp: new Date().toISOString(),
       sessionId: cleanSessionId
@@ -898,44 +946,47 @@ app.get('/api/chatbot/health-check', async (req, res) => {
   }
 });
 
-// API de Chat Inteligente
+// API de Chat Inteligente - Simplificada
 app.post('/api/chatbot/ask', async (req, res) => {
   try {
-    const { question, userId, sessionId, email } = req.body;
+    const { question, userId, sessionId } = req.body;
 
-    // Validação básica
+    // Validação simplificada
     if (!question || typeof question !== 'string' || question.trim().length === 0) {
       return res.status(400).json({
         success: false,
-        error: 'Pergunta é obrigatória e deve ser uma string válida'
+        error: 'Pergunta é obrigatória'
+      });
+    }
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'userId é obrigatório'
       });
     }
 
     const cleanQuestion = question.trim();
-    const cleanUserId = userId || 'anonymous';
+    const cleanUserId = userId.trim();
     const cleanSessionId = sessionId || null;
-    const userEmail = email || '';
 
     console.log(`🤖 Chat V2: Nova pergunta de ${cleanUserId}: "${cleanQuestion}"`);
 
-    // Obter sessão (deve ter sido criada na inicialização)
+    // Obter sessão para memória de conversa (10 minutos)
     const session = sessionService.getOrCreateSession(cleanUserId, cleanSessionId);
     
-    // Adicionar pergunta à sessão
+    // Adicionar pergunta à sessão (memória de conversa)
     sessionService.addMessage(session.id, 'user', cleanQuestion, {
       timestamp: new Date(),
-      userId: cleanUserId,
-      email: userEmail
+      userId: cleanUserId
     });
 
-    // Log da atividade (MongoDB + Google Sheets)
+    // Log da atividade (MongoDB)
     await userActivityLogger.logQuestion(cleanUserId, cleanQuestion, session.id);
-    
-    // Log paralelo para Google Sheets (não bloqueia resposta)
+
+    // Log para Google Sheets (RESTAURADO)
     if (logsService.isConfigured()) {
-      logsService.logAIResponse(userEmail, cleanQuestion, 'question_logged').catch(error => {
-        console.warn('⚠️ Log Google Sheets falhou (não crítico):', error.message);
-      });
+      await logsService.logAIUsage(userEmail, cleanQuestion, 'Pergunta Inicial');
     }
 
     // Buscar dados do MongoDB
@@ -968,55 +1019,193 @@ app.post('/api/chatbot/ask', async (req, res) => {
     const filteredBotPerguntas = filterByKeywords(cleanQuestion, botPerguntasData);
     console.log(`🔍 Chat V2: Filtro aplicado - ${filteredBotPerguntas.length} perguntas relevantes (de ${botPerguntasData.length})`);
 
-    // Análise inteligente com IA (NOVO SISTEMA)
-    let aiAnalysis = null;
+    // PONTO 3: CHAMADA DE IA PRIMÁRIA
+    let aiResponse = null;
     let searchResults = null;
     
     if (aiService.isConfigured()) {
-      console.log(`🤖 Chat V2: Usando análise inteligente da IA para: "${cleanQuestion}"`);
+      console.log(`🤖 Chat V2: PONTO 3 - Chamada de IA primária para: "${cleanQuestion}"`);
       console.log(`🔍 Chat V2: Perguntas localizadas na base: ${botPerguntasData.length}, Filtradas: ${filteredBotPerguntas.length}`);
       console.log(`🔍 Chat V2: IA configurada - Gemini: ${aiService.isGeminiConfigured()}, OpenAI: ${aiService.isOpenAIConfigured()}`);
-      aiAnalysis = await aiService.analyzeQuestionWithAI(cleanQuestion, filteredBotPerguntas);
-      console.log(`🔍 Chat V2: Resultado da análise IA:`, JSON.stringify(aiAnalysis, null, 2));
       
-      if (aiAnalysis.error) {
-        console.warn('⚠️ Chat V2: Análise da IA falhou, usando busca tradicional:', aiAnalysis.error);
-        // Fallback para busca tradicional
-        searchResults = await searchService.hybridSearch(cleanQuestion, botPerguntasData, articlesData);
-      } else if (aiAnalysis.needsClarification) {
-        // IA identificou múltiplas opções relevantes - mostrar menu de esclarecimento
-        const clarificationMenu = searchService.generateClarificationMenuFromAI(aiAnalysis.relevantOptions, cleanQuestion);
+      // Obter histórico da sessão para contexto
+      const sessionHistory = sessionService.getSessionHistory(session.id);
+      
+      // Determinar IA primária baseada na disponibilidade
+      const aiStatus = await aiService.testConnection();
+      let primaryAI = null;
+      let fallbackAI = null;
+      
+      if (aiStatus.openai.available) {
+        primaryAI = 'OpenAI';
+        fallbackAI = aiStatus.gemini.available ? 'Gemini' : null;
+      } else if (aiStatus.gemini.available) {
+        primaryAI = 'Gemini';
+        fallbackAI = 'OpenAI';
+      } else {
+        primaryAI = 'OpenAI';
+        fallbackAI = null;
+      }
+      
+      // Tentar IA primária
+      const aiResult = await aiService.generateResponse(
+        cleanQuestion,
+        '', // context vazio para resposta direta
+        sessionHistory,
+        cleanUserId,
+        userEmail,
+        null, // searchResults
+        'conversational',
+        primaryAI
+      );
+      
+      if (aiResult.success) {
+        // IA primária funcionou - PONTO 4: Análise IA
+        console.log(`✅ Chat V2: IA primária funcionou - ${aiResult.provider}`);
         
-        // Log da necessidade de esclarecimento
-        if (logsService.isConfigured()) {
-          await logsService.logAIUsage(userEmail, cleanQuestion, 'Clarificação IA');
-        }
+        // PONTO 4: ANÁLISE IA (analyzeQuestionWithAI)
+        console.log(`🤖 Chat V2: PONTO 4 - Análise IA com dados filtrados`);
+        const aiAnalysis = await aiService.analyzeQuestionWithAI(cleanQuestion, filteredBotPerguntas, sessionHistory);
+        console.log(`🔍 Chat V2: PONTO 4 - Resultado da análise IA:`, JSON.stringify(aiAnalysis, null, 2));
+        
+        if (aiAnalysis.needsClarification) {
+          // IA identificou múltiplas opções relevantes - mostrar menu de esclarecimento
+          const clarificationMenu = searchService.generateClarificationMenuFromAI(aiAnalysis.relevantOptions, cleanQuestion);
+          
+          // Log da necessidade de esclarecimento
+          if (logsService.isConfigured()) {
+            await logsService.logAIUsage(userEmail, cleanQuestion, 'Clarificação IA');
+          }
 
-        return res.json({
-          success: true,
-          data: {
-            ...clarificationMenu,
+          return res.json({
+            success: true,
+            data: {
+              ...clarificationMenu,
+              sessionId: session.id,
+              timestamp: new Date().toISOString()
+            }
+          });
+        } else if (aiAnalysis.bestMatch) {
+          // IA identificou uma opção específica - usar diretamente
+          console.log(`✅ Chat V2: IA identificou match específico: "${aiAnalysis.bestMatch.Pergunta}"`);
+          
+          // Log do uso da IA
+          if (logsService.isConfigured()) {
+            await logsService.logAIResponse(userEmail, cleanQuestion, 'Gemini');
+          }
+          
+          return res.json({
+            success: true,
+            response: aiAnalysis.bestMatch.Resposta || 'Resposta não encontrada',
+            source: 'Bot_perguntas',
+            sourceId: aiAnalysis.bestMatch._id,
+            sourceRow: aiAnalysis.bestMatch.Pergunta,
             sessionId: session.id,
             timestamp: new Date().toISOString()
+          });
+        } else {
+          // IA não encontrou opções - usar resposta da IA primária
+          if (logsService.isConfigured()) {
+            await logsService.logAIResponse(userEmail, cleanQuestion, aiResult.provider);
           }
-        });
-      } else if (aiAnalysis.bestMatch) {
-        // IA identificou uma opção específica - usar diretamente
-        console.log(`✅ Chat V2: IA identificou match específico: "${aiAnalysis.bestMatch.Pergunta}"`);
-        searchResults = {
-          botPergunta: aiAnalysis.bestMatch,
-          articles: [],
-          hasResults: true
-        };
-      } else {
-        // IA não encontrou opções relevantes - usar busca tradicional
-        console.log(`⚠️ Chat V2: IA não encontrou opções relevantes, usando busca tradicional`);
-        searchResults = await searchService.hybridSearch(cleanQuestion, botPerguntasData, articlesData);
+          
+          return res.json({
+            success: true,
+            response: aiResult.response,
+            source: 'ai',
+            aiProvider: aiResult.provider,
+            model: aiResult.model,
+            sessionId: session.id,
+            timestamp: new Date().toISOString()
+          });
+        }
+      } else if (fallbackAI) {
+        // IA primária falhou - tentar IA secundária
+        console.warn(`⚠️ Chat V2: IA primária (${primaryAI}) falhou, tentando IA secundária (${fallbackAI})`);
+        
+        const fallbackResult = await aiService.generateResponse(
+          cleanQuestion,
+          '',
+          sessionHistory,
+          cleanUserId,
+          userEmail,
+          null,
+          'conversational',
+          fallbackAI
+        );
+        
+        if (fallbackResult.success) {
+          // IA secundária funcionou - PONTO 4: Análise IA
+          console.log(`✅ Chat V2: IA secundária funcionou - ${fallbackResult.provider}`);
+          
+          // PONTO 4: ANÁLISE IA (analyzeQuestionWithAI)
+          console.log(`🤖 Chat V2: PONTO 4 - Análise IA com dados filtrados`);
+          const aiAnalysis = await aiService.analyzeQuestionWithAI(cleanQuestion, filteredBotPerguntas, sessionHistory);
+          console.log(`🔍 Chat V2: PONTO 4 - Resultado da análise IA:`, JSON.stringify(aiAnalysis, null, 2));
+          
+          if (aiAnalysis.needsClarification) {
+            // IA identificou múltiplas opções relevantes - mostrar menu de esclarecimento
+            const clarificationMenu = searchService.generateClarificationMenuFromAI(aiAnalysis.relevantOptions, cleanQuestion);
+            
+            // Log da necessidade de esclarecimento
+            if (logsService.isConfigured()) {
+              await logsService.logAIUsage(userEmail, cleanQuestion, 'Clarificação IA');
+            }
+
+            return res.json({
+              success: true,
+              data: {
+                ...clarificationMenu,
+                sessionId: session.id,
+                timestamp: new Date().toISOString()
+              }
+            });
+          } else if (aiAnalysis.bestMatch) {
+            // IA identificou uma opção específica - usar diretamente
+            console.log(`✅ Chat V2: IA identificou match específico: "${aiAnalysis.bestMatch.Pergunta}"`);
+            
+            // Log do uso da IA
+            if (logsService.isConfigured()) {
+              await logsService.logAIResponse(userEmail, cleanQuestion, 'Gemini');
+            }
+            
+            return res.json({
+              success: true,
+              response: aiAnalysis.bestMatch.Resposta || 'Resposta não encontrada',
+              source: 'Bot_perguntas',
+              sourceId: aiAnalysis.bestMatch._id,
+              sourceRow: aiAnalysis.bestMatch.Pergunta,
+              sessionId: session.id,
+              timestamp: new Date().toISOString()
+            });
+          } else {
+            // IA não encontrou opções - usar resposta da IA secundária
+            if (logsService.isConfigured()) {
+              await logsService.logAIResponse(userEmail, cleanQuestion, fallbackResult.provider);
+            }
+            
+            return res.json({
+              success: true,
+              response: fallbackResult.response,
+              source: 'ai',
+              aiProvider: fallbackResult.provider,
+              model: fallbackResult.model,
+              sessionId: session.id,
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
       }
+      
+      // Ambas IAs falharam - usar busca tradicional e ir direto para CLARIFICATION
+      console.warn('⚠️ Chat V2: Ambas IAs falharam, usando busca tradicional → CLARIFICATION');
+      searchResults = await searchService.hybridSearch(cleanQuestion, botPerguntasData, articlesData);
+      
     } else {
       // IA não configurada - usar busca tradicional
       console.log(`⚠️ Chat V2: IA não configurada, usando busca tradicional`);
       searchResults = await searchService.hybridSearch(cleanQuestion, botPerguntasData, articlesData);
+    }
       
       // Verificar se precisa de esclarecimento (sistema tradicional)
       const clarificationResult = searchService.findMatchesWithDeduplication(cleanQuestion, botPerguntasData);
@@ -1067,12 +1256,19 @@ app.post('/api/chatbot/ask', async (req, res) => {
 
     if (aiService.isConfigured()) {
       try {
-        // Determinar IA primária baseada na disponibilidade
-        let primaryAI = 'OpenAI'; // Padrão
-        if (aiService.isOpenAIConfigured()) {
+        // Determinar IA primária baseada na disponibilidade (mesma lógica da inicialização)
+        const aiStatus = await aiService.testConnection();
+        let primaryAI = null;
+        
+        if (aiStatus.openai.available) {
+          // Cenário 1: OpenAI OK → OpenAI primária + Gemini secundária + pesquisa convencional fallback
           primaryAI = 'OpenAI';
-        } else if (aiService.isGeminiConfigured()) {
+        } else if (aiStatus.gemini.available) {
+          // Cenário 2: OpenAI NULL + Gemini OK → Gemini primária + OpenAI secundária + pesquisa convencional fallback
           primaryAI = 'Gemini';
+        } else {
+          // Cenário 3: OpenAI NULL + Gemini NULL → Mantém primeira opção + pesquisa convencional fallback
+          primaryAI = 'OpenAI';
         }
         
         const aiResult = await aiService.generateResponse(
@@ -1120,7 +1316,7 @@ app.post('/api/chatbot/ask', async (req, res) => {
           await logsService.logMongoDBResponse(userEmail, cleanQuestion, searchResults.botPergunta._id);
         }
       } else {
-        response = 'Desculpe, não encontrei uma resposta para sua pergunta. Entre em contato com nosso suporte para mais informações.';
+        response = 'Não consegui encontrar uma resposta precisa para sua pergunta. Pode fornecer mais detalhes ou reformular sua pergunta para que eu possa ajudá-lo melhor?';
         responseSource = 'no_results';
         console.log(`❌ Chat V2: Nenhuma resposta encontrada`);
         
@@ -1395,12 +1591,19 @@ app.post('/api/chatbot/ai-response', async (req, res) => {
     const session = cleanSessionId ? sessionService.getOrCreateSession(cleanUserId, cleanSessionId) : null;
     const sessionHistory = session ? sessionService.getSessionHistory(session.id) : [];
 
-    // Determinar IA primária baseada na disponibilidade
-    let primaryAI = 'OpenAI'; // Padrão
-    if (aiService.isOpenAIConfigured()) {
+    // Determinar IA primária baseada na disponibilidade (mesma lógica da inicialização)
+    const aiStatus = await aiService.testConnection();
+    let primaryAI = null;
+    
+    if (aiStatus.openai.available) {
+      // Cenário 1: OpenAI OK → OpenAI primária + Gemini secundária + pesquisa convencional fallback
       primaryAI = 'OpenAI';
-    } else if (aiService.isGeminiConfigured()) {
+    } else if (aiStatus.gemini.available) {
+      // Cenário 2: OpenAI NULL + Gemini OK → Gemini primária + OpenAI secundária + pesquisa convencional fallback
       primaryAI = 'Gemini';
+    } else {
+      // Cenário 3: OpenAI NULL + Gemini NULL → Mantém primeira opção + pesquisa convencional fallback
+      primaryAI = 'OpenAI';
     }
     
     // Gerar resposta conversacional da IA
@@ -1499,8 +1702,8 @@ process.on('unhandledRejection', (reason, promise) => {
 // SISTEMA DE CONTROLE DE STATUS DOS MÓDULOS
 // ========================================
 
-// Armazenamento em memória do status dos módulos (em produção, usar Redis ou banco)
-let moduleStatus = {
+// Cache do status dos módulos (atualizado do MongoDB)
+let moduleStatusCache = {
   'credito-trabalhador': 'on',
   'credito-pessoal': 'on',
   'antecipacao': 'revisao',
@@ -1508,11 +1711,81 @@ let moduleStatus = {
   'modulo-irpf': 'on'
 };
 
+// Timestamp do último cache para controle de validade
+let lastCacheUpdate = null;
+const CACHE_VALIDITY_MS = 3 * 60 * 1000; // 3 minutos
+
+/**
+ * Busca o status mais recente dos módulos no MongoDB
+ * @returns {Promise<Object>} Status dos módulos
+ */
+const fetchModuleStatusFromMongoDB = async () => {
+  try {
+    if (!client) {
+      console.warn('⚠️ MongoDB não configurado - usando cache local');
+      return moduleStatusCache;
+    }
+
+    await connectToMongo();
+    const db = client.db('console_config');
+    const collection = db.collection('module_status');
+
+    // Buscar o documento mais recente (maior createdAt)
+    const latestStatus = await collection
+      .findOne({}, { sort: { createdAt: -1 } });
+
+    if (!latestStatus) {
+      console.warn('⚠️ Nenhum status encontrado no MongoDB - usando cache local');
+      return moduleStatusCache;
+    }
+
+    // Mapear campos do MongoDB para o formato esperado pelo frontend
+    const mappedStatus = {
+      'credito-trabalhador': latestStatus._trabalhador || 'on',
+      'credito-pessoal': latestStatus._pessoal || 'on',
+      'antecipacao': latestStatus._antecipacao || 'revisao',
+      'pagamento-antecipado': latestStatus._pgtoAntecip || 'off',
+      'modulo-irpf': latestStatus._irpf || 'on'
+    };
+
+    console.log('📊 Status dos módulos atualizado do MongoDB:', mappedStatus);
+    return mappedStatus;
+
+  } catch (error) {
+    console.error('❌ Erro ao buscar status dos módulos do MongoDB:', error);
+    return moduleStatusCache; // Fallback para cache local
+  }
+};
+
+/**
+ * Atualiza o cache se necessário (baseado no tempo)
+ * @returns {Promise<Object>} Status atual dos módulos
+ */
+const getModuleStatus = async () => {
+  const now = Date.now();
+  
+  // Se cache é válido, retornar cache
+  if (lastCacheUpdate && (now - lastCacheUpdate) < CACHE_VALIDITY_MS) {
+    return moduleStatusCache;
+  }
+
+  // Cache expirado ou inexistente - buscar do MongoDB
+  console.log('🔄 Cache expirado - buscando status do MongoDB...');
+  const freshStatus = await fetchModuleStatusFromMongoDB();
+  
+  // Atualizar cache
+  moduleStatusCache = freshStatus;
+  lastCacheUpdate = now;
+  
+  return moduleStatusCache;
+};
+
 // Endpoint para buscar status dos módulos (GET)
-app.get('/api/module-status', (req, res) => {
+app.get('/api/module-status', async (req, res) => {
   try {
     console.log('📊 Status dos módulos solicitado');
-    res.json(moduleStatus);
+    const currentStatus = await getModuleStatus();
+    res.json(currentStatus);
   } catch (error) {
     console.error('❌ Erro ao buscar status dos módulos:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -1520,7 +1793,7 @@ app.get('/api/module-status', (req, res) => {
 });
 
 // Endpoint para atualizar status dos módulos (POST) - Console VeloHub
-app.post('/api/module-status', (req, res) => {
+app.post('/api/module-status', async (req, res) => {
   try {
     const { moduleKey, status } = req.body;
     
@@ -1533,20 +1806,74 @@ app.post('/api/module-status', (req, res) => {
       return res.status(400).json({ error: 'Status deve ser: on, off ou revisao' });
     }
     
-    if (!moduleStatus.hasOwnProperty(moduleKey)) {
+    // Validar se o módulo existe no cache atual
+    const currentStatus = await getModuleStatus();
+    if (!currentStatus.hasOwnProperty(moduleKey)) {
       return res.status(400).json({ error: 'Módulo não encontrado' });
     }
     
-    // Atualizar status
-    const oldStatus = moduleStatus[moduleKey];
-    moduleStatus[moduleKey] = status;
+    // Mapear moduleKey para campo do MongoDB
+    const mongoFieldMap = {
+      'credito-trabalhador': '_trabalhador',
+      'credito-pessoal': '_pessoal',
+      'antecipacao': '_antecipacao',
+      'pagamento-antecipado': '_pgtoAntecip',
+      'modulo-irpf': '_irpf'
+    };
+    
+    const mongoField = mongoFieldMap[moduleKey];
+    if (!mongoField) {
+      return res.status(400).json({ error: 'Módulo não mapeado para MongoDB' });
+    }
+    
+    // Atualizar no MongoDB
+    if (client) {
+      try {
+        await connectToMongo();
+        const db = client.db('console_config');
+        const collection = db.collection('module_status');
+        
+        // Criar novo documento com status atualizado
+        const updateData = {
+          ...currentStatus,
+          [mongoField]: status,
+          updatedAt: new Date()
+        };
+        
+        // Mapear de volta para campos do MongoDB
+        const mongoData = {
+          _trabalhador: updateData['credito-trabalhador'],
+          _pessoal: updateData['credito-pessoal'],
+          _antecipacao: updateData['antecipacao'],
+          _pgtoAntecip: updateData['pagamento-antecipado'],
+          _irpf: updateData['modulo-irpf'],
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        await collection.insertOne(mongoData);
+        console.log(`✅ Status do módulo ${moduleKey} salvo no MongoDB: ${status}`);
+        
+        // Invalidar cache para forçar refresh na próxima consulta
+        lastCacheUpdate = null;
+        
+      } catch (mongoError) {
+        console.error('❌ Erro ao salvar no MongoDB:', mongoError);
+        // Continuar com atualização local mesmo se MongoDB falhar
+      }
+    }
+    
+    // Atualizar cache local
+    const oldStatus = currentStatus[moduleKey];
+    moduleStatusCache[moduleKey] = status;
+    lastCacheUpdate = Date.now();
     
     console.log(`🔄 Status do módulo ${moduleKey} alterado: ${oldStatus} → ${status}`);
     
     res.json({ 
       success: true, 
       message: `Status do módulo ${moduleKey} atualizado para ${status}`,
-      moduleStatus 
+      moduleStatus: moduleStatusCache 
     });
     
   } catch (error) {
@@ -1556,7 +1883,7 @@ app.post('/api/module-status', (req, res) => {
 });
 
 // Endpoint para atualizar múltiplos módulos (PUT) - Console VeloHub
-app.put('/api/module-status', (req, res) => {
+app.put('/api/module-status', async (req, res) => {
   try {
     const newStatus = req.body;
     
@@ -1565,9 +1892,12 @@ app.put('/api/module-status', (req, res) => {
       return res.status(400).json({ error: 'Body deve ser um objeto com os status dos módulos' });
     }
     
+    // Obter status atual
+    const currentStatus = await getModuleStatus();
+    
     // Validar cada status
     for (const [moduleKey, status] of Object.entries(newStatus)) {
-      if (!moduleStatus.hasOwnProperty(moduleKey)) {
+      if (!currentStatus.hasOwnProperty(moduleKey)) {
         return res.status(400).json({ error: `Módulo ${moduleKey} não encontrado` });
       }
       
@@ -1576,16 +1906,50 @@ app.put('/api/module-status', (req, res) => {
       }
     }
     
-    // Atualizar todos os status
-    const oldStatus = { ...moduleStatus };
-    moduleStatus = { ...moduleStatus, ...newStatus };
+    // Atualizar no MongoDB
+    if (client) {
+      try {
+        await connectToMongo();
+        const db = client.db('console_config');
+        const collection = db.collection('module_status');
+        
+        // Criar novo documento com todos os status atualizados
+        const updatedStatus = { ...currentStatus, ...newStatus };
+        
+        // Mapear para campos do MongoDB
+        const mongoData = {
+          _trabalhador: updatedStatus['credito-trabalhador'],
+          _pessoal: updatedStatus['credito-pessoal'],
+          _antecipacao: updatedStatus['antecipacao'],
+          _pgtoAntecip: updatedStatus['pagamento-antecipado'],
+          _irpf: updatedStatus['modulo-irpf'],
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        await collection.insertOne(mongoData);
+        console.log('✅ Status dos módulos salvos no MongoDB em lote:', newStatus);
+        
+        // Invalidar cache para forçar refresh na próxima consulta
+        lastCacheUpdate = null;
+        
+      } catch (mongoError) {
+        console.error('❌ Erro ao salvar no MongoDB:', mongoError);
+        // Continuar com atualização local mesmo se MongoDB falhar
+      }
+    }
+    
+    // Atualizar cache local
+    const oldStatus = { ...currentStatus };
+    Object.assign(moduleStatusCache, newStatus);
+    lastCacheUpdate = Date.now();
     
     console.log('🔄 Status dos módulos atualizados em lote:', newStatus);
     
     res.json({ 
       success: true, 
       message: 'Status dos módulos atualizados com sucesso',
-      moduleStatus,
+      moduleStatus: moduleStatusCache,
       changes: newStatus
     });
     
