@@ -558,7 +558,11 @@ ${sessionHistory.length > 0 ?
    * @returns {boolean} Status da configuração
    */
   isOpenAIConfigured() {
-    return !!config.OPENAI_API_KEY && config.OPENAI_API_KEY !== 'your_openai_api_key_here';
+    const configured = !!config.OPENAI_API_KEY && config.OPENAI_API_KEY !== 'your_openai_api_key_here';
+    if (!configured) {
+      console.warn('⚠️ AI Service: OpenAI não configurado - OPENAI_API_KEY ausente ou inválida');
+    }
+    return configured;
   }
 
   /**
@@ -566,7 +570,11 @@ ${sessionHistory.length > 0 ?
    * @returns {boolean} Status da configuração
    */
   isGeminiConfigured() {
-    return !!config.GEMINI_API_KEY && config.GEMINI_API_KEY !== 'your_gemini_api_key_here';
+    const configured = !!config.GEMINI_API_KEY && config.GEMINI_API_KEY !== 'your_gemini_api_key_here';
+    if (!configured) {
+      console.warn('⚠️ AI Service: Gemini não configurado - GEMINI_API_KEY ausente ou inválida');
+    }
+    return configured;
   }
 
   /**
@@ -602,13 +610,22 @@ ${sessionHistory.length > 0 ?
    * @returns {boolean} Status do cache
    */
   _isCacheValid() {
+    // Cache inválido se não há dados ou timestamp
     if (!this.statusCache.data || !this.statusCache.timestamp) {
+      console.log('⚠️ AI Service: Cache inválido - dados ou timestamp ausentes');
       return false;
     }
     
+    // Verificar se cache expirou
     const now = Date.now();
     const cacheAge = now - this.statusCache.timestamp;
-    return cacheAge < this.statusCache.ttl;
+    const isValid = cacheAge < this.statusCache.ttl;
+    
+    if (!isValid) {
+      console.log(`⚠️ AI Service: Cache expirado - idade: ${Math.round(cacheAge / 1000)}s, TTL: ${this.statusCache.ttl / 1000}s`);
+    }
+    
+    return isValid;
   }
 
   /**
@@ -622,7 +639,7 @@ ${sessionHistory.length > 0 ?
       return this.statusCache.data;
     }
     
-    console.log('🔍 AI Service: Testando conexões das IAs (cache expirado)');
+    console.log('🔍 AI Service: Testando conexões das IAs (cache expirado ou inexistente)');
     const results = {
       openai: { available: false, model: this.openaiModel, priority: 'primary' },
       gemini: { available: false, model: this.geminiModel, priority: 'fallback' },
@@ -668,10 +685,17 @@ ${sessionHistory.length > 0 ?
     this.statusCache.data = results;
     this.statusCache.timestamp = Date.now();
     
-    console.log(`✅ AI Service: Cache de status atualizado - Gemini: ${results.gemini.available}, OpenAI: ${results.openai.available}`);
-    
-    if (!results.anyAvailable) {
-      console.warn('⚠️ Nenhuma API de IA disponível');
+    // Logs assertivos sobre o resultado
+    if (results.anyAvailable) {
+      const primaryAI = results.openai.available ? 'OpenAI' : 'Gemini';
+      const fallbackAI = results.openai.available && results.gemini.available ? 'Gemini' : 
+                        results.gemini.available && results.openai.available ? 'OpenAI' : null;
+      
+      console.log(`✅ AI Service: Cache atualizado - Primária: ${primaryAI}${fallbackAI ? `, Fallback: ${fallbackAI}` : ''}`);
+    } else {
+      console.error('❌ AI Service: NENHUMA API DE IA DISPONÍVEL - Verificar configuração das chaves');
+      console.error('❌ AI Service: OpenAI configurado:', this.isOpenAIConfigured());
+      console.error('❌ AI Service: Gemini configurado:', this.isGeminiConfigured());
     }
     
     return results;
