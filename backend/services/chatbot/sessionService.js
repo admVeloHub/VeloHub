@@ -1,17 +1,18 @@
-// Session Service - Gerenciamento de sessões e memória de conversa
+// Session Service - Gerenciamento simplificado de memória de conversa
+// VERSION: v2.0.0 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
 const { v4: uuidv4 } = require('uuid');
 
 class SessionService {
   constructor() {
-    this.sessions = new Map(); // In-memory storage (em produção usar Redis)
-    this.sessionTimeout = 30 * 60 * 1000; // 30 minutos
+    this.sessions = new Map(); // In-memory storage (simplificado)
+    this.sessionTimeout = 10 * 60 * 1000; // 10 minutos (simplificado)
     this.maxHistoryLength = 10; // Máximo 10 mensagens no histórico
   }
 
   /**
-   * Cria uma nova sessão para o usuário
-   * @param {string} userId - ID do usuário
-   * @returns {string} ID da sessão
+   * Cria uma nova sessão para memória de conversa (simplificado)
+   * @param {string} userId - ID do usuário (já autenticado via OAuth)
+   * @returns {Object} Sessão criada
    */
   createSession(userId) {
     const sessionId = uuidv4();
@@ -20,20 +21,19 @@ class SessionService {
       userId: userId,
       createdAt: new Date(),
       lastActivity: new Date(),
-      messages: [],
-      context: {}
+      messages: []
     };
 
     this.sessions.set(sessionId, session);
     
-    console.log(`🆕 Session: Nova sessão criada para usuário ${userId} (${sessionId})`);
+    console.log(`✅ Session: Nova sessão VeloBot criada para ${userId} (${sessionId})`);
     
-    return sessionId;
+    return session;
   }
 
   /**
-   * Obtém ou cria uma sessão para o usuário
-   * @param {string} userId - ID do usuário
+   * Obtém ou cria uma sessão para memória de conversa (simplificado)
+   * @param {string} userId - ID do usuário (já autenticado via OAuth)
    * @param {string} sessionId - ID da sessão (opcional)
    * @returns {Object} Sessão
    */
@@ -42,15 +42,15 @@ class SessionService {
     if (sessionId && this.sessions.has(sessionId)) {
       const session = this.sessions.get(sessionId);
       
-      // Verificar se a sessão ainda é válida
+      // Verificar se a sessão ainda é válida (10 minutos)
       if (this.isSessionValid(session)) {
         session.lastActivity = new Date();
-        console.log(`🔄 Session: Sessão existente recuperada para usuário ${userId}`);
+        console.log(`🔄 Session: Sessão VeloBot recuperada para ${userId}`);
         return session;
       } else {
         // Sessão expirada, remover
         this.sessions.delete(sessionId);
-        console.log(`⏰ Session: Sessão expirada removida para usuário ${userId}`);
+        console.log(`⏰ Session: Sessão VeloBot expirada removida para ${userId}`);
       }
     }
 
