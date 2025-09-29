@@ -164,18 +164,30 @@ class SearchService {
   extractRelevantText(item) {
     const texts = [];
     
+    // DEBUG: Verificar estrutura do item
+    console.log(`🔍 Search: DEBUG - Estrutura do item:`, Object.keys(item));
+    console.log(`🔍 Search: DEBUG - Item completo:`, JSON.stringify(item, null, 2));
+    
     // Para Bot_perguntas (estrutura MongoDB correta)
     if (item.Pergunta) {
       texts.push(item.Pergunta);
       console.log(`🔍 Search: Pergunta: "${item.Pergunta}"`);
+    } else {
+      console.log(`⚠️ Search: Campo 'Pergunta' não encontrado no item`);
     }
+    
     if (item["Palavras-chave"]) {
       texts.push(item["Palavras-chave"]);
       console.log(`🔍 Search: Palavras-chave: "${item["Palavras-chave"]}"`);
+    } else {
+      console.log(`⚠️ Search: Campo 'Palavras-chave' não encontrado no item`);
     }
+    
     if (item.Sinonimos) {
       texts.push(item.Sinonimos);
       console.log(`🔍 Search: Sinônimos: "${item.Sinonimos}"`);
+    } else {
+      console.log(`⚠️ Search: Campo 'Sinonimos' não encontrado no item`);
     }
     
     // Para Artigos (estrutura diferente)
@@ -190,6 +202,9 @@ class SearchService {
     
     const result = texts.join(' ').trim();
     console.log(`🔍 Search: Texto final extraído para busca: "${result.substring(0, 150)}..."`);
+    console.log(`🔍 Search: DEBUG - Total de textos encontrados: ${texts.length}`);
+    console.log(`🔍 Search: DEBUG - Resultado final length: ${result.length}`);
+    
     return result;
   }
 
