@@ -216,6 +216,33 @@
 - **Descrição**: Implementação completa de melhorias no sistema de IA - persona centralizada eliminando duplicação, estrutura hierárquica clara, contexto estruturado com informações organizadas, prompt otimizado com instruções específicas, parâmetros otimizados (temperature: 0.1, max_tokens: 512), validação de qualidade de resposta, correções de nomenclatura (Planilha → Bot_perguntas), função logSpreadsheetResponse → logMongoDBResponse, compatibilidade mantida com sistema existente
 - **Status**: ✅ Concluído com sucesso
 
+### **GitHub Push - Implementação Completa do Fluxo VeloBot v2.9.1**
+- **Data/Hora**: 2025-01-27 23:15:00
+- **Tipo**: GitHub Push
+- **Versão**: v2.9.1
+- **Commit**: fb707ea
+- **Arquivos Modificados**:
+  - `backend/server.js` (v2.9.1 - fluxo completo implementado)
+  - `backend/services/chatbot/aiService.js` (v2.6.1 - prompt otimizado e análise IA)
+  - `backend/services/chatbot/sessionService.js` (v2.0.0 - sessão simplificada)
+  - `DIAGRAMA_FUNCIONAMENTO_BUSCA.txt` (atualizado com pontos 0-5)
+- **Arquivos Adicionados**:
+  - `listagem de schema de coleções do mongoD.rb` (schema MongoDB)
+- **Descrição**: Implementação completa do fluxo VeloBot conforme DIAGRAMA_FUNCIONAMENTO_BUSCA.txt - PONTO 0: inicialização com validação, cache e handshake IA; PONTO 1: log Google Sheets restaurado; PONTO 2: filtro keywords (máx 30) e prompt otimizado; PONTO 3: chamada IA primária→secundária→busca tradicional; PONTO 4: análise IA apenas após sucesso de IA; PONTO 5: clarification com mensagens amigáveis. Correções: fluxo corrigido, handshake 3 cenários, prompt otimizado, mensagens amigáveis, versionamento semântico, logs restaurados, cache módulos TTL 3min
+- **Status**: ✅ Concluído com sucesso
+
+### **GitHub Push - Correção de Inicialização do Servidor v2.9.2**
+- **Data/Hora**: 2025-01-27 23:30:00
+- **Tipo**: GitHub Push
+- **Versão**: v2.9.2
+- **Commit**: 0596114
+- **Arquivos Modificados**:
+  - `backend/server.js` (v2.9.2 - correção inicialização)
+- **Arquivos Adicionados**:
+  - `backend/test-server.js` (servidor de teste para diagnóstico)
+- **Descrição**: Correção de inicialização do servidor - adicionado try/catch para carregamento de serviços, logs de debug para identificação de problemas, servidor de teste criado para diagnóstico, tratamento de erros melhorado na inicialização. Resolve problema de deploy no Cloud Run onde o container não conseguia iniciar e escutar na porta 8080
+- **Status**: ✅ Concluído com sucesso
+
 ---
 
 *Log atualizado automaticamente após push para GitHub*

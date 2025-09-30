@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v1.5.0 | DATE: 2025-09-29 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.5.1 | DATE: 2025-09-30 | AUTHOR: VeloHub Development Team
  */
 
 const express = require('express');
@@ -1240,26 +1240,25 @@ app.post('/api/chatbot/ask', async (req, res) => {
       searchResults = await searchService.hybridSearch(cleanQuestion, botPerguntasData, articlesData);
     }
       
-      // Verificar se precisa de esclarecimento (sistema tradicional)
-      const clarificationResult = searchService.findMatchesWithDeduplication(cleanQuestion, botPerguntasData);
+    // Verificar se precisa de esclarecimento (sistema tradicional)
+    const clarificationResult = searchService.findMatchesWithDeduplication(cleanQuestion, botPerguntasData);
+    
+    if (clarificationResult.needsClarification) {
+      const clarificationMenu = searchService.generateClarificationMenu(clarificationResult.matches, cleanQuestion);
       
-      if (clarificationResult.needsClarification) {
-        const clarificationMenu = searchService.generateClarificationMenu(clarificationResult.matches, cleanQuestion);
-        
-        // Log da necessidade de esclarecimento
-        if (logsService.isConfigured()) {
-          await logsService.logAIUsage(userEmail, cleanQuestion, 'Clarificação Tradicional');
-        }
-
-        return res.json({
-          success: true,
-          data: {
-            ...clarificationMenu,
-            sessionId: session.id,
-            timestamp: new Date().toISOString()
-          }
-        });
+      // Log da necessidade de esclarecimento
+      if (logsService.isConfigured()) {
+        await logsService.logAIUsage(userEmail, cleanQuestion, 'Clarificação Tradicional');
       }
+
+      return res.json({
+        success: true,
+        data: {
+          ...clarificationMenu,
+          sessionId: session.id,
+          timestamp: new Date().toISOString()
+        }
+      });
     }
 
     // Obter histórico da sessão
