@@ -1,4 +1,5 @@
 # app.yaml para Google App Engine - VeloHub V3
+# VERSION: v1.1.0 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
 # Configuração para desenvolvimento com variáveis diretas
 
 runtime: nodejs18
@@ -10,15 +11,15 @@ env_variables:
   PORT: 8080
   
   # MongoDB - URI completa (via Secret Manager)
-  MONGO_ENV: ${mongodb-uri}
+  MONGO_ENV: ${MONGO_ENV}
   
   # Google OAuth - Credenciais (via Secret Manager)
   GOOGLE_CLIENT_ID: ${google-client-id}
   GOOGLE_CLIENT_SECRET: ${google-client-secret}
   
   # APIs de IA (via Secret Manager)
-  GPT_API: ${GPT_apikey}
-  GEMINI_API: ${Gemini_apikey}
+  OPENAI_API_KEY: ${OPENAI_API_KEY}
+  GEMINI_API_KEY: ${GEMINI_API_KEY}
   
   # Google Sheets Credentials (via Secret Manager)
   GOOGLE_CREDENTIALS: ${GOOGLE_CREDENTIALS}
