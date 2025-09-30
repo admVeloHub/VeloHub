@@ -83,4 +83,15 @@ jspm_packages/
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
 
+# VS Code - Extensões e configurações pessoais
+.vscode/extensions/
+.vscode/User/
+.vscode/workspaceStorage/
+.vscode/tasks.json
+.vscode/launch.json
+.vscode/settings.json
+
+# VS Code - Manter apenas extensões recomendadas
+!.vscode/extensions.json
+
 .vercel
