@@ -40,5 +40,5 @@ EXPOSE 8080
 ENV NODE_ENV=production
 ENV PORT=8080
 
-# Comando para iniciar o servidor
-CMD ["node", "server.js"]
+# Comando para iniciar o servidor (temporariamente usando servidor mínimo)
+CMD ["node", "minimal-server.js"]
