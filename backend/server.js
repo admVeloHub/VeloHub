@@ -10,21 +10,45 @@ const { MongoClient } = require('mongodb');
 require('dotenv').config();
 
 // Importar serviços do chatbot
-// VERSION: v2.9.5 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v2.9.7 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
 let aiService, searchService, sessionService, feedbackService, logsService, dataCache, userActivityLogger;
 
+console.log('🔄 Iniciando carregamento de serviços...');
+
 try {
+  console.log('📦 Carregando aiService...');
   aiService = require('./services/chatbot/aiService');
+  console.log('✅ aiService carregado');
+  
+  console.log('📦 Carregando searchService...');
   searchService = require('./services/chatbot/searchService');
+  console.log('✅ searchService carregado');
+  
+  console.log('📦 Carregando sessionService...');
   sessionService = require('./services/chatbot/sessionService');
+  console.log('✅ sessionService carregado');
+  
+  console.log('📦 Carregando feedbackService...');
   feedbackService = require('./services/chatbot/feedbackService');
+  console.log('✅ feedbackService carregado');
+  
+  console.log('📦 Carregando logsService...');
   logsService = require('./services/chatbot/logsService');
+  console.log('✅ logsService carregado');
+  
+  console.log('📦 Carregando dataCache...');
   dataCache = require('./services/chatbot/dataCache');
+  console.log('✅ dataCache carregado');
+  
+  console.log('📦 Carregando userActivityLogger...');
   userActivityLogger = require('./services/logging/userActivityLogger');
-  console.log('✅ Todos os serviços carregados com sucesso');
+  console.log('✅ userActivityLogger carregado');
+  
+  console.log('🎉 Todos os serviços carregados com sucesso!');
 } catch (error) {
   console.error('❌ Erro ao carregar serviços:', error.message);
   console.error('Stack:', error.stack);
+  console.error('❌ Falha crítica - encerrando processo');
   process.exit(1);
 }
 
@@ -1686,9 +1710,18 @@ app.get('*', (req, res) => {
 console.log('🔄 Iniciando servidor...');
 console.log(`📍 Porta configurada: ${PORT}`);
 console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+console.log(`📁 Diretório de trabalho: ${process.cwd()}`);
+console.log(`📁 Arquivos no diretório:`, require('fs').readdirSync('.'));
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Servidor backend rodando na porta ${PORT}`);
+console.log('🚀 Tentando iniciar servidor na porta', PORT);
+
+const server = app.listen(PORT, '0.0.0.0', (error) => {
+  if (error) {
+    console.error('❌ Erro ao iniciar servidor:', error);
+    process.exit(1);
+  }
+  
+  console.log(`✅ Servidor backend rodando na porta ${PORT}`);
   console.log(`🌐 Acessível em: http://localhost:${PORT}`);
   console.log(`🌐 Acessível na rede local: http://0.0.0.0:${PORT}`);
   console.log(`📡 Endpoint principal: http://localhost:${PORT}/api/data`);
@@ -1701,8 +1734,13 @@ app.listen(PORT, '0.0.0.0', () => {
 });
 
 // Log de erro se o servidor não conseguir iniciar
-app.on('error', (error) => {
+server.on('error', (error) => {
   console.error('❌ Erro no servidor:', error);
+  process.exit(1);
+});
+
+server.on('listening', () => {
+  console.log('🎉 Servidor está escutando na porta', PORT);
 });
 
 // Tratamento de erros não capturados
