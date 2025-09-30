@@ -1,0 +1,26 @@
+# Dockerfile mínimo para teste de deploy
+# VERSION: v1.0.0 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
+
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Instalar apenas dependências essenciais
+COPY backend/package*.json ./
+RUN npm ci --only=production && npm cache clean --force
+
+# Copiar apenas o servidor mínimo
+COPY backend/minimal-server.js ./server.js
+
+# Criar pasta public vazia para evitar erros
+RUN mkdir -p public
+
+# Expor porta
+EXPOSE 8080
+
+# Variáveis de ambiente
+ENV NODE_ENV=production
+ENV PORT=8080
+
+# Comando para iniciar o servidor
+CMD ["node", "server.js"]
