@@ -10,7 +10,7 @@ const { MongoClient } = require('mongodb');
 require('dotenv').config();
 
 // Importar serviços do chatbot
-// VERSION: v2.9.2 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v2.9.5 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
 let aiService, searchService, sessionService, feedbackService, logsService, dataCache, userActivityLogger;
 
 try {
