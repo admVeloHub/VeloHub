@@ -23,8 +23,8 @@ RUN npm run build
 FROM node:18-alpine AS production
 WORKDIR /app
 
-# Instalar dependências do backend
-COPY backend/package*.json ./
+# Instalar dependências mínimas do backend
+COPY backend/package-minimal.json ./package.json
 RUN npm ci --only=production && npm cache clean --force
 
 # Copiar código do backend
