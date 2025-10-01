@@ -25,7 +25,7 @@ env_variables:
   GOOGLE_CREDENTIALS: ${GOOGLE_CREDENTIALS}
   
   # Configurações adicionais
-  CORS_ORIGIN: "https://velohub-471220.uc.r.appspot.com"
+  CORS_ORIGIN: "https://velohub-278491073220.us-east1.run.app"
   
   # Variáveis do Container (expostas para Frontend)
   REACT_APP_GOOGLE_CLIENT_ID: "278491073220-eb4ogvn3aifu0ut9mq3rvu5r9r9l3137.apps.googleusercontent.com"
