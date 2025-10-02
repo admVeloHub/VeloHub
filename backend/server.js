@@ -438,18 +438,13 @@ app.get('/api/velo-news', async (req, res) => {
 
       return {
         _id: item._id,
-        // Priorize os campos ESPECÍFICOS de Velonews antes dos genéricos
-        title: item.velonews_titulo ?? item.title ?? '(sem título)',
-        content: item.velonews_conteudo ?? item.content ?? '',
-        is_critical:
-          item.alerta_critico === 'Y' || item.alerta_critico === true ||
-          item.is_critical === 'Y' || item.is_critical === true ||
-          item.isCritical === 'Y' || item.isCritical === true
-            ? 'Y'
-            : 'N',
+        // Usando campos padrão do schema
+        title: item.titulo ?? '(sem título)',
+        content: item.conteudo ?? '',
+        is_critical: item.isCritical === true ? 'Y' : 'N',
         createdAt,
         updatedAt: item.updatedAt ?? createdAt,
-        source: 'Velonews' // <- rótulo explícito
+        source: 'Velonews'
       };
     });
     
