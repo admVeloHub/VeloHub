@@ -462,4 +462,36 @@
 
 ---
 
+---
+
+## 📋 **PUSH GITHUB - 2024-12-19 15:30**
+
+### **Commit:** `901f887`
+- **Tipo**: Fix - Correções críticas
+- **Versão**: Múltiplas atualizações
+- **Arquivos Modificados**: 12 arquivos
+- **Descrição**: Correção de problemas críticos do Status do App e VeloBot
+  - Corrigir fallback do Status do App que estava sobrescrevendo dados reais do MongoDB
+  - Corrigir ordem de inicialização do VeloBot para carregar Bot_perguntas corretamente
+  - Implementar logs detalhados para diagnóstico de API
+  - Atualizar cache inicial e fallbacks com dados corretos do MongoDB
+  - Corrigir conformidade de schemas para Artigos e Bot_perguntas
+  - Desativar aba Apoio temporariamente
+  - Atualizar versionamento: server.js v2.13.0, Chatbot.js v1.3.5, api-config.js v1.0.2
+- **Status**: ✅ Push realizado com sucesso
+
+---
+
+### **GitHub Push - Correção Crítica Variável userEmail Não Definida**
+- **Data/Hora**: 2024-12-19 16:00:00
+- **Tipo**: GitHub Push
+- **Versão**: backend/server.js v2.13.1
+- **Commit**: 448a7ec
+- **Arquivos Modificados**: 
+  - `backend/server.js` (v2.13.1 - correção variável userEmail)
+- **Descrição**: Correção crítica da variável userEmail não definida que causava erro 500 no endpoint /api/chatbot/ask. Substituídas todas as referências de userEmail por cleanUserId (que contém o email do usuário). Resolve problema de crash da API do chatbot quando usuário enviava perguntas.
+- **Status**: ✅ Concluído com sucesso
+
+---
+
 *Log atualizado automaticamente após push para GitHub*
