@@ -128,26 +128,6 @@ USUÁRIO ACESSA A ABA VELOBOT  Ponto 0
 [x] Implementar getArticlesData() para carregar dados do MongoDB
 [x] Integrar carregamento de cache na inicialização
 
-//schema console_conteudo.Artigos
-_id
-tag
-categoria_id
-categoria_titulo
-artigo_titulo
-artigo_conteudo
-createdAt
-updatedAt
-
-//schema console_conteudo.Bot_perguntas
-_id
-Pergunta
-Resposta
-Palavras-chave
-Sinonimos
-Tabulação
-createdAt
-updatedAt
-
 10. TESTES E VALIDAÇÃO ⏳
 [ ] Testar cenários de falha das IAs
 [ ] Validar performance do filtro MongoDB
