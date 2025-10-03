@@ -1,5 +1,5 @@
 // Search Service - Busca inteligente em Bot_perguntas e Artigos
-// VERSION: v2.5.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
+// VERSION: v2.6.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
 // VERSION: v2.3.0 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
 const cosineSimilarity = require('cosine-similarity');
 
@@ -441,7 +441,7 @@ class SearchService {
     // Desduplicação e ordenação
     const uniqueMatches = {};
     todasAsCorrespondencias.forEach(match => {
-      const key = match.Pergunta.trim();
+      const key = (match.perguntaOriginal || match.Pergunta || '').trim();
       if (!uniqueMatches[key] || match.score > uniqueMatches[key].score) {
         uniqueMatches[key] = match;
       }
@@ -467,7 +467,7 @@ class SearchService {
    * @returns {Object} Menu de esclarecimento
    */
   generateClarificationMenu(matches, question) {
-    const options = matches.slice(0, 12).map(match => match.Pergunta);
+    const options = matches.slice(0, 12).map(match => match.perguntaOriginal || match.Pergunta || 'Opção não disponível');
     
     return {
       status: "clarification_needed",
@@ -485,7 +485,7 @@ class SearchService {
    * @returns {Object} Menu de esclarecimento
    */
   generateClarificationMenuFromAI(relevantOptions, question) {
-    const options = relevantOptions.slice(0, 12).map(option => option.Pergunta);
+    const options = relevantOptions.slice(0, 12).map(option => option.pergunta || option.Pergunta || 'Opção não disponível');
     
     return {
       status: "clarification_needed",
