@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Chatbot Component
- * VERSION: v1.6.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.7.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -768,9 +768,9 @@ const Chatbot = ({ prompt }) => {
         <div className="flex-shrink-0 p-3" style={{borderBottom: '1px solid var(--cor-borda)'}}>
             {/* Grid de Status dos Serviços - Layout 4x2 */}
             <div className="grid grid-cols-4 gap-1">
-                {/* Status do APP - Primeira célula */}
+                {/* Serviços Online - Primeira célula */}
                 <div className="flex items-center text-xs p-1">
-                    <h2 className="text-2xl font-semibold" style={{color: 'var(--blue-dark)', fontFamily: 'Poppins, sans-serif'}}>Status do APP</h2>
+                    <h2 className="text-2xl font-semibold" style={{color: 'var(--blue-dark)', fontFamily: 'Poppins, sans-serif'}}>Serviços Online</h2>
                 </div>
                 
                 {/* Crédito Trabalhador */}

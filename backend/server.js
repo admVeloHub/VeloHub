@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.14.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.16.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
  */
 
 // LOG DE DIAGNÓSTICO #1: Identificar a versão do código
@@ -131,8 +131,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Servir arquivos estáticos do frontend
-app.use(express.static(path.join(__dirname, 'public')));
 
 // MongoDB Connection
 const uri = process.env.MONGO_ENV;
@@ -1737,10 +1735,6 @@ app.post('/api/chatbot/ai-response', async (req, res) => {
   }
 });
 
-// Rota para servir o React app (SPA)
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
 
 // Iniciar servidor
 console.log('🔄 Iniciando servidor...');
@@ -2121,4 +2115,12 @@ app.put('/api/module-status', async (req, res) => {
     console.error('❌ Erro ao atualizar status dos módulos em lote:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
+});
+
+// Servir arquivos estáticos do frontend (DEPOIS das rotas da API)
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Rota para servir o React app (SPA) - DEVE SER A ÚLTIMA ROTA
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
