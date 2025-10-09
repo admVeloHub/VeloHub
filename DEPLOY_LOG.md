@@ -464,6 +464,22 @@
 
 ---
 
+## 📋 **PUSH GITHUB - 2025-01-10 22:45**
+
+### **Commit:** `f1cd639`
+- **Tipo**: Fix - Correção crítica do chatbot
+- **Versão**: v2.6.8 (aiService.js) + v2.17.2 (server.js)
+- **Arquivos Modificados**: 2 arquivos
+- **Descrição**: Correção crítica - analyzeQuestionWithAI agora respeita IA primária do handshake
+  - Função agora recebe parâmetro primaryAI definido pelo handshake
+  - Tenta IA primária primeiro, depois IA secundária como fallback
+  - Se ambas falharem, usa pesquisa simples por filtro no MongoDB
+  - Resolve problema de no_match por falha de IA
+  - Logs detalhados de qual IA está sendo usada
+  - Sistema agora respeita configuração do handshake corretamente
+
+---
+
 ## 📋 **PUSH GITHUB - 2024-12-19 15:30**
 
 ### **Commit:** `901f887`
