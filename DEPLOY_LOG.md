@@ -596,4 +596,18 @@
 
 ---
 
+### **GitHub Push - Correção Crítica do Sistema de Chatbot**
+- **Data/Hora**: 2025-01-10 22:45:00
+- **Tipo**: GitHub Push
+- **Versão**: Múltiplas - Correção Crítica
+- **Commit**: b400f74
+- **Arquivos Modificados**:
+  - `src/components/Chatbot.js` (v1.7.1 - correção mapeamento clarificationMenu)
+  - `backend/services/chatbot/aiService.js` (v2.6.3 - adicionado hasData em todos os retornos)
+  - `backend/server.js` (v2.17.1 - corrigida lógica de fallback)
+- **Descrição**: Correção crítica que resolveu o problema de todas as perguntas retornarem "no_match". Corrigido mapeamento de clarificationMenu para clarificationData no frontend, ajustado prompt da IA para ser mais rigoroso, corrigida lógica de fallback quando não há dados do Bot_perguntas, e adicionado campo hasData em todos os retornos da análise da IA. Sistema agora deve responder adequadamente em vez de sempre retornar no_match.
+- **Status**: ✅ Concluído com sucesso
+
+---
+
 *Log atualizado automaticamente após push para GitHub*
