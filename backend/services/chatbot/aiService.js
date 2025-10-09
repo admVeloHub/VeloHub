@@ -1,6 +1,6 @@
 // AI Service - Integração híbrida com IA para respostas inteligentes
 // VERSION: v2.5.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
-// VERSION: v2.6.4 | DATE: 2025-01-10 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v2.6.5 | DATE: 2025-01-10 | AUTHOR: Lucas Gravina - VeloHub Development Team
 // VERSION: v2.7.0 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
 // VERSION: v2.7.1 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
 // OTIMIZAÇÃO: Handshake inteligente com ping HTTP + TTL 3min + testes paralelos
@@ -305,7 +305,7 @@ Analise a pergunta do usuário e identifique qual(is) opção(ões) se aplica(m)
 **CRITÉRIOS:**
 - Se houver 1 opção que responde bem a pergunta: retorne apenas esse número
 - Se houver múltiplas opções que podem responder a pergunta: retorne todos os números separados por vírgula
-- Se NENHUMA opção se aplica: responda NENHUM
+- Se NENHUMA opção se aplica: sugira a que considerou mais apoximada ou relevante. 
 
 **IMPORTANTE:** Seja prático. Se a pergunta pode ser respondida por uma das opções, inclua-a.
 
@@ -342,17 +342,29 @@ Analise a pergunta do usuário e identifique qual(is) opção(ões) se aplica(m)
       console.log(`🤖 AI Analyzer: Resposta da IA: "${response}"`);
       console.log(`🔍 AI Analyzer: Tamanho da resposta: ${response.length} caracteres`);
       
-      // Verificar se a IA retornou "NENHUM" (sem matches)
+      // Verificar se a IA retornou "NENHUM" (sem matches) - agora menos provável
       if (response.toUpperCase().includes('NENHUM') || response.trim() === '') {
-        console.log('❌ AI Analyzer: IA retornou NENHUM - nenhuma opção relevante identificada');
-        return { relevantOptions: [], needsClarification: false, hasData: true };
+        console.log('❌ AI Analyzer: IA retornou NENHUM - usando primeira opção como fallback');
+        // Em vez de retornar vazio, usar a primeira opção como fallback
+        return { 
+          relevantOptions: [filteredData[0]], 
+          needsClarification: false, 
+          hasData: true,
+          fallback: true 
+        };
       }
 
       // Extrair números da resposta
       const relevantIndices = response.match(/\d+/g);
       if (!relevantIndices || relevantIndices.length === 0) {
-        console.log('❌ AI Analyzer: Nenhuma opção relevante identificada');
-        return { relevantOptions: [], needsClarification: false, hasData: true };
+        console.log('❌ AI Analyzer: Nenhum número encontrado - usando primeira opção como fallback');
+        // Em vez de retornar vazio, usar a primeira opção como fallback
+        return { 
+          relevantOptions: [filteredData[0]], 
+          needsClarification: false, 
+          hasData: true,
+          fallback: true 
+        };
       }
 
       // Converter para índices reais (subtrair 1)
