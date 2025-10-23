@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v1.6.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.7.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -1566,7 +1566,7 @@ const ArtigosPage = () => {
                             
                             <div 
                                 className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
-                                dangerouslySetInnerHTML={renderHTML(selectedArticle.content)}
+                                dangerouslySetInnerHTML={{ __html: formatResponseText(selectedArticle.content, 'article') }}
                             />
                             
                             {selectedArticle.tag && (

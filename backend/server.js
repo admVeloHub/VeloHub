@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.20.0 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.21.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  */
 
 // ===== FALLBACK PARA TESTES LOCAIS =====
@@ -1604,25 +1604,29 @@ app.post('/api/chatbot/ask', async (req, res) => {
     let aiProvider = null;
     
     if (aiResponse.success) {
-      finalResponse = aiResponse.response;
+      // Aplicar formatação da resposta da IA
+      finalResponse = responseFormatter.formatAIResponse(aiResponse.response, aiResponse.provider);
       responseSource = aiResponse.source;
       aiProvider = aiResponse.provider;
-      console.log(`✅ PONTO 1: Resposta da IA processada com sucesso (${aiProvider})`);
+      console.log(`✅ PONTO 1: Resposta da IA processada e formatada com sucesso (${aiProvider})`);
     } else {
       // Fallback para resposta direta do Bot_perguntas se IA falhar
       if (botPerguntasData.length > 0) {
-        finalResponse = botPerguntasData[0].resposta || 'Resposta encontrada na base de conhecimento.';
+        // Aplicar formatação da resposta do Bot_perguntas
+        finalResponse = responseFormatter.formatCacheResponse(botPerguntasData[0].resposta || 'Resposta encontrada na base de conhecimento.', 'bot_perguntas');
         responseSource = 'bot_perguntas';
-        console.log('✅ PONTO 1: Usando resposta direta do Bot_perguntas (fallback)');
+        console.log('✅ PONTO 1: Usando resposta direta do Bot_perguntas formatada (fallback)');
       } else {
         if (shouldUseLocalFallback()) {
-          finalResponse = FALLBACK_FOR_LOCAL_TESTING.resposta;
+          // Aplicar formatação do fallback local
+          finalResponse = responseFormatter.formatFallbackResponse(FALLBACK_FOR_LOCAL_TESTING.resposta);
           responseSource = 'local_fallback';
-          console.log('🧪 PONTO 1: Usando fallback para teste local');
+          console.log('🧪 PONTO 1: Usando fallback formatado para teste local');
         } else {
-          finalResponse = 'Não consegui encontrar uma resposta precisa para sua pergunta. Pode fornecer mais detalhes?';
+          // Aplicar formatação da resposta padrão
+          finalResponse = responseFormatter.formatFallbackResponse('Não consegui encontrar uma resposta precisa para sua pergunta. Pode fornecer mais detalhes?');
           responseSource = 'no_results';
-          console.log('❌ PONTO 1: Nenhuma resposta encontrada');
+          console.log('❌ PONTO 1: Nenhuma resposta encontrada - usando fallback formatado');
         }
       }
     }

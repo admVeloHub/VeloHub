@@ -1,8 +1,9 @@
 import React from 'react';
 import { X, BookOpen, Calendar, User } from 'lucide-react';
+import { formatResponseText } from '../utils/textFormatter';
 
 // Componente Modal de Artigo
-// VERSION: v1.1.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
+// VERSION: v1.2.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
 const ArticleModal = ({ isOpen, onClose, article }) => {
     if (!isOpen || !article) return null;
 
@@ -80,9 +81,11 @@ const ArticleModal = ({ isOpen, onClose, article }) => {
 
                     {/* Conteúdo do Artigo */}
                     <div className="prose prose-gray dark:prose-invert max-w-none">
-                        <div className="leading-relaxed whitespace-pre-wrap" style={{color: 'var(--cor-texto-principal)'}}>
-                            {article.content}
-                        </div>
+                        <div 
+                            className="leading-relaxed" 
+                            style={{color: 'var(--cor-texto-principal)'}}
+                            dangerouslySetInnerHTML={{ __html: formatResponseText(article.content, 'article') }}
+                        />
                     </div>
 
                     {/* Informações adicionais */}
