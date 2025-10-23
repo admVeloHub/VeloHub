@@ -10,9 +10,9 @@ import { API_BASE_URL } from '../config/api-config';
 
 // Log da configuração da API para debug
 console.log('🔧 Chatbot - API_BASE_URL:', API_BASE_URL);
-import ArticleModal from './ArticleModal';
 
 // Componente do Chatbot Inteligente - Mantendo Layout Original
+// VERSION: v1.9.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
 const Chatbot = ({ prompt }) => {
     const [messages, setMessages] = useState([]);
     const [inputValue, setInputValue] = useState('');
@@ -932,12 +932,53 @@ const Chatbot = ({ prompt }) => {
                 </div>
             </div>
             
-            {/* Modal de Artigo - NOVA FUNCIONALIDADE */}
-            <ArticleModal 
-                isOpen={!!selectedArticle}
-                onClose={() => setSelectedArticle(null)}
-                article={selectedArticle}
-            />
+            {/* Modal de Artigo - MESMO MODAL DA PÁGINA DE ARTIGOS */}
+            {selectedArticle && (
+                <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+                    <div className="rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden bg-white dark:bg-gray-800" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'}}>
+                        <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+                            <div>
+                                <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full text-sm font-medium">
+                                    {selectedArticle.category}
+                                </span>
+                                {selectedArticle.createdAt && (
+                                    <span className="ml-3 text-sm text-gray-500 dark:text-gray-400">
+                                        {new Date(selectedArticle.createdAt).toLocaleDateString('pt-BR')}
+                                    </span>
+                                )}
+                            </div>
+                            <button 
+                                onClick={() => setSelectedArticle(null)}
+                                className="text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white text-2xl font-bold"
+                            >
+                                ×
+                            </button>
+                        </div>
+                        
+                        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                            <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-6">
+                                {selectedArticle.title}
+                            </h2>
+                            
+                            <div 
+                                className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
+                                dangerouslySetInnerHTML={{ __html: formatResponseText(selectedArticle.content, 'article') }}
+                            />
+                            
+                            {selectedArticle.tag && (
+                                <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                                    <h4 className="text-lg font-semibold text-gray-800 dark:text-white mb-3">Tag:</h4>
+                                    <div className="flex flex-wrap gap-2">
+                                        <span className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full text-sm">
+                                            {selectedArticle.tag}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
             
             {/* Modal de Feedback - MANTENDO EXATAMENTE IGUAL */}
             <FeedbackModal 
