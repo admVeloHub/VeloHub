@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.25.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.26.3 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  */
 
 // ===== FALLBACK PARA TESTES LOCAIS =====
@@ -35,7 +35,11 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { MongoClient } = require('mongodb');
+// Carregar variáveis de ambiente
 require('dotenv').config();
+
+// Carregar configuração local para testes
+const localConfig = require('./config-local');
 
 // Importar serviços do chatbot
 // VERSION: v2.19.0 | DATE: 2025-01-10 | AUTHOR: VeloHub Development Team
@@ -2554,6 +2558,337 @@ app.put('/api/module-status', async (req, res) => {
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
+
+// ===== API CRUD PARA MÓDULO APOIO =====
+console.log('🔧 Registrando rotas do módulo Apoio...');
+
+// CREATE - Criar tickets tk_conteudos
+app.post('/api/support/tk-conteudos', async (req, res) => {
+  try {
+    console.log('🔍 DEBUG: Endpoint /api/support/tk-conteudos chamado');
+    console.log('🔍 DEBUG: Body recebido:', req.body);
+    
+    if (!client) {
+      return res.status(503).json({
+        success: false,
+        error: 'MongoDB não configurado'
+      });
+    }
+
+    await connectToMongo();
+    const db = client.db('console_chamados');
+    const collection = db.collection('tk_conteudos');
+    
+    // Gerar próximo ID com prefixo TKC-
+    const lastDoc = await collection.find().sort({ _id: -1 }).limit(1).toArray();
+    const nextNumber = lastDoc.length > 0 ? parseInt(lastDoc[0]._id.split('-')[1]) + 1 : 1;
+    const newId = `TKC-${String(nextNumber).padStart(6, '0')}`;
+    
+    const ticketData = {
+      _id: newId,
+      ...req.body,
+      _statusHub: 'pendente',      // NOVO: valor padrão
+      _statusConsole: 'novo',      // NOVO: valor padrão
+      _lastUpdatedBy: 'user',      // NOVO: valor padrão
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    await collection.insertOne(ticketData);
+    
+    res.json({ success: true, ticketId: newId });
+  } catch (error) {
+    console.error('❌ Erro ao criar ticket tk_conteudos:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor'
+    });
+  }
+});
+
+// CREATE - Criar tickets tk_gestão
+app.post('/api/support/tk-gestao', async (req, res) => {
+  try {
+    if (!client) {
+      return res.status(503).json({
+        success: false,
+        error: 'MongoDB não configurado'
+      });
+    }
+
+    await connectToMongo();
+    const db = client.db('console_chamados');
+    const collection = db.collection('tk_gestão');
+    
+    // Gerar próximo ID com prefixo TKG-
+    const lastDoc = await collection.find().sort({ _id: -1 }).limit(1).toArray();
+    const nextNumber = lastDoc.length > 0 ? parseInt(lastDoc[0]._id.split('-')[1]) + 1 : 1;
+    const newId = `TKG-${String(nextNumber).padStart(6, '0')}`;
+    
+    const ticketData = {
+      _id: newId,
+      ...req.body,
+      _statusHub: 'pendente',      // NOVO: valor padrão
+      _statusConsole: 'novo',      // NOVO: valor padrão
+      _lastUpdatedBy: 'user',      // NOVO: valor padrão
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    await collection.insertOne(ticketData);
+    
+    res.json({ success: true, ticketId: newId });
+  } catch (error) {
+    console.error('❌ Erro ao criar ticket tk_gestão:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor'
+    });
+  }
+});
+
+// READ - Buscar todos os tickets de um usuário
+app.get('/api/support/tickets', async (req, res) => {
+  try {
+    const { userEmail } = req.query;
+    
+    if (!userEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'userEmail é obrigatório'
+      });
+    }
+
+    if (!client) {
+      return res.status(503).json({
+        success: false,
+        error: 'MongoDB não configurado'
+      });
+    }
+
+    await connectToMongo();
+    const db = client.db('console_chamados');
+    
+    const [tkConteudos, tkGestao] = await Promise.all([
+      db.collection('tk_conteudos')
+        .find({ _userEmail: userEmail })
+        .sort({ createdAt: -1 })
+        .toArray(),
+      db.collection('tk_gestão')
+        .find({ _userEmail: userEmail })
+        .sort({ createdAt: -1 })
+        .toArray()
+    ]);
+    
+    const allTickets = [...tkConteudos, ...tkGestao]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
+    res.json({ success: true, tickets: allTickets });
+  } catch (error) {
+    console.error('❌ Erro ao buscar tickets:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor'
+    });
+  }
+});
+
+// READ - Buscar ticket específico
+app.get('/api/support/ticket/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!client) {
+      return res.status(503).json({
+        success: false,
+        error: 'MongoDB não configurado'
+      });
+    }
+
+    await connectToMongo();
+    const db = client.db('console_chamados');
+    
+    const collection = id.startsWith('TKC-') ? 'tk_conteudos' : 'tk_gestão';
+    const ticket = await db.collection(collection).findOne({ _id: id });
+    
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        error: 'Ticket não encontrado'
+      });
+    }
+    
+    res.json({ success: true, ticket });
+  } catch (error) {
+    console.error('❌ Erro ao buscar ticket:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor'
+    });
+  }
+});
+
+// UPDATE - Atualizar ticket
+app.put('/api/support/ticket/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!client) {
+      return res.status(503).json({
+        success: false,
+        error: 'MongoDB não configurado'
+      });
+    }
+
+    await connectToMongo();
+    const db = client.db('console_chamados');
+    const collection = id.startsWith('TKC-') ? 'tk_conteudos' : 'tk_gestão';
+    
+    const updateData = {
+      ...req.body,
+      updatedAt: new Date()
+    };
+    
+    const result = await db.collection(collection).updateOne(
+      { _id: id },
+      { $set: updateData }
+    );
+    
+    if (result.matchedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Ticket não encontrado'
+      });
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ Erro ao atualizar ticket:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor'
+    });
+  }
+});
+
+// DELETE - Excluir ticket
+app.delete('/api/support/ticket/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!client) {
+      return res.status(503).json({
+        success: false,
+        error: 'MongoDB não configurado'
+      });
+    }
+
+    await connectToMongo();
+    const db = client.db('console_chamados');
+    const collection = id.startsWith('TKC-') ? 'tk_conteudos' : 'tk_gestão';
+    
+    const result = await db.collection(collection).deleteOne({ _id: id });
+    
+    if (result.deletedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Ticket não encontrado'
+      });
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ Erro ao excluir ticket:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor'
+    });
+  }
+});
+
+// STATS - Estatísticas de tickets por usuário
+app.get('/api/support/stats', async (req, res) => {
+  try {
+    const { userEmail } = req.query;
+    
+    if (!userEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'userEmail é obrigatório'
+      });
+    }
+
+    if (!client) {
+      return res.status(503).json({
+        success: false,
+        error: 'MongoDB não configurado'
+      });
+    }
+
+    await connectToMongo();
+    const db = client.db('console_chamados');
+    
+    const [tkConteudosCount, tkGestaoCount] = await Promise.all([
+      db.collection('tk_conteudos').countDocuments({ _userEmail: userEmail }),
+      db.collection('tk_gestão').countDocuments({ _userEmail: userEmail })
+    ]);
+    
+    res.json({ 
+      success: true, 
+      stats: { 
+        total: tkConteudosCount + tkGestaoCount,
+        tkConteudos: tkConteudosCount,
+        tkGestao: tkGestaoCount
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erro ao buscar estatísticas:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor'
+    });
+  }
+});
+
+// STATS - Estatísticas gerais (admin)
+app.get('/api/support/stats/admin', async (req, res) => {
+  try {
+    if (!client) {
+      return res.status(503).json({
+        success: false,
+        error: 'MongoDB não configurado'
+      });
+    }
+
+    await connectToMongo();
+    const db = client.db('console_chamados');
+    
+    const [tkConteudosCount, tkGestaoCount, recentTickets] = await Promise.all([
+      db.collection('tk_conteudos').countDocuments(),
+      db.collection('tk_gestão').countDocuments(),
+      db.collection('tk_conteudos').find().sort({ createdAt: -1 }).limit(10).toArray()
+    ]);
+    
+    res.json({ 
+      success: true, 
+      stats: { 
+        total: tkConteudosCount + tkGestaoCount,
+        tkConteudos: tkConteudosCount,
+        tkGestao: tkGestaoCount,
+        recentTickets: recentTickets
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erro ao buscar estatísticas admin:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor'
+    });
+  }
+});
+
+console.log('✅ Rotas do módulo Apoio registradas com sucesso!');
+console.log('📋 Rotas disponíveis: POST /api/support/tk-conteudos, POST /api/support/tk-gestao');
 
 // Servir arquivos estáticos do frontend (DEPOIS das rotas da API)
 app.use(express.static(path.join(__dirname, 'public')));

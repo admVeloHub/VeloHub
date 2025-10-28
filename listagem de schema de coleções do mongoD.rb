@@ -116,28 +116,59 @@ listagem de schema de coleções do mongoDB
    
    🗄️ Database: console_chamados
    
+   // ===== SISTEMA DE TICKETS DE APOIO - VELOHUB =====
+   // VERSION: v1.12.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+   
    // schema DB console_chamados.tk_gestão
+   // Tickets de gestão, RH e financeiro, facilities
    {
-   _id: ObjectId,
-   _genero: String,                // Gênero do ticket
-   _tipo: String,                  // Tipo do ticket
-   _direcionamento: String,        // Direcionamento
-   _corpo: String,                 // Corpo do ticket
-   _data_hora: Date,               // Data e hora
+   _id: String,                    // ID personalizado com prefixo TKG- + numeração automática (ex: TKG-000001)
+   _genero: String,                // Gênero do ticket (Gestão, RH e Financeiro, Facilities)
+   _tipo: String,                  // Tipo do ticket (solicitação, agendamento, notificação, etc.)
+   _direcionamento: String,        // Direcionamento (supervisor, gestor, backoffice, RH, Financeiro, etc.)
+   _corpo: String,                 // Corpo do ticket (mensagem principal)
+   _userEmail: String,             // Email do usuário (obtido via SSO)
+   _statusHub: String,             // Status para usuário (novo, aberto, pendente, resolvido)
+   _statusConsole: String,         // Status para gestor (novo, aberto, pendente, resolvido)
+   _lastUpdatedBy: String,         // Quem atualizou por último (user, admin)
    createdAt: Date,                // Data de criação
    updatedAt: Date                 // Data de atualização
    }
    
    // schema DB console_chamados.tk_conteudos
+   // Tickets de conteúdo (artigos, processos, roteiros, treinamentos, funcionalidades, recursos)
    {
-   _id: ObjectId,
-   _direcionamento: String,        // Direcionamento
-   _descrição: String,             // Descrição
-   _obs: String,                   // Observações
-   _data_hora: Date,               // Data e hora
+   _id: String,                    // ID personalizado com prefixo TKC- + numeração automática (ex: TKC-000001)
+   _genero: String,                // Gênero do ticket (Artigo, Processo, Roteiro, Treinamento, Funcionalidade, Recurso Adicional)
+   _tipo: String,                  // Tipo do ticket (assunto, produto, ambiente, tipo_recurso, etc.)
+   _corpo: String,                 // Corpo do ticket (descrição, situação, aplicação, etc.)
+   _obs: String,                   // Observações (opcional, exceto para Processo onde é obrigatório)
+   _userEmail: String,             // Email do usuário (obtido via SSO)
+   _statusHub: String,             // Status para usuário (novo, aberto, pendente, resolvido)
+   _statusConsole: String,         // Status para gestor (novo, aberto, pendente, resolvido)
+   _lastUpdatedBy: String,         // Quem atualizou por último (user, admin)
    createdAt: Date,                // Data de criação
    updatedAt: Date                 // Data de atualização
    }
+   
+   // ===== MAPEAMENTO DE FORMULÁRIOS PARA SCHEMAS =====
+   
+   // FORMULÁRIOS TK_CONTEUDOS (6 tipos):
+   // 1. Artigo: assunto → _tipo, descrição → _corpo, ocorrência → _obs
+   // 2. Processo: tipo → _tipo, assunto → _obs, contexto → _corpo (TODOS OBRIGATÓRIOS)
+   // 3. Roteiro: produto → _tipo, situação → _corpo, ocorrência → _obs
+   // 4. Treinamento: assunto → _tipo, descrição → _corpo, ocorrência → _obs
+   // 5. Funcionalidade: ambiente → _tipo, aplicação → _corpo, observações → _obs
+   // 6. Recurso Adicional: tipo_recurso → _tipo, descrição → _corpo, ocorrência → _obs
+   
+   // FORMULÁRIOS TK_GESTÃO (3 tipos):
+   // 1. Gestão: tipo → _tipo, direcionado → _direcionamento, mensagem → _corpo
+   // 2. RH e Financeiro: tipo → _tipo, setor → _direcionamento, mensagem → _corpo
+   // 3. Facilities: tipo → _tipo, categoria → _direcionamento, mensagem → _corpo
+   
+   // ===== DOCUMENTAÇÃO DETALHADA =====
+   // Para informações completas sobre status, endpoints e regras de negócio,
+   // consulte: SISTEMA_TICKETS_STATUS_ENDPOINTS.md
    
    
    🗄️ Database: console_config
@@ -377,4 +408,4 @@ updatedAt: Date,                // Data de atualização
    - Backend: Aplicar formatação automática se conteúdo não estiver formatado
    - Frontend: Renderizar formatação markdown corretamente
    */
-   
+   npm 
