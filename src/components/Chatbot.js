@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Chatbot Component
- * VERSION: v1.9.0 | DATE: 2025-01-10 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.9.3 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -784,7 +784,7 @@ const Chatbot = ({ prompt }) => {
                         if (msg.type === 'articles') {
                             return (
                                 <div key={msg.id} className="flex gap-3 justify-start">
-                                    <img src="https://github.com/VeloProcess/PDP-Portal-de-Processos-/blob/main/unnamed%20(2).png?raw=true" alt="Bot" className="w-8 h-8 rounded-full" />
+                                    <img src="/mascote avatar.png" alt="Bot" className="w-14 h-14 rounded-full" />
                                     <div className="max-w-md p-4 rounded-2xl rounded-bl-none" style={{backgroundColor: 'var(--cor-container)', border: '1px solid var(--cor-borda)'}}>
                                         <h4 className="font-semibold text-sm mb-2" style={{color: 'var(--blue-dark)'}}>Artigos relacionados:</h4>
                                         <ul className="space-y-2">
@@ -805,7 +805,7 @@ const Chatbot = ({ prompt }) => {
                         }
                         return (
                             <div key={msg.id} className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                {msg.sender === 'bot' && <img src="https://github.com/VeloProcess/PDP-Portal-de-Processos-/blob/main/unnamed%20(2).png?raw=true" alt="Bot" className="w-8 h-8 rounded-full" />}
+                                {msg.sender === 'bot' && <img src="/mascote avatar.png" alt="Bot" className="w-14 h-14 rounded-full" />}
                                 <div className={`max-w-md p-3 rounded-2xl ${msg.sender === 'user' ? 'rounded-br-none' : 'rounded-bl-none'}`} 
                                      style={msg.sender === 'user' ? 
                                         {backgroundColor: 'var(--blue-medium)', color: 'var(--white)'} : 
@@ -902,7 +902,7 @@ const Chatbot = ({ prompt }) => {
                     
                     {isTyping && (
                         <div className="flex gap-3 justify-start">
-                            <img src="https://github.com/VeloProcess/PDP-Portal-de-Processos-/blob/main/unnamed%20(2).png?raw=true" alt="Bot" className="w-8 h-8 rounded-full" />
+                            <img src="/mascote avatar.png" alt="Bot" className="w-14 h-14 rounded-full" />
                             <div className="max-w-md p-3 rounded-2xl rounded-bl-none" style={{backgroundColor: 'var(--cor-container)', color: 'var(--cor-texto-principal)', border: '1px solid var(--cor-borda)'}}>
                                 <div className="flex items-center gap-1">
                                     <span className="h-2 w-2 rounded-full animate-bounce [animation-delay:-0.3s]" style={{backgroundColor: 'var(--blue-medium)'}}></span>

@@ -1,5 +1,5 @@
 # Sistema de Tickets - Status e Endpoints
-<!-- VERSION: v1.0.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team -->
 
 ## 📋 Visão Geral do Sistema
 
@@ -7,6 +7,30 @@ O sistema de tickets do VeloHub utiliza **duas coleções MongoDB** para gerenci
 
 - **`console_chamados.tk_conteudos`** - Tickets de conteúdo (artigos, processos, roteiros, treinamentos, funcionalidades, recursos)
 - **`console_chamados.tk_gestão`** - Tickets de gestão (gestão, RH e financeiro, facilities)
+
+## 💬 Sistema de Histórico de Mensagens
+
+### Estrutura do Campo _corpo
+
+O campo `_corpo` foi alterado de `String` para `Array` de objetos para suportar histórico completo de mensagens:
+
+```javascript
+_corpo: [
+  {
+    autor: String,      // "user" | "admin"
+    userName: String,   // Nome obtido do SSO
+    timestamp: Date,    // Data/hora da mensagem
+    mensagem: String    // Conteúdo da mensagem
+  }
+]
+```
+
+### Vantagens da Nova Estrutura
+
+- **Histórico Completo**: Todas as mensagens são preservadas
+- **Rastreabilidade**: Identificação clara do autor e timestamp
+- **Escalabilidade**: Suporte a conversas longas
+- **Retrocompatibilidade**: Conversão automática de strings existentes
 
 ## 🔄 Sistema de Status Dual
 
@@ -182,6 +206,35 @@ Atualiza um ticket existente.
   "success": true
 }
 ```
+
+#### PUT `/api/support/ticket/:id/reply`
+Adiciona uma nova resposta ao histórico de mensagens do ticket.
+
+**Path Parameters:**
+- `id`: ID do ticket (TKC-000001 ou TKG-000001)
+
+**Body:**
+```json
+{
+  "autor": "user",
+  "userName": "João Silva",
+  "mensagem": "Nova mensagem do usuário"
+}
+```
+
+**Resposta:**
+```json
+{
+  "success": true,
+  "message": "Resposta adicionada com sucesso"
+}
+```
+
+**Funcionalidades:**
+- Adiciona nova mensagem ao array `_corpo`
+- Atualiza status baseado no autor da resposta
+- Atualiza `_lastUpdatedBy` e `updatedAt`
+- Suporte a respostas de usuários e administradores
 
 ### DELETE - Excluir Tickets
 

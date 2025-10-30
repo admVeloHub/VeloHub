@@ -1,10 +1,11 @@
 /**
  * VeloHub V3 - API Configuration
- * VERSION: v1.0.2 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.3 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
  */
 
 /**
  * Obtém a URL base da API automaticamente baseada no ambiente
+ * VERSION: v1.0.3 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
  * @returns {string} URL base da API
  */
 export const getApiBaseUrl = () => {
@@ -13,12 +14,8 @@ export const getApiBaseUrl = () => {
     return process.env.REACT_APP_API_URL;
   }
   
-  // Se estamos em desenvolvimento, usar localhost
-  if (process.env.NODE_ENV === 'development') {
-    return 'http://localhost:8080/api';
-  }
-  
-  // Em produção, detectar automaticamente a URL baseada no domínio atual
+  // SEMPRE usar a URL online, mesmo em desenvolvimento
+  // Detecta automaticamente a URL baseada no domínio atual
   if (typeof window !== 'undefined') {
     const currentHost = window.location.hostname;
     
@@ -27,12 +24,12 @@ export const getApiBaseUrl = () => {
       return `https://${currentHost}/api`;
     }
     
-    // Fallback para URL padrão
-    return process.env.REACT_APP_API_URL || 'https://velohub-278491073220.us-east1.run.app/api';
+    // Fallback para URL padrão online
+    return 'https://velohub-278491073220.us-east1.run.app/api';
   }
   
-  // Fallback para server-side rendering
-  return process.env.REACT_APP_API_URL || 'https://velohub-278491073220.us-east1.run.app/api';
+  // Fallback para server-side rendering - sempre URL online
+  return 'https://velohub-278491073220.us-east1.run.app/api';
 };
 
 /**

@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.27.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.28.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  */
 
 // ===== FALLBACK PARA TESTES LOCAIS =====
@@ -2575,6 +2575,14 @@ app.post('/api/support/tk-conteudos', async (req, res) => {
       });
     }
 
+    // Validação obrigatória do campo _assunto
+    if (!req.body._assunto || req.body._assunto.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: 'Campo assunto é obrigatório'
+      });
+    }
+
     await connectToMongo();
     const db = client.db('console_chamados');
     const collection = db.collection('tk_conteudos');
@@ -2717,18 +2725,26 @@ app.put('/api/support/tk-conteudos', async (req, res) => {
       });
     }
 
+    // Preservar campos originais e atualizar apenas o necessário
+    const updateData = {
+      _corpo: _corpo,  // Array completo de mensagens
+      _statusHub: 'pendente',
+      _statusConsole: 'aberto',
+      _lastUpdatedBy: 'user',
+      updatedAt: new Date()
+    };
+
+    // Preservar campos originais se fornecidos no body
+    if (req.body._assunto !== undefined) updateData._assunto = req.body._assunto;
+    if (req.body._genero !== undefined) updateData._genero = req.body._genero;
+    if (req.body._tipo !== undefined) updateData._tipo = req.body._tipo;
+    if (req.body._obs !== undefined) updateData._obs = req.body._obs;
+    if (req.body._userEmail !== undefined) updateData._userEmail = req.body._userEmail;
+
     // Atualizar ticket
     const result = await collection.updateOne(
       { _id },
-      {
-        $push: { _corpo: novaMensagem },
-        $set: {
-          _statusHub: 'pendente',
-          _statusConsole: 'aberto',
-          _lastUpdatedBy: 'user',
-          updatedAt: new Date()
-        }
-      }
+      { $set: updateData }
     );
 
     if (result.modifiedCount === 0) {
