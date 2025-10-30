@@ -1,12 +1,12 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.1.6 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.1.71 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Map, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen } from 'lucide-react';
+import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Map, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen, X, RefreshCw } from 'lucide-react';
 import { mainAPI, veloNewsAPI, articlesAPI, faqAPI } from './services/api';
-import { checkAuthenticationState, updateUserInfo } from './services/auth';
+import { checkAuthenticationState, updateUserInfo, getUserSession } from './services/auth';
 import { API_BASE_URL } from './config/api-config';
 import NewsHistoryModal from './components/NewsHistoryModal';
 import LoginPage from './components/LoginPage';
@@ -156,16 +156,13 @@ window.debugCriticalModal = () => {
 
 // Componente do Cabeçalho
 const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
+  const session = getUserSession();
+  const userEmail = session?.user?.email || '';
+  const isLucasGravina = userEmail === 'lucas.gravina@velotax.com.br';
   const navItems = ['Home', 'VeloBot', 'Artigos', 'Apoio', 'VeloAcademy'];
 
   const handleNavClick = (item) => {
     console.log('Clicou em:', item); // Debug
-    
-    // Desativar aba Apoio temporariamente
-    if (item === 'Apoio') {
-      console.log('Aba Apoio desativada temporariamente'); // Debug
-      return; // Não permite navegar para Apoio
-    }
     
     if (item === 'VeloAcademy') {
       console.log('Redirecionando para VeloAcademy...'); // Debug
@@ -188,14 +185,10 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
           {navItems.map(item => (
             <button
               key={item}
-              onClick={() => handleNavClick(item)}
-              className={`nav-link ${activePage === item ? 'active' : ''} ${item === 'Apoio' ? 'disabled' : ''}`}
-              disabled={item === 'Apoio'}
-              style={item === 'Apoio' ? { 
-                opacity: 0.5, 
-                cursor: 'not-allowed',
-                pointerEvents: 'none'
-              } : {}}
+              onClick={() => item === 'Apoio' && !isLucasGravina ? null : handleNavClick(item)}
+              className={`nav-link ${activePage === item ? 'active' : ''} ${item === 'Apoio' && !isLucasGravina ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={item === 'Apoio' && !isLucasGravina}
+              style={item === 'Apoio' && !isLucasGravina ? { pointerEvents: 'none' } : {}}
             >
               {item}
             </button>
@@ -334,13 +327,6 @@ export default function App_v2() {
     }
   }, [isDarkMode]);
 
-  // Redirecionar automaticamente se estiver na página Apoio (desativada)
-  useEffect(() => {
-    if (activePage === 'Apoio') {
-      console.log('Redirecionando de Apoio para Home (aba desativada)');
-      setActivePage('Home');
-    }
-  }, [activePage, setActivePage]);
 
   // Inicializar funcionalidades do header
   useEffect(() => {
@@ -374,8 +360,10 @@ export default function App_v2() {
       case 'Artigos':
         return <ArtigosPage />;
       case 'Apoio':
-        // Redirecionar para Home se tentar acessar Apoio (desativado)
-        return <HomePage setCriticalNews={setCriticalNews} setShowHistoryModal={setShowHistoryModal} setVeloNews={setVeloNews} veloNews={veloNews} />;
+        const session = getUserSession();
+        const userEmail = session?.user?.email || '';
+        const isLucasGravina = userEmail === 'lucas.gravina@velotax.com.br';
+        return isLucasGravina ? <ApoioPage /> : <HomePage setCriticalNews={setCriticalNews} setShowHistoryModal={setShowHistoryModal} setVeloNews={setVeloNews} veloNews={veloNews} />;
       case 'VeloAcademy':
         return <div className="text-center p-10 text-gray-800 dark:text-gray-200"><h1 className="text-3xl">VeloAcademy</h1><p>Clique no botão VeloAcademy no header para acessar a plataforma.</p></div>;
       default:
@@ -1252,9 +1240,574 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews 
     );
 };
 
+// Componente para listagem de tickets do usuário
+const TicketsListPage = () => {
+    const [tickets, setTickets] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [filterStatus, setFilterStatus] = useState('all');
+    const [sortBy, setSortBy] = useState('date'); // 'date' | 'status'
+    const [selectedTicket, setSelectedTicket] = useState(null);
+    const [openModal, setOpenModal] = useState(false);
+    const [replyText, setReplyText] = useState('');
+    const [isSubmittingReply, setIsSubmittingReply] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    // Função para carregar tickets do usuário logado
+    const loadTickets = async () => {
+        try {
+            const session = getUserSession();
+            if (!session?.user?.email) {
+                setError('Usuário não autenticado');
+                setLoading(false);
+                return;
+            }
+
+            const response = await fetch(`${API_BASE_URL}/support/tickets?userEmail=${encodeURIComponent(session.user.email)}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                setTickets(data.tickets || []);
+            } else {
+                setError(data.error || 'Erro ao carregar tickets');
+            }
+        } catch (err) {
+            console.error('Erro ao carregar tickets:', err);
+            setError('Erro ao carregar tickets');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Função para atualizar tickets
+    const handleRefreshTickets = async () => {
+        setIsRefreshing(true);
+        await loadTickets();
+        setIsRefreshing(false);
+    };
+
+    // Carregar tickets do usuário logado
+    useEffect(() => {
+        loadTickets();
+    }, []);
+
+    // Função para obter cor do status
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'novo':
+                return { background: 'var(--blue-light)', color: 'white' };
+            case 'aberto':
+                return { background: '#ff0000', color: 'white' };
+            case 'em espera':
+                return { background: 'var(--yellow)', color: 'white' };
+            case 'pendente':
+                return { background: 'var(--green)', color: 'white' };
+            case 'resolvido':
+                return { background: '#e5e7eb', color: '#374151' };
+            default:
+                return { background: '#e5e7eb', color: '#374151' };
+        }
+    };
+
+    // Filtrar e ordenar tickets
+    const filteredTickets = tickets.filter(ticket => {
+        if (filterStatus === 'all') return true;
+        return ticket._statusHub === filterStatus;
+    }).sort((a, b) => {
+        if (sortBy === 'date') {
+            return new Date(b.updatedAt) - new Date(a.updatedAt);
+        } else if (sortBy === 'status') {
+            const statusOrder = { 'novo': 0, 'pendente': 1, 'aberto': 2, 'resolvido': 3 };
+            return statusOrder[a._statusHub] - statusOrder[b._statusHub];
+        }
+        return 0;
+    });
+
+    // Separar tickets ativos e resolvidos
+    const activeTickets = filteredTickets.filter(ticket => ticket._statusHub !== 'resolvido');
+    const resolvedTickets = filteredTickets.filter(ticket => ticket._statusHub === 'resolvido');
+
+    // Função para visualizar ticket
+    const handleViewTicket = (ticket) => {
+        setSelectedTicket(ticket);
+        setOpenModal(true);
+        setReplyText('');
+    };
+
+    // Função para fechar modal
+    const handleCloseModal = () => {
+        setOpenModal(false);
+        setSelectedTicket(null);
+        setReplyText('');
+    };
+
+    // Função para enviar resposta
+    const handleSendReply = async () => {
+        if (!replyText.trim() || !selectedTicket) return;
+
+        setIsSubmittingReply(true);
+        try {
+            const session = getUserSession();
+            
+            // Determinar endpoint baseado no prefixo do ID
+            const endpoint = selectedTicket._id.startsWith('TKC-') 
+                ? '/support/tk-conteudos' 
+                : '/support/tk-gestao';
+            
+            const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    _id: selectedTicket._id,
+                    _userEmail: selectedTicket._userEmail,
+                    _genero: selectedTicket._genero,
+                    _tipo: selectedTicket._tipo,
+                    _corpo: [
+                        ...(selectedTicket._corpo || []),
+                        {
+                            autor: 'user',
+                            userName: session.user.name,
+                            mensagem: replyText,
+                            timestamp: new Date()
+                        }
+                    ],
+                    _obs: selectedTicket._obs,
+                    _direcionamento: selectedTicket._direcionamento,
+                    _statusHub: 'pendente',
+                    _statusConsole: 'aberto',
+                    _lastUpdatedBy: 'user',
+                    createdAt: selectedTicket.createdAt,
+                    updatedAt: new Date()
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                // Recarregar tickets
+                const ticketsResponse = await fetch(`${API_BASE_URL}/support/tickets?userEmail=${encodeURIComponent(session.user.email)}`);
+                const ticketsData = await ticketsResponse.json();
+                if (ticketsData.success) {
+                    setTickets(ticketsData.tickets || []);
+                }
+                
+                // Atualizar ticket selecionado
+                const updatedTicket = ticketsData.tickets?.find(t => t._id === selectedTicket._id);
+                if (updatedTicket) {
+                    setSelectedTicket(updatedTicket);
+                }
+                
+                setReplyText('');
+                alert('Resposta enviada com sucesso!');
+            } else {
+                alert('Erro ao enviar resposta: ' + (result.error || 'Erro desconhecido'));
+            }
+        } catch (err) {
+            console.error('Erro ao enviar resposta:', err);
+            alert('Erro ao enviar resposta');
+        } finally {
+            setIsSubmittingReply(false);
+        }
+    };
+
+    // Função para formatar data
+    const formatDate = (dateString) => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
+    if (loading) {
+        return (
+            <div className="text-center py-16">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600 dark:text-gray-400">Carregando seus tickets...</p>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="text-center py-16">
+                <div className="bg-red-100 dark:bg-red-900 rounded-lg p-8 max-w-md mx-auto">
+                    <h3 className="text-xl font-semibold text-red-800 dark:text-red-200 mb-4">
+                        Erro
+                    </h3>
+                    <p className="text-red-600 dark:text-red-400">{error}</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-6">
+            {/* Filtros e ordenação */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                <div className="flex gap-4">
+                    <select
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                        className="velohub-input"
+                        style={{
+                            background: 'var(--white)',
+                            border: '1.5px solid var(--blue-dark)',
+                            borderRadius: '8px',
+                            padding: '12px 16px',
+                            fontFamily: 'Poppins, sans-serif',
+                            color: 'var(--gray)',
+                            transition: 'border-color 0.3s ease'
+                        }}
+                    >
+                        <option value="all">Todos os status</option>
+                        <option value="novo">Novo</option>
+                        <option value="pendente">Pendente</option>
+                        <option value="aberto">Aberto</option>
+                        <option value="resolvido">Resolvido</option>
+                    </select>
+                    
+                    <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
+                        className="velohub-input"
+                        style={{
+                            background: 'var(--white)',
+                            border: '1.5px solid var(--blue-dark)',
+                            borderRadius: '8px',
+                            padding: '12px 16px',
+                            fontFamily: 'Poppins, sans-serif',
+                            color: 'var(--gray)',
+                            transition: 'border-color 0.3s ease'
+                        }}
+                    >
+                        <option value="date">Ordenar por data</option>
+                        <option value="status">Ordenar por status</option>
+                    </select>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                    <div className="text-sm" style={{color: 'var(--blue-opaque)', fontFamily: 'Poppins, sans-serif'}}>
+                        {tickets.length} ticket(s) encontrado(s)
+                    </div>
+                    <button
+                        onClick={handleRefreshTickets}
+                        disabled={isRefreshing}
+                        className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        title="Atualizar tickets"
+                    >
+                        <RefreshCw size={20} className={isRefreshing ? 'animate-spin' : ''} />
+                    </button>
+                </div>
+            </div>
+
+            {/* Tickets Ativos */}
+            {activeTickets.length > 0 && (
+                <div>
+                    <h3 className="text-lg font-semibold mb-4" style={{color: 'var(--blue-dark)', fontFamily: 'Poppins, sans-serif'}}>
+                        Tickets Ativos ({activeTickets.length})
+                    </h3>
+                    <div className="velohub-container" style={{
+                        borderRadius: '12px',
+                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+                        padding: '24px',
+                        margin: '16px 0',
+                        border: '1px solid rgba(22, 52, 255, 0.1)'
+                    }}>
+                        {/* Cabeçalho da tabela */}
+                        <div className="grid grid-cols-5 gap-4 py-3 px-4 font-semibold border-b" style={{
+                            borderColor: 'var(--blue-opaque)',
+                            fontFamily: 'Poppins, sans-serif',
+                            color: 'var(--blue-dark)'
+                        }}>
+                            <div>ID</div>
+                            <div>Data</div>
+                            <div>Motivo</div>
+                            <div>Tipo</div>
+                            <div>Status</div>
+                        </div>
+                        
+                        {/* Linhas dos tickets */}
+                        <div className="space-y-2">
+                            {activeTickets.map((ticket) => {
+                                const statusColor = getStatusColor(ticket._statusHub);
+                                return (
+                                    <div
+                                        key={ticket._id}
+                                        className="grid grid-cols-5 gap-4 py-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg cursor-pointer transition-colors"
+                                        onClick={() => handleViewTicket(ticket)}
+                                    >
+                                        <div className="font-mono text-sm" style={{color: 'var(--gray)', fontFamily: 'Poppins, sans-serif'}}>
+                                            {ticket._id}
+                                        </div>
+                                        <div className="text-sm" style={{color: 'var(--gray)', fontFamily: 'Poppins, sans-serif'}}>
+                                            {formatDate(ticket.createdAt)}
+                                        </div>
+                                        <div className="text-sm" style={{color: 'var(--blue-dark)', fontFamily: 'Poppins, sans-serif'}}>
+                                            {ticket._genero}
+                                        </div>
+                                        <div className="text-sm" style={{color: 'var(--gray)', fontFamily: 'Poppins, sans-serif'}}>
+                                            {ticket._tipo}
+                                        </div>
+                                        <div>
+                                            <span
+                                                className="px-2 py-1 rounded-full text-xs font-medium"
+                                                style={statusColor}
+                                            >
+                                                {ticket._statusHub}
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Tickets Resolvidos - SEMPRE VISÍVEL */}
+            <div>
+                <h3 className="text-lg font-semibold mb-4" style={{color: 'var(--blue-dark)', fontFamily: 'Poppins, sans-serif'}}>
+                    Tickets Resolvidos ({resolvedTickets.length})
+                </h3>
+                <div className="velohub-container" style={{
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+                    padding: '24px',
+                    margin: '16px 0',
+                    border: '1px solid rgba(22, 52, 255, 0.1)'
+                }}>
+                    {/* Cabeçalho da tabela */}
+                    <div className="grid grid-cols-5 gap-4 py-3 px-4 font-semibold border-b" style={{
+                        borderColor: 'var(--blue-opaque)',
+                        fontFamily: 'Poppins, sans-serif',
+                        color: 'var(--blue-dark)'
+                    }}>
+                        <div>ID</div>
+                        <div>Data</div>
+                        <div>Motivo</div>
+                        <div>Tipo</div>
+                        <div>Status</div>
+                    </div>
+                    
+                    {/* Linhas dos tickets */}
+                    <div className="space-y-2">
+                        {resolvedTickets.length > 0 ? (
+                            resolvedTickets.map((ticket) => {
+                                const statusColor = getStatusColor(ticket._statusHub);
+                                return (
+                                    <div
+                                        key={ticket._id}
+                                        className="grid grid-cols-5 gap-4 py-3 px-4 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg cursor-pointer transition-colors opacity-75"
+                                        onClick={() => handleViewTicket(ticket)}
+                                    >
+                                        <div className="font-mono text-sm" style={{color: 'var(--gray)', fontFamily: 'Poppins, sans-serif'}}>
+                                            {ticket._id}
+                                        </div>
+                                        <div className="text-sm" style={{color: 'var(--gray)', fontFamily: 'Poppins, sans-serif'}}>
+                                            {formatDate(ticket.createdAt)}
+                                        </div>
+                                        <div className="text-sm" style={{color: 'var(--blue-dark)', fontFamily: 'Poppins, sans-serif'}}>
+                                            {ticket._genero}
+                                        </div>
+                                        <div className="text-sm" style={{color: 'var(--gray)', fontFamily: 'Poppins, sans-serif'}}>
+                                            {ticket._tipo}
+                                        </div>
+                                        <div>
+                                            <span
+                                                className="px-2 py-1 rounded-full text-xs font-medium"
+                                                style={statusColor}
+                                            >
+                                                {ticket._statusHub}
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        ) : (
+                            <div className="text-center py-8 col-span-5">
+                                <p style={{color: 'var(--gray)', fontFamily: 'Poppins, sans-serif'}}>
+                                    Nenhum ticket resolvido encontrado.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Mensagem quando não há tickets */}
+            {tickets.length === 0 && (
+                <div className="text-center py-16">
+                    <div className="velohub-card" style={{
+                        borderRadius: '12px',
+                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+                        padding: '32px',
+                        margin: '16px auto',
+                        maxWidth: '448px',
+                        border: '1px solid rgba(22, 52, 255, 0.1)'
+                    }}>
+                        <h3 className="text-xl font-semibold mb-4" style={{color: 'var(--blue-dark)', fontFamily: 'Poppins, sans-serif'}}>
+                            Nenhum ticket encontrado
+                        </h3>
+                        <p style={{color: 'var(--gray)', fontFamily: 'Poppins, sans-serif'}}>
+                            Você ainda não possui tickets de apoio. Use a aba "Solicite Apoio" para criar um novo ticket.
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de visualização e resposta */}
+            {openModal && selectedTicket && (
+                <div className="fixed bg-black bg-opacity-50" style={{
+                    zIndex: 99999,
+                    top: 0, 
+                    left: 0, 
+                    right: 0, 
+                    bottom: 0, 
+                    width: '100vw', 
+                    height: '100vh',
+                    position: 'fixed'
+                }}>
+                    <div className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden" style={{
+                        position: 'absolute',
+                        top: '20px',
+                        left: '25px',
+                        right: '25px',
+                        bottom: '0px',
+                        zIndex: 10000
+                    }}>
+                        {/* Cabeçalho do modal */}
+                        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                            <div className="flex justify-between items-center">
+                                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                                    {selectedTicket._id} - {selectedTicket._genero}
+                                    {selectedTicket._assunto && ` - ${selectedTicket._assunto}`}
+                                </h2>
+                                <button
+                                    onClick={handleCloseModal}
+                                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                >
+                                    <X size={24} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Container Principal com padding correto */}
+                        <div style={{
+                            padding: '15px 25px 0 25px',
+                            height: 'calc(100% - 120px)',
+                            display: 'flex',
+                            flexDirection: 'column'
+                        }}>
+                            {/* Área de Mensagens */}
+                            <div style={{
+                                flex: '1',
+                                overflowY: 'auto'
+                            }}>
+                                <div className="space-y-3">
+                                    {Array.isArray(selectedTicket._corpo) ? selectedTicket._corpo.map((mensagem, index) => (
+                                        <div
+                                            key={index}
+                                            className={`container-secondary ${mensagem.autor === 'admin' ? 'admin-message' : 'user-message'}`}
+                                            style={{
+                                                background: 'transparent',
+                                                border: `2px solid ${mensagem.autor === 'admin' ? 'var(--blue-medium)' : 'var(--blue-dark)'}`,
+                                                borderRadius: '8px',
+                                                padding: '16px',
+                                                margin: '8px 0',
+                                                fontFamily: 'Poppins, sans-serif'
+                                            }}
+                                        >
+                                            {/* Header da mensagem - userName e timestamp */}
+                                            <div className="mb-3">
+                                                <span className="font-medium text-sm" style={{color: 'var(--gray)', fontFamily: 'Poppins, sans-serif'}}>
+                                                    {mensagem.userName}
+                                                </span>
+                                                <span className="text-xs ml-2" style={{color: 'var(--blue-opaque)', fontFamily: 'Poppins, sans-serif'}}>
+                                                    - {new Date(mensagem.timestamp).toLocaleDateString('pt-BR', {
+                                                        day: '2-digit',
+                                                        month: '2-digit',
+                                                        year: '2-digit',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit'
+                                                    })}
+                                                </span>
+                                            </div>
+                                            
+                                            {/* Conteúdo da mensagem */}
+                                            <div className="text-base whitespace-pre-wrap" style={{color: 'var(--gray)', fontFamily: 'Poppins, sans-serif'}}>
+                                                {mensagem.mensagem}
+                                            </div>
+                                        </div>
+                                    )) : (
+                                        <div className="text-center py-8">
+                                            <p style={{color: 'var(--gray)', fontFamily: 'Poppins, sans-serif'}}>
+                                                Nenhuma mensagem encontrada.
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Área de Resposta */}
+                            {selectedTicket._statusHub !== 'resolvido' && (
+                                <div style={{
+                                    flex: '0 0 auto',
+                                    marginTop: 'auto'
+                                }}>
+                                    <div className="relative">
+                                        <textarea
+                                            value={replyText}
+                                            onChange={(e) => setReplyText(e.target.value)}
+                                            placeholder="Digite sua resposta..."
+                                            className="w-full resize-none pr-12"
+                                            style={{
+                                                border: '1.5px solid var(--blue-opaque)',
+                                                borderRadius: '8px',
+                                                padding: '12px 16px',
+                                                fontFamily: 'Poppins, sans-serif',
+                                                minHeight: '120px',
+                                                background: 'transparent'
+                                            }}
+                                        />
+                                        <button
+                                            onClick={handleSendReply}
+                                            disabled={!replyText.trim() || isSubmittingReply}
+                                            className="absolute bottom-2 right-2 transition-all duration-300"
+                                            style={{
+                                                background: 'transparent',
+                                                border: 'none',
+                                                cursor: replyText.trim() && !isSubmittingReply ? 'pointer' : 'not-allowed'
+                                            }}
+                                        >
+                                            {isSubmittingReply ? (
+                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                            ) : (
+                                                <Send 
+                                                    size={25} 
+                                                    style={{
+                                                        color: replyText.trim() && !isSubmittingReply ? 'var(--blue-medium)' : 'rgba(59, 130, 246, 0.5)'
+                                                    }}
+                                                />
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 // Conteúdo da Página de Apoio
 const ApoioPage = () => {
     const [activeModal, setActiveModal] = useState(null);
+    const [activeTab, setActiveTab] = useState('solicitar');
     
     const supportItems = [
         // Primeira linha
@@ -1335,8 +1888,44 @@ const ApoioPage = () => {
 
     return (
         <div className="container mx-auto px-6 py-12">
-            <h1 className="text-center text-4xl font-bold mb-12" style={{color: 'var(--blue-dark)'}}>Precisa de Apoio?</h1>
-            
+            {/* Sistema de Abas */}
+            <div className="mb-8">
+                {/* Abas */}
+                <div className="flex justify-start space-x-8 mb-2">
+                    <button
+                        onClick={() => setActiveTab('solicitar')}
+                        className={`px-6 py-3 text-2xl font-semibold transition-colors duration-200 ${
+                            activeTab === 'solicitar' 
+                                ? 'text-blue-600' 
+                                : 'text-gray-500 opacity-50 hover:text-gray-700'
+                        }`}
+                        style={{
+                            color: activeTab === 'solicitar' ? '#1634FF' : '#272A30'
+                        }}
+                    >
+                        Solicite Apoio
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('acompanhar')}
+                        className={`px-6 py-3 text-2xl font-semibold transition-colors duration-200 ${
+                            activeTab === 'acompanhar' 
+                                ? 'text-blue-600' 
+                                : 'text-gray-500 opacity-50 hover:text-gray-700'
+                        }`}
+                        style={{
+                            color: activeTab === 'acompanhar' ? '#1634FF' : '#272A30'
+                        }}
+                    >
+                        Acompanhe seus Tickets
+                    </button>
+                </div>
+                
+                {/* Linha divisória */}
+                <div className="w-full h-px" style={{ backgroundColor: 'var(--cor-borda)', opacity: 0.5 }}></div>
+            </div>
+
+            {/* Conteúdo baseado na aba ativa */}
+            {activeTab === 'solicitar' && (
             <div className="space-y-4">
                 {/* Primeira linha - Artigo, Processo, Roteiro */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -1496,6 +2085,12 @@ const ApoioPage = () => {
                 ))}
                 </div>
             </div>
+            )}
+
+            {/* Aba Acompanhe seus Tickets */}
+            {activeTab === 'acompanhar' && (
+                <TicketsListPage />
+            )}
 
             {/* Modal */}
             {activeModal && (

@@ -1,10 +1,15 @@
 /**
  * VeloHub V3 - Support Modal Component
- * VERSION: v1.1.0 | DATE: 2025-01-27 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.4.1 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  */
 
 import React, { useState } from 'react';
 import { X, Send, FileText, Bot, GraduationCap, Map, Puzzle, PlusSquare, User, BookOpen, LifeBuoy } from 'lucide-react';
+import { getUserSession } from '../services/auth';
+import { API_BASE_URL } from '../config/api-config';
+
+// Valores permitidos para status dos tickets
+const ALLOWED_STATUS = ['novo', 'aberto', 'pendente', 'resolvido'];
 
 const SupportModal = ({ isOpen, onClose, type, title }) => {
     const [formData, setFormData] = useState({});
@@ -19,20 +24,107 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
         }));
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setIsSubmitting(true);
+    // Funções de mapeamento de dados
+    const mapToTkConteudos = (type, formData, userEmail, userName) => {
+        // Mapeamento de tipos para gêneros
+        const generoMapping = {
+            artigo: 'Artigo',
+            bot: 'Processo',
+            treinamento: 'Treinamento',
+            roteiro: 'Roteiro',
+            funcionalidade: 'Funcionalidade',
+            recurso: 'Recurso Adicional'
+        };
         
-        try {
-            // Aqui você pode implementar a lógica de envio
-            console.log('Formulário enviado:', { type, title, formData });
+        // Transformar _corpo em array de mensagens
+        const corpoArray = [{
+            autor: 'user',
+            userName: userName || 'Usuário',
+            timestamp: new Date(),
+            mensagem: formData.descricao || ''
+        }];
+        
+        return {
+            _genero: generoMapping[type],
+            _tipo: formData.tipo,
+            _assunto: formData.assunto,
+            _corpo: corpoArray,
+            _obs: formData.ocorrencia || '',
+            _userEmail: userEmail,
+            _statusHub: 'novo',
+            _statusConsole: 'novo',
+            _lastUpdatedBy: 'user'
+        };
+    };
+
+    const mapToTkGestao = (type, formData, userEmail, userName) => {
+        const titleMapping = {
+            gestao: 'Gestão',
+            rh_financeiro: 'RH e Financeiro',
+            facilities: 'Facilities'
+        };
+        
+        const fieldMapping = {
+            gestao: { _direcionamento: formData.direcionado },
+            rh_financeiro: { _direcionamento: formData.setor },
+            facilities: { _direcionamento: formData.categoria }
+        };
+        
+        // Transformar _corpo em array de mensagens
+        const corpoArray = [{
+            autor: 'user',
+            userName: userName || 'Usuário',
+            timestamp: new Date(),
+            mensagem: formData.mensagem || ''
+        }];
+        
+        return {
+            _genero: titleMapping[type],
+            _tipo: formData.tipo,
+            ...fieldMapping[type],
+            _corpo: corpoArray,
+            _userEmail: userEmail
+        };
+    };
+
+        const handleSubmit = async (e) => {
+            e.preventDefault();
+            setIsSubmitting(true);
             
-            // Simular envio
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            try {
+                const session = getUserSession();
+                const userEmail = session?.user?.email;
+                const userName = session?.user?.name;
+                
+                if (!userEmail) {
+                    alert('Erro: Usuário não autenticado');
+                    return;
+                }
+                
+                // Nota: _statusHub, _statusConsole e _lastUpdatedBy são definidos automaticamente pelo backend
+                // Valores padrão na criação: _statusHub='pendente', _statusConsole='novo', _lastUpdatedBy='user'
             
-            alert('Solicitação enviada com sucesso!');
-            onClose();
-            setFormData({});
+            const isTkGestao = ['gestao', 'rh_financeiro', 'facilities'].includes(type);
+            const endpoint = isTkGestao ? '/support/tk-gestao' : '/support/tk-conteudos';
+            const mappedData = isTkGestao 
+                ? mapToTkGestao(type, formData, userEmail, userName)
+                : mapToTkConteudos(type, formData, userEmail, userName);
+            
+            const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(mappedData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                alert(`Solicitação enviada com sucesso! Número do ticket: ${result.ticketId}`);
+                onClose();
+                setFormData({});
+            } else {
+                alert('Erro ao enviar solicitação: ' + (result.error || 'Erro desconhecido'));
+            }
         } catch (error) {
             console.error('Erro ao enviar formulário:', error);
             alert('Erro ao enviar solicitação. Tente novamente.');
@@ -56,68 +148,8 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
         }
     };
 
-    const renderForm = () => {
-        switch (type) {
-            case 'artigo':
-                return (
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Assunto *
-                            </label>
-                            <input
-                                type="text"
-                                required
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                style={{
-                                    backgroundColor: 'var(--cor-container)',
-                                    color: 'var(--cor-texto-principal)',
-                                    borderColor: 'var(--cor-borda)'
-                                }}
-                                value={formData.assunto || ''}
-                                onChange={(e) => handleInputChange('assunto', e.target.value)}
-                                placeholder="Digite o assunto do artigo"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Descrição *
-                            </label>
-                            <textarea
-                                required
-                                rows={4}
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                                style={{
-                                    backgroundColor: 'var(--cor-container)',
-                                    color: 'var(--cor-texto-principal)',
-                                    borderColor: 'var(--cor-borda)'
-                                }}
-                                value={formData.descricao || ''}
-                                onChange={(e) => handleInputChange('descricao', e.target.value)}
-                                placeholder="Descreva o conteúdo do artigo"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Ocorrência
-                            </label>
-                            <textarea
-                                rows={3}
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                                style={{
-                                    backgroundColor: 'var(--cor-container)',
-                                    color: 'var(--cor-texto-principal)',
-                                    borderColor: 'var(--cor-borda)'
-                                }}
-                                value={formData.ocorrencia || ''}
-                                onChange={(e) => handleInputChange('ocorrencia', e.target.value)}
-                                placeholder="Se houver, situação que exemplifica a necessidade"
-                            />
-                        </div>
-                    </div>
-                );
-
-            case 'bot':
+    // Função para renderizar formulário padrão para cards de conteúdo
+    const renderConteudoForm = () => {
                 return (
                     <div className="space-y-4">
                         <div>
@@ -136,8 +168,9 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
                                 onChange={(e) => handleInputChange('tipo', e.target.value)}
                             >
                                 <option value="">Selecione o tipo</option>
-                                <option value="processo">Processo</option>
-                                <option value="informacao">Informação</option>
+                        <option value="Solicitação">Solicitação</option>
+                        <option value="Correção">Correção</option>
+                        <option value="Remoção">Remoção</option>
                             </select>
                         </div>
                         <div>
@@ -160,48 +193,6 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Contexto *
-                            </label>
-                            <textarea
-                                required
-                                rows={4}
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                                style={{
-                                    backgroundColor: 'var(--cor-container)',
-                                    color: 'var(--cor-texto-principal)',
-                                    borderColor: 'var(--cor-borda)'
-                                }}
-                                value={formData.contexto || ''}
-                                onChange={(e) => handleInputChange('contexto', e.target.value)}
-                                placeholder="Descreva o contexto"
-                            />
-                        </div>
-                    </div>
-                );
-
-            case 'treinamento':
-                return (
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Assunto *
-                            </label>
-                            <input
-                                type="text"
-                                required
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                style={{
-                                    backgroundColor: 'var(--cor-container)',
-                                    color: 'var(--cor-texto-principal)',
-                                    borderColor: 'var(--cor-borda)'
-                                }}
-                                value={formData.assunto || ''}
-                                onChange={(e) => handleInputChange('assunto', e.target.value)}
-                                placeholder="Digite o assunto do treinamento"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
                                 Descrição *
                             </label>
                             <textarea
@@ -215,7 +206,7 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
                                 }}
                                 value={formData.descricao || ''}
                                 onChange={(e) => handleInputChange('descricao', e.target.value)}
-                                placeholder="Descreva o conteúdo do treinamento"
+                        placeholder="Descreva o conteúdo"
                             />
                         </div>
                         <div>
@@ -237,152 +228,17 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
                         </div>
                     </div>
                 );
+    };
 
-            case 'roteiro':
-                return (
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Produto *
-                            </label>
-                            <input
-                                type="text"
-                                required
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                style={{
-                                    backgroundColor: 'var(--cor-container)',
-                                    color: 'var(--cor-texto-principal)',
-                                    borderColor: 'var(--cor-borda)'
-                                }}
-                                value={formData.produto || ''}
-                                onChange={(e) => handleInputChange('produto', e.target.value)}
-                                placeholder="Digite o produto"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Situação *
-                            </label>
-                            <textarea
-                                required
-                                rows={4}
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                                style={{
-                                    backgroundColor: 'var(--cor-container)',
-                                    color: 'var(--cor-texto-principal)',
-                                    borderColor: 'var(--cor-borda)'
-                                }}
-                                value={formData.situacao || ''}
-                                onChange={(e) => handleInputChange('situacao', e.target.value)}
-                                placeholder="Descreva a situação"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Ocorrência
-                            </label>
-                            <textarea
-                                rows={3}
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                                style={{
-                                    backgroundColor: 'var(--cor-container)',
-                                    color: 'var(--cor-texto-principal)',
-                                    borderColor: 'var(--cor-borda)'
-                                }}
-                                value={formData.ocorrencia || ''}
-                                onChange={(e) => handleInputChange('ocorrencia', e.target.value)}
-                                placeholder="Se houver, situação que exemplifica a necessidade"
-                            />
-                        </div>
-                    </div>
-                );
-
-            case 'funcionalidade':
-                return (
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Ambiente *
-                            </label>
-                            <select
-                                required
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                style={{
-                                    backgroundColor: 'var(--cor-container)',
-                                    color: 'var(--cor-texto-principal)',
-                                    borderColor: 'var(--cor-borda)'
-                                }}
-                                value={formData.ambiente || ''}
-                                onChange={(e) => handleInputChange('ambiente', e.target.value)}
-                            >
-                                <option value="">Selecione o ambiente</option>
-                                <option value="octadesk">Octadesk</option>
-                                <option value="velohub">Velohub</option>
-                                <option value="veloacademy">Veloacademy</option>
-                                <option value="recurso-fisico">Recurso Físico</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Aplicação *
-                            </label>
-                            <input
-                                type="text"
-                                required
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                style={{
-                                    backgroundColor: 'var(--cor-container)',
-                                    color: 'var(--cor-texto-principal)',
-                                    borderColor: 'var(--cor-borda)'
-                                }}
-                                value={formData.aplicacao || ''}
-                                onChange={(e) => handleInputChange('aplicacao', e.target.value)}
-                                placeholder="Digite a aplicação"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Observações
-                            </label>
-                            <textarea
-                                rows={4}
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                                style={{
-                                    backgroundColor: 'var(--cor-container)',
-                                    color: 'var(--cor-texto-principal)',
-                                    borderColor: 'var(--cor-borda)'
-                                }}
-                                value={formData.observacoes || ''}
-                                onChange={(e) => handleInputChange('observacoes', e.target.value)}
-                                placeholder="Digite observações adicionais"
-                            />
-                        </div>
-                    </div>
-                );
-
-            case 'recurso':
-                return (
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Descrição *
-                            </label>
-                            <textarea
-                                required
-                                rows={6}
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                                style={{
-                                    backgroundColor: 'var(--cor-container)',
-                                    color: 'var(--cor-texto-principal)',
-                                    borderColor: 'var(--cor-borda)'
-                                }}
-                                value={formData.descricao || ''}
-                                onChange={(e) => handleInputChange('descricao', e.target.value)}
-                                placeholder="Descreva o recurso adicional necessário"
-                            />
-                        </div>
-                    </div>
-                );
+    const renderForm = () => {
+        // Cards de conteúdo usam formulário padrão
+        const conteudoTypes = ['artigo', 'bot', 'treinamento', 'roteiro', 'funcionalidade', 'recurso'];
+        
+        if (conteudoTypes.includes(type)) {
+            return renderConteudoForm();
+        }
+        
+        switch (type) {
 
             case 'gestao':
                 return (
@@ -592,7 +448,7 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
             <div 
                 className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
                 style={{ backgroundColor: 'var(--cor-container)' }}

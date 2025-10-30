@@ -1560,6 +1560,17 @@
 - **Descrição**: Refatoração completa dos endpoints de atualização de tickets conforme especificação. Removidos endpoints genéricos `PUT /api/support/ticket/:id` e `PUT /api/support/ticket/:id/reply`. Implementados endpoints específicos `PUT /api/support/tk-conteudos` e `PUT /api/support/tk-gestao` com validação de prefixo do ID. Atualizada função handleSendReply no frontend para usar endpoint correto baseado no prefixo do ID. Implementada lógica correta de atualização preservando campos originais e atualizando status conforme especificado (_statusHub: 'pendente', _statusConsole: 'aberto').
 - **Status**: ✅ Concluído com sucesso
 
+### **GitHub Push - Padronização Cards Conteúdo v2.28.0**
+- **Data/Hora**: 2024-12-19 20:00:00
+- **Tipo**: GitHub Push
+- **Versão**: SupportModal.js v1.4.0, backend/server.js v2.28.0
+- **Commit**: [Pendente]
+- **Arquivos Modificados**:
+  - `src/components/SupportModal.js` (v1.4.0 - formulário padrão unificado)
+  - `backend/server.js` (v2.28.0 - validação e preservação _assunto)
+- **Descrição**: Padronização completa dos 6 cards de conteúdo para usar formulário único com campos: Tipo (dropdown Solicitação/Correção/Remoção), Assunto, Descrição e Ocorrência. Atualizada função mapToTkConteudos para mapear corretamente todos os campos. Adicionada validação obrigatória do campo _assunto no endpoint POST tk-conteudos. Modificado endpoint PUT tk-conteudos para preservar campos originais incluindo _assunto. Todos os 6 cards (Artigo, Processo, Roteiro, Treinamento, Funcionalidade, Recurso Adicional) agora usam o mesmo formulário padronizado.
+- **Status**: ✅ Concluído com sucesso
+
 *Log atualizado automaticamente após push para GitHub*
 
 
