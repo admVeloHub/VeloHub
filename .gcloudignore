@@ -1,0 +1,72 @@
+# .gcloudignore - Arquivos ignorados no deploy do Google Cloud
+# Baseado no .gitignore padrão
+
+# Dependências
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Arquivos de ambiente
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Logs
+logs
+*.log
+
+# Arquivos temporários
+.tmp/
+.temp/
+
+# Cache
+.cache/
+.npm/
+.yarn/
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Documentação
+README.md
+docs/
+*.md
+
+# Testes
+test/
+tests/
+__tests__/
+*.test.js
+*.spec.js
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Build local (se houver)
+dist/
+build/
+
+# Arquivos de desenvolvimento
+.eslintrc*
+.prettierrc*
+jest.config.js
+webpack.config.js
+
+# Arquivos específicos do projeto
+*.backup
+*.bak
+*.orig
