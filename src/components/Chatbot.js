@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Chatbot Component
- * VERSION: v1.9.3 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.10.2 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -31,7 +31,8 @@ const Chatbot = ({ prompt }) => {
         'antecipacao': 'off',
         'pagamento-antecipado': 'on',
         'modulo-irpf': 'off',
-        'seguro': 'on'
+        'seguro-cred': 'on',
+        'seguro-cel': 'on'
     });
 
     // Função para buscar status dos módulos do Console VeloHub
@@ -96,7 +97,8 @@ const Chatbot = ({ prompt }) => {
                 'antecipacao': 'off',
                 'pagamento-antecipado': 'on',
                 'modulo-irpf': 'off',
-                'seguro': 'on'
+                'seguro-cred': 'on',
+                'seguro-cel': 'on'
             };
             setModuleStatus(fallbackStatus);
         }
@@ -737,8 +739,8 @@ const Chatbot = ({ prompt }) => {
             <div className="flex flex-col h-[80vh] velohub-modal" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', border: '1px solid var(--cor-borda)'}}>
         {/* Header - Sistema de Status de Serviços */}
         <div className="flex-shrink-0 p-3" style={{borderBottom: '1px solid var(--cor-borda)'}}>
-            {/* Grid de Status dos Serviços - Layout 4x2 */}
-            <div className="grid grid-cols-4 gap-1">
+            {/* Grid de Status dos Serviços - Layout 5x2 */}
+            <div className="grid grid-cols-5 gap-1">
                 {/* Serviços Online - Primeira célula */}
                 <div className="flex items-center text-xs p-1">
                     <h2 className="text-2xl font-semibold velohub-title" style={{fontFamily: 'Poppins, sans-serif'}}>Serviços Online</h2>
@@ -756,14 +758,20 @@ const Chatbot = ({ prompt }) => {
                 {/* Espaço vazio para alinhamento */}
                 <div></div>
                 
+                {/* Espaço vazio para alinhamento */}
+                <div></div>
+                
                 {/* Pagamento Antecipado */}
                 {renderModuleStatus('pagamento-antecipado', 'Pagamento Antecipado')}
                 
                 {/* Módulo IRPF */}
                 {renderModuleStatus('modulo-irpf', 'Módulo IRPF')}
                 
-                {/* Seguro */}
-                {renderModuleStatus('seguro', 'Seguro')}
+                {/* Seguro Cred. */}
+                {renderModuleStatus('seguro-cred', 'Seguro Cred.')}
+                
+                {/* Seguro Cel. - Coluna 5, Linha 2 */}
+                {renderModuleStatus('seguro-cel', 'Seguro Cel.')}
             </div>
                 </div>
 
