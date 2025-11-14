@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.1.78 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.1.79 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -610,7 +610,8 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews 
         'antecipacao': 'off',
         'pagamento-antecipado': 'on',
         'modulo-irpf': 'off',
-        'seguro': 'on'
+        'seguro-cred': 'on',
+        'seguro-cel': 'on'
     });
 
     // Função para buscar status dos módulos do Console VeloHub
@@ -889,7 +890,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews 
                     <h3 className="font-bold text-xl mb-4 border-b pb-2 text-center velohub-title" style={{borderColor: 'var(--blue-opaque)'}}>
                         Serviços
                     </h3>
-                    {/* Grid de Status dos Serviços - Layout 2x3 */}
+                    {/* Grid de Status dos Serviços - Layout 2x4 */}
                     <div className="grid grid-cols-2 gap-1">
                         {/* Crédito Trabalhador */}
                         {renderModuleStatus('credito-trabalhador', 'C. Trabalhador')}
@@ -906,8 +907,11 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews 
                         {/* Módulo IRPF */}
                         {renderModuleStatus('modulo-irpf', 'IRPF')}
                         
-                        {/* Seguro */}
-                        {renderModuleStatus('seguro', 'Seguro')}
+                        {/* Seguro Cel. - Coluna 2 */}
+                        {renderModuleStatus('seguro-cel', 'Seguro Cel.')}
+                        
+                        {/* Seguro Cred. */}
+                        {renderModuleStatus('seguro-cred', 'Seguro Cred.')}
                     </div>
                 </div>
 
