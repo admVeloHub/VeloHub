@@ -1,0 +1,62 @@
+# app.yaml para Google App Engine - VeloHub V3
+# VERSION: v1.2.1 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
+# Configuração para desenvolvimento com variáveis diretas
+
+runtime: nodejs18
+service: velohub-v3
+
+# Variáveis de ambiente (desenvolvimento)
+env_variables:
+  NODE_ENV: production
+  PORT: 8080
+  
+  # MongoDB - URI completa (via Secret Manager)
+  MONGO_ENV: ${MONGO_ENV}
+  
+  # Google OAuth - Credenciais (via Secret Manager)
+  GOOGLE_CLIENT_ID: ${google-client-id}
+  GOOGLE_CLIENT_SECRET: ${google-client-secret}
+  
+  # APIs de IA (via Secret Manager)
+  OPENAI_API_KEY: ${OPENAI_API_KEY}
+  GEMINI_API_KEY: ${GEMINI_API_KEY}
+  
+  # Google Sheets Credentials (via Secret Manager)
+  GOOGLE_CREDENTIALS: ${GOOGLE_CREDENTIALS}
+  
+  # Configurações adicionais
+  CORS_ORIGIN: "https://velohub-278491073220.us-east1.run.app"
+  
+  # Variáveis do Container (expostas para Frontend)
+  REACT_APP_GOOGLE_CLIENT_ID: "278491073220-eb4ogvn3aifu0ut9mq3rvu5r9r9l3137.apps.googleusercontent.com"
+  REACT_APP_AUTHORIZED_DOMAIN: "velotax.com.br"
+  REACT_APP_API_URL: "https://velohub-278491073220.us-east1.run.app/api"
+  
+  # Configurações do Chatbot
+  CHATBOT_LOG_SHEET_NAME: "Log_IA_Usage"
+  CHATBOT_SPREADSHEET_ID: "1tnWusrOW-UXHFM8GT3o0Du93QDwv5G3Ylvgebof9wfQ"
+
+# Configuração de scaling automático
+automatic_scaling:
+  min_instances: 1
+  max_instances: 10
+  target_cpu_utilization: 0.6
+  target_throughput_utilization: 0.6
+
+# Configuração de rede
+network:
+  session_affinity: true
+
+# Handlers para roteamento
+handlers:
+  # API endpoints
+  - url: /api/.*
+    script: auto
+    
+  # Arquivos estáticos (se houver)
+  - url: /static
+    static_dir: public
+    
+  # Todas as outras requisições
+  - url: /.*
+    script: auto
