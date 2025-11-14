@@ -40,6 +40,18 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Atualização Módulo Apoio e Indicadores de Serviços**
+- **Data/Hora**: 2025-01-30 20:30:00
+- **Tipo**: GitHub Push
+- **Versão**: App_v2-1.js v2.1.79 / Chatbot.js v1.10.2 / server.js v2.29.0
+- **Commit**: 66309c8
+- **Arquivos Modificados**:
+  - `src/App_v2-1.js` (v2.1.79)
+  - `src/components/Chatbot.js` (v1.10.2)
+  - `backend/server.js` (v2.29.0)
+- **Descrição**: Atualização completa do módulo Apoio e sistema de indicadores de serviços. Padronização da barra animada em todos os cards do módulo Apoio. Desativação dos cards RH e Financeiro e Facilities com overlay "EM BREVE". Redução de 20% nos cards e fontes do módulo Apoio. Atualização dos subtítulos dos cards (Artigo, Processo, Roteiro, Recurso Adicional). Remoção do bypass de acesso ao módulo Apoio (agora acessível a todos os agentes). Separação de Seguro em Seguro Cred. e Seguro Cel. nos indicadores de serviços (Home e VeloBot). Reorganização dos indicadores: Seguro Cel. na coluna 2 (Home) e coluna 5 linha 2 (VeloBot). Atualização do backend para compatibilidade com schema MongoDB usando _seguroCred e _seguroCel ao invés de _seguro único.
+- **Status**: ✅ Concluído com sucesso
+
 ### **GitHub Push - Reorganização do Layout da Homepage e Alteração da Fonte de Dados do FAQ**
 - **Data/Hora**: 2025-01-30 16:45:00
 - **Tipo**: GitHub Push
