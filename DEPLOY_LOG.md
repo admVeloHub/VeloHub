@@ -40,6 +40,17 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Correção Campo Tabulação nas Respostas do Clarification**
+- **Data/Hora**: 2025-12-02 12:03:16
+- **Tipo**: GitHub Push
+- **Branches**: main (commit 1aa3df5) e Inovações (commit 47478c0)
+- **Versão**: backend/server.js v2.31.4 / Chatbot.js v1.10.3
+- **Arquivos Modificados**:
+  - `backend/server.js` (v2.31.4)
+  - `src/components/Chatbot.js` (v1.10.3)
+- **Descrição**: Correção crítica da exibição do campo tabulação nas respostas do VeloBot. Adicionado campo tabulação nas respostas diretas e via busca tradicional do endpoint /api/chatbot/clarification. Corrigido processamento no frontend para exibir tabulação após seleção de opção no menu de esclarecimento. Mensagens fallback mantidas sem tabulação genérica conforme esperado.
+- **Status**: ✅ Concluído com sucesso - Push realizado para ambas as branches (main e Inovações)
+
 ### **GitHub Push - Atualização Módulo Apoio e Indicadores de Serviços**
 - **Data/Hora**: 2025-01-30 20:30:00
 - **Tipo**: GitHub Push
