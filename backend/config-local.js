@@ -23,10 +23,16 @@ const config = {
 };
 
 // Definir variáveis de ambiente se não estiverem definidas
+// IMPORTANTE: Não sobrescrever variáveis já definidas no .env
 Object.keys(config).forEach(key => {
   if (!process.env[key]) {
     process.env[key] = config[key];
-    console.log(`🔧 Definindo ${key}: ${key.includes('KEY') || key.includes('SECRET') ? '***' : config[key]}`);
+    console.log(`🔧 Definindo ${key} (fallback): ${key.includes('KEY') || key.includes('SECRET') || key.includes('MONGO_ENV') ? '***' : config[key]}`);
+  } else {
+    // Log para debug - mostrar que variável do .env está sendo usada
+    if (key === 'MONGO_ENV') {
+      console.log(`✅ Usando MONGO_ENV do arquivo .env (primeiros 30 chars): ${process.env[key].substring(0, 30)}...`);
+    }
   }
 });
 

@@ -1,0 +1,99 @@
+﻿# Variáveis de Ambiente - VeloHub V3 Backend
+# Este arquivo está no .gitignore e não será commitado
+# Use este arquivo para configurações locais de desenvolvimento
+# VERSION: v1.0.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+
+# ===========================================
+# SERVIDOR
+# ===========================================
+NODE_ENV=development
+PORT=8090
+
+# ===========================================
+# MONGODB
+# ===========================================
+# URI completa de conexão MongoDB
+MONGO_ENV=mongodb+srv://lucasgravina:nKQu8bSN6iZl8FPo@velohubcentral.od7vwts.mongodb.net/?retryWrites=true&w=majority&appName=VelohubCentral
+
+# ===========================================
+# GOOGLE OAUTH 2.0
+# ===========================================
+# Credenciais OAuth para autenticação SSO
+GOOGLE_CLIENT_ID=278491073220-eb4ogvn3aifu0ut9mq3rvu5r9r9l3137.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-google-client-secret-here
+
+# ===========================================
+Bucket do GCS 
+# ===========================================
+# Identificação do bucket de mídias do VeloHub para carregamento de imagens para o Velonews e Artigos
+# ===========================================
+GCS_BUCKET_NAME2=mediabank_velohub
+
+# ===========================================
+# GOOGLE SHEETS API
+# ===========================================
+# Credenciais JSON para acesso ao Google Sheets (usado para logs do chatbot)
+# Formato: JSON completo como string (escape necessário)
+GOOGLE_CREDENTIALS={"type":"service_account","project_id":"your-project-id","private_key_id":"your-key-id","private_key":"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n","client_email":"your-service-account@your-project.iam.gserviceaccount.com","client_id":"your-client-id","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_x509_cert_url":"https://www.googleapis.com/robot/v1/metadata/x509/your-service-account%40your-project.iam.gserviceaccount.com"}
+
+# Configurações do Google Sheets para logs do chatbot
+CHATBOT_LOG_SHEET_NAME=Log_IA_Usage
+CHATBOT_SPREADSHEET_ID=1tnWusrOW-UXHFM8GT3o0Du93QDwv5G3Ylvgebof9wfQ
+
+# ===========================================
+# APIS DE INTELIGÊNCIA ARTIFICIAL
+# ===========================================
+# OpenAI API Key (fallback para IA)
+OPENAI_API_KEY=your-openai-api-key-here
+
+# Google Gemini API Key (IA primária)
+GEMINI_API_KEY=your-gemini-api-key-here
+
+# ===========================================
+# WHATSAPP API - Módulo Escalações
+# ===========================================
+# URL da API WhatsApp externa (Baileys)
+WHATSAPP_API_URL=https://whatsapp-api-y40p.onrender.com
+
+# JID padrão do grupo WhatsApp para envio de mensagens
+WHATSAPP_DEFAULT_JID=120363400851545835@g.us
+
+# ===========================================
+# PONTO MAIS API (Opcional)
+# ===========================================
+# API Key do Ponto Mais
+PONTO_MAIS_API_KEY=your-ponto-mais-api-key-here
+
+# Company ID do Ponto Mais
+PONTO_MAIS_COMPANY_ID=your-ponto-mais-company-id-here
+
+# ===========================================
+# CONFIGURAÇÕES DE CACHE
+# ===========================================
+# Timeout do cache do chatbot em milissegundos (padrão: 5 minutos)
+CHATBOT_CACHE_TIMEOUT=300000
+
+# ===========================================
+# CORS E ORIGINS
+# ===========================================
+# Origin permitida para CORS (produção)
+CORS_ORIGIN=https://velohub-278491073220.us-east1.run.app
+
+# ===========================================
+# CONFIGURAÇÕES DE TESTE LOCAL
+# ===========================================
+# Habilitar modo de teste local (true/false)
+LOCAL_TESTING=false
+
+# ===========================================
+# NOTAS IMPORTANTES
+# ===========================================
+# 1. Substitua os valores "your-*-here" pelas credenciais reais
+# 2. GOOGLE_CREDENTIALS deve ser um JSON completo como string
+# 3. Para obter as credenciais:
+#    - Google OAuth: https://console.cloud.google.com/apis/credentials
+#    - Google Sheets: Criar service account e baixar JSON
+#    - OpenAI: https://platform.openai.com/api-keys
+#    - Gemini: https://makersuite.google.com/app/apikey
+# 4. Em produção, use Google Secret Manager ao invés deste arquivo
+# 5. NUNCA commite este arquivo com credenciais reais

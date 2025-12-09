@@ -1,6 +1,32 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.31.7 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.31.14 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.31.14:
+ * - Melhorado tratamento de erro 403 no endpoint /api/images/*
+ * - Adicionadas instruções detalhadas nos logs quando bucket não está público
+ * - Criado documento TORNAR_BUCKET_PUBLICO.md com instruções completas
+ * 
+ * Mudanças v2.31.13:
+ * - Alterado endpoint /api/images/* de redirecionamento (302) para proxy direto
+ * - Proxy baixa imagem do GCS e serve diretamente, resolvendo ERR_BLOCKED_BY_ORB
+ * - Adicionado suporte a Content-Type automático e cache de 1 ano
+ * 
+ * Mudanças v2.31.12:
+ * - Adicionados headers CORS no endpoint /api/images/* para facilitar redirecionamento
+ * 
+ * Mudanças v2.31.11:
+ * - Corrigido encoding duplo no endpoint /api/images/* - decodifica req.path antes de processar
+ * 
+ * Mudanças v2.31.10:
+ * - Corrigida codificação de URLs no endpoint /api/images/* para lidar com espaços e caracteres especiais
+ * - Caminhos de imagens agora são codificados corretamente antes de redirecionar para o GCS
+ * 
+ * Mudanças v2.31.9:
+ * - Adicionado endpoint GET /api/images/* para servir imagens do Google Cloud Storage
+ * - Endpoint redireciona para URL pública do GCS (storage.googleapis.com)
+ * - Suporta caminhos img_velonews/ e img_artigos/
+ * - Resolve problema de "imagem não encontrada" no frontend
  */
 
 // ===== FALLBACK PARA TESTES LOCAIS =====
@@ -35,10 +61,23 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { MongoClient, ObjectId } = require('mongodb');
+const fetch = require('node-fetch');
 // Carregar variáveis de ambiente
-require('dotenv').config();
+// IMPORTANTE: dotenv deve ser carregado ANTES de qualquer outro módulo que use process.env
+// O arquivo de ambiente é 'env' (sem ponto), não '.env'
+const envPath = require('path').join(__dirname, 'env');
+require('dotenv').config({ path: envPath });
 
-// Carregar configuração local para testes
+// Log para debug - verificar se env foi carregado
+if (process.env.MONGO_ENV) {
+  console.log('✅ Arquivo env carregado - MONGO_ENV encontrado');
+  console.log('🔍 MONGO_ENV (primeiros 50 chars):', process.env.MONGO_ENV.substring(0, 50) + '...');
+} else {
+  console.warn('⚠️ Arquivo env não encontrado ou MONGO_ENV não definido');
+  console.warn('⚠️ Verifique se backend/env existe e contém MONGO_ENV');
+}
+
+// Carregar configuração local para testes (apenas se variáveis não estiverem definidas)
 const localConfig = require('./config-local');
 
 // Importar serviços do chatbot
@@ -390,18 +429,42 @@ app.get('/api/data', async (req, res) => {
     
     // Mapear dados para o formato esperado pelo frontend
     const mappedData = {
-      velonews: velonews.map(item => ({
-        _id: item._id,
-        title: item.title || item.velonews_titulo,
-        content: parseTextContent(item.content || item.velonews_conteudo || ''),
-        is_critical: item.alerta_critico === 'Y' || item.alerta_critico === true || item.is_critical === 'Y' || item.is_critical === true || item.isCritical === 'Y' || item.isCritical === true ? 'Y' : 'N',
-        solved: (() => {
-          console.log('🔍 BACKEND - item.solved:', item.solved, 'tipo:', typeof item.solved);
-          return item.solved || false;
-        })(),
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt
-      })),
+      velonews: velonews.map(item => {
+        // Processar campo media conforme novo schema
+        // Suporta formato novo (media: { images: [], videos: [] }) e formato antigo (images: [], videos: []) para compatibilidade
+        let media = {
+          images: [],
+          videos: []
+        };
+
+        if (item.media && typeof item.media === 'object') {
+          // Formato novo: media: { images: [], videos: [] }
+          media.images = Array.isArray(item.media.images) ? item.media.images : [];
+          media.videos = Array.isArray(item.media.videos) ? item.media.videos : [];
+        } else {
+          // Formato antigo: images: [], videos: [] (compatibilidade)
+          if (Array.isArray(item.images)) {
+            media.images = item.images;
+          }
+          if (Array.isArray(item.videos)) {
+            media.videos = item.videos;
+          }
+        }
+
+        return {
+          _id: item._id,
+          title: item.title || item.velonews_titulo || item.titulo || '(sem título)',
+          content: parseTextContent(item.content || item.velonews_conteudo || item.conteudo || ''),
+          is_critical: item.alerta_critico === 'Y' || item.alerta_critico === true || item.is_critical === 'Y' || item.is_critical === true || item.isCritical === 'Y' || item.isCritical === true ? 'Y' : 'N',
+          solved: (() => {
+            console.log('🔍 BACKEND - item.solved:', item.solved, 'tipo:', typeof item.solved);
+            return item.solved || false;
+          })(),
+          media: media, // ✅ Campo media com images e videos
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt
+        };
+      }),
       
       articles: artigos.map(item => ({
         _id: item._id,
@@ -506,6 +569,27 @@ app.get('/api/velo-news', async (req, res) => {
         item.updatedAt ??
         (item._id && item._id.getTimestamp ? item._id.getTimestamp() : null);
 
+      // Processar campo media conforme novo schema
+      // Suporta formato novo (media: { images: [], videos: [] }) e formato antigo (images: [], videos: []) para compatibilidade
+      let media = {
+        images: [],
+        videos: []
+      };
+
+      if (item.media && typeof item.media === 'object') {
+        // Formato novo: media: { images: [], videos: [] }
+        media.images = Array.isArray(item.media.images) ? item.media.images : [];
+        media.videos = Array.isArray(item.media.videos) ? item.media.videos : [];
+      } else {
+        // Formato antigo: images: [], videos: [] (compatibilidade)
+        if (Array.isArray(item.images)) {
+          media.images = item.images;
+        }
+        if (Array.isArray(item.videos)) {
+          media.videos = item.videos;
+        }
+      }
+
       return {
         _id: item._id,
         // Usando campos padrão do schema
@@ -516,6 +600,7 @@ app.get('/api/velo-news', async (req, res) => {
           console.log('🔍 BACKEND - item.solved:', item.solved, 'tipo:', typeof item.solved);
           return item.solved || false;
         })(),
+        media: media, // ✅ Campo media com images e videos
         createdAt,
         updatedAt: item.updatedAt ?? createdAt,
         source: 'Velonews'
@@ -3398,6 +3483,147 @@ try {
   console.error('Stack:', error.stack);
   console.error('Detalhes do erro:', error);
 }
+
+// ===== API DE IMAGENS (GCS) =====
+console.log('🖼️ Registrando endpoint de imagens GCS...');
+// GET /api/images/* - Servir imagens do GCS (proxy direto)
+// Usar middleware que intercepta requisições para /api/images/ antes das rotas estáticas
+// Proxy resolve ERR_BLOCKED_BY_ORB (Opaque Response Blocking) ao servir imagem diretamente
+app.use('/api/images', async (req, res, next) => {
+  // Apenas processar requisições GET
+  if (req.method !== 'GET') {
+    return next();
+  }
+  
+  try {
+    // req.path pode vir codificado (%20) ou decodificado pelo Express
+    // Precisamos decodificar completamente antes de processar para evitar encoding duplo
+    let imagePath = req.path.startsWith('/') ? req.path.substring(1) : req.path;
+    
+    // Decodificar completamente (resolve encoding duplo se req.path vier codificado)
+    try {
+      imagePath = decodeURIComponent(imagePath);
+    } catch (e) {
+      // Se já estiver decodificado ou erro na decodificação, continuar com o valor original
+      // Isso garante compatibilidade com ambos os casos
+    }
+    
+    // imagePath agora está garantidamente decodificado: "img_velonews/1765293397337-mascote joia.jpg"
+    
+    console.log('🖼️ BACKEND - Requisição recebida:', {
+      method: req.method,
+      path: req.path,
+      baseUrl: req.baseUrl,
+      url: req.url,
+      originalUrl: req.originalUrl,
+      imagePath: imagePath,
+      bucketName: process.env.GCS_BUCKET_NAME2
+    });
+    
+    // Validar caminho (deve começar com img_velonews/ ou img_artigos/)
+    if (!imagePath || (!imagePath.startsWith('img_velonews/') && !imagePath.startsWith('img_artigos/'))) {
+      console.error('❌ BACKEND - Caminho inválido:', imagePath);
+      return res.status(400).json({
+        success: false,
+        message: 'Caminho de imagem inválido. Deve começar com img_velonews/ ou img_artigos/'
+      });
+    }
+
+    const bucketName = process.env.GCS_BUCKET_NAME2;
+    if (!bucketName) {
+      console.error('❌ GCS_BUCKET_NAME2 não configurado');
+      return res.status(503).json({
+        success: false,
+        message: 'GCS_BUCKET_NAME2 não configurado'
+      });
+    }
+
+    // Construir URL pública do GCS
+    // Codificar cada parte do caminho separadamente para lidar com espaços e caracteres especiais
+    // Mantém as barras não codificadas, mas codifica o nome do arquivo
+    const pathParts = imagePath.split('/');
+    const encodedParts = pathParts.map(part => encodeURIComponent(part));
+    const encodedPath = encodedParts.join('/');
+    const publicUrl = `https://storage.googleapis.com/${bucketName}/${encodedPath}`;
+    
+    console.log(`🖼️ BACKEND - Fazendo proxy da imagem:`, {
+      original: imagePath,
+      encoded: encodedPath,
+      finalUrl: publicUrl
+    });
+    
+    // Fazer proxy: baixar imagem do GCS e servir diretamente
+    // Isso resolve ERR_BLOCKED_BY_ORB (Opaque Response Blocking)
+    const imageResponse = await fetch(publicUrl);
+    
+    if (!imageResponse.ok) {
+      console.error(`❌ BACKEND - Erro ao buscar imagem do GCS: ${imageResponse.status} ${imageResponse.statusText}`);
+      console.error(`❌ BACKEND - URL tentada: ${publicUrl}`);
+      
+      // Se for 403, o bucket não está público
+      if (imageResponse.status === 403) {
+        console.error(`❌ BACKEND - Bucket não está público! Para resolver:`);
+        console.error(`   1. Acesse: https://console.cloud.google.com/storage/browser/${bucketName}`);
+        console.error(`   2. Clique em "Permissions" (Permissões)`);
+        console.error(`   3. Clique em "Add Principal"`);
+        console.error(`   4. Em "New principals", digite: allUsers`);
+        console.error(`   5. Em "Role", selecione: Storage Object Viewer`);
+        console.error(`   6. Salve e aguarde alguns segundos`);
+        
+        return res.status(403).json({
+          success: false,
+          message: 'Bucket não está público. Configure permissões públicas no Google Cloud Console.',
+          details: `Bucket: ${bucketName}`,
+          help: 'Veja logs do backend para instruções detalhadas'
+        });
+      }
+      
+      return res.status(imageResponse.status).json({
+        success: false,
+        message: `Erro ao buscar imagem: ${imageResponse.statusText}`,
+        details: `Status: ${imageResponse.status}`
+      });
+    }
+    
+    // Obter Content-Type da resposta (ou inferir do nome do arquivo)
+    const contentType = imageResponse.headers.get('content-type') || 
+                        (imagePath.toLowerCase().endsWith('.jpg') || imagePath.toLowerCase().endsWith('.jpeg') ? 'image/jpeg' :
+                         imagePath.toLowerCase().endsWith('.png') ? 'image/png' :
+                         imagePath.toLowerCase().endsWith('.gif') ? 'image/gif' :
+                         imagePath.toLowerCase().endsWith('.webp') ? 'image/webp' :
+                         'application/octet-stream');
+    
+    // Obter buffer da imagem
+    const imageBuffer = await imageResponse.buffer();
+    
+    // Adicionar headers CORS e Content-Type
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Max-Age', '3600');
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', imageBuffer.length);
+    res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache por 1 ano
+    
+    // Enviar imagem diretamente
+    res.send(imageBuffer);
+    // Não chamar next() - finalizar a requisição aqui
+    return;
+  } catch (error) {
+    console.error('❌ Erro ao servir imagem:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao servir imagem',
+      error: error.message
+    });
+    // Não chamar next() em caso de erro também
+    return;
+  }
+  
+  // Se chegou aqui, não era uma requisição válida de imagem
+  next();
+});
+console.log('✅ Endpoint GET /api/images/* registrado com sucesso (proxy direto)');
 
 // Servir arquivos estáticos do frontend (DEPOIS das rotas da API)
 app.use(express.static(path.join(__dirname, 'public')));

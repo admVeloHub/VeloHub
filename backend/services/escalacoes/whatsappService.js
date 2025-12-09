@@ -1,13 +1,19 @@
 /**
  * VeloHub V3 - WhatsApp Service para Módulo Escalações
- * VERSION: v1.1.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.4.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
  * 
- * Serviço para integração com API WhatsApp externa (Baileys)
- * Referência: painel de serviços/api wpp/index.js
+ * Serviço para integração com API WhatsApp (SKYNET ou Render)
  * 
- * Este serviço faz chamadas HTTP para a API WhatsApp externa,
- * não implementa Baileys diretamente.
+ * Mudanças v1.4.0:
+ * - Suporte para ambas as URLs: SKYNET (dev) e Render (produção)
+ * - Seleção automática de URL baseada em NODE_ENV
+ * - Seleção automática de endpoint baseada na URL detectada
+ * - Logs de diagnóstico detalhados para troubleshooting
+ * 
+ * Estrutura:
+ * - Produção: WHATSAPP_API_URL (Render) → endpoint /send
+ * - Desenvolvimento: SKYNET_API_URL (GCP) → endpoint /api/whatsapp/send
  */
 
 const config = require('../../config');
@@ -86,10 +92,35 @@ function parseMetaFromText(texto) {
  * @returns {Promise<Object>} { ok: boolean, messageId?: string, messageIds?: Array, error?: string }
  */
 async function sendMessage(jid, mensagem, imagens = [], videos = [], options = {}) {
-  const apiUrl = config.WHATSAPP_API_URL;
+  // Seleção de URL baseada em ambiente
+  // Produção: usar Render (WHATSAPP_API_URL)
+  // Desenvolvimento: usar SKYNET (SKYNET_API_URL)
+  const isProduction = config.NODE_ENV === 'production';
+  const apiUrl = isProduction
+    ? (config.WHATSAPP_API_URL || 'https://whatsapp-api-y40p.onrender.com')
+    : (config.SKYNET_API_URL || 'https://backend-gcp-278491073220.us-east1.run.app');
+  
+  // Detectar endpoint baseado na URL
+  // SKYNET usa /api/whatsapp/send, Render usa /send
+  const isSkynet = apiUrl.includes('skynet') || 
+                   apiUrl.includes('gcp') || 
+                   apiUrl.includes('backend-gcp') ||
+                   apiUrl.includes('us-east1.run.app');
+  const endpoint = isSkynet ? '/api/whatsapp/send' : '/send';
+  const fullUrl = `${apiUrl}${endpoint}`;
+  
+  // Logs de diagnóstico
+  console.log(`[WHATSAPP] ========================================`);
+  console.log(`[WHATSAPP] Ambiente: ${isProduction ? 'PRODUÇÃO' : 'DESENVOLVIMENTO'}`);
+  console.log(`[WHATSAPP] NODE_ENV: ${config.NODE_ENV || 'development'}`);
+  console.log(`[WHATSAPP] API selecionada: ${isSkynet ? 'SKYNET' : 'RENDER'}`);
+  console.log(`[WHATSAPP] URL base: ${apiUrl}`);
+  console.log(`[WHATSAPP] Endpoint: ${endpoint}`);
+  console.log(`[WHATSAPP] URL completa: ${fullUrl}`);
+  console.log(`[WHATSAPP] ========================================`);
   
   if (!apiUrl) {
-    console.log('[WHATSAPP] API URL não configurada - pulando envio');
+    console.error('[WHATSAPP] ❌ Nenhuma URL de API configurada');
     return { ok: false, error: 'WhatsApp API não configurada' };
   }
   
@@ -97,6 +128,7 @@ async function sendMessage(jid, mensagem, imagens = [], videos = [], options = {
     // Formatar JID se necessário
     let destinatario = formatJid(jid);
     if (!destinatario) {
+      console.error('[WHATSAPP] ❌ Destino inválido:', jid);
       return { ok: false, error: 'Destino inválido' };
     }
     
@@ -106,9 +138,10 @@ async function sendMessage(jid, mensagem, imagens = [], videos = [], options = {
     const cpf = cpfOption || parsed.cpf || null;
     const solicitacao = solOption || parsed.solicitacao || null;
     
-    // Preparar payload conforme API externa
+    // Preparar payload (compatível com ambas as APIs)
     const payload = {
       jid: destinatario,
+      numero: null, // Não usado, mas mantido para compatibilidade
       mensagem: mensagem || '',
       imagens: Array.isArray(imagens) ? imagens : [],
       videos: Array.isArray(videos) ? videos : [],
@@ -118,13 +151,23 @@ async function sendMessage(jid, mensagem, imagens = [], videos = [], options = {
     };
     
     console.log(`[WHATSAPP] Enviando mensagem para ${destinatario}...`);
+    console.log(`[WHATSAPP] Payload:`, {
+      jid: destinatario,
+      mensagemLength: mensagem?.length || 0,
+      imagensCount: imagens.length,
+      videosCount: videos.length,
+      cpf: cpf || 'não informado',
+      solicitacao: solicitacao || 'não informado',
+      agente: agente || 'não informado'
+    });
     
     // Fazer requisição com timeout de 30 segundos
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
     
     try {
-      const response = await fetch(`${apiUrl}/send`, {
+      console.log(`[WHATSAPP] Fazendo requisição POST para: ${fullUrl}`);
+      const response = await fetch(fullUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -135,49 +178,72 @@ async function sendMessage(jid, mensagem, imagens = [], videos = [], options = {
       
       clearTimeout(timeoutId);
       
+      console.log(`[WHATSAPP] Resposta recebida:`, {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
       if (!response.ok) {
         const errorText = await response.text().catch(() => 'Erro desconhecido');
         
         if (response.status === 503) {
-          console.error('[WHATSAPP] WhatsApp desconectado (503)');
+          console.error('[WHATSAPP] ❌ WhatsApp desconectado (503)');
           return { ok: false, error: 'WhatsApp desconectado' };
         }
         
         if (response.status === 400) {
-          console.error('[WHATSAPP] Destino inválido (400)');
+          console.error('[WHATSAPP] ❌ Destino inválido (400):', errorText);
           return { ok: false, error: 'Destino inválido' };
         }
         
-        console.error(`[WHATSAPP] Erro HTTP ${response.status}:`, errorText);
+        if (response.status === 404) {
+          console.error('[WHATSAPP] ❌ Endpoint não encontrado (404):', errorText);
+          console.error('[WHATSAPP] Verifique se a URL e endpoint estão corretos');
+          return { ok: false, error: `Endpoint não encontrado: ${endpoint}` };
+        }
+        
+        console.error(`[WHATSAPP] ❌ Erro HTTP ${response.status}:`, errorText);
         return { ok: false, error: `Erro HTTP ${response.status}: ${errorText}` };
       }
       
       const data = await response.json();
+      console.log(`[WHATSAPP] Resposta JSON:`, data);
       
       if (data.ok) {
-        console.log(`[WHATSAPP] Mensagem enviada com sucesso! messageId: ${data.messageId}`);
+        console.log(`[WHATSAPP] ✅ Mensagem enviada com sucesso!`);
+        console.log(`[WHATSAPP] MessageId: ${data.messageId || 'não informado'}`);
+        console.log(`[WHATSAPP] MessageIds: ${Array.isArray(data.messageIds) ? data.messageIds.length : 0} IDs`);
         return {
           ok: true,
           messageId: data.messageId || null,
           messageIds: Array.isArray(data.messageIds) ? data.messageIds : (data.messageId ? [data.messageId] : [])
         };
       } else {
-        console.error('[WHATSAPP] Erro na resposta:', data.error);
+        console.error('[WHATSAPP] ❌ Erro na resposta da API:', data.error);
         return { ok: false, error: data.error || 'Erro desconhecido' };
       }
     } catch (fetchError) {
       clearTimeout(timeoutId);
       
       if (fetchError.name === 'AbortError') {
-        console.error('[WHATSAPP] Timeout ao enviar mensagem');
+        console.error('[WHATSAPP] ❌ Timeout ao enviar mensagem (30s)');
         return { ok: false, error: 'Timeout ao enviar mensagem' };
       }
       
-      console.error('[WHATSAPP] Erro ao fazer requisição:', fetchError.message);
-      return { ok: false, error: fetchError.message };
+      console.error('[WHATSAPP] ❌ Erro ao fazer requisição:', {
+        name: fetchError.name,
+        message: fetchError.message,
+        stack: fetchError.stack
+      });
+      return { ok: false, error: fetchError.message || 'Erro ao fazer requisição' };
     }
   } catch (error) {
-    console.error('[WHATSAPP] Erro geral:', error);
+    console.error('[WHATSAPP] ❌ Erro geral:', {
+      message: error.message,
+      stack: error.stack
+    });
     return { ok: false, error: error.message || 'Erro desconhecido' };
   }
 }

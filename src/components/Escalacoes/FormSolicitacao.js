@@ -1,9 +1,13 @@
 /**
  * VeloHub V3 - FormSolicitacao Component (Escalações Module)
- * VERSION: v1.3.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.3.2 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
  * 
  * Componente de formulário para criação de solicitações técnicas
+ * 
+ * Mudanças v1.3.2:
+ * - Corrigido posicionamento dos toasts para bottom-4 right-4 (canto inferior direito, fixo no frame)
+ * - Usado z-velohub-toast para seguir padrão do projeto
  * 
  * Mudanças v1.3.1:
  * - Corrigido posicionamento dos toasts de top-4 para bottom-4 (canto inferior direito)
@@ -522,9 +526,9 @@ const FormSolicitacao = ({ registrarLog }) => {
 
   return (
     <>
-      {/* Notificação simples */}
+      {/* Notificação simples - Canto inferior direito, fixo no frame */}
       {notification.show && (
-        <div className={`fixed bottom-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg ${
+        <div className={`fixed bottom-4 right-4 z-velohub-toast px-4 py-3 rounded-lg shadow-lg ${
           notification.type === 'success' ? 'bg-green-500 text-white' :
           notification.type === 'error' ? 'bg-red-500 text-white' :
           'bg-blue-500 text-white'
