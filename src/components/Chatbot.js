@@ -924,6 +924,8 @@ const Chatbot = ({ prompt }) => {
                 </div>
 
                 {/* Input Area - MANTENDO EXATAMENTE IGUAL */}
+                {/* NOTA: A toolbar do Chatbot (Bot Perguntas) deve conter APENAS o input de texto e o botão de envio.
+                     NÃO adicionar botões de imagem ou vídeo nesta toolbar. */}
                 <div className="flex-shrink-0 p-4" style={{borderTop: '1px solid var(--cor-borda)'}}>
                     <div className="relative">
                         <input

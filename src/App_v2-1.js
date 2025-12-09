@@ -1,6 +1,32 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.1.88 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.1.95 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.1.95:
+ * - Modais atualizados com z-index 9999 para ficarem acima do header
+ * 
+ * Mudanças v2.1.93:
+ * - Suporte completo para YouTube Shorts: detecção, conversão e exibição com proporção 9:16
+ * 
+ * Mudanças v2.1.92:
+ * - Modificado getYouTubeThumbnail e getYouTubeEmbedUrl para aceitar URLs como strings
+ * - Criada função convertYouTubeUrlToEmbed para converter URLs do YouTube para formato embed
+ * - Atualizada renderização de vídeos nos modais para processar strings de URL
+ * - Adicionados logs de debug para rastreamento de vídeos YouTube
+ * 
+ * Mudanças v2.1.90:
+ * - Corrigida codificação de URLs para imagens com espaços e caracteres especiais nos nomes de arquivos
+ * - Funções getImageUrl e getAllImages agora codificam corretamente cada parte do caminho
+ * 
+ * Mudanças v2.1.89:
+ * - Adicionadas funções auxiliares para processamento de mídia (getImageUrl, getYouTubeThumbnail, getYouTubeEmbedUrl, getAllImages)
+ * - Implementada exibição de imagens e vídeos YouTube na lista de notícias VeloNews
+ * - Expandido modal de notícias para exibir todas as imagens e vídeos YouTube
+ * - Adicionado modal de imagem expandida para visualização em tamanho completo
+ * - Implementada exibição de imagens na lista de artigos
+ * - Expandido modal de artigos para exibir todas as imagens e vídeos YouTube
+ * - Adicionado suporte para múltiplos formatos de imagens (caminhos relativos, URLs, base64)
+ * - Mantida compatibilidade com formato antigo (images) e novo (media.images)
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -170,7 +196,7 @@ const Footer = ({ isDarkMode }) => {
           </div>
           <div className="footer-section">
             <p className="footer-text">
-              v2.2.0
+              v5.1.0
             </p>
           </div>
         </div>
@@ -181,7 +207,7 @@ const Footer = ({ isDarkMode }) => {
 
 // Componente do Cabeçalho
 const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
-  const navItems = ['Home', 'VeloBot', 'Artigos', 'Apoio', 'Escalações', 'VeloAcademy'];
+  const navItems = ['Home', 'VeloBot', 'Artigos', 'Apoio', 'Req_Prod', 'VeloAcademy'];
   const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
 
   // Função para buscar contagem de tickets não visualizados
@@ -420,7 +446,7 @@ const CriticalNewsModal = ({ news, onClose, onAcknowledge }) => {
         <h2 className="text-2xl font-bold text-red-600 mb-4">{news.title}</h2>
                  <div 
              className="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200"
-             dangerouslySetInnerHTML={{ __html: news.content || '' }}
+             dangerouslySetInnerHTML={{ __html: processContentHtml(news.content || '', news?.media?.images || []) }}
          />
         <div className="mt-8 flex justify-between items-center">
           <button
@@ -561,7 +587,7 @@ export default function App_v2() {
         return <ArtigosPage />;
       case 'Apoio':
         return <ApoioPage />;
-      case 'Escalações':
+      case 'Req_Prod':
         return <EscalacoesPage />;
       case 'VeloAcademy':
         return <div className="text-center p-10 text-gray-800 dark:text-gray-200"><h1 className="text-3xl">VeloAcademy</h1><p>Clique no botão VeloAcademy no header para acessar a plataforma.</p></div>;
@@ -813,6 +839,281 @@ const PontoWidget = () => {
   );
 };
 
+// ===== FUNÇÕES AUXILIARES PARA PROCESSAMENTO DE MÍDIA =====
+// Função para obter URL da imagem (primeira imagem da notícia/artigo)
+const getImageUrl = (item) => {
+  // Processar item.media.images ou item.images (compatibilidade)
+  const images = item?.media?.images || item?.images || [];
+  console.log('🔍 getImageUrl - item:', item?.title || item?.titulo || 'sem título');
+  console.log('🔍 getImageUrl - images:', images);
+  
+  if (!Array.isArray(images) || images.length === 0) {
+    console.log('🔍 getImageUrl - Sem imagens, retornando null');
+    return null;
+  }
+  
+  const firstImage = images[0];
+  console.log('🔍 getImageUrl - firstImage:', firstImage);
+  
+  // Se é caminho relativo (formato novo: "img_velonews/123.jpg" ou "img_artigos/123.jpg")
+  if (typeof firstImage === 'string' && (firstImage.startsWith('img_velonews/') || firstImage.startsWith('img_artigos/') || firstImage.startsWith('/img_velonews/') || firstImage.startsWith('/img_artigos/'))) {
+    const cleanPath = firstImage.startsWith('/') ? firstImage.substring(1) : firstImage;
+    // Codificar cada parte do caminho separadamente (importante para espaços e caracteres especiais)
+    // Mantém as barras não codificadas, mas codifica o nome do arquivo
+    const encodedPath = cleanPath.split('/').map(part => encodeURIComponent(part)).join('/');
+    // Usar endpoint do backend que redireciona para o GCS
+    const imageUrl = `${API_BASE_URL}/images/${encodedPath}`;
+    console.log('🔍 getImageUrl - URL gerada:', { cleanPath, encodedPath, imageUrl });
+    return imageUrl;
+  }
+  
+  // Se é objeto com path (compatibilidade temporária)
+  if (firstImage && typeof firstImage === 'object' && firstImage.path) {
+    const cleanPath = firstImage.path.startsWith('/') ? firstImage.path.substring(1) : firstImage.path;
+    // Codificar cada parte do caminho separadamente
+    const encodedPath = cleanPath.split('/').map(part => encodeURIComponent(part)).join('/');
+    return `${API_BASE_URL}/images/${encodedPath}`;
+  }
+  
+  // Se é URL completa (compatibilidade com dados antigos)
+  if (typeof firstImage === 'string' && firstImage.startsWith('http')) {
+    return firstImage;
+  }
+  
+  if (firstImage && typeof firstImage === 'object' && firstImage.url && firstImage.url.startsWith('http')) {
+    return firstImage.url;
+  }
+  
+  // Se é base64 (compatibilidade com dados antigos)
+  if (typeof firstImage === 'string') {
+    // Verificar se é base64 (não começa com http e não é caminho relativo)
+    if (!firstImage.startsWith('http') && !firstImage.startsWith('img_velonews/') && !firstImage.startsWith('img_artigos/')) {
+      return firstImage.includes('data:') ? firstImage : `data:image/jpeg;base64,${firstImage}`;
+    }
+  }
+  
+  // Se é um objeto com propriedade data (base64 antigo)
+  if (firstImage && typeof firstImage === 'object' && firstImage.data) {
+    const imageData = firstImage.data;
+    if (typeof imageData === 'string' && !imageData.startsWith('http') && !imageData.startsWith('img_velonews/') && !imageData.startsWith('img_artigos/')) {
+      return imageData.includes('data:') ? imageData : `data:image/jpeg;base64,${imageData}`;
+    }
+  }
+  
+  return null;
+};
+
+// Função para obter URL do thumbnail do YouTube
+const getYouTubeThumbnail = (item) => {
+  // Processar item.media.videos ou item.videos
+  const videos = item?.media?.videos || item?.videos || [];
+  console.log('🔍 getYouTubeThumbnail - item:', item?.title || item?.titulo || 'sem título');
+  console.log('🔍 getYouTubeThumbnail - videos:', videos);
+  
+  if (!Array.isArray(videos) || videos.length === 0) {
+    return null;
+  }
+  
+  // Encontrar primeira URL do YouTube (pode ser string ou objeto)
+  let youtubeUrl = null;
+  for (const v of videos) {
+    if (typeof v === 'string') {
+      // É uma string de URL
+      if (v.includes('youtube.com') || v.includes('youtu.be')) {
+        youtubeUrl = v;
+        break;
+      }
+    } else if (v && typeof v === 'object') {
+      // É um objeto com propriedades
+      if (v.type === 'youtube' || v.embed || v.url) {
+        youtubeUrl = v.url || v.embed || '';
+        break;
+      }
+    }
+  }
+  
+  if (!youtubeUrl) return null;
+  
+  // Extrair ID do YouTube (incluindo Shorts)
+  const videoIdMatch = youtubeUrl.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([^"&?\/\s]{11})/);
+  if (!videoIdMatch || !videoIdMatch[1]) return null;
+  
+  const videoId = videoIdMatch[1];
+  return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+};
+
+// Função auxiliar para detectar se é um YouTube Shorts
+const isYouTubeShorts = (url) => {
+  return url && typeof url === 'string' && url.includes('youtube.com/shorts/');
+};
+
+// Função auxiliar para converter URL do YouTube para formato embed
+const convertYouTubeUrlToEmbed = (url) => {
+  if (!url || typeof url !== 'string') return null;
+  
+  // Se já está em formato embed, retornar como está
+  if (url.includes('youtube.com/embed/')) {
+    return url;
+  }
+  
+  // Extrair ID do YouTube (incluindo Shorts)
+  const videoIdMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([^"&?\/\s]{11})/);
+  if (!videoIdMatch || !videoIdMatch[1]) return null;
+  
+  const videoId = videoIdMatch[1];
+  return `https://www.youtube.com/embed/${videoId}`;
+};
+
+// Função para obter URL do embed do YouTube
+const getYouTubeEmbedUrl = (item) => {
+  // Processar item.media.videos ou item.videos
+  const videos = item?.media?.videos || item?.videos || [];
+  if (!Array.isArray(videos) || videos.length === 0) {
+    return null;
+  }
+  
+  // Encontrar primeira URL do YouTube (pode ser string ou objeto)
+  let youtubeUrl = null;
+  for (const v of videos) {
+    if (typeof v === 'string') {
+      if (v.includes('youtube.com') || v.includes('youtu.be')) {
+        youtubeUrl = v;
+        break;
+      }
+    } else if (v && typeof v === 'object') {
+      if (v.type === 'youtube' || v.embed || v.url) {
+        youtubeUrl = v.embed || v.url || '';
+        break;
+      }
+    }
+  }
+  
+  if (!youtubeUrl) return null;
+  
+  // Se já é formato embed, retornar
+  if (typeof youtubeUrl === 'string' && youtubeUrl.includes('youtube.com/embed/')) {
+    return youtubeUrl;
+  }
+  
+  // Converter para formato embed
+  return convertYouTubeUrlToEmbed(youtubeUrl);
+};
+
+// Função auxiliar para processar todas as imagens de um item (news ou article)
+const getAllImages = (item) => {
+  // Processar item.media.images ou item.images
+  const images = item?.media?.images || item?.images || [];
+  if (!Array.isArray(images) || images.length === 0) {
+    return [];
+  }
+  
+  return images.map(img => {
+    // Se é caminho relativo
+    if (typeof img === 'string' && (img.startsWith('img_velonews/') || img.startsWith('img_artigos/') || img.startsWith('/img_velonews/') || img.startsWith('/img_artigos/'))) {
+      const cleanPath = img.startsWith('/') ? img.substring(1) : img;
+      // Codificar cada parte do caminho separadamente
+      const encodedPath = cleanPath.split('/').map(part => encodeURIComponent(part)).join('/');
+      return `${API_BASE_URL}/images/${encodedPath}`;
+    }
+    
+    // Se é objeto com path
+    if (img && typeof img === 'object' && img.path) {
+      const cleanPath = img.path.startsWith('/') ? img.path.substring(1) : img.path;
+      // Codificar cada parte do caminho separadamente
+      const encodedPath = cleanPath.split('/').map(part => encodeURIComponent(part)).join('/');
+      return `${API_BASE_URL}/images/${encodedPath}`;
+    }
+    
+    // Se é URL completa
+    if (typeof img === 'string' && img.startsWith('http')) {
+      return img;
+    }
+    
+    if (img && typeof img === 'object' && img.url && img.url.startsWith('http')) {
+      return img.url;
+    }
+    
+    // Se é base64
+    if (typeof img === 'string') {
+      if (!img.startsWith('http') && !img.startsWith('img_velonews/') && !img.startsWith('img_artigos/')) {
+        return img.includes('data:') ? img : `data:image/jpeg;base64,${img}`;
+      }
+    }
+    
+    if (img && typeof img === 'object' && img.data) {
+      const imageData = img.data;
+      if (typeof imageData === 'string' && !imageData.startsWith('http') && !imageData.startsWith('img_velonews/') && !imageData.startsWith('img_artigos/')) {
+        return imageData.includes('data:') ? imageData : `data:image/jpeg;base64,${imageData}`;
+      }
+    }
+    
+    return null;
+  }).filter(url => url !== null);
+};
+
+// Função para processar conteúdo HTML e remover URLs do bucket GCS
+// Substitui URLs do bucket por endpoint local e remove metadados visíveis
+const processContentHtml = (htmlContent, mediaImages = []) => {
+  if (!htmlContent || typeof htmlContent !== 'string') return htmlContent || '';
+  
+  console.log('🔍 processContentHtml - ANTES:', htmlContent.substring(0, 200));
+  
+  let processedHtml = htmlContent;
+  
+  // Padrão para URLs do bucket GCS
+  const bucketUrlPattern = /https:\/\/storage\.googleapis\.com\/[^\/]+\/(img_velonews\/[^"'\s\)]+|img_artigos\/[^"'\s\)]+)/g;
+  
+  // 1. Substituir URLs do bucket em markdown por endpoint local
+  processedHtml = processedHtml.replace(/!\[([^\]]*)\]\((https:\/\/storage\.googleapis\.com\/[^\)]+)\)/g, (match, altText, bucketUrl) => {
+    const pathMatch = bucketUrl.match(/(img_velonews\/[^"'\s\)]+|img_artigos\/[^"'\s\)]+)/);
+    if (pathMatch) {
+      const cleanPath = pathMatch[1];
+      const encodedPath = cleanPath.split('/').map(part => encodeURIComponent(part)).join('/');
+      const newUrl = `${API_BASE_URL}/images/${encodedPath}`;
+      // Remover markdown completamente - a imagem será renderizada separadamente via getAllImages
+      return '';
+    }
+    return match;
+  });
+  
+  // 2. Processar tags <img> existentes que contenham URLs do bucket
+  processedHtml = processedHtml.replace(/<img([^>]*src=["'])(https:\/\/storage\.googleapis\.com\/[^\/]+\/(img_velonews\/[^"']+|img_artigos\/[^"']+))([^>]*)>/gi, (match, beforeSrc, bucketUrl, afterAttrs) => {
+    const pathMatch = bucketUrl.match(/(img_velonews\/[^"'\s\)]+|img_artigos\/[^"'\s\)]+)/);
+    if (pathMatch) {
+      const cleanPath = pathMatch[1];
+      const encodedPath = cleanPath.split('/').map(part => encodeURIComponent(part)).join('/');
+      const newSrc = `${API_BASE_URL}/images/${encodedPath}`;
+      
+      // Remover atributo alt se contiver nome do arquivo (preservar se for descritivo)
+      let processedAttrs = afterAttrs;
+      
+      // Remover alt que contenha apenas nome de arquivo (ex: "mascote joia.jpg")
+      processedAttrs = processedAttrs.replace(/\s+alt=["']([^"']*\.(jpg|jpeg|png|gif|webp))["']/gi, '');
+      
+      // Remover title se contiver apenas nome de arquivo
+      processedAttrs = processedAttrs.replace(/\s+title=["']([^"']*\.(jpg|jpeg|png|gif|webp))["']/gi, '');
+      
+      // Preservar width, height e style (dimensões definidas pelo Console)
+      return `<img${beforeSrc}${newSrc}${processedAttrs}>`;
+    }
+    return match;
+  });
+  
+  // 3. Substituir URLs do bucket em texto simples (caso apareçam como links)
+  processedHtml = processedHtml.replace(bucketUrlPattern, (match, imagePath) => {
+    const cleanPath = imagePath;
+    const encodedPath = cleanPath.split('/').map(part => encodeURIComponent(part)).join('/');
+    return `${API_BASE_URL}/images/${encodedPath}`;
+  });
+  
+  // 4. Remover texto que contenha apenas URLs do bucket (linhas soltas)
+  processedHtml = processedHtml.replace(/https:\/\/storage\.googleapis\.com\/[^\/]+\/(img_velonews\/[^\s\)]+|img_artigos\/[^\s\)]+)/g, '');
+  
+  console.log('🔍 processContentHtml - DEPOIS:', processedHtml.substring(0, 200));
+  
+  return processedHtml;
+};
+
 // Conteúdo da Página Home - VERSÃO MELHORADA
 const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews, setRefreshAcknowledgedNews, setAcknowledgedNewsIds: setParentAcknowledgedNewsIds, setUpdateAcknowledgedNewsCallback }) => {
     const [selectedNews, setSelectedNews] = useState(null);
@@ -822,6 +1123,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
     const [lastRefresh, setLastRefresh] = useState(Date.now());
     const [lastCriticalNewsId, setLastCriticalNewsId] = useState(null);
     const [acknowledgedNewsIds, setAcknowledgedNewsIds] = useState([]);
+    const [expandedImage, setExpandedImage] = useState(null);
     
     // Estados dos módulos - controlados pelo Console VeloHub
     const [moduleStatus, setModuleStatus] = useState({
@@ -1566,9 +1868,92 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                         </div>
                                     </div>
                                     
+                                    {/* Renderizar primeira imagem ou vídeo se existir */}
+                                    {(() => {
+                                        const imageUrl = getImageUrl(news);
+                                        console.log('🔍 Renderizando imagem - news:', news.title);
+                                        console.log('🔍 Renderizando imagem - imageUrl:', imageUrl);
+                                        console.log('🔍 Renderizando imagem - media.images:', news?.media?.images);
+                                        
+                                        return imageUrl ? (
+                                            <div className="mb-3">
+                                                <div className="relative inline-block" style={{ 
+                                                    maxWidth: '280px', 
+                                                    width: '100%',
+                                                    borderRadius: '8px',
+                                                    overflow: 'hidden',
+                                                    border: isCritical && !shouldRemoveHighlight ? '2px solid #ef4444' : '1px solid #e5e7eb'
+                                                }}>
+                                                    <img 
+                                                        src={imageUrl} 
+                                                        alt={news.title}
+                                                        className="w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
+                                                        style={{
+                                                            maxHeight: '120px',
+                                                            width: '100%',
+                                                            objectFit: 'cover',
+                                                            display: 'block'
+                                                        }}
+                                                        onClick={() => setExpandedImage(imageUrl)}
+                                                        onError={(e) => {
+                                                            console.error('❌ Erro ao carregar imagem:', imageUrl, e);
+                                                            e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="280" height="120"%3E%3Crect width="280" height="120" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-family="Arial" font-size="12"%3EImagem não encontrada%3C/text%3E%3C/svg%3E';
+                                                        }}
+                                                        onLoad={() => {
+                                                            console.log('✅ Imagem carregada com sucesso:', imageUrl);
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ) : null;
+                                    })()}
+                                    {(() => {
+                                        const thumbnailUrl = getYouTubeThumbnail(news);
+                                        console.log('🔍 Renderizando vídeo YouTube - news:', news.title);
+                                        console.log('🔍 Renderizando vídeo YouTube - thumbnailUrl:', thumbnailUrl);
+                                        console.log('🔍 Renderizando vídeo YouTube - media.videos:', news?.media?.videos);
+                                        
+                                        return thumbnailUrl ? (
+                                            <div className="mb-3 flex justify-center">
+                                                <div className="relative" style={{ 
+                                                    maxWidth: '280px', 
+                                                    width: '100%',
+                                                    borderRadius: '8px',
+                                                    overflow: 'hidden',
+                                                    border: isCritical && !shouldRemoveHighlight ? '2px solid #ef4444' : '1px solid #e5e7eb'
+                                                }}>
+                                                    <div 
+                                                        className="relative cursor-pointer hover:opacity-90 transition-opacity"
+                                                        onClick={handleReadMore}
+                                                    >
+                                                        <img 
+                                                            src={thumbnailUrl} 
+                                                            alt={`${news.title} - Vídeo`}
+                                                            className="w-full h-auto"
+                                                            style={{
+                                                                maxHeight: '120px',
+                                                                width: '100%',
+                                                                objectFit: 'cover',
+                                                                display: 'block'
+                                                            }}
+                                                        />
+                                                        {/* Overlay com ícone de play */}
+                                                        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 hover:bg-opacity-40 transition-opacity">
+                                                            <div className="bg-white bg-opacity-90 rounded-full p-2 shadow-lg">
+                                                                <svg className="w-8 h-8 text-red-600" fill="currentColor" viewBox="0 0 24 24">
+                                                                    <path d="M8 5v14l11-7z"/>
+                                                                </svg>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : null;
+                                    })()}
+                                    
                                     <div 
                                         className={`text-gray-600 dark:text-gray-400 line-clamp-3 mb-2 prose prose-sm dark:prose-invert max-w-none ${isSolved ? 'solved-news-content' : ''}`}
-                                        dangerouslySetInnerHTML={{ __html: news.content || '' }}
+                                        dangerouslySetInnerHTML={{ __html: processContentHtml(news.content || '', news?.media?.images || []) }}
                                     />
                                     
                                     <div className="flex justify-between items-center">
@@ -1632,23 +2017,149 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                 </div>
             </aside>
             {selectedNews && (
-                 <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50" onClick={() => setSelectedNews(null)}>
-                                         <div className="rounded-lg shadow-2xl p-8 max-w-2xl w-full mx-4 bg-white dark:bg-gray-800" onClick={e => e.stopPropagation()} style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'}}>
-                        <div className="flex justify-between items-center mb-4">
-                           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">{selectedNews.title}</h2>
-                           <button onClick={() => setSelectedNews(null)} className="text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white text-3xl">&times;</button>
+                 <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[9999] p-4" onClick={() => setSelectedNews(null)} style={{ zIndex: 9999 }}>
+                    <div className="rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] bg-white dark:bg-gray-800 flex flex-col overflow-hidden" onClick={e => e.stopPropagation()} style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)', zIndex: 10000}}>
+                        <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+                           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 pr-4">{selectedNews.title}</h2>
+                           <button onClick={() => setSelectedNews(null)} className="text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white text-3xl flex-shrink-0">&times;</button>
                         </div>
-                                                 <div 
-                             className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
-                             dangerouslySetInnerHTML={{ __html: selectedNews.content || '' }}
-                         />
+                        
+                        <div className="flex-1 overflow-y-auto p-4">
+                            {/* Renderizar todas as imagens */}
+                            {(() => {
+                                const allImages = getAllImages(selectedNews);
+                                return allImages.length > 0 && (
+                                    <div className="mb-4 space-y-3">
+                                        {allImages.map((imgUrl, idx) => {
+                                            if (!imgUrl) return null;
+                                            return (
+                                                <div key={idx} className="relative">
+                                                    <img 
+                                                        src={imgUrl} 
+                                                        alt={`${selectedNews.title || selectedNews.titulo} - Imagem ${idx + 1}`}
+                                                        className="w-full h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                                        style={{ maxHeight: '400px', objectFit: 'contain' }}
+                                                        onClick={() => setExpandedImage(imgUrl)}
+                                                        onError={(e) => {
+                                                            e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="200"%3E%3Crect width="400" height="200" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-family="Arial" font-size="14"%3EImagem não encontrada%3C/text%3E%3C/svg%3E';
+                                                        }}
+                                                    />
+                                                    <div className="text-center mt-2 text-sm text-gray-500 dark:text-gray-400">
+                                                        Clique para expandir
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })()}
+                            
+                            {/* Renderizar vídeos do YouTube */}
+                            {(() => {
+                                const videos = selectedNews?.media?.videos || selectedNews?.videos || [];
+                                console.log('🔍 Modal - vídeos encontrados:', videos);
+                                
+                                // Processar vídeos (podem ser strings ou objetos)
+                                const youtubeVideos = videos
+                                    .map(v => {
+                                        if (typeof v === 'string') {
+                                            // É uma string de URL
+                                            if (v.includes('youtube.com') || v.includes('youtu.be')) {
+                                                return { url: v, embed: convertYouTubeUrlToEmbed(v) };
+                                            }
+                                            return null;
+                                        } else if (v && typeof v === 'object') {
+                                            // É um objeto
+                                            if (v.type === 'youtube' || v.embed || v.url) {
+                                                return {
+                                                    url: v.url || v.embed || '',
+                                                    embed: v.embed || convertYouTubeUrlToEmbed(v.url || v.embed || '')
+                                                };
+                                            }
+                                        }
+                                        return null;
+                                    })
+                                    .filter(v => v !== null && v.embed);
+                                
+                                console.log('🔍 Modal - vídeos processados:', youtubeVideos);
+                                
+                                return youtubeVideos.length > 0 ? (
+                                    <div className="mb-4 space-y-3">
+                                        {youtubeVideos.map((vid, idx) => {
+                                            if (!vid.embed) return null;
+                                            // Detectar se é Shorts para aplicar proporção 9:16 com tamanho limitado
+                                            const isShorts = isYouTubeShorts(vid.url);
+                                            if (isShorts) {
+                                                // Para Shorts: proporção 9:16 (largura:altura = 9:16)
+                                                // Definir altura máxima e calcular largura, ou vice-versa
+                                                // Altura máxima de 400px -> largura = 400 × (9/16) = 225px
+                                                return (
+                                                    <div key={idx} className="flex justify-center">
+                                                        <div className="relative rounded-lg overflow-hidden" style={{ width: '225px', maxWidth: '100%', height: '400px', maxHeight: '50vh' }}>
+                                                            <iframe
+                                                                src={vid.embed}
+                                                                className="w-full h-full rounded-lg"
+                                                                frameBorder="0"
+                                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                                allowFullScreen
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            } else {
+                                                // Para vídeos normais: proporção 16:9 padrão
+                                                return (
+                                                    <div key={idx} className="relative w-full" style={{ paddingBottom: '56.25%', height: 0 }}>
+                                                        <iframe
+                                                            src={vid.embed}
+                                                            className="absolute top-0 left-0 w-full h-full rounded-lg"
+                                                            frameBorder="0"
+                                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                            allowFullScreen
+                                                        />
+                                                    </div>
+                                                );
+                                            }
+                                        })}
+                                    </div>
+                                ) : null;
+                            })()}
+                            
+                            <div 
+                                className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
+                                dangerouslySetInnerHTML={{ __html: processContentHtml(selectedNews.content || '', selectedNews?.media?.images || []) }}
+                            />
+                        </div>
                     </div>
+                </div>
+            )}
+            
+            {/* Modal de imagem expandida */}
+            {expandedImage && (
+                <div 
+                    className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center z-[9999] p-4"
+                    onClick={() => setExpandedImage(null)}
+                    style={{ zIndex: 9999 }}
+                >
+                    <button 
+                        onClick={() => setExpandedImage(null)}
+                        className="absolute top-4 right-4 text-white hover:text-gray-300 text-4xl z-10"
+                        style={{ fontSize: '2rem' }}
+                    >
+                        &times;
+                    </button>
+                    <img 
+                        src={expandedImage} 
+                        alt="Imagem expandida"
+                        className="max-w-full max-h-full object-contain rounded-lg"
+                        onClick={e => e.stopPropagation()}
+                    />
                 </div>
             )}
 
             {selectedArticle && (
-                <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4" onClick={() => setSelectedArticle(null)}>
-                    <div className="rounded-lg shadow-2xl max-w-4xl w-full max-h-[70vh] bg-white dark:bg-gray-800 flex flex-col" onClick={e => e.stopPropagation()} style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'}}>
+                <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[9999] p-4" onClick={() => setSelectedArticle(null)} style={{ zIndex: 9999 }}>
+                    <div className="rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] bg-white dark:bg-gray-800 flex flex-col overflow-hidden" onClick={e => e.stopPropagation()} style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)', zIndex: 10000}}>
                         {/* Header fixo */}
                         <div className="flex justify-between items-center p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
                             <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200 pr-3 line-clamp-2">{selectedArticle.title}</h2>
@@ -1670,10 +2181,110 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                         </div>
                         
                         {/* Conteúdo com scroll */}
-                        <div className="flex-1 overflow-y-auto p-3">
+                        <div className="flex-1 overflow-y-auto p-4">
+                            {/* Renderizar todas as imagens */}
+                            {(() => {
+                                const allImages = getAllImages(selectedArticle);
+                                return allImages.length > 0 && (
+                                    <div className="mb-4 space-y-3">
+                                        {allImages.map((imgUrl, idx) => {
+                                            if (!imgUrl) return null;
+                                            return (
+                                                <div key={idx} className="relative">
+                                                    <img 
+                                                        src={imgUrl} 
+                                                        alt={`${selectedArticle.title || selectedArticle.titulo} - Imagem ${idx + 1}`}
+                                                        className="w-full h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                                        style={{ maxHeight: '400px', objectFit: 'contain' }}
+                                                        onClick={() => setExpandedImage(imgUrl)}
+                                                        onError={(e) => {
+                                                            e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="200"%3E%3Crect width="400" height="200" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-family="Arial" font-size="14"%3EImagem não encontrada%3C/text%3E%3C/svg%3E';
+                                                        }}
+                                                    />
+                                                    <div className="text-center mt-2 text-sm text-gray-500 dark:text-gray-400">
+                                                        Clique para expandir
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })()}
+                            
+                            {/* Renderizar vídeos do YouTube */}
+                            {(() => {
+                                const videos = selectedArticle?.media?.videos || selectedArticle?.videos || [];
+                                console.log('🔍 Modal Artigo - vídeos encontrados:', videos);
+                                
+                                // Processar vídeos (podem ser strings ou objetos)
+                                const youtubeVideos = videos
+                                    .map(v => {
+                                        if (typeof v === 'string') {
+                                            // É uma string de URL
+                                            if (v.includes('youtube.com') || v.includes('youtu.be')) {
+                                                return { url: v, embed: convertYouTubeUrlToEmbed(v) };
+                                            }
+                                            return null;
+                                        } else if (v && typeof v === 'object') {
+                                            // É um objeto
+                                            if (v.type === 'youtube' || v.embed || v.url) {
+                                                return {
+                                                    url: v.url || v.embed || '',
+                                                    embed: v.embed || convertYouTubeUrlToEmbed(v.url || v.embed || '')
+                                                };
+                                            }
+                                        }
+                                        return null;
+                                    })
+                                    .filter(v => v !== null && v.embed);
+                                
+                                console.log('🔍 Modal Artigo - vídeos processados:', youtubeVideos);
+                                
+                                return youtubeVideos.length > 0 ? (
+                                    <div className="mb-4 space-y-3">
+                                        {youtubeVideos.map((vid, idx) => {
+                                            if (!vid.embed) return null;
+                                            // Detectar se é Shorts para aplicar proporção 9:16 com tamanho limitado
+                                            const isShorts = isYouTubeShorts(vid.url);
+                                            if (isShorts) {
+                                                // Para Shorts: proporção 9:16 (largura:altura = 9:16)
+                                                // Definir altura máxima e calcular largura, ou vice-versa
+                                                // Altura máxima de 400px -> largura = 400 × (9/16) = 225px
+                                                return (
+                                                    <div key={idx} className="flex justify-center">
+                                                        <div className="relative rounded-lg overflow-hidden" style={{ width: '225px', maxWidth: '100%', height: '400px', maxHeight: '50vh' }}>
+                                                            <iframe
+                                                                src={vid.embed}
+                                                                className="w-full h-full rounded-lg"
+                                                                frameBorder="0"
+                                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                                allowFullScreen
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            } else {
+                                                // Para vídeos normais: proporção 16:9 padrão
+                                                return (
+                                                    <div key={idx} className="relative w-full" style={{ paddingBottom: '56.25%', height: 0 }}>
+                                                        <iframe
+                                                            src={vid.embed}
+                                                            className="absolute top-0 left-0 w-full h-full rounded-lg"
+                                                            frameBorder="0"
+                                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                            allowFullScreen
+                                                        />
+                                                    </div>
+                                                );
+                                            }
+                                        })}
+                                    </div>
+                                ) : null;
+                            })()}
+                            
                             <div 
                                 className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
-                                dangerouslySetInnerHTML={{ __html: selectedArticle.content || '' }}
+                                dangerouslySetInnerHTML={{ __html: processContentHtml(selectedArticle.content || '', selectedArticle?.media?.images || []) }}
                             />
                         </div>
                     </div>
@@ -2650,6 +3261,7 @@ const ArtigosPage = () => {
     const [selectedArticle, setSelectedArticle] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+    const [expandedImage, setExpandedImage] = useState(null);
 
     // Função para renderizar HTML de forma segura
     const renderHTML = (htmlContent) => {
@@ -2922,10 +3534,42 @@ const ArtigosPage = () => {
                                                 )}
                                             </div>
                                             <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-3">{article.title}</h3>
+                                            
+                                            {/* Renderizar primeira imagem se existir */}
+                                            {getImageUrl(article) && (
+                                                <div className="mb-3">
+                                                    <div className="relative inline-block" style={{ 
+                                                        maxWidth: '280px', 
+                                                        width: '100%',
+                                                        borderRadius: '8px',
+                                                        overflow: 'hidden',
+                                                        border: '1px solid #e5e7eb'
+                                                    }}>
+                                                        <img 
+                                                            src={getImageUrl(article)} 
+                                                            alt={article.title}
+                                                            className="w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
+                                                            style={{
+                                                                maxHeight: '120px',
+                                                                width: '100%',
+                                                                objectFit: 'cover',
+                                                                display: 'block'
+                                                            }}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelectedArticle(article);
+                                                            }}
+                                                            onError={(e) => {
+                                                                e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="280" height="120"%3E%3Crect width="280" height="120" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-family="Arial" font-size="12"%3EImagem não encontrada%3C/text%3E%3C/svg%3E';
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
                                             {article.content && (
                                                  <div 
                                                      className="text-gray-600 dark:text-gray-400 mb-4 line-clamp-3 prose prose-sm dark:prose-invert max-w-none"
-                                                     dangerouslySetInnerHTML={{ __html: formatArticleContent(article.content, 200) }}
+                                                     dangerouslySetInnerHTML={{ __html: processContentHtml(formatArticleContent(article.content, 200), article?.media?.images || []) }}
                                                  />
                                             )}
                                             {article.tag && (
@@ -2952,8 +3596,8 @@ const ArtigosPage = () => {
 
             {/* Modal do Artigo */}
             {selectedArticle && (
-                <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
-                                         <div className="rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden bg-white dark:bg-gray-800" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'}}>
+                <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
+                                         <div className="rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden bg-white dark:bg-gray-800" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)', zIndex: 10000}}>
                         <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
                             <div>
                                 <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full text-sm font-medium">
@@ -2978,9 +3622,109 @@ const ArtigosPage = () => {
                                 {selectedArticle.title}
                             </h2>
                             
+                            {/* Renderizar todas as imagens */}
+                            {(() => {
+                                const allImages = getAllImages(selectedArticle);
+                                return allImages.length > 0 && (
+                                    <div className="mb-6 space-y-3">
+                                        {allImages.map((imgUrl, idx) => {
+                                            if (!imgUrl) return null;
+                                            return (
+                                                <div key={idx} className="relative">
+                                                    <img 
+                                                        src={imgUrl} 
+                                                        alt={`${selectedArticle.title || selectedArticle.titulo} - Imagem ${idx + 1}`}
+                                                        className="w-full h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                                        style={{ maxHeight: '400px', objectFit: 'contain' }}
+                                                        onClick={() => setExpandedImage(imgUrl)}
+                                                        onError={(e) => {
+                                                            e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="200"%3E%3Crect width="400" height="200" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-family="Arial" font-size="14"%3EImagem não encontrada%3C/text%3E%3C/svg%3E';
+                                                        }}
+                                                    />
+                                                    <div className="text-center mt-2 text-sm text-gray-500 dark:text-gray-400">
+                                                        Clique para expandir
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })()}
+                            
+                            {/* Renderizar vídeos do YouTube */}
+                            {(() => {
+                                const videos = selectedArticle?.media?.videos || selectedArticle?.videos || [];
+                                console.log('🔍 Modal Artigo (ArtigosPage) - vídeos encontrados:', videos);
+                                
+                                // Processar vídeos (podem ser strings ou objetos)
+                                const youtubeVideos = videos
+                                    .map(v => {
+                                        if (typeof v === 'string') {
+                                            // É uma string de URL
+                                            if (v.includes('youtube.com') || v.includes('youtu.be')) {
+                                                return { url: v, embed: convertYouTubeUrlToEmbed(v) };
+                                            }
+                                            return null;
+                                        } else if (v && typeof v === 'object') {
+                                            // É um objeto
+                                            if (v.type === 'youtube' || v.embed || v.url) {
+                                                return {
+                                                    url: v.url || v.embed || '',
+                                                    embed: v.embed || convertYouTubeUrlToEmbed(v.url || v.embed || '')
+                                                };
+                                            }
+                                        }
+                                        return null;
+                                    })
+                                    .filter(v => v !== null && v.embed);
+                                
+                                console.log('🔍 Modal Artigo (ArtigosPage) - vídeos processados:', youtubeVideos);
+                                
+                                return youtubeVideos.length > 0 ? (
+                                    <div className="mb-6 space-y-3">
+                                        {youtubeVideos.map((vid, idx) => {
+                                            if (!vid.embed) return null;
+                                            // Detectar se é Shorts para aplicar proporção 9:16 com tamanho limitado
+                                            const isShorts = isYouTubeShorts(vid.url);
+                                            if (isShorts) {
+                                                // Para Shorts: proporção 9:16 (largura:altura = 9:16)
+                                                // Definir altura máxima e calcular largura, ou vice-versa
+                                                // Altura máxima de 400px -> largura = 400 × (9/16) = 225px
+                                                return (
+                                                    <div key={idx} className="flex justify-center">
+                                                        <div className="relative rounded-lg overflow-hidden" style={{ width: '225px', maxWidth: '100%', height: '400px', maxHeight: '50vh' }}>
+                                                            <iframe
+                                                                src={vid.embed}
+                                                                className="w-full h-full rounded-lg"
+                                                                frameBorder="0"
+                                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                                allowFullScreen
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            } else {
+                                                // Para vídeos normais: proporção 16:9 padrão
+                                                return (
+                                                    <div key={idx} className="relative w-full" style={{ paddingBottom: '56.25%', height: 0 }}>
+                                                        <iframe
+                                                            src={vid.embed}
+                                                            className="absolute top-0 left-0 w-full h-full rounded-lg"
+                                                            frameBorder="0"
+                                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                            allowFullScreen
+                                                        />
+                                                    </div>
+                                                );
+                                            }
+                                        })}
+                                    </div>
+                                ) : null;
+                            })()}
+                            
                             <div 
                                 className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
-                                dangerouslySetInnerHTML={{ __html: formatResponseText(selectedArticle.content, 'article') }}
+                                dangerouslySetInnerHTML={{ __html: processContentHtml(formatResponseText(selectedArticle.content, 'article'), selectedArticle?.media?.images || []) }}
                             />
                             
                             {selectedArticle.tag && (
@@ -2995,6 +3739,28 @@ const ArtigosPage = () => {
                             )}
                         </div>
                     </div>
+                </div>
+            )}
+            
+            {/* Modal de imagem expandida */}
+            {expandedImage && (
+                <div 
+                    className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center z-[60] p-4"
+                    onClick={() => setExpandedImage(null)}
+                >
+                    <button 
+                        onClick={() => setExpandedImage(null)}
+                        className="absolute top-4 right-4 text-white hover:text-gray-300 text-4xl z-10"
+                        style={{ fontSize: '2rem' }}
+                    >
+                        &times;
+                    </button>
+                    <img 
+                        src={expandedImage} 
+                        alt="Imagem expandida"
+                        className="max-w-full max-h-full object-contain rounded-lg"
+                        onClick={e => e.stopPropagation()}
+                    />
                 </div>
             )}
             

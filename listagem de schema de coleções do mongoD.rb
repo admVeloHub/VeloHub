@@ -1,5 +1,5 @@
 listagem de schema de coleções do mongoDB
-  <!-- VERSION: v2.0.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team -->
+  <!-- VERSION: v2.1.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team -->
      
     🗄️ Database Principal: console_conteudo
   
@@ -34,6 +34,10 @@ listagem de schema de coleções do mongoDB
   conteudo: String,               // Conteúdo da notícia
   isCritical: Boolean,            // Se é notícia crítica
   solved: Boolean,                // Se a notícia foi resolvida (default: false)
+  media: {                        // Objeto de mídia (imagens e vídeos)
+    images: Array,                // Array de imagens (URLs do GCS bucket ou Base64)
+    videos: Array                 // Array de vídeos (YouTube embed ou Base64)
+  },
   createdAt: Date,                // Data de criação
   updatedAt: Date                 // Data de atualização
   }

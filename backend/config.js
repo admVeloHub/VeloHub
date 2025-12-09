@@ -1,5 +1,5 @@
 // Configuração do VeloHub V3 - Baseada em Variáveis de Ambiente
-// VERSION: v1.3.0 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v1.4.0 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
 
 module.exports = {
   // ===========================================
@@ -47,7 +47,12 @@ module.exports = {
   PONTO_MAIS_API_KEY: process.env.PONTO_MAIS_API_KEY,
   PONTO_MAIS_COMPANY_ID: process.env.PONTO_MAIS_COMPANY_ID,
   
-  // WhatsApp API URL (para módulo Escalações)
+  // SKYNET API URL (para módulo Escalações - WhatsApp via SKYNET)
+  // Em produção: vem do secret 'skynet-api-url' ou variável de ambiente
+  // URL base do SKYNET (ex: http://localhost:3001 ou https://skynet-url.run.app)
+  SKYNET_API_URL: process.env.SKYNET_API_URL,
+  
+  // WhatsApp API URL (mantido para compatibilidade - será substituído por SKYNET)
   // Em produção: vem do secret 'whatsapp-api-url'
   WHATSAPP_API_URL: process.env.WHATSAPP_API_URL,
   
