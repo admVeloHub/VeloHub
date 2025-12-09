@@ -1,8 +1,67 @@
 // NewsHistoryModal - Modal para histórico completo de notícias
-// VERSION: v1.0.5 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+// VERSION: v1.0.6 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
 
 import React, { useState, useEffect } from 'react';
 import { X, Search, Filter, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { API_BASE_URL } from '../config/api-config';
+
+// Função para processar conteúdo HTML e remover URLs do bucket GCS (duplicada de App_v2-1.js)
+const processContentHtml = (htmlContent, mediaImages = []) => {
+  if (!htmlContent || typeof htmlContent !== 'string') return htmlContent || '';
+  
+  let processedHtml = htmlContent;
+  
+  // Padrão para URLs do bucket GCS
+  const bucketUrlPattern = /https:\/\/storage\.googleapis\.com\/[^\/]+\/(img_velonews\/[^"'\s\)]+|img_artigos\/[^"'\s\)]+)/g;
+  
+  // 1. Substituir URLs do bucket em markdown por endpoint local
+  processedHtml = processedHtml.replace(/!\[([^\]]*)\]\((https:\/\/storage\.googleapis\.com\/[^\)]+)\)/g, (match, altText, bucketUrl) => {
+    const pathMatch = bucketUrl.match(/(img_velonews\/[^"'\s\)]+|img_artigos\/[^"'\s\)]+)/);
+    if (pathMatch) {
+      const cleanPath = pathMatch[1];
+      const encodedPath = cleanPath.split('/').map(part => encodeURIComponent(part)).join('/');
+      const newUrl = `${API_BASE_URL}/images/${encodedPath}`;
+      // Remover markdown completamente - a imagem será renderizada separadamente via getAllImages
+      return '';
+    }
+    return match;
+  });
+  
+  // 2. Processar tags <img> existentes que contenham URLs do bucket
+  processedHtml = processedHtml.replace(/<img([^>]*src=["'])(https:\/\/storage\.googleapis\.com\/[^\/]+\/(img_velonews\/[^"']+|img_artigos\/[^"']+))([^>]*)>/gi, (match, beforeSrc, bucketUrl, afterAttrs) => {
+    const pathMatch = bucketUrl.match(/(img_velonews\/[^"'\s\)]+|img_artigos\/[^"'\s\)]+)/);
+    if (pathMatch) {
+      const cleanPath = pathMatch[1];
+      const encodedPath = cleanPath.split('/').map(part => encodeURIComponent(part)).join('/');
+      const newSrc = `${API_BASE_URL}/images/${encodedPath}`;
+      
+      // Remover atributo alt se contiver nome do arquivo (preservar se for descritivo)
+      let processedAttrs = afterAttrs;
+      
+      // Remover alt que contenha apenas nome de arquivo (ex: "mascote joia.jpg")
+      processedAttrs = processedAttrs.replace(/\s+alt=["']([^"']*\.(jpg|jpeg|png|gif|webp))["']/gi, '');
+      
+      // Remover title se contiver apenas nome de arquivo
+      processedAttrs = processedAttrs.replace(/\s+title=["']([^"']*\.(jpg|jpeg|png|gif|webp))["']/gi, '');
+      
+      // Preservar width, height e style (dimensões definidas pelo Console)
+      return `<img${beforeSrc}${newSrc}${processedAttrs}>`;
+    }
+    return match;
+  });
+  
+  // 3. Substituir URLs do bucket em texto simples (caso apareçam como links)
+  processedHtml = processedHtml.replace(bucketUrlPattern, (match, imagePath) => {
+    const cleanPath = imagePath;
+    const encodedPath = cleanPath.split('/').map(part => encodeURIComponent(part)).join('/');
+    return `${API_BASE_URL}/images/${encodedPath}`;
+  });
+  
+  // 4. Remover texto que contenha apenas URLs do bucket (linhas soltas)
+  processedHtml = processedHtml.replace(/https:\/\/storage\.googleapis\.com\/[^\/]+\/(img_velonews\/[^\s\)]+|img_artigos\/[^\s\)]+)/g, '');
+  
+  return processedHtml;
+};
 
 const NewsHistoryModal = ({ isOpen, onClose, news, acknowledgedNewsIds = [], onAcknowledge }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -189,7 +248,7 @@ const NewsHistoryModal = ({ isOpen, onClose, news, acknowledgedNewsIds = [], onA
 
                     <div 
                       className={`text-gray-600 dark:text-gray-400 mb-3 prose prose-sm dark:prose-invert max-w-none ${isSolved ? 'solved-news-content' : ''}`}
-                      dangerouslySetInnerHTML={{ __html: item.content || '' }}
+                      dangerouslySetInnerHTML={{ __html: processContentHtml(item.content || '', item?.media?.images || []) }}
                     />
 
                     <div className="flex justify-between items-center">

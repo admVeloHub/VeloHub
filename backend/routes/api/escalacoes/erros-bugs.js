@@ -1,11 +1,14 @@
 /**
  * VeloHub V3 - Escalações API Routes - Erros/Bugs
- * VERSION: v1.3.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.3.1 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  * Branch: main (recuperado de escalacoes)
+ * 
+ * Mudanças v1.3.1:
+ * - Corrigido mapeamento de status: ✅ (feito) e ❌/✖️/✖ (não feito) para consistência com frontend
  * 
  * Mudanças v1.3.0:
  * - Adicionado endpoint POST /auto-status para atualização automática via reações WhatsApp
- * - Suporte para reações ✅ (Resolvido) e ❌ (Negado)
+ * - Suporte para reações ✅ (feito) e ❌/✖️/✖ (não feito)
  *
  * Rotas para gerenciamento de erros e bugs
  * 
@@ -493,9 +496,9 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
       let statusFinal = inputStatus;
       if (!statusFinal && reaction) {
         if (reaction === '✅') {
-          statusFinal = 'Resolvido';
-        } else if (reaction === '❌') {
-          statusFinal = 'Negado';
+          statusFinal = 'feito';
+        } else if (reaction === '❌' || reaction === '✖️' || reaction === '✖') {
+          statusFinal = 'não feito';
         }
       }
 
