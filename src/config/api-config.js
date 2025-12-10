@@ -1,12 +1,12 @@
 /**
  * VeloHub V3 - API Configuration
- * VERSION: v1.0.8 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.9 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  * REGRA: Frontend porta 8080 | Backend porta 8090 na rede local
  */
 
 /**
  * Obtém a URL base da API automaticamente baseada no ambiente
- * VERSION: v1.0.8 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.9 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
  * @returns {string} URL base da API (já inclui /api no final)
  */
 export const getApiBaseUrl = () => {
@@ -21,22 +21,21 @@ export const getApiBaseUrl = () => {
   if (typeof window !== 'undefined') {
     const currentHost = window.location.hostname;
     const currentProtocol = window.location.protocol;
-    const currentPort = window.location.port;
     
     // Se estamos em localhost, usar o backend local na porta 8090
     if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
       return 'http://localhost:8090/api';
     }
     
-    // Se estamos no Cloud Run, usar o mesmo domínio
+    // Se estamos no Cloud Run diretamente, usar o mesmo domínio
     if (currentHost.includes('run.app')) {
       return `https://${currentHost}/api`;
     }
     
-    // Se estamos em produção (qualquer outro domínio), usar o backend de produção
-    // Usar o mesmo protocolo do frontend para evitar problemas de CORS
-    if (currentProtocol === 'https:') {
-      return `${currentProtocol}//${currentHost}${currentPort ? `:${currentPort}` : ''}/api`;
+    // Se estamos em produção (domínio velotax.com.br ou velohub.velotax.com.br)
+    // usar o backend do Cloud Run (não o mesmo domínio do frontend)
+    if (currentHost.includes('velotax.com.br') || currentHost.includes('velohub')) {
+      return 'https://velohub-278491073220.us-east1.run.app/api';
     }
     
     // Fallback para URL padrão online
@@ -70,5 +69,10 @@ console.log('🔧 API Config (SEMPRE):', {
   baseUrl: API_BASE_URL,
   environment: process.env.NODE_ENV,
   hostname: typeof window !== 'undefined' ? window.location.hostname : 'server-side',
-  reactAppApiUrl: process.env.REACT_APP_API_URL
+  reactAppApiUrl: process.env.REACT_APP_API_URL,
+  detectedEnv: typeof window !== 'undefined' 
+    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+        ? 'DEV' 
+        : 'PROD')
+    : 'server-side'
 });
