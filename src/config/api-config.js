@@ -1,12 +1,12 @@
 /**
  * VeloHub V3 - API Configuration
- * VERSION: v1.0.9 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.10 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
  * REGRA: Frontend porta 8080 | Backend porta 8090 na rede local
  */
 
 /**
  * Obtém a URL base da API automaticamente baseada no ambiente
- * VERSION: v1.0.9 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.10 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
  * @returns {string} URL base da API (já inclui /api no final)
  */
 export const getApiBaseUrl = () => {
@@ -47,9 +47,64 @@ export const getApiBaseUrl = () => {
 };
 
 /**
+ * Obtém a URL da API do WhatsApp baseada no ambiente
+ * VERSION: v1.0.10 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * @returns {string} URL base da API do WhatsApp (sem /send no final)
+ */
+export const getWhatsAppApiUrl = () => {
+  // Prioridade 1: Variável de ambiente específica para WhatsApp
+  if (process.env.REACT_APP_WHATSAPP_API_URL) {
+    return process.env.REACT_APP_WHATSAPP_API_URL.trim();
+  }
+  
+  // Prioridade 2: Detectar ambiente
+  if (typeof window !== 'undefined') {
+    const currentHost = window.location.hostname;
+    
+    // Em produção (domínio velotax.com.br ou velohub), usar API do Render
+    if (currentHost.includes('velotax.com.br') || currentHost.includes('velohub')) {
+      return 'https://whatsapp-api-y40p.onrender.com';
+    }
+    
+    // Em desenvolvimento (localhost), usar Render também
+    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
+      return 'https://whatsapp-api-y40p.onrender.com';
+    }
+  }
+  
+  // Fallback: sempre usar Render
+  return 'https://whatsapp-api-y40p.onrender.com';
+};
+
+/**
+ * Obtém o JID padrão do WhatsApp baseado no ambiente
+ * VERSION: v1.0.10 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * @returns {string} JID padrão do grupo WhatsApp
+ */
+export const getWhatsAppDefaultJid = () => {
+  // Prioridade 1: Variável de ambiente
+  if (process.env.REACT_APP_WHATSAPP_DEFAULT_JID) {
+    return process.env.REACT_APP_WHATSAPP_DEFAULT_JID.trim();
+  }
+  
+  // Fallback: JID padrão do grupo
+  return '120363400851545835@g.us';
+};
+
+/**
  * URL base da API (calculada automaticamente)
  */
 export const API_BASE_URL = getApiBaseUrl();
+
+/**
+ * URL da API do WhatsApp (calculada automaticamente)
+ */
+export const WHATSAPP_API_URL = getWhatsAppApiUrl();
+
+/**
+ * JID padrão do WhatsApp (calculado automaticamente)
+ */
+export const WHATSAPP_DEFAULT_JID = getWhatsAppDefaultJid();
 
 /**
  * Log da configuração da API (apenas em desenvolvimento)
