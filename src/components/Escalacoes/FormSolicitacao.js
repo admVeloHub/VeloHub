@@ -1,9 +1,20 @@
 /**
  * VeloHub V3 - FormSolicitacao Component (Escalações Module)
- * VERSION: v1.3.3 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.4.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
  * 
  * Componente de formulário para criação de solicitações técnicas
+ * 
+ * Mudanças v1.4.0:
+ * - Alterado fluxo para seguir padrão do painel de serviços (que funciona corretamente)
+ * - PRIMEIRO: Frontend envia diretamente para WhatsApp API
+ * - DEPOIS: Salva no backend com waMessageId já obtido
+ * - Isso garante envio imediato e controle direto do frontend sobre o processo
+ * 
+ * Mudanças v1.3.4:
+ * - Toast renderizado via React Portal diretamente no body para garantir posicionamento fixo na viewport (tela)
+ * - Toast no canto superior direito DA TELA (não do container), logo abaixo do header
+ * - Formato: retangular, bordas 4px, verde 70% opacidade (sucesso), vermelho 60% opacidade (erro)
  * 
  * Mudanças v1.3.3:
  * - Alterado posicionamento dos toasts para top-20 right-4 (canto superior direito, logo abaixo do header)
@@ -31,7 +42,9 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { solicitacoesAPI, logsAPI } from '../../services/escalacoesApi';
+import { WHATSAPP_API_URL, WHATSAPP_DEFAULT_JID } from '../../config/api-config';
 
 /**
  * Componente de formulário para solicitações técnicas
@@ -440,18 +453,55 @@ const FormSolicitacao = ({ registrarLog }) => {
 
     const mensagemTexto = montarMensagem();
 
+    // Obter configurações do WhatsApp
+    const apiUrl = WHATSAPP_API_URL;
+    const defaultJid = WHATSAPP_DEFAULT_JID;
+    const payload = { 
+      jid: defaultJid, 
+      mensagem: mensagemTexto, 
+      cpf: form.cpf, 
+      solicitacao: form.tipo, 
+      agente: agenteNorm || form.agente 
+    };
+
     try {
-      // Criar solicitação via API
+      // 1) PRIMEIRO: Tentar enviar via WhatsApp se configurado (seguindo fluxo do painel de serviços)
+      let res = { ok: false };
+      let waMessageId = null;
+      
+      if (apiUrl && defaultJid) {
+        try {
+          res = await fetch(`${apiUrl}/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          
+          if (res && res.ok) {
+            try {
+              const data = await res.json();
+              waMessageId = data?.messageId || data?.key?.id || null;
+            } catch (err) {
+              console.error('Erro ao parsear resposta do WhatsApp:', err);
+            }
+          }
+        } catch (err) {
+          console.error('Erro ao enviar via WhatsApp:', err);
+        }
+      }
+
+      // 2) DEPOIS: Criar solicitação no backend com waMessageId já obtido
       const solicitacaoData = {
         agente: agenteNorm || form.agente,
         cpf: form.cpf,
         tipo: form.tipo,
         payload: { ...form },
         mensagemTexto,
+        agentContact: defaultJid || null,
+        waMessageId: waMessageId || null,
       };
 
       const result = await solicitacoesAPI.create(solicitacaoData);
-      const waMessageId = result.data?.waMessageId || null;
 
       // Criar log
       try {
@@ -482,13 +532,18 @@ const FormSolicitacao = ({ registrarLog }) => {
         console.error('Erro ao criar log:', logErr);
       }
 
-      // Atualizar UI/Cache
-      if (!waMessageId) {
+      // 3) Atualizar UI/Cache baseado no resultado do WhatsApp
+      if (!apiUrl || !defaultJid) {
         if (registrarLog) registrarLog('ℹ️ WhatsApp não configurado: apenas registrado no painel');
         showNotification('Solicitação registrada', 'info');
-      } else {
+      } else if (res.ok && waMessageId) {
         if (registrarLog) registrarLog('✅ Enviado com sucesso');
         showNotification('Solicitação enviada', 'success');
+      } else {
+        const errorText = res.status ? `Erro ${res.status}` : 'Erro desconhecido';
+        if (registrarLog) registrarLog(`❌ Erro da API: ${errorText}`);
+        showNotification(`Erro ao enviar: ${errorText}`, 'error');
+        notifyError('Falha ao enviar solicitação', errorText || 'Erro desconhecido da API');
       }
 
       const newItem = {
@@ -529,15 +584,27 @@ const FormSolicitacao = ({ registrarLog }) => {
 
   return (
     <>
-      {/* Notificação simples - Canto superior direito, logo abaixo do header */}
-      {notification.show && (
-        <div className={`fixed top-20 right-4 z-velohub-toast px-4 py-3 rounded shadow-lg text-white ${
-          notification.type === 'success' ? 'bg-green-500/70' :
-          notification.type === 'error' ? 'bg-red-500/60' :
-          'bg-blue-500/70'
-        }`} style={{ borderRadius: '4px' }}>
+      {/* Notificação simples - Canto superior direito DA TELA (viewport), logo abaixo do header */}
+      {/* Renderizado via Portal diretamente no body para garantir posicionamento fixo na viewport */}
+      {notification.show && typeof document !== 'undefined' && createPortal(
+        <div 
+          className={`px-4 py-3 rounded shadow-lg text-white ${
+            notification.type === 'success' ? 'bg-green-500/70' :
+            notification.type === 'error' ? 'bg-red-500/60' :
+            'bg-blue-500/70'
+          }`} 
+          style={{ 
+            borderRadius: '4px',
+            position: 'fixed',
+            top: '80px',
+            right: '16px',
+            zIndex: 9999,
+            pointerEvents: 'auto'
+          }}
+        >
           {notification.message}
-        </div>
+        </div>,
+        document.body
       )}
 
       <form

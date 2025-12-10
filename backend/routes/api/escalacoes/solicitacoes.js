@@ -203,11 +203,13 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
 
       console.log(`✅ Solicitação criada: ${result.insertedId}`);
 
-      // Enviar via WhatsApp se configurado
+      // Enviar via WhatsApp se configurado E se frontend não enviou ainda
+      // Se waMessageId já foi fornecido pelo frontend, não tentar enviar novamente
       let waMessageIdFinal = waMessageId || null;
       let messageIdsArray = [];
       
-      if (config.WHATSAPP_API_URL && config.WHATSAPP_DEFAULT_JID && mensagemTexto) {
+      // Só tentar enviar se o frontend não enviou ainda (waMessageId não fornecido)
+      if (!waMessageId && config.WHATSAPP_API_URL && config.WHATSAPP_DEFAULT_JID && mensagemTexto) {
         try {
           // Extrair imagens do payload se existirem
           const imagens = [];
