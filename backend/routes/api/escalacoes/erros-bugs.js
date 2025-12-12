@@ -1,7 +1,12 @@
 /**
  * VeloHub V3 - Escalações API Routes - Erros/Bugs
- * VERSION: v1.3.1 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.4.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
  * Branch: main (recuperado de escalacoes)
+ * 
+ * Mudanças v1.4.0:
+ * - Corrigido extração de imagens: agora usa payload.imageData ao invés de payload.previews
+ * - Imagens agora são extraídas dos dados completos em base64, não dos thumbnails
+ * - Envio de imagens e vídeos via WhatsApp agora funciona corretamente
  * 
  * Mudanças v1.3.1:
  * - Corrigido mapeamento de status: ✅ (feito) e ❌/✖️/✖ (não feito) para consistência com frontend
@@ -218,17 +223,16 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
       
       if (config.WHATSAPP_API_URL && config.WHATSAPP_DEFAULT_JID) {
         try {
-          // Extrair imagens do payload.previews (base64)
+          // Extrair imagens do payload.imageData (dados completos em base64)
           const imagens = [];
-          if (payload && payload.previews && Array.isArray(payload.previews)) {
-            payload.previews.forEach((preview, idx) => {
-              if (preview) {
+          if (payload && payload.imageData && Array.isArray(payload.imageData)) {
+            payload.imageData.forEach((image) => {
+              if (image && image.data && image.type) {
                 // Remover prefixo data:image se existir
-                const base64Data = String(preview).replace(/^data:image\/[^;]+;base64,/, '');
-                const imgMeta = payload.imagens && payload.imagens[idx] ? payload.imagens[idx] : {};
+                const base64Data = String(image.data).replace(/^data:image\/[^;]+;base64,/, '');
                 imagens.push({
                   data: base64Data,
-                  type: imgMeta.type || 'image/jpeg'
+                  type: image.type || 'image/jpeg'
                 });
               }
             });

@@ -1,9 +1,22 @@
 /**
  * VeloHub V3 - ErrosBugsTab Component
- * VERSION: v1.6.1 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.8.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
  * 
  * Componente para reportar erros e bugs com anexos de imagem/vídeo
+ * 
+ * Mudanças v1.8.0:
+ * - Melhorado tratamento de erros no carregamento de estatísticas
+ * - Adicionada validação robusta de resposta da API
+ * - Adicionada mensagem de erro visível para o usuário quando API falhar
+ * - Adicionados logs de debug para facilitar diagnóstico em produção
+ * - Componente agora sempre renderiza mesmo com erros de API
+ * - Validação de datas melhorada para evitar erros com valores inválidos
+ * 
+ * Mudanças v1.7.0:
+ * - Corrigido envio de imagens: adicionado imageData no payload com dados completos em base64
+ * - Backend agora extrai imagens de imageData ao invés de previews (thumbnails)
+ * - Envio de imagens e vídeos agora funciona corretamente via WhatsApp
  * 
  * Mudanças v1.6.0:
  * - Implementada visualização e reprodução de vídeos no modal de anexos
@@ -76,6 +89,7 @@ const ErrosBugsTab = () => {
   const [errosBugsRaw, setErrosBugsRaw] = useState([]);
   const prevErrosBugsRef = useRef([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [loadError, setLoadError] = useState(null);
 
   /**
    * Normalizar nome do agente (Title Case, espaços simples)
@@ -149,9 +163,28 @@ const ErrosBugsTab = () => {
    */
   const loadStats = async () => {
     setStatsLoading(true);
+    setLoadError(null);
     try {
+      console.log('[ErrosBugsTab] Iniciando carregamento de estatísticas...');
       const result = await errosBugsAPI.getAll();
-      const list = Array.isArray(result.data) ? result.data : [];
+      console.log('[ErrosBugsTab] Resposta recebida:', result);
+      
+      // Validação de resposta
+      if (!result) {
+        console.error('[ErrosBugsTab] Resposta vazia da API');
+        throw new Error('Resposta vazia da API');
+      }
+      
+      // Aceitar tanto { success: true, data: [] } quanto { data: [] } diretamente
+      const data = result.data !== undefined ? result.data : (Array.isArray(result) ? result : []);
+      
+      if (!result.success && result.success !== undefined && result.message) {
+        console.error('[ErrosBugsTab] API retornou erro:', result.message);
+        throw new Error(result.message || result.error || 'Erro ao carregar dados');
+      }
+      
+      const list = Array.isArray(data) ? data : [];
+      console.log('[ErrosBugsTab] Lista processada:', list.length, 'itens');
       setErrosBugsRaw(list);
       setLastUpdated(new Date());
 
@@ -160,18 +193,24 @@ const ErrosBugsTab = () => {
       today.setHours(0, 0, 0, 0);
       
       const todayCount = list.filter(item => {
-        const createdAt = new Date(item.createdAt);
-        createdAt.setHours(0, 0, 0, 0);
-        return createdAt.getTime() === today.getTime();
+        try {
+          if (!item || !item.createdAt) return false;
+          const createdAt = new Date(item.createdAt);
+          if (isNaN(createdAt.getTime())) return false;
+          createdAt.setHours(0, 0, 0, 0);
+          return createdAt.getTime() === today.getTime();
+        } catch {
+          return false;
+        }
       }).length;
 
       const pendingCount = list.filter(item => {
-        const status = String(item.status || '').toLowerCase();
+        const status = String(item?.status || '').toLowerCase();
         return status === 'em aberto' || status === 'enviado';
       }).length;
 
       const doneCount = list.filter(item => {
-        const status = String(item.status || '').toLowerCase();
+        const status = String(item?.status || '').toLowerCase();
         return status === 'feito' || status === 'não feito' || status === 'nao feito';
       }).length;
 
@@ -182,20 +221,34 @@ const ErrosBugsTab = () => {
       });
     } catch (err) {
       console.error('Erro ao carregar estatísticas:', err);
+      const errorMessage = err?.message || 'Erro ao conectar com o servidor';
+      setLoadError(errorMessage);
+      // Manter valores padrão em caso de erro
+      setStats({ today: 0, pending: 0, done: 0 });
+      setErrosBugsRaw([]);
+    } finally {
+      setStatsLoading(false);
     }
-    setStatsLoading(false);
   };
 
   // Carregar estatísticas ao montar componente
   useEffect(() => {
-    loadStats();
+    console.log('[ErrosBugsTab] Componente montado, carregando estatísticas...');
+    loadStats().catch(err => {
+      console.error('[ErrosBugsTab] Erro crítico ao carregar no mount:', err);
+    });
     
     // Atualização automática a cada 3 minutos (padrão VeloHub - intelligent refresh)
     const refreshInterval = setInterval(() => {
-      loadStats();
+      loadStats().catch(err => {
+        console.error('[ErrosBugsTab] Erro ao atualizar automaticamente:', err);
+      });
     }, 3 * 60 * 1000);
     
-    return () => clearInterval(refreshInterval);
+    return () => {
+      console.log('[ErrosBugsTab] Componente desmontado, limpando intervalos...');
+      clearInterval(refreshInterval);
+    };
   }, []);
 
   /**
@@ -433,12 +486,27 @@ const ErrosBugsTab = () => {
     setSearchLoading(true);
     try {
       const result = await errosBugsAPI.getByCpf(digits);
+      
+      // Validação de resposta
+      if (!result) {
+        throw new Error('Resposta vazia da API');
+      }
+      
+      if (!result.success && result.success !== undefined) {
+        throw new Error(result.message || result.error || 'Erro ao buscar CPF');
+      }
+      
       setSearchResults(Array.isArray(result.data) ? result.data : []);
     } catch (err) {
       console.error('Erro ao buscar CPF:', err);
       setSearchResults([]);
+      // Mostrar erro apenas se não for erro de validação (CPF vazio)
+      if (digits) {
+        alert(`Erro ao buscar CPF: ${err?.message || 'Erro desconhecido'}`);
+      }
+    } finally {
+      setSearchLoading(false);
     }
-    setSearchLoading(false);
   };
 
   /**
@@ -542,6 +610,8 @@ const ErrosBugsTab = () => {
             size: (data || '').length
           })),
           previews: imagens?.map(({ preview }) => preview).filter(Boolean),
+          // Incluir dados completos das imagens para envio via WhatsApp
+          imageData: imagens?.map(({ data, type }) => ({ data, type })).filter(img => img.data && img.type) || [],
           videos: videos?.map(({ name, type, data, thumbnail }) => ({
             name,
             type,
@@ -709,6 +779,29 @@ const ErrosBugsTab = () => {
             </button>
           </div>
         </div>
+
+        {/* Mensagem de erro ao carregar */}
+        {loadError && (
+          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-red-600 dark:text-red-400 text-sm">
+                  ⚠️ Erro ao carregar dados: {loadError}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setLoadError(null);
+                  loadStats();
+                }}
+                className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-800 transition-colors"
+              >
+                Tentar novamente
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Formulário */}
         <form onSubmit={enviar} className="space-y-5">
