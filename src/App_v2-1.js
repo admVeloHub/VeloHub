@@ -2452,7 +2452,6 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                     color: 'var(--cor-texto-secundario)',
                                     fontSize: '0.9rem'
                                 }}>
-                                    {/* <VeloChatWidget activeTab={activeTab} searchQuery={searchQuery} /> */}
                                     Chat em desenvolvimento
                                 </div>
                             );
