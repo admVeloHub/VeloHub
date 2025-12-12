@@ -1,6 +1,12 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.2.4 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.2.5 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.2.5:
+ * - Adicionado bloqueio do VeloChatWidget em produção (exceto para Lucas Gravina)
+ * - Verificação de ambiente (prod vs dev) para controle de acesso ao chat
+ * - Bloqueio visual "EM BREVE" similar ao widget do pontomais
+ * - Importação do VeloChatWidget comentada até arquivo ser adicionado ao repositório
  * 
  * Mudanças v2.2.4:
  * - Atualizada lista de serviços online: adicionados Clube Velotax e Divida Zero
@@ -84,7 +90,8 @@ import NewsHistoryModal from './components/NewsHistoryModal';
 import LoginPage from './components/LoginPage';
 import Chatbot from './components/Chatbot';
 import SupportModal from './components/SupportModal';
-import VeloChatWidget from './components/VeloChatWidget';
+// VeloChatWidget - importação comentada até arquivo ser adicionado ao repositório
+// import VeloChatWidget from './components/VeloChatWidget';
 import ChatStatusSelector from './components/ChatStatusSelector';
 import EscalacoesPage from './pages/EscalacoesPage';
 import PerfilPage from './pages/PerfilPage';
@@ -2359,7 +2366,97 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                             </button>
                     </div>
                         
-                        <VeloChatWidget activeTab={activeTab} searchQuery={searchQuery} />
+                        {/* VeloChatWidget com bloqueio em produção */}
+                        {(() => {
+                            // Verificar se está em produção
+                            const isProduction = typeof window !== 'undefined' && 
+                                !window.location.hostname.includes('localhost') && 
+                                !window.location.hostname.includes('127.0.0.1');
+                            
+                            // Obter nome do usuário logado
+                            let userName = '';
+                            try {
+                                const sessionData = localStorage.getItem('velohub_user_session');
+                                if (sessionData) {
+                                    const session = JSON.parse(sessionData);
+                                    userName = session?.user?.name || '';
+                                }
+                            } catch (err) {
+                                console.error('Erro ao obter nome do usuário:', err);
+                            }
+                            
+                            // Verificar se é Lucas Gravina (bypass)
+                            const isLucasGravina = userName && 
+                                userName.toLowerCase().includes('lucas') && 
+                                userName.toLowerCase().includes('gravina');
+                            
+                            // Em produção, bloquear para todos exceto Lucas Gravina
+                            const shouldShowChat = !isProduction || isLucasGravina;
+                            
+                            if (!shouldShowChat) {
+                                // Mostrar bloqueio similar ao widget do ponto
+                                return (
+                                    <div style={{
+                                        position: 'relative',
+                                        width: '100%',
+                                        height: '100%',
+                                        minHeight: '400px',
+                                        background: 'transparent',
+                                        border: '1.5px solid var(--blue-dark)',
+                                        borderRadius: '8px',
+                                        padding: '16px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        justifyContent: 'center',
+                                        alignItems: 'center'
+                                    }}>
+                                        {/* Overlay "EM BREVE" */}
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: 0,
+                                            left: 0,
+                                            right: 0,
+                                            bottom: 0,
+                                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            borderRadius: '8px',
+                                            zIndex: 10
+                                        }}>
+                                            <span style={{
+                                                color: 'white',
+                                                fontSize: '1.2rem',
+                                                fontWeight: 'bold',
+                                                fontFamily: 'Poppins, sans-serif',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '1.6px'
+                                            }}>
+                                                EM BREVE
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            }
+                            
+                            // Mostrar chat normalmente (quando arquivo estiver disponível)
+                            // Por enquanto, mostrar mensagem de desenvolvimento
+                            return (
+                                <div style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    minHeight: '400px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: 'var(--cor-texto-secundario)',
+                                    fontSize: '0.9rem'
+                                }}>
+                                    {/* <VeloChatWidget activeTab={activeTab} searchQuery={searchQuery} /> */}
+                                    Chat em desenvolvimento
+                                </div>
+                            );
+                        })()}
                 </div>
             </aside>
             )}
