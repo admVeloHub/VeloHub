@@ -1,6 +1,52 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.1.95 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.2.4 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.2.4:
+ * - Atualizada lista de serviços online: adicionados Clube Velotax e Divida Zero
+ * - Renomeados serviços: "Seguro Cred." → "Prestamista", "Seguro Cel." → "Seguro Celular"
+ * - Layout do grid de serviços alterado de 2x4 para 3x3 para acomodar 9 serviços
+ * 
+ * Mudanças v2.2.3:
+ * - Removida linha de divisão abaixo do título "Chat"
+ * - Adicionado ícone de lupa na mesma linha do título
+ * - Implementado campo de busca expansível que move o título para a esquerda
+ * - Busca de contatos integrada com filtro em tempo real
+ * 
+ * Mudanças v2.2.2:
+ * - Padronizado padding das sidebars para 19.0px
+ * - Removido marginRight da sidebar direita
+ * - Adicionado seletor de abas (Conversas, Contatos, Grupos) no Chat
+ * - Implementada funcionalidade de Contatos com indicadores de status
+ * 
+ * Mudanças v2.2.1:
+ * - Removida área clicável complexa das bordas
+ * - Adicionados botões com ícones de seta (ChevronLeft/ChevronRight)
+ * - Botões posicionados no canto superior interno de cada sidebar
+ * - Estilo: cinza translúcido que muda para azul opaco no hover
+ * - Implementação mais simples e intuitiva
+ * 
+ * Mudanças v2.1.99:
+ * - Corrigido layout quebrava ao retrair sidebar esquerda
+ * - Implementada renderização condicional das sidebars (sem wrappers com width 0)
+ * - Adicionada transição suave no grid-template-columns
+ * - Velonews e sidebar direita agora deslizam suavemente durante retração
+ * - Usado minmax() no grid para melhor responsividade
+ * 
+ * Mudanças v2.1.98:
+ * - Implementado sistema de retração de sidebars com bordas clicáveis
+ * - Efeito hover nas bordas igual aos cards do Apoio
+ * - Velonews desliza para esquerda quando sidebar esquerda retrai
+ * - Sidebar direita expande automaticamente quando esquerda retrai
+ * - Faixas clicáveis de 3px nas bordas internas e externas
+ * 
+ * Mudanças v2.1.97:
+ * - Integrado VeloChatWidget na sidebar direita
+ * - Sistema de chat interno VeloChat implementado
+ * 
+ * Mudanças v2.1.96:
+ * - Removida implementação do Rocket.Chat e sidebar direita
+ * - Layout ajustado para 2 colunas (sidebar esquerda + conteúdo principal)
  * 
  * Mudanças v2.1.95:
  * - Modais atualizados com z-index 9999 para ficarem acima do header
@@ -30,15 +76,18 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Map, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen, X, RefreshCw } from 'lucide-react';
+import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Map, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen, X, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { mainAPI, veloNewsAPI, articlesAPI, faqAPI } from './services/api';
-import { checkAuthenticationState, updateUserInfo, getUserSession, stopHeartbeat } from './services/auth';
+import { checkAuthenticationState, updateUserInfo, getUserSession, stopHeartbeat, logout } from './services/auth';
 import { API_BASE_URL } from './config/api-config';
 import NewsHistoryModal from './components/NewsHistoryModal';
 import LoginPage from './components/LoginPage';
 import Chatbot from './components/Chatbot';
 import SupportModal from './components/SupportModal';
+import VeloChatWidget from './components/VeloChatWidget';
+import ChatStatusSelector from './components/ChatStatusSelector';
 import EscalacoesPage from './pages/EscalacoesPage';
+import PerfilPage from './pages/PerfilPage';
 import { formatArticleContent, formatPreviewText, formatResponseText } from './utils/textFormatter';
 
 // Sistema de gerenciamento de estado para modal crítico
@@ -395,10 +444,23 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
         </nav>
 
         <div className="user-section">
-          <div className="user-info">
+          <div 
+            className="user-info" 
+            onClick={() => setActivePage('Perfil')}
+            style={{ cursor: 'pointer' }}
+            title="Ver perfil"
+          >
             <img id="user-avatar" className="user-avatar" src="" alt="Avatar" />
             <span id="user-name" className="user-name">Usuário VeloHub</span>
-            <button id="logout-btn" className="logout-btn">
+            <button 
+              id="logout-btn" 
+              className="logout-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                logout();
+              }}
+              title="Sair"
+            >
               <i className="fas fa-sign-out-alt"></i>
             </button>
           </div>
@@ -589,6 +651,8 @@ export default function App_v2() {
         return <ApoioPage />;
       case 'Req_Prod':
         return <EscalacoesPage />;
+      case 'Perfil':
+        return <PerfilPage />;
       case 'VeloAcademy':
         return <div className="text-center p-10 text-gray-800 dark:text-gray-200"><h1 className="text-3xl">VeloAcademy</h1><p>Clique no botão VeloAcademy no header para acessar a plataforma.</p></div>;
       default:
@@ -1124,6 +1188,11 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
     const [lastCriticalNewsId, setLastCriticalNewsId] = useState(null);
     const [acknowledgedNewsIds, setAcknowledgedNewsIds] = useState([]);
     const [expandedImage, setExpandedImage] = useState(null);
+    const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
+    const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(false);
+    const [activeTab, setActiveTab] = useState('conversations');
+    const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
     
     // Estados dos módulos - controlados pelo Console VeloHub
     const [moduleStatus, setModuleStatus] = useState({
@@ -1133,7 +1202,9 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
         'pagamento-antecipado': 'on',
         'modulo-irpf': 'off',
         'seguro-cred': 'on',
-        'seguro-cel': 'on'
+        'seguro-cel': 'on',
+        'clube-velotax': 'on',
+        'divida-zero': 'on'
     });
 
     // Função para buscar status dos módulos do Console VeloHub
@@ -1502,17 +1573,104 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
         return () => clearInterval(intelligentInterval);
     }, [veloNews, moduleStatus, recentItems, setCriticalNews, lastCriticalNewsId]);
 
+    // Função para calcular grid columns dinamicamente
+    const getGridColumns = (leftCollapsed, rightCollapsed) => {
+        if (leftCollapsed && rightCollapsed) {
+            return '10px 1fr 10px';
+        } else if (leftCollapsed) {
+            return '10px minmax(0, 1fr) minmax(0, 35%)'; // Velonews desliza para esquerda, sidebar direita expande
+        } else if (rightCollapsed) {
+            return 'minmax(0, 25%) minmax(0, 1fr) 10px';
+        } else {
+            return 'minmax(0, 25%) minmax(0, 50%) minmax(0, 25%)';
+        }
+    };
+
 
     return (
-        <div className="w-full px-4 py-8 grid gap-4" style={{gridTemplateColumns: '25% 50% 25%'}}>
-            <aside className="p-4 rounded-lg shadow-sm velohub-container" style={{borderRadius: '9.6px', boxShadow: '0 3.2px 16px rgba(0, 0, 0, 0.1)', padding: '19.2px'}}>
+        <div 
+            className="w-full px-4 py-8 grid gap-4" 
+            style={{
+                gridTemplateColumns: getGridColumns(isLeftSidebarCollapsed, isRightSidebarCollapsed),
+                transition: 'grid-template-columns 0.3s ease'
+            }}
+        >
+            {/* Sidebar esquerda */}
+            {isLeftSidebarCollapsed ? (
+                <div 
+                    style={{
+                        position: 'relative',
+                        width: '10px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        justifyContent: 'center',
+                        paddingTop: '12px'
+                    }}
+                    onClick={() => setIsLeftSidebarCollapsed(false)}
+                >
+                    <ChevronRight 
+                        size={16} 
+                        style={{
+                            color: 'rgba(128, 128, 128, 0.5)',
+                            transition: 'color 0.3s ease'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.color = 'var(--blue-opaque)'}
+                        onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(128, 128, 128, 0.5)'}
+                    />
+                </div>
+            ) : (
+                <aside 
+                    className="p-4 rounded-lg shadow-sm velohub-container" 
+                    style={{
+                        borderRadius: '9.6px', 
+                        boxShadow: '0 3.2px 16px rgba(0, 0, 0, 0.1)', 
+                        padding: '19.0px',
+                        position: 'relative',
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        transition: 'opacity 0.3s ease, transform 0.3s ease'
+                    }}
+                >
+                    {/* Botão de retração no canto superior direito - seta aponta para fora */}
+                    <button
+                        onClick={() => setIsLeftSidebarCollapsed(true)}
+                        style={{
+                            position: 'absolute',
+                            top: '12px',
+                            right: '12px',
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 10,
+                            transition: 'all 0.3s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.querySelector('svg').style.color = 'var(--blue-opaque)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.querySelector('svg').style.color = 'rgba(128, 128, 128, 0.5)';
+                        }}
+                    >
+                        <ChevronLeft 
+                            size={18} 
+                            style={{
+                                color: 'rgba(128, 128, 128, 0.5)',
+                                transition: 'color 0.3s ease'
+                            }}
+                        />
+                    </button>
                 {/* Widget Serviços - NOVO NO TOPO */}
                 <div className="mb-6">
                     <h3 className="font-bold text-xl mb-4 border-b pb-2 text-center velohub-title" style={{borderColor: 'var(--blue-opaque)'}}>
                         Serviços
                     </h3>
-                    {/* Grid de Status dos Serviços - Layout 2x4 */}
-                    <div className="grid grid-cols-2 gap-1">
+                    {/* Grid de Status dos Serviços - Layout 3x3 */}
+                    <div className="grid grid-cols-3 gap-1">
                         {/* Crédito Trabalhador */}
                         {renderModuleStatus('credito-trabalhador', 'C. Trabalhador')}
                         
@@ -1528,11 +1686,17 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                         {/* Módulo IRPF */}
                         {renderModuleStatus('modulo-irpf', 'IRPF')}
                         
-                        {/* Seguro Cel. - Coluna 2 */}
+                        {/* Prestamista (renomeado de Seguro Cred.) */}
+                        {renderModuleStatus('seguro-cred', 'Prestamista')}
+                        
+                        {/* Seguro Cel. */}
                         {renderModuleStatus('seguro-cel', 'Seguro Cel.')}
                         
-                        {/* Seguro Cred. */}
-                        {renderModuleStatus('seguro-cred', 'Seguro Cred.')}
+                        {/* Clube Velotax - NOVO */}
+                        {renderModuleStatus('clube-velotax', 'Clube Velotax')}
+                        
+                        {/* Divida Zero - NOVO */}
+                        {renderModuleStatus('divida-zero', 'Divida Zero')}
                     </div>
                 </div>
 
@@ -1812,7 +1976,17 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                     }
                 `}</style>
             </aside>
-                            <section className="p-4 rounded-lg shadow-sm velohub-container" style={{borderRadius: '9.6px', boxShadow: '0 3.2px 16px rgba(0, 0, 0, 0.1)', padding: '19.2px'}}>
+            )}
+                            
+            <section 
+                className="p-4 rounded-lg shadow-sm velohub-container" 
+                style={{
+                    borderRadius: '9.6px', 
+                    boxShadow: '0 3.2px 16px rgba(0, 0, 0, 0.1)', 
+                    padding: '19.2px',
+                    transition: 'width 0.3s ease'
+                }}
+            >
                 <h2 className="text-center font-bold text-3xl mb-6">
                     <span style={{color: 'var(--blue-medium)'}}>velo</span>
                     <span style={{color: 'var(--blue-dark)'}}>news</span>
@@ -2000,22 +2174,195 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                     )}
                 </div>
             </section>
-            <aside className="rounded-lg shadow-sm flex flex-col min-h-[calc(100vh-160px)] velohub-container" style={{borderRadius: '9.6px', boxShadow: '0 3.2px 16px rgba(0, 0, 0, 0.1)', padding: '19.2px', position: 'relative', marginRight: '20px'}}>
-                {/* Widget de Chat - OCUPA TODO O ESPAÇO */}
-                <div className="flex-1 flex flex-col">
-                    <h3 className="font-bold text-xl border-b text-center mb-4 velohub-title" style={{borderColor: 'var(--blue-opaque)'}}>Chat</h3>
+            
+            {/* Sidebar direita */}
+            {isRightSidebarCollapsed ? (
+                <div 
+                    style={{
+                        position: 'relative',
+                        width: '10px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        justifyContent: 'center',
+                        paddingTop: '12px'
+                    }}
+                    onClick={() => setIsRightSidebarCollapsed(false)}
+                >
+                    <ChevronLeft 
+                        size={16} 
+                        style={{
+                            color: 'rgba(128, 128, 128, 0.5)',
+                            transition: 'color 0.3s ease'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.color = 'var(--blue-opaque)'}
+                        onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(128, 128, 128, 0.5)'}
+                    />
+                </div>
+            ) : (
+            <aside 
+                className="rounded-lg shadow-sm flex flex-col min-h-[calc(100vh-160px)] velohub-container" 
+                style={{
+                        borderRadius: '9.6px', 
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', 
+                        padding: '19.0px', 
+                    position: 'relative', 
+                    display: 'flex',
+                        flexDirection: 'column',
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        transition: 'opacity 0.3s ease, transform 0.3s ease'
+                }}
+            >
+                    {/* Botão de retração no canto superior esquerdo - seta aponta para fora */}
+                    <button
+                        onClick={() => setIsRightSidebarCollapsed(true)}
+                        style={{
+                            position: 'absolute',
+                            top: '12px',
+                            left: '12px',
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 10,
+                            transition: 'all 0.3s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.querySelector('svg').style.color = 'var(--blue-opaque)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.querySelector('svg').style.color = 'rgba(128, 128, 128, 0.5)';
+                        }}
+                    >
+                        <ChevronRight 
+                            size={18} 
+                            style={{
+                                color: 'rgba(128, 128, 128, 0.5)',
+                                transition: 'color 0.3s ease'
+                            }}
+                        />
+                    </button>
                     
-                    {/* Container preparado para implementação futura do chat */}
-                    <div className="flex-1 flex items-center justify-center">
-                        <div className="text-center text-gray-500 dark:text-gray-400">
-                            <svg className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                            </svg>
-                            <p className="text-sm">Chat em desenvolvimento</p>
-                        </div>
+                    {/* Widget VeloChat */}
+                <div className="flex-1 flex flex-col">
+                    {/* Header com título e busca */}
+                    <div className="flex items-center justify-between mb-4" style={{ gap: '8px', position: 'relative' }}>
+                        {isSearchExpanded ? (
+                            <>
+                                <input 
+                                    type="text"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    placeholder="Buscar contato..."
+                                    className="flex-1 px-3 py-2 rounded-lg border"
+                                    style={{
+                                        borderColor: 'var(--blue-opaque)',
+                                        borderRadius: '8px',
+                                        outline: 'none',
+                                        transition: 'all 0.3s ease',
+                                        fontFamily: 'Poppins, sans-serif'
+                                    }}
+                                    autoFocus
+                                />
+                                <button 
+                                    onClick={() => { setIsSearchExpanded(false); setSearchQuery(''); }}
+                                    className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    style={{ color: 'var(--blue-dark)' }}
+                                >
+                                    ✕
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                {/* Status à esquerda - respeitando espaço do chevron de recolher (left: 12px + tamanho do chevron ~18px + padding) */}
+                                <div style={{ marginLeft: '40px' }}>
+                                    <ChatStatusSelector 
+                                        sessionId={localStorage.getItem('velohub_session_id')} 
+                                        onStatusChange={(newStatus) => {
+                                            // Status atualizado
+                                        }}
+                                    />
+                                </div>
+                                
+                                {/* Chat centralizado */}
+                                <div style={{ flex: 1 }}></div>
+                                <h3 className="font-bold text-xl velohub-title" style={{ 
+                                    color: 'var(--blue-dark)', 
+                                    margin: 0,
+                                    textAlign: 'center',
+                                    position: 'absolute',
+                                    left: '50%',
+                                    transform: 'translateX(-50%)',
+                                    width: 'auto'
+                                }}>
+                                    Chat
+                                </h3>
+                                <div style={{ flex: 1 }}></div>
+                                
+                                {/* Botão de busca à direita */}
+                                <button 
+                                    onClick={() => setIsSearchExpanded(true)}
+                                    className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    style={{ color: 'var(--blue-dark)', marginLeft: 'auto' }}
+                                    title="Buscar contato"
+                                >
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="11" cy="11" r="8"></circle>
+                                        <path d="m21 21-4.35-4.35"></path>
+                                    </svg>
+                                </button>
+                            </>
+                        )}
                     </div>
+                    
+                        {/* Seletor de Abas */}
+                        <div className="flex border-b mb-2" style={{ borderColor: 'var(--blue-opaque)' }}>
+                            <button 
+                                className="flex-1 py-2 text-sm font-medium transition-colors"
+                                onClick={() => setActiveTab('conversations')}
+                                style={activeTab === 'conversations' ? {
+                                    color: 'var(--blue-dark)',
+                                    borderBottom: '2px solid var(--blue-opaque)'
+                                } : {
+                                    color: 'var(--cor-texto-secundario)'
+                                }}
+                            >
+                                Conversas
+                            </button>
+                            <button 
+                                className="flex-1 py-2 text-sm font-medium transition-colors"
+                                onClick={() => setActiveTab('contacts')}
+                                style={activeTab === 'contacts' ? {
+                                    color: 'var(--blue-dark)',
+                                    borderBottom: '2px solid var(--blue-opaque)'
+                                } : {
+                                    color: 'var(--cor-texto-secundario)'
+                                }}
+                            >
+                                Contatos
+                            </button>
+                            <button 
+                                className="flex-1 py-2 text-sm font-medium transition-colors"
+                                onClick={() => setActiveTab('groups')}
+                                style={activeTab === 'groups' ? {
+                                    color: 'var(--blue-dark)',
+                                    borderBottom: '2px solid var(--blue-opaque)'
+                                } : {
+                                    color: 'var(--cor-texto-secundario)'
+                        }}
+                    >
+                                Grupos
+                            </button>
+                    </div>
+                        
+                        <VeloChatWidget activeTab={activeTab} searchQuery={searchQuery} />
                 </div>
             </aside>
+            )}
             {selectedNews && (
                  <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[9999] p-4" onClick={() => setSelectedNews(null)} style={{ zIndex: 9999 }}>
                     <div className="rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] bg-white dark:bg-gray-800 flex flex-col overflow-hidden" onClick={e => e.stopPropagation()} style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)', zIndex: 10000}}>
