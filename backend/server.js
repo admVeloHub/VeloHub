@@ -2546,7 +2546,9 @@ let moduleStatusCache = {
   'pagamento-antecipado': 'on',
   'modulo-irpf': 'off',
   'seguro-cred': 'on',
-  'seguro-cel': 'on'
+  'seguro-cel': 'on',
+  'clube-velotax': 'on',
+  'divida-zero': 'on'
 };
 
 // Timestamp do último cache para controle de validade
@@ -2594,7 +2596,9 @@ const fetchModuleStatusFromMongoDB = async () => {
       'pagamento-antecipado': latestStatus._pgtoAntecip || 'off',
       'modulo-irpf': latestStatus._irpf || 'on',
       'seguro-cred': latestStatus._seguroCred || 'on',
-      'seguro-cel': latestStatus._seguroCel || 'on'
+      'seguro-cel': latestStatus._seguroCel || 'on',
+      'clube-velotax': latestStatus._clubeVelotax || 'on',
+      'divida-zero': latestStatus._dividaZero || 'on'
     };
 
     console.log('📊 Status dos módulos mapeado do MongoDB:', mappedStatus);
@@ -2667,7 +2671,9 @@ app.get('/api/module-status', async (req, res) => {
       'pagamento-antecipado': currentStatus['pagamento-antecipado'] || 'off',
       'modulo-irpf': currentStatus['modulo-irpf'] || 'on',
       'seguro-cred': currentStatus['seguro-cred'] || 'on',
-      'seguro-cel': currentStatus['seguro-cel'] || 'on'
+      'seguro-cel': currentStatus['seguro-cel'] || 'on',
+      'clube-velotax': currentStatus['clube-velotax'] || 'on',
+      'divida-zero': currentStatus['divida-zero'] || 'on'
     };
     
     console.log('📊 Retornando status dos módulos:', validStatus);
@@ -2689,7 +2695,9 @@ app.get('/api/module-status', async (req, res) => {
       'pagamento-antecipado': 'on',
       'modulo-irpf': 'off',
       'seguro-cred': 'on',
-      'seguro-cel': 'on'
+      'seguro-cel': 'on',
+      'clube-velotax': 'on',
+      'divida-zero': 'on'
     };
     
     console.log('🔄 Usando status fallback:', fallbackStatus);
@@ -2727,7 +2735,9 @@ app.post('/api/module-status', async (req, res) => {
       'pagamento-antecipado': '_pgtoAntecip',
       'modulo-irpf': '_irpf',
       'seguro-cred': '_seguroCred',
-      'seguro-cel': '_seguroCel'
+      'seguro-cel': '_seguroCel',
+      'clube-velotax': '_clubeVelotax',
+      'divida-zero': '_dividaZero'
     };
     
     const mongoField = mongoFieldMap[moduleKey];
@@ -2758,6 +2768,8 @@ app.post('/api/module-status', async (req, res) => {
           _irpf: updateData['modulo-irpf'],
           _seguroCred: updateData['seguro-cred'],
           _seguroCel: updateData['seguro-cel'],
+          _clubeVelotax: updateData['clube-velotax'],
+          _dividaZero: updateData['divida-zero'],
           createdAt: new Date(),
           updatedAt: new Date()
         };
