@@ -92,7 +92,8 @@ import Chatbot from './components/Chatbot';
 import SupportModal from './components/SupportModal';
 // VeloChatWidget - importação comentada até arquivo ser adicionado ao repositório
 // import VeloChatWidget from './components/VeloChatWidget';
-import ChatStatusSelector from './components/ChatStatusSelector';
+// ChatStatusSelector - importação comentada até arquivo ser adicionado ao repositório
+// import ChatStatusSelector from './components/ChatStatusSelector';
 import EscalacoesPage from './pages/EscalacoesPage';
 import PerfilPage from './pages/PerfilPage';
 import { formatArticleContent, formatPreviewText, formatResponseText } from './utils/textFormatter';
@@ -2285,15 +2286,15 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                             </>
                         ) : (
                             <>
-                                {/* Status à esquerda - respeitando espaço do chevron de recolher (left: 12px + tamanho do chevron ~18px + padding) */}
-                                <div style={{ marginLeft: '40px' }}>
+                                {/* Status à esquerda - comentado até ChatStatusSelector ser adicionado ao repositório */}
+                                {/* <div style={{ marginLeft: '40px' }}>
                                     <ChatStatusSelector 
                                         sessionId={localStorage.getItem('velohub_session_id')} 
                                         onStatusChange={(newStatus) => {
                                             // Status atualizado
                                         }}
                                     />
-                                </div>
+                                </div> */}
                                 
                                 {/* Chat centralizado */}
                                 <div style={{ flex: 1 }}></div>
