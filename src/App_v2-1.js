@@ -95,7 +95,8 @@ import SupportModal from './components/SupportModal';
 // ChatStatusSelector - importação comentada até arquivo ser adicionado ao repositório
 // import ChatStatusSelector from './components/ChatStatusSelector';
 import EscalacoesPage from './pages/EscalacoesPage';
-import PerfilPage from './pages/PerfilPage';
+// PerfilPage - importação comentada até arquivo ser adicionado ao repositório
+// import PerfilPage from './pages/PerfilPage';
 import { formatArticleContent, formatPreviewText, formatResponseText } from './utils/textFormatter';
 
 // Sistema de gerenciamento de estado para modal crítico
@@ -660,7 +661,8 @@ export default function App_v2() {
       case 'Req_Prod':
         return <EscalacoesPage />;
       case 'Perfil':
-        return <PerfilPage />;
+        // PerfilPage comentado até arquivo ser adicionado ao repositório
+        return <div className="text-center p-10 text-gray-800 dark:text-gray-200"><h1 className="text-3xl">Perfil</h1><p>Página em desenvolvimento.</p></div>;
       case 'VeloAcademy':
         return <div className="text-center p-10 text-gray-800 dark:text-gray-200"><h1 className="text-3xl">VeloAcademy</h1><p>Clique no botão VeloAcademy no header para acessar a plataforma.</p></div>;
       default:
