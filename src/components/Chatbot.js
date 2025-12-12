@@ -1,6 +1,11 @@
 /**
  * VeloHub V3 - Chatbot Component
- * VERSION: v1.10.3 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.10.4 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.10.4:
+ * - Atualizada lista de serviços online: adicionados Clube Velotax e Divida Zero
+ * - Renomeados serviços: "Seguro Cred." → "Prestamista", "Seguro Cel." → "Seguro Celular"
+ * - Grid de serviços atualizado para exibir todos os 9 serviços
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -12,7 +17,7 @@ import { API_BASE_URL } from '../config/api-config';
 console.log('🔧 Chatbot - API_BASE_URL:', API_BASE_URL);
 
 // Componente do Chatbot Inteligente - Mantendo Layout Original
-// VERSION: v1.10.3 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+// VERSION: v1.10.4 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
 const Chatbot = ({ prompt }) => {
     const [messages, setMessages] = useState([]);
     const [inputValue, setInputValue] = useState('');
@@ -32,7 +37,9 @@ const Chatbot = ({ prompt }) => {
         'pagamento-antecipado': 'on',
         'modulo-irpf': 'off',
         'seguro-cred': 'on',
-        'seguro-cel': 'on'
+        'seguro-cel': 'on',
+        'clube-velotax': 'on',
+        'divida-zero': 'on'
     });
 
     // Função para buscar status dos módulos do Console VeloHub
@@ -98,7 +105,9 @@ const Chatbot = ({ prompt }) => {
                 'pagamento-antecipado': 'on',
                 'modulo-irpf': 'off',
                 'seguro-cred': 'on',
-                'seguro-cel': 'on'
+                'seguro-cel': 'on',
+                'clube-velotax': 'on',
+                'divida-zero': 'on'
             };
             setModuleStatus(fallbackStatus);
         }
@@ -756,23 +765,23 @@ const Chatbot = ({ prompt }) => {
                 {/* Antecipação */}
                 {renderModuleStatus('antecipacao', 'Antecipação')}
                 
-                {/* Espaço vazio para alinhamento */}
-                <div></div>
-                
-                {/* Espaço vazio para alinhamento */}
-                <div></div>
-                
                 {/* Pagamento Antecipado */}
                 {renderModuleStatus('pagamento-antecipado', 'Pagamento Antecipado')}
                 
                 {/* Módulo IRPF */}
                 {renderModuleStatus('modulo-irpf', 'Módulo IRPF')}
                 
-                {/* Seguro Cred. */}
-                {renderModuleStatus('seguro-cred', 'Seguro Cred.')}
+                {/* Prestamista (renomeado de Seguro Cred.) */}
+                {renderModuleStatus('seguro-cred', 'Prestamista')}
                 
-                {/* Seguro Cel. - Coluna 5, Linha 2 */}
+                {/* Seguro Cel. */}
                 {renderModuleStatus('seguro-cel', 'Seguro Cel.')}
+                
+                {/* Clube Velotax - NOVO */}
+                {renderModuleStatus('clube-velotax', 'Clube Velotax')}
+                
+                {/* Divida Zero - NOVO */}
+                {renderModuleStatus('divida-zero', 'Divida Zero')}
             </div>
                 </div>
 
