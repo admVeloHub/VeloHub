@@ -1,6 +1,12 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.31.14 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.31.15 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.31.15:
+ * - Corrigido catch-all route para não interceptar rotas da API (app.all ao invés de app.get)
+ * - Adicionados logs de debug para diagnóstico de rotas
+ * - Melhorado tratamento de rotas não encontradas para retornar JSON ao invés de HTML
+ * - Adicionados logs de instrumentação para debug de rotas
  * 
  * Mudanças v2.31.14:
  * - Melhorado tratamento de erro 403 no endpoint /api/images/*
@@ -158,7 +164,9 @@ app.use(cors({
   ],
   credentials: true
 }));
-app.use(express.json());
+// Configurar limite de payload para suportar imagens/vídeos em base64
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ===== FUNÇÕES AUXILIARES =====
 
@@ -3462,16 +3470,75 @@ try {
 
   console.log('🔧 Inicializando routers...');
   // Registrar rotas
-  const solicitacoesRouter = initSolicitacoesRoutes(client, connectToMongo, { userActivityLogger });
-  const errosBugsRouter = initErrosBugsRoutes(client, connectToMongo, { userActivityLogger });
-  const logsRouter = initLogsRoutes(client, connectToMongo);
+  let solicitacoesRouter, errosBugsRouter, logsRouter;
+  
+  try {
+    solicitacoesRouter = initSolicitacoesRoutes(client, connectToMongo, { userActivityLogger });
+    console.log('✅ Router de solicitações inicializado:', typeof solicitacoesRouter);
+  } catch (error) {
+    console.error('❌ Erro ao inicializar router de solicitações:', error);
+    throw error;
+  }
+  
+  try {
+    errosBugsRouter = initErrosBugsRoutes(client, connectToMongo, { userActivityLogger });
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.js:3478',message:'errosBugsRouter INITIALIZED',data:{routerType:typeof errosBugsRouter,isNull:errosBugsRouter===null,isUndefined:errosBugsRouter===undefined,hasGet:typeof errosBugsRouter?.get==='function',hasPost:typeof errosBugsRouter?.post==='function'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    console.log('✅ Router de erros/bugs inicializado:', typeof errosBugsRouter);
+    console.log('🔍 [DEBUG] errosBugsRouter tem método get?', typeof errosBugsRouter?.get === 'function');
+    console.log('🔍 [DEBUG] errosBugsRouter tem método post?', typeof errosBugsRouter?.post === 'function');
+  } catch (error) {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.js:3482',message:'errosBugsRouter INIT ERROR',data:{errorMessage:error.message,errorStack:error.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
+    console.error('❌ Erro ao inicializar router de erros/bugs:', error);
+    console.error('❌ Stack trace:', error.stack);
+    throw error;
+  }
+  
+  try {
+    logsRouter = initLogsRoutes(client, connectToMongo);
+    console.log('✅ Router de logs inicializado:', typeof logsRouter);
+  } catch (error) {
+    console.error('❌ Erro ao inicializar router de logs:', error);
+    throw error;
+  }
+  
   console.log('✅ Routers inicializados');
 
   console.log('🔗 Registrando rotas no Express...');
+  console.log('🔍 [DEBUG] errosBugsRouter tipo:', typeof errosBugsRouter);
+  console.log('🔍 [DEBUG] errosBugsRouter é router?', errosBugsRouter && typeof errosBugsRouter === 'function');
+  
+  // Verificar se os routers são válidos antes de registrar
+  if (!errosBugsRouter) {
+    console.error('❌ [ERRO CRÍTICO] errosBugsRouter é null ou undefined!');
+    throw new Error('errosBugsRouter não foi inicializado corretamente');
+  }
+  
+  // Registrar rotas ANTES de qualquer middleware estático
   app.use('/api/escalacoes/solicitacoes', solicitacoesRouter);
+  
+  // Registrar router de erros/bugs com validação adicional
+  if (!errosBugsRouter || typeof errosBugsRouter !== 'function') {
+    console.error('❌ [ERRO CRÍTICO] errosBugsRouter inválido!');
+    console.error('❌ Tipo:', typeof errosBugsRouter);
+    console.error('❌ Valor:', errosBugsRouter);
+    throw new Error('errosBugsRouter não é um router válido');
+  }
+  
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.js:3519',message:'BEFORE app.use erros-bugs',data:{routerType:typeof errosBugsRouter,routerValue:errosBugsRouter?String(errosBugsRouter).substring(0,100):null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+  // #endregion
   app.use('/api/escalacoes/erros-bugs', errosBugsRouter);
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.js:3520',message:'AFTER app.use erros-bugs',data:{registered:true},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+  // #endregion
   app.use('/api/escalacoes/logs', logsRouter);
+  
   console.log('✅ Rotas registradas no Express');
+  console.log('🔍 [DEBUG] Rotas /api/escalacoes/erros-bugs registradas com sucesso');
 
   // Criar índices MongoDB (em background, não bloqueia startup)
   setTimeout(async () => {
@@ -3638,9 +3705,47 @@ app.use('/api/images', async (req, res, next) => {
 console.log('✅ Endpoint GET /api/images/* registrado com sucesso (proxy direto)');
 
 // Servir arquivos estáticos do frontend (DEPOIS das rotas da API)
-app.use(express.static(path.join(__dirname, 'public')));
+// IMPORTANTE: Não servir arquivos estáticos para rotas da API
+const staticMiddleware = express.static(path.join(__dirname, 'public'), {
+  index: false // Não servir index.html automaticamente
+});
+app.use((req, res, next) => {
+  // #region agent log
+  if (req.path.startsWith('/api/')) {
+    fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.js:3690',message:'express.static MIDDLEWARE CALLED FOR API PATH',data:{path:req.path,method:req.method},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+  }
+  // #endregion
+  staticMiddleware(req, res, next);
+});
 
 // Rota para servir o React app (SPA) - DEVE SER A ÚLTIMA ROTA
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// IMPORTANTE: Não capturar rotas que começam com /api
+app.all('*', (req, res, next) => {
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.js:3660',message:'CATCH-ALL app.all(*) CALLED',data:{path:req.path,method:req.method,isApiPath:req.path.startsWith('/api/')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+  // #endregion
+  // Se for uma rota da API, não servir o HTML
+  if (req.path.startsWith('/api/')) {
+    console.log(`⚠️ [CATCH-ALL] Rota da API não encontrada: ${req.method} ${req.path}`);
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.js:3663',message:'CATCH-ALL RETURNING 404',data:{path:req.path,method:req.method},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
+    return res.status(404).json({
+      success: false,
+      message: 'Rota da API não encontrada',
+      path: req.path,
+      method: req.method
+    });
+  }
+  // Apenas GET deve servir o HTML do React
+  if (req.method === 'GET') {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  } else {
+    res.status(404).json({
+      success: false,
+      message: 'Rota não encontrada',
+      path: req.path,
+      method: req.method
+    });
+  }
 });
