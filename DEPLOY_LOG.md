@@ -43,7 +43,7 @@
 ### **GitHub Push - Correção Parsing Formatação Markdown VeloNews e Artigos**
 - **Data/Hora**: 2025-01-31 14:30:00
 - **Tipo**: GitHub Push
-- **Commit**: b19452f
+- **Commit**: 3d46f19
 - **Versão**: App_v2-1.js v2.2.7, NewsHistoryModal.js v1.1.0, textFormatter.js v1.0.2
 - **Arquivos Modificados**:
   - `src/App_v2-1.js` (v2.2.6 → v2.2.7)
