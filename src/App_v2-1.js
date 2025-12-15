@@ -1,6 +1,16 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.2.5 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.2.7 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.2.7:
+ * - Correção parsing de formatação Artigos: aplicado formatResponseText antes de processContentHtml
+ * - Markdown (**texto**, emojis, quebras de linha) agora é convertido corretamente para HTML nos artigos
+ * - Correção aplicada em: modal de artigo da HomePage
+ * 
+ * Mudanças v2.2.6:
+ * - Correção parsing de formatação VeloNews: aplicado formatResponseText antes de processContentHtml
+ * - Markdown (**texto**, emojis, quebras de linha) agora é convertido corretamente para HTML
+ * - Correções aplicadas em: modal crítico, widget Recentes, modal de notícia
  * 
  * Mudanças v2.2.5:
  * - Adicionado bloqueio do VeloChatWidget em produção (exceto para Lucas Gravina)
@@ -517,7 +527,7 @@ const CriticalNewsModal = ({ news, onClose, onAcknowledge }) => {
         <h2 className="text-2xl font-bold text-red-600 mb-4">{news.title}</h2>
                  <div 
              className="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200"
-             dangerouslySetInnerHTML={{ __html: processContentHtml(news.content || '', news?.media?.images || []) }}
+             dangerouslySetInnerHTML={{ __html: processContentHtml(formatResponseText(news.content || '', 'velonews'), news?.media?.images || []) }}
          />
         <div className="mt-8 flex justify-between items-center">
           <button
@@ -2137,7 +2147,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                     
                                     <div 
                                         className={`text-gray-600 dark:text-gray-400 line-clamp-3 mb-2 prose prose-sm dark:prose-invert max-w-none ${isSolved ? 'solved-news-content' : ''}`}
-                                        dangerouslySetInnerHTML={{ __html: processContentHtml(news.content || '', news?.media?.images || []) }}
+                                        dangerouslySetInnerHTML={{ __html: processContentHtml(formatResponseText(news.content || '', 'velonews'), news?.media?.images || []) }}
                                     />
                                     
                                     <div className="flex justify-between items-center">
@@ -2573,7 +2583,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                             
                             <div 
                                 className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
-                                dangerouslySetInnerHTML={{ __html: processContentHtml(selectedNews.content || '', selectedNews?.media?.images || []) }}
+                                dangerouslySetInnerHTML={{ __html: processContentHtml(formatResponseText(selectedNews.content || '', 'velonews'), selectedNews?.media?.images || []) }}
                             />
                         </div>
                     </div>
@@ -2730,7 +2740,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                             
                             <div 
                                 className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
-                                dangerouslySetInnerHTML={{ __html: processContentHtml(selectedArticle.content || '', selectedArticle?.media?.images || []) }}
+                                dangerouslySetInnerHTML={{ __html: processContentHtml(formatResponseText(selectedArticle.content || '', 'article'), selectedArticle?.media?.images || []) }}
                             />
                         </div>
                     </div>

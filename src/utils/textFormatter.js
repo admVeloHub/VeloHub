@@ -1,5 +1,9 @@
 // Text Formatter Utility - Sistema de formatação de texto para o frontend
-// VERSION: v1.0.1 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+// VERSION: v1.0.2 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+// 
+// Mudanças v1.0.2:
+// - Adicionada conversão de quebras de linha (\n) para HTML (<br>)
+// - Ajustado cleanExcessiveFormatting para trabalhar com tags <br> ao invés de \n
 
 /**
  * Formata texto de resposta do chatbot
@@ -30,10 +34,13 @@ export const formatResponseText = (text, source = 'unknown') => {
   // 5. Formatar markdown básico
   formattedText = formatMarkdown(formattedText);
   
-  // 6. Formatar links
+  // 6. Converter quebras de linha para HTML (<br>)
+  formattedText = formattedText.replace(/\n/g, '<br>');
+  
+  // 7. Formatar links
   formattedText = formatLinks(formattedText);
   
-  // 7. Limpar formatação excessiva
+  // 8. Limpar formatação excessiva
   formattedText = cleanExcessiveFormatting(formattedText);
 
   
@@ -157,8 +164,8 @@ const cleanExcessiveFormatting = (text) => {
     // Remover espaços excessivos
     .replace(/\s{3,}/g, ' ')
     
-    // Limpar quebras de linha excessivas novamente
-    .replace(/\n{3,}/g, '\n\n');
+    // Limpar quebras de linha HTML excessivas (<br><br><br> → <br><br>)
+    .replace(/(<br\s*\/?>){3,}/gi, '<br><br>');
 };
 
 /**
