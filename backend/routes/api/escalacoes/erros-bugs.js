@@ -1,7 +1,13 @@
 /**
  * VeloHub V3 - Escalações API Routes - Erros/Bugs
- * VERSION: v1.4.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.5.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
  * Branch: main (recuperado de escalacoes)
+ * 
+ * Mudanças v1.5.0:
+ * - Corrigido erro de sintaxe no bloco try-catch do envio WhatsApp
+ * - Adicionado tratamento de erro WhatsApp na resposta da API
+ * - Adicionado aviso na resposta quando WhatsApp não está disponível
+ * - Adicionados logs de instrumentação para debug
  * 
  * Mudanças v1.4.0:
  * - Corrigido extração de imagens: agora usa payload.imageData ao invés de payload.previews
@@ -45,6 +51,9 @@ try {
  * @param {Object} services - Serviços disponíveis (userActivityLogger, etc.)
  */
 const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:47',message:'initErrosBugsRoutes ENTRY',data:{hasClient:!!client,hasConnectToMongo:typeof connectToMongo==='function',servicesKeys:Object.keys(services)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
   const { userActivityLogger } = services;
 
   /**
@@ -52,6 +61,9 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
    * Buscar todos os erros/bugs ou filtrar por query params
    */
   router.get('/', async (req, res) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:54',message:'router.get(/) HANDLER CALLED',data:{path:req.path,method:req.method,url:req.url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
     try {
       console.log('🔍 [GET /erros-bugs] Iniciando busca de erros/bugs...');
       
@@ -170,6 +182,9 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
    * Criar novo erro/bug
    */
   router.post('/', async (req, res) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:172',message:'router.post(/) HANDLER CALLED',data:{path:req.path,method:req.method,url:req.url,bodyKeys:Object.keys(req.body||{})},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
     try {
       if (!client) {
         return res.status(503).json({
@@ -247,7 +262,14 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
       let waMessageIdFinal = waMessageId || null;
       let messageIdsArray = [];
       
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:259',message:'CHECKING WHATSAPP CONFIG',data:{hasWhatsappApiUrl:!!config.WHATSAPP_API_URL,hasWhatsappDefaultJid:!!config.WHATSAPP_DEFAULT_JID,whatsappApiUrl:config.WHATSAPP_API_URL||null,whatsappDefaultJid:config.WHATSAPP_DEFAULT_JID||null,hasWhatsappService:!!whatsappService},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+      
       if (config.WHATSAPP_API_URL && config.WHATSAPP_DEFAULT_JID) {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:260',message:'WHATSAPP CONFIG OK - ENTERING TRY BLOCK',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
         try {
           // Extrair imagens do payload.imageData (dados completos em base64)
           const imagens = [];
@@ -280,9 +302,15 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
           }
           
           if (!whatsappService) {
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:291',message:'whatsappService IS NULL',data:{whatsappServiceType:typeof whatsappService},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
             console.warn('⚠️ [POST /erros-bugs] whatsappService não disponível, pulando envio WhatsApp');
             waMessageIdFinal = null;
           } else {
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:295',message:'CALLING whatsappService.sendMessage',data:{jid:config.WHATSAPP_DEFAULT_JID,mensagemLength:mensagemTexto?.length||0,imagensCount:imagens.length,videosCount:videos.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+            // #endregion
             const whatsappResult = await whatsappService.sendMessage(
               config.WHATSAPP_DEFAULT_JID,
               mensagemTexto,
@@ -294,6 +322,10 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
                 agente: colaboradorNome
               }
             );
+            
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:305',message:'whatsappResult RECEIVED',data:{ok:whatsappResult?.ok,hasMessageId:!!whatsappResult?.messageId,hasMessageIds:Array.isArray(whatsappResult?.messageIds),error:whatsappResult?.error||null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+            // #endregion
             
             if (whatsappResult.ok) {
             waMessageIdFinal = whatsappResult.messageId || null;
@@ -321,12 +353,22 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
             console.log(`✅ WhatsApp: Mensagem enviada com sucesso! messageId: ${waMessageIdFinal}`);
           } else {
             console.warn(`⚠️ WhatsApp: Falha ao enviar mensagem: ${whatsappResult.error}`);
+            // Adicionar informação de erro ao payload para o frontend
+            if (!erroBug.payload) erroBug.payload = {};
+            erroBug.payload.whatsappError = whatsappResult.error || 'Erro desconhecido ao enviar via WhatsApp';
+          }
           }
         } catch (whatsappError) {
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:335',message:'CATCH whatsappError',data:{errorMessage:whatsappError?.message,errorName:whatsappError?.name,errorStack:whatsappError?.stack?.substring(0,200)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+          // #endregion
           console.error('❌ Erro ao enviar via WhatsApp (não crítico):', whatsappError);
           // Não bloquear criação do erro/bug se WhatsApp falhar
         }
       } else {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:339',message:'WHATSAPP NOT CONFIGURED',data:{hasWhatsappApiUrl:!!config.WHATSAPP_API_URL,hasWhatsappDefaultJid:!!config.WHATSAPP_DEFAULT_JID},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
         console.log('[WHATSAPP] WhatsApp não configurado - pulando envio');
       }
 
@@ -354,12 +396,20 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
         }
       }
 
+      // Preparar resposta com informações sobre WhatsApp
+      const responseData = {
+        _id: result.insertedId,
+        ...erroBug
+      };
+      
+      // Adicionar aviso se WhatsApp não foi enviado
+      if (config.WHATSAPP_API_URL && config.WHATSAPP_DEFAULT_JID && !waMessageIdFinal) {
+        responseData.whatsappWarning = erroBug.payload?.whatsappError || 'WhatsApp não disponível no momento. O registro foi criado com sucesso.';
+      }
+      
       res.status(201).json({
         success: true,
-        data: {
-          _id: result.insertedId,
-          ...erroBug
-        }
+        data: responseData
       });
     } catch (error) {
       console.error('❌ Erro ao criar erro/bug:', error);
@@ -602,6 +652,9 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
     }
   });
 
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:605',message:'initErrosBugsRoutes RETURN',data:{routerType:typeof router,routerIsFunction:typeof router==='function',hasGet:typeof router.get==='function',hasPost:typeof router.post==='function'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
   return router;
 };
 
