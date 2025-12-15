@@ -40,6 +40,18 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Correções na Rota Erros/Bugs e Tratamento de Erro WhatsApp**
+- **Data/Hora**: 2025-12-15 13:12:33
+- **Tipo**: GitHub Push
+- **Commit**: f8f8e2f
+- **Versão**: backend/server.js v2.31.15 / erros-bugs.js v1.5.0 / whatsappService.js v1.4.1
+- **Arquivos Modificados**:
+  - `backend/routes/api/escalacoes/erros-bugs.js` (v1.5.0)
+  - `backend/server.js` (v2.31.15)
+  - `backend/services/escalacoes/whatsappService.js` (v1.4.1)
+- **Descrição**: Correções críticas na rota erros-bugs e tratamento de erro WhatsApp. Corrigido erro de sintaxe no bloco try-catch do envio WhatsApp. Corrigido catch-all route para não interceptar rotas da API (app.all ao invés de app.get). Adicionado tratamento de erro WhatsApp na resposta da API. Adicionado aviso quando WhatsApp não está disponível. Adicionados logs de instrumentação para debug. O registro continua sendo criado mesmo se o WhatsApp falhar, mas agora o frontend recebe informação sobre o status do envio.
+- **Status**: ✅ Concluído com sucesso - Push realizado para branch main
+
 ### **GitHub Push - Correção Campo Tabulação nas Respostas do Clarification**
 - **Data/Hora**: 2025-12-02 12:03:16
 - **Tipo**: GitHub Push
