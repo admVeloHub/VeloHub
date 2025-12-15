@@ -1,9 +1,15 @@
 // NewsHistoryModal - Modal para histórico completo de notícias
-// VERSION: v1.0.6 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+// VERSION: v1.1.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+// 
+// Mudanças v1.1.0:
+// - Correção parsing de formatação VeloNews: aplicado formatResponseText antes de processContentHtml
+// - Markdown (**texto**, emojis, quebras de linha) agora é convertido corretamente para HTML
+// - Importado formatResponseText do textFormatter.js
 
 import React, { useState, useEffect } from 'react';
 import { X, Search, Filter, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { API_BASE_URL } from '../config/api-config';
+import { formatResponseText } from '../utils/textFormatter';
 
 // Função para processar conteúdo HTML e remover URLs do bucket GCS (duplicada de App_v2-1.js)
 const processContentHtml = (htmlContent, mediaImages = []) => {
@@ -248,7 +254,7 @@ const NewsHistoryModal = ({ isOpen, onClose, news, acknowledgedNewsIds = [], onA
 
                     <div 
                       className={`text-gray-600 dark:text-gray-400 mb-3 prose prose-sm dark:prose-invert max-w-none ${isSolved ? 'solved-news-content' : ''}`}
-                      dangerouslySetInnerHTML={{ __html: processContentHtml(item.content || '', item?.media?.images || []) }}
+                      dangerouslySetInnerHTML={{ __html: processContentHtml(formatResponseText(item.content || '', 'velonews'), item?.media?.images || []) }}
                     />
 
                     <div className="flex justify-between items-center">

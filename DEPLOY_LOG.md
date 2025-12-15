@@ -40,6 +40,18 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Correção Parsing Formatação Markdown VeloNews e Artigos**
+- **Data/Hora**: 2025-01-31 14:30:00
+- **Tipo**: GitHub Push
+- **Commit**: b19452f
+- **Versão**: App_v2-1.js v2.2.7, NewsHistoryModal.js v1.1.0, textFormatter.js v1.0.2
+- **Arquivos Modificados**:
+  - `src/App_v2-1.js` (v2.2.6 → v2.2.7)
+  - `src/components/NewsHistoryModal.js` (v1.0.6 → v1.1.0)
+  - `src/utils/textFormatter.js` (v1.0.1 → v1.0.2)
+- **Descrição**: Correção crítica do parsing de formatação markdown no sistema VeloNews e Artigos. Aplicado formatResponseText antes de processContentHtml em todos os locais de exibição (modal crítico, widget Recentes, modal de notícia, modal de artigo da HomePage, histórico de notícias). Adicionada conversão de quebras de linha (\n) para HTML (<br>) no formatResponseText. Ajustado cleanExcessiveFormatting para trabalhar com tags <br> ao invés de \n. Agora markdown (**texto**, emojis, quebras de linha) é convertido corretamente para HTML em todo o sistema.
+- **Status**: ✅ Concluído com sucesso
+
 ### **GitHub Push - Correção Envio WhatsApp ErrosBugsTab e Proteção Requisições Múltiplas**
 - **Data/Hora**: 2025-01-31 13:45:16
 - **Tipo**: GitHub Push
