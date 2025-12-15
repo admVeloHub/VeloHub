@@ -27,8 +27,16 @@
 
 const express = require('express');
 const router = express.Router();
-const whatsappService = require('../../../services/escalacoes/whatsappService');
 const config = require('../../../config');
+
+// Carregar whatsappService com tratamento de erro
+let whatsappService;
+try {
+  whatsappService = require('../../../services/escalacoes/whatsappService');
+} catch (error) {
+  console.error('⚠️ [erros-bugs] Erro ao carregar whatsappService:', error.message);
+  whatsappService = null;
+}
 
 /**
  * Inicializar rotas de erros/bugs
@@ -45,7 +53,10 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
    */
   router.get('/', async (req, res) => {
     try {
+      console.log('🔍 [GET /erros-bugs] Iniciando busca de erros/bugs...');
+      
       if (!client) {
+        console.error('❌ [GET /erros-bugs] MongoDB client não configurado');
         return res.status(503).json({
           success: false,
           message: 'MongoDB não configurado',
@@ -53,12 +64,18 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
         });
       }
 
+      console.log('🔍 [GET /erros-bugs] Conectando ao MongoDB...');
       await connectToMongo();
+      console.log('✅ [GET /erros-bugs] Conectado ao MongoDB');
+      
       const db = client.db('hub_escalacoes');
       const collection = db.collection('erros_bugs');
+      console.log('✅ [GET /erros-bugs] Collection obtida: erros_bugs');
 
       // Filtros opcionais
       const { cpf, colaboradorNome, agente, tipo } = req.query;
+      console.log('🔍 [GET /erros-bugs] Query params:', { cpf, colaboradorNome, agente, tipo });
+      
       const filter = {};
       if (cpf) {
         filter.cpf = { $regex: String(cpf).replace(/\D/g, ''), $options: 'i' };
@@ -73,23 +90,32 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
         filter.tipo = { $regex: String(tipo), $options: 'i' };
       }
 
+      console.log('🔍 [GET /erros-bugs] Filtro aplicado:', JSON.stringify(filter));
+
       const errosBugs = await collection
         .find(filter)
         .sort({ createdAt: -1 })
         .toArray();
 
-      console.log(`✅ Erros/Bugs encontrados: ${errosBugs.length}`);
+      console.log(`✅ [GET /erros-bugs] Erros/Bugs encontrados: ${errosBugs.length}`);
 
       res.json({
         success: true,
         data: errosBugs
       });
     } catch (error) {
-      console.error('❌ Erro ao buscar erros/bugs:', error);
+      console.error('❌ [GET /erros-bugs] Erro ao buscar erros/bugs:', error);
+      console.error('❌ [GET /erros-bugs] Stack trace:', error.stack);
+      console.error('❌ [GET /erros-bugs] Error details:', {
+        message: error.message,
+        name: error.name,
+        code: error.code
+      });
       res.status(500).json({
         success: false,
         message: 'Erro ao buscar erros/bugs',
-        error: error.message
+        error: error.message,
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
   });
@@ -253,19 +279,23 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
             });
           }
           
-          const whatsappResult = await whatsappService.sendMessage(
-            config.WHATSAPP_DEFAULT_JID,
-            mensagemTexto,
-            imagens,
-            videos,
-            {
-              cpf: erroBug.cpf || null,
-              solicitacao: tipo,
-              agente: colaboradorNome
-            }
-          );
-          
-          if (whatsappResult.ok) {
+          if (!whatsappService) {
+            console.warn('⚠️ [POST /erros-bugs] whatsappService não disponível, pulando envio WhatsApp');
+            waMessageIdFinal = null;
+          } else {
+            const whatsappResult = await whatsappService.sendMessage(
+              config.WHATSAPP_DEFAULT_JID,
+              mensagemTexto,
+              imagens,
+              videos,
+              {
+                cpf: erroBug.cpf || null,
+                solicitacao: tipo,
+                agente: colaboradorNome
+              }
+            );
+            
+            if (whatsappResult.ok) {
             waMessageIdFinal = whatsappResult.messageId || null;
             messageIdsArray = whatsappResult.messageIds || [];
             
