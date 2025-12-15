@@ -40,6 +40,25 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Correção Envio WhatsApp ErrosBugsTab e Proteção Requisições Múltiplas**
+- **Data/Hora**: 2025-01-31 13:45:16
+- **Tipo**: GitHub Push
+- **Versão**: ErrosBugsTab.js v1.10.0
+- **Arquivos Modificados**:
+  - `src/components/Escalacoes/ErrosBugsTab.js` (v1.10.0)
+- **Descrição**: Correção crítica do envio de WhatsApp no componente ErrosBugsTab. Alterado para usar WHATSAPP_API_URL e WHATSAPP_DEFAULT_JID de api-config.js (mesmo padrão do FormSolicitacao que funciona corretamente). Adicionada proteção contra requisições simultâneas (isLoadingRef) e controle de montagem do componente (isMountedRef) para evitar múltiplas requisições repetidas aos mesmos endpoints. Configurações agora usam fallback automático quando variáveis de ambiente não estão definidas. Resolve problema de mensagens não sendo enviadas para o grupo WhatsApp e múltiplas requisições desnecessárias.
+- **Status**: ✅ Concluído com sucesso
+
+### **GitHub Push - Correção Envio WhatsApp na Rota Erros/Bugs**
+- **Data/Hora**: 2025-12-15 13:29:38
+- **Tipo**: GitHub Push
+- **Commit**: 4f8b2a4
+- **Versão**: backend/routes/api/escalacoes/erros-bugs.js v1.6.0
+- **Arquivos Modificados**:
+  - `backend/routes/api/escalacoes/erros-bugs.js` (v1.6.0)
+- **Descrição**: Correção crítica do envio WhatsApp na rota erros-bugs para seguir o mesmo padrão da rota de solicitações que funciona corretamente. Alterado import do whatsappService para ser direto (igual à rota de solicitações). Adicionada verificação !waMessageId && mensagemTexto na condição de envio. Removida verificação desnecessária if (!whatsappService). O código agora segue o mesmo padrão da rota de solicitações, garantindo que o envio WhatsApp funcione corretamente em produção.
+- **Status**: ✅ Concluído com sucesso - Push realizado para branch main
+
 ### **GitHub Push - Correções na Rota Erros/Bugs e Tratamento de Erro WhatsApp**
 - **Data/Hora**: 2025-12-15 13:12:33
 - **Tipo**: GitHub Push

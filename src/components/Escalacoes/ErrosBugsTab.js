@@ -1,9 +1,23 @@
 /**
  * VeloHub V3 - ErrosBugsTab Component
- * VERSION: v1.8.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.10.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
  * 
  * Componente para reportar erros e bugs com anexos de imagem/vídeo
+ * 
+ * Mudanças v1.10.0:
+ * - Corrigido envio de WhatsApp: agora usa WHATSAPP_API_URL e WHATSAPP_DEFAULT_JID de api-config.js
+ * - Alinhado com padrão do FormSolicitacao que funciona corretamente
+ * - Resolve problema de mensagens não sendo enviadas para o grupo WhatsApp
+ * - Configurações agora usam fallback automático quando variáveis de ambiente não estão definidas
+ * 
+ * Mudanças v1.9.0:
+ * - Adicionada proteção contra requisições simultâneas (isLoadingRef)
+ * - Adicionado controle de montagem do componente (isMountedRef)
+ * - Prevenção de atualizações de estado após desmontagem do componente
+ * - Verificação de montagem antes de atualizar estado após requisições assíncronas
+ * - Intervalo de atualização automática agora verifica montagem antes de executar
+ * - Resolve problema de múltiplas requisições repetidas aos mesmos endpoints
  * 
  * Mudanças v1.8.0:
  * - Melhorado tratamento de erros no carregamento de estatísticas
@@ -60,7 +74,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { errosBugsAPI, logsAPI } from '../../services/escalacoesApi';
-import { API_BASE_URL } from '../../config/api-config';
+import { API_BASE_URL, WHATSAPP_API_URL, WHATSAPP_DEFAULT_JID } from '../../config/api-config';
 
 /**
  * Componente de aba para Erros/Bugs
@@ -90,6 +104,8 @@ const ErrosBugsTab = () => {
   const prevErrosBugsRef = useRef([]);
   const [isDragging, setIsDragging] = useState(false);
   const [loadError, setLoadError] = useState(null);
+  const isLoadingRef = useRef(false); // Proteção contra requisições simultâneas
+  const isMountedRef = useRef(true); // Controle de montagem do componente
 
   /**
    * Normalizar nome do agente (Title Case, espaços simples)
@@ -162,11 +178,31 @@ const ErrosBugsTab = () => {
    * Carregar estatísticas e erros/bugs
    */
   const loadStats = async () => {
+    // Proteção contra requisições simultâneas
+    if (isLoadingRef.current) {
+      console.log('[ErrosBugsTab] Requisição já em andamento, ignorando...');
+      return;
+    }
+    
+    // Verificar se componente ainda está montado
+    if (!isMountedRef.current) {
+      console.log('[ErrosBugsTab] Componente desmontado, cancelando requisição...');
+      return;
+    }
+    
+    isLoadingRef.current = true;
     setStatsLoading(true);
     setLoadError(null);
     try {
       console.log('[ErrosBugsTab] Iniciando carregamento de estatísticas...');
       const result = await errosBugsAPI.getAll();
+      
+      // Verificar novamente se componente ainda está montado após requisição
+      if (!isMountedRef.current) {
+        console.log('[ErrosBugsTab] Componente desmontado durante requisição, ignorando resposta...');
+        return;
+      }
+      
       console.log('[ErrosBugsTab] Resposta recebida:', result);
       
       // Validação de resposta
@@ -220,6 +256,12 @@ const ErrosBugsTab = () => {
         done: doneCount
       });
     } catch (err) {
+      // Verificar se componente ainda está montado antes de atualizar estado
+      if (!isMountedRef.current) {
+        console.log('[ErrosBugsTab] Componente desmontado durante erro, ignorando...');
+        return;
+      }
+      
       console.error('Erro ao carregar estatísticas:', err);
       const errorMessage = err?.message || 'Erro ao conectar com o servidor';
       setLoadError(errorMessage);
@@ -227,12 +269,19 @@ const ErrosBugsTab = () => {
       setStats({ today: 0, pending: 0, done: 0 });
       setErrosBugsRaw([]);
     } finally {
-      setStatsLoading(false);
+      isLoadingRef.current = false;
+      if (isMountedRef.current) {
+        setStatsLoading(false);
+      }
     }
   };
 
   // Carregar estatísticas ao montar componente
   useEffect(() => {
+    // Marcar componente como montado
+    isMountedRef.current = true;
+    isLoadingRef.current = false;
+    
     console.log('[ErrosBugsTab] Componente montado, carregando estatísticas...');
     loadStats().catch(err => {
       console.error('[ErrosBugsTab] Erro crítico ao carregar no mount:', err);
@@ -240,13 +289,19 @@ const ErrosBugsTab = () => {
     
     // Atualização automática a cada 3 minutos (padrão VeloHub - intelligent refresh)
     const refreshInterval = setInterval(() => {
-      loadStats().catch(err => {
-        console.error('[ErrosBugsTab] Erro ao atualizar automaticamente:', err);
-      });
+      // Verificar se componente ainda está montado antes de atualizar
+      if (isMountedRef.current && !isLoadingRef.current) {
+        loadStats().catch(err => {
+          console.error('[ErrosBugsTab] Erro ao atualizar automaticamente:', err);
+        });
+      }
     }, 3 * 60 * 1000);
     
     return () => {
       console.log('[ErrosBugsTab] Componente desmontado, limpando intervalos...');
+      // Marcar componente como desmontado
+      isMountedRef.current = false;
+      isLoadingRef.current = false;
       clearInterval(refreshInterval);
     };
   }, []);
@@ -559,9 +614,9 @@ const ErrosBugsTab = () => {
     setLoading(true);
     setMsg('');
 
-    // TODO: Configurar via variáveis de ambiente
-    const apiUrl = process.env.REACT_APP_WHATSAPP_API_URL || '';
-    const defaultJid = process.env.REACT_APP_WHATSAPP_DEFAULT_JID || '';
+    // Usar configurações do api-config.js (mesmo padrão do FormSolicitacao)
+    const apiUrl = WHATSAPP_API_URL;
+    const defaultJid = WHATSAPP_DEFAULT_JID;
 
     const legenda = montarLegenda();
 
