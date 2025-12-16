@@ -1,9 +1,19 @@
 /**
  * VeloHub V3 - FormSolicitacao Component (Escalações Module)
- * VERSION: v1.4.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.5.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
  * 
  * Componente de formulário para criação de solicitações técnicas
+ * 
+ * Mudanças v1.5.0:
+ * - Adicionada funcionalidade completa de Cancelamento de Serviços
+ * - Novos campos: seguroPrestamista, seguroSaude, seguroCelular, seguroDividaZero, clubeVelotax
+ * - Campos de prazo: dentroDos7Dias, depoisDos7Dias
+ * - Formulário condicional para tipo "Cancelamento" com seleção múltipla de produtos e prazos
+ * - Formatação automática de mensagem WhatsApp para cancelamentos
+ * - Adicionada formatação automática de CPF (000.000.000-00)
+ * - Validação visual de CPF: borda verde quando tiver 11 dígitos
+ * - Limitação de entrada: máximo 11 dígitos no campo CPF
  * 
  * Mudanças v1.4.0:
  * - Alterado fluxo para seguir padrão do painel de serviços (que funciona corretamente)
@@ -65,6 +75,14 @@ const FormSolicitacao = ({ registrarLog }) => {
     portabilidadePendente: false,
     dividaIrpfQuitada: false,
     observacoes: '',
+    // Campos para Cancelamento
+    seguroPrestamista: false,
+    seguroSaude: false,
+    seguroCelular: false,
+    seguroDividaZero: false,
+    clubeVelotax: false,
+    dentroDos7Dias: false,
+    depoisDos7Dias: false,
   });
   const [loading, setLoading] = useState(false);
   const [cpfError, setCpfError] = useState('');
@@ -218,6 +236,35 @@ const FormSolicitacao = ({ registrarLog }) => {
   };
 
   /**
+   * Formatar CPF no formato 000.000.000-00
+   * @param {string} valor - Valor a formatar
+   * @returns {string} CPF formatado
+   */
+  const formatarCPF = (valor) => {
+    // Remove tudo que não é dígito
+    const digits = String(valor || '').replace(/\D/g, '');
+    
+    // Limita a 11 dígitos
+    const limited = digits.slice(0, 11);
+    
+    if (limited.length === 0) return '';
+    if (limited.length <= 3) return limited;
+    if (limited.length <= 6) return `${limited.slice(0, 3)}.${limited.slice(3)}`;
+    if (limited.length <= 9) return `${limited.slice(0, 3)}.${limited.slice(3, 6)}.${limited.slice(6)}`;
+    return `${limited.slice(0, 3)}.${limited.slice(3, 6)}.${limited.slice(6, 9)}-${limited.slice(9)}`;
+  };
+
+  /**
+   * Validar CPF completo (11 dígitos)
+   * @param {string} valor - Valor a validar
+   * @returns {boolean} True se válido
+   */
+  const validarCPF = (valor) => {
+    const digits = String(valor || '').replace(/\D/g, '');
+    return digits.length === 11;
+  };
+
+  /**
    * Formatar email (mantém formato básico, não força máscara rígida)
    * @param {string} valor - Valor a formatar
    * @returns {string} Email formatado (em lowercase, sem espaços)
@@ -326,6 +373,11 @@ const FormSolicitacao = ({ registrarLog }) => {
     setForm(prev => {
       let valorFinal = valor;
       
+      // Aplicar formatação de CPF se necessário
+      if (campo === 'cpf') {
+        valorFinal = formatarCPF(valor);
+      }
+      
       // Aplicar formatação de telefone se necessário - SEMPRE quando tipo é Telefone
       if (prev.tipo === 'Alteração de Dados Cadastrais' && prev.infoTipo === 'Telefone') {
         if (campo === 'dadoAntigo' || campo === 'dadoNovo') {
@@ -372,6 +424,7 @@ const FormSolicitacao = ({ registrarLog }) => {
       'Exclusão de Chave PIX': 'Exclusão de Chave PIX',
       'Alteração de Dados Cadastrais': 'Alteração de Dados Cadastrais',
       'Reativação de Conta': 'Reativação de Conta',
+      'Cancelamento': 'Cancelamento',
     };
     const tipoCanon = typeMap[form.tipo] || toTitleCase(String(form.tipo || ''));
     const cpfNorm = String(form.cpf || '').replace(/\s+/g, ' ').trim();
@@ -390,6 +443,37 @@ const FormSolicitacao = ({ registrarLog }) => {
       msg += `Dado antigo: ${form.dadoAntigo}\n`;
       msg += `Dado novo: ${form.dadoNovo}\n`;
       msg += `Fotos verificadas: ${simNao(form.fotosVerificadas)}\n`;
+      msg += `Observações: ${form.observacoes || '—'}\n`;
+    } else if (form.tipo === 'Cancelamento') {
+      // Listar apenas produtos selecionados
+      const produtosSelecionados = [];
+      if (form.seguroPrestamista) produtosSelecionados.push('Seguro Prestamista');
+      if (form.seguroSaude) produtosSelecionados.push('Seguro Saude');
+      if (form.seguroCelular) produtosSelecionados.push('Seguro Celular');
+      if (form.seguroDividaZero) produtosSelecionados.push('Seguro Divida Zero');
+      if (form.clubeVelotax) produtosSelecionados.push('Clube Velotax');
+      
+      if (produtosSelecionados.length > 0) {
+        msg += `*Produtos:*\n`;
+        produtosSelecionados.forEach(produto => {
+          msg += `✅ ${produto}\n`;
+        });
+        msg += `\n`;
+      }
+      
+      // Listar apenas prazos selecionados
+      const prazosSelecionados = [];
+      if (form.dentroDos7Dias) prazosSelecionados.push('Dentro dos 7 dias');
+      if (form.depoisDos7Dias) prazosSelecionados.push('Depois dos 7 dias');
+      
+      if (prazosSelecionados.length > 0) {
+        msg += `*Prazo:*\n`;
+        prazosSelecionados.forEach(prazo => {
+          msg += `✅ ${prazo}\n`;
+        });
+        msg += `\n`;
+      }
+      
       msg += `Observações: ${form.observacoes || '—'}\n`;
     } else {
       msg += `Observações: ${form.observacoes || '—'}\n`;
@@ -571,6 +655,13 @@ const FormSolicitacao = ({ registrarLog }) => {
         portabilidadePendente: false,
         dividaIrpfQuitada: false,
         observacoes: '',
+        seguroPrestamista: false,
+        seguroSaude: false,
+        seguroCelular: false,
+        seguroDividaZero: false,
+        clubeVelotax: false,
+        dentroDos7Dias: false,
+        depoisDos7Dias: false,
       });
     } catch (err) {
       console.error('Erro ao enviar solicitação:', err);
@@ -624,10 +715,15 @@ const FormSolicitacao = ({ registrarLog }) => {
             <label className="text-sm text-gray-700 dark:text-gray-300">CPF</label>
             <div className="relative">
               <input
-                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                className={`w-full border rounded-lg px-3 py-2 outline-none transition-all duration-200 dark:bg-gray-800 dark:text-white ${
+                  validarCPF(form.cpf)
+                    ? 'border-green-500 focus:ring-2 focus:ring-green-500'
+                    : 'border-gray-400 dark:border-gray-500 focus:ring-2 focus:ring-blue-500'
+                }`}
                 placeholder="000.000.000-00"
-                value={form.cpf}
+                value={formatarCPF(form.cpf)}
                 onChange={(e) => atualizar('cpf', e.target.value)}
+                maxLength={14}
                 required
               />
             </div>
@@ -646,6 +742,7 @@ const FormSolicitacao = ({ registrarLog }) => {
               <option>Exclusão de Chave PIX</option>
               <option>Exclusão de Conta</option>
               <option>Reativação de Conta</option>
+              <option value="Cancelamento">Cancelamento</option>
             </select>
           </div>
         </div>
@@ -782,6 +879,84 @@ const FormSolicitacao = ({ registrarLog }) => {
                   onChange={(e) => atualizar('dadoNovo', e.target.value)}
                   maxLength={form.infoTipo === 'Telefone' ? 15 : undefined}
                 />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {form.tipo === 'Cancelamento' && (
+          <div className="p-4 rounded-lg mt-2" style={{ background: 'transparent', border: '1.5px solid #000058', borderRadius: '8px' }}>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Produtos:</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4"
+                    checked={form.seguroPrestamista}
+                    onChange={(e) => atualizar('seguroPrestamista', e.target.checked)}
+                  />
+                  Seguro Prestamista
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4"
+                    checked={form.seguroSaude}
+                    onChange={(e) => atualizar('seguroSaude', e.target.checked)}
+                  />
+                  Seguro Saude
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4"
+                    checked={form.seguroCelular}
+                    onChange={(e) => atualizar('seguroCelular', e.target.checked)}
+                  />
+                  Seguro Celular
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4"
+                    checked={form.seguroDividaZero}
+                    onChange={(e) => atualizar('seguroDividaZero', e.target.checked)}
+                  />
+                  Seguro Divida Zero
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4"
+                    checked={form.clubeVelotax}
+                    onChange={(e) => atualizar('clubeVelotax', e.target.checked)}
+                  />
+                  Clube Velotax
+                </label>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Prazo:</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4"
+                    checked={form.dentroDos7Dias}
+                    onChange={(e) => atualizar('dentroDos7Dias', e.target.checked)}
+                  />
+                  Dentro dos 7 dias
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4"
+                    checked={form.depoisDos7Dias}
+                    onChange={(e) => atualizar('depoisDos7Dias', e.target.checked)}
+                  />
+                  Depois dos 7 dias
+                </label>
               </div>
             </div>
           </div>
