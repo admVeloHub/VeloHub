@@ -1,6 +1,69 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.31.15 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.40.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.40.0:
+ * - Atualizado endpoint confirm-upload para tornar arquivos públicos permanentemente ao invés de gerar signed URLs
+ * - Removido endpoint get-read-url (não é mais necessário com arquivos públicos)
+ * - Arquivos agora são tornados públicos após upload bem-sucedido
+ * - URLs públicas permanentes são retornadas e salvas no MongoDB
+ * 
+ * Mudanças v2.39.0:
+ * - Corrigido bucket de anexos do chat: agora usa GCS_BUCKET_CHAT (velochat_anexos) ao invés de GCS_BUCKET_NAME2
+ * - Corrigida estrutura de pastas: removido prefixo velochat_anexos/ (pastas agora são imagens, videos, documentos, audios)
+ * - Adicionado suporte para mediaType 'audio' → pasta 'audios'
+ * - GCS_BUCKET_NAME2 mantido para outras mídias do VeloHub (fotos de perfil, imagens de artigos, etc.)
+ * 
+ * Mudanças v2.38.0:
+ * - Adicionado endpoint GET /api/status para retornar chatStatus e isActive da sessão atual
+ * - Endpoint permite que ChatStatusSelector exiba corretamente o status baseado no MongoDB
+ * - Campo chatStatus já é inicializado corretamente na criação da sessão (logLogin)
+ * 
+ * Mudanças v2.37.2:
+ * - Adicionados logs detalhados no endpoint get-upload-url para diagnóstico de problemas com credenciais
+ * - Melhorada validação da chave privada (verificação de formato BEGIN/END PRIVATE KEY)
+ * - Adicionado tratamento específico para erros de decodificação de credenciais
+ * - Logs agora mostram preview das credenciais e tamanho da chave privada para debug
+ * 
+ * Mudanças v2.37.1:
+ * - Adicionada validação de GCP_PROJECT_ID e GOOGLE_CREDENTIALS em todos os endpoints de Storage
+ * - Adicionada detecção de credenciais placeholder para retornar erro claro ao usuário
+ * - Melhorado tratamento de erros com mensagens específicas sobre configuração faltante
+ * - Adicionada variável GCP_PROJECT_ID ao arquivo backend/env
+ * 
+ * Mudanças v2.37.0:
+ * - Implementado upload via signed URLs para foto de perfil
+ * - Adicionado endpoint GET /api/auth/profile/get-upload-url para gerar signed URL
+ * - Adicionado endpoint POST /api/auth/profile/confirm-upload para confirmar upload e atualizar MongoDB
+ * - Upload agora é feito diretamente do frontend para GCS, sem passar pelo backend
+ * - Corrigida inicialização do Storage para suportar credenciais JSON ou caminho de arquivo
+ * 
+ * Mudanças v2.36.0:
+ * - Adicionado endpoint GET /api/auth/profile para buscar dados do perfil
+ * - Adicionado endpoint POST /api/auth/profile/change-password para alterar senha
+ * - Endpoints retornam campos conforme schema MongoDB: colaboradorNome, telefone, userMail, profile_pic
+ * 
+ * Mudanças v2.35.0:
+ * - Adicionado endpoint POST /api/auth/profile/upload-photo para upload de foto de perfil
+ * - Upload para GCS (mediabank_velohub/profile_picture)
+ * - Atualiza campo profile_pic no MongoDB após upload bem-sucedido
+ * - Retorna URL pública do GCS
+ * 
+ * Mudanças v2.34.0:
+ * - Adicionado endpoint POST /api/auth/login para login por email/senha
+ * - Adicionado endpoint POST /api/auth/validate-access para validar acesso do usuário
+ * - Validação contra console_analises.qualidade_funcionarios
+ * - Verifica acessos.Velohub, desligado, afastado e suspenso
+ * 
+ * Mudanças v2.33.0:
+ * - Adicionado endpoint PUT /api/auth/session/chat-status para atualizar chatStatus diretamente no hub_sessions
+ * - Endpoint atualiza chatStatus IMEDIATAMENTE quando usuário seleciona status no ChatStatusSelector
+ * - Adicionados logs detalhados da alteração de chatStatus
+ * 
+ * Mudanças v2.32.0:
+ * - Removidas todas as rotas e referências ao RocketChat
+ * - Adicionado registro das rotas do VeloChat interno (/api/chat/*)
+ * - Configurado uso de VELOCHAT_DB_NAME para database do chat
  * 
  * Mudanças v2.31.15:
  * - Corrigido catch-all route para não interceptar rotas da API (app.all ao invés de app.get)
@@ -68,6 +131,7 @@ const cors = require('cors');
 const path = require('path');
 const { MongoClient, ObjectId } = require('mongodb');
 const fetch = require('node-fetch');
+const { Storage } = require('@google-cloud/storage');
 // Carregar variáveis de ambiente
 // IMPORTANTE: dotenv deve ser carregado ANTES de qualquer outro módulo que use process.env
 // O arquivo de ambiente é 'env' (sem ponto), não '.env'
@@ -464,10 +528,7 @@ app.get('/api/data', async (req, res) => {
           title: item.title || item.velonews_titulo || item.titulo || '(sem título)',
           content: parseTextContent(item.content || item.velonews_conteudo || item.conteudo || ''),
           is_critical: item.alerta_critico === 'Y' || item.alerta_critico === true || item.is_critical === 'Y' || item.is_critical === true || item.isCritical === 'Y' || item.isCritical === true ? 'Y' : 'N',
-          solved: (() => {
-            console.log('🔍 BACKEND - item.solved:', item.solved, 'tipo:', typeof item.solved);
-            return item.solved || false;
-          })(),
+          solved: item.solved || false,
           media: media, // ✅ Campo media com images e videos
           createdAt: item.createdAt,
           updatedAt: item.updatedAt
@@ -536,16 +597,37 @@ app.get('/api/velo-news', async (req, res) => {
     const db = client.db('console_conteudo');
     const collection = db.collection('Velonews');
 
-    // Heurística para evitar "artigos" que vazaram pra cá
-    const raw = await collection.find({
+    // Parâmetros de paginação (opcionais)
+    const limit = parseInt(req.query.limit) || null; // null = retornar todas
+    const skip = parseInt(req.query.skip) || 0;
+
+    // Query base
+    const query = {
       $nor: [
         { artigo_titulo: { $exists: true } },
         { artigo_conteudo: { $exists: true } },
         { tipo: 'artigo' },
       ]
-    })
-    .sort({ createdAt: -1, _id: -1 })
-    .toArray();
+    };
+
+    // Construir cursor com paginação
+    let cursor = collection.find(query).sort({ createdAt: -1, _id: -1 });
+    
+    if (skip > 0) {
+      cursor = cursor.skip(skip);
+    }
+    
+    if (limit && limit > 0) {
+      cursor = cursor.limit(limit);
+    }
+
+    const raw = await cursor.toArray();
+
+    // Contar total de documentos (apenas se limit foi especificado)
+    let totalCount = null;
+    if (limit !== null) {
+      totalCount = await collection.countDocuments(query);
+    }
 
     console.log('🔍 Buscando dados da collection Velonews...');
     console.log(`📰 Encontrados ${raw.length} documentos na collection Velonews`);
@@ -604,10 +686,7 @@ app.get('/api/velo-news', async (req, res) => {
         title: item.titulo ?? '(sem título)',
         content: parseTextContent(item.conteudo ?? ''),
         is_critical: item.isCritical === true ? 'Y' : 'N',
-        solved: (() => {
-          console.log('🔍 BACKEND - item.solved:', item.solved, 'tipo:', typeof item.solved);
-          return item.solved || false;
-        })(),
+        solved: item.solved || false,
         media: media, // ✅ Campo media com images e videos
         createdAt,
         updatedAt: item.updatedAt ?? createdAt,
@@ -615,12 +694,24 @@ app.get('/api/velo-news', async (req, res) => {
       };
     });
     
-    console.log('✅ Dados mapeados com sucesso:', mappedNews.length, 'velonews');
+    console.log(`✅ Dados mapeados com sucesso: ${mappedNews.length} velonews${limit ? ` (limit: ${limit}, skip: ${skip})` : ''}`);
     
-    res.json({
+    const response = {
       success: true,
       data: mappedNews
-    });
+    };
+    
+    // Incluir informações de paginação se limit foi especificado
+    if (limit !== null && totalCount !== null) {
+      response.pagination = {
+        total: totalCount,
+        limit: limit,
+        skip: skip,
+        hasMore: (skip + mappedNews.length) < totalCount
+      };
+    }
+    
+    res.json(response);
   } catch (error) {
     console.error('Erro ao buscar notícias:', error);
     res.status(500).json({
@@ -2098,6 +2189,1942 @@ app.post('/api/chatbot/ai-response', async (req, res) => {
   }
 });
 
+// ===== API DE AUTENTICAÇÃO - LOGIN COM EMAIL/SENHA =====
+console.log('🔧 Registrando endpoint POST /api/auth/login...');
+
+const { comparePassword, validatePassword, validateUserAccess } = require('./utils/password');
+
+// Contador de tentativas de senha incorreta por email
+// Estrutura: Map<email, { count: number, firstAttempt: Date }>
+const failedPasswordAttempts = new Map();
+const FAILED_ATTEMPTS_TTL = 15 * 60 * 1000; // 15 minutos
+const MAX_FAILED_ATTEMPTS = 3;
+
+// Limpar tentativas antigas periodicamente
+setInterval(() => {
+  const now = Date.now();
+  for (const [email, data] of failedPasswordAttempts.entries()) {
+    if (now - data.firstAttempt.getTime() > FAILED_ATTEMPTS_TTL) {
+      failedPasswordAttempts.delete(email);
+    }
+  }
+}, 5 * 60 * 1000); // Verificar a cada 5 minutos
+
+// POST /api/auth/login
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.get('User-Agent');
+
+    // Validação
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email e senha são obrigatórios'
+      });
+    }
+
+    console.log(`🔐 Tentativa de login: ${email}`);
+
+    // Conectar ao MongoDB
+    await connectToMongo();
+    const db = client.db('console_analises');
+    const funcionariosCollection = db.collection('qualidade_funcionarios');
+
+    // Buscar usuário por email
+    const funcionario = await funcionariosCollection.findOne({
+      userMail: email.toLowerCase()
+    });
+
+    if (!funcionario) {
+      console.log(`❌ Usuário não encontrado: ${email}`);
+      return res.status(404).json({
+        success: false,
+        error: 'Usuário Inexistente. Contate seu gestor'
+      });
+    }
+
+    // Validar acesso ao VeloHub
+    const acessos = funcionario.acessos || {};
+    const acessoVelohub = acessos.Velohub || acessos.velohub || false;
+    
+    if (!acessoVelohub) {
+      console.log(`❌ Acesso negado para ${email}: Velohub = false`);
+      return res.status(403).json({
+        success: false,
+        error: 'Acesso Negado. Contate Administrador do Acesso'
+      });
+    }
+
+    // Validar senha
+    const passwordHash = funcionario.password || '';
+    
+    const passwordMatch = comparePassword(password, passwordHash);
+    
+    if (!passwordMatch) {
+      console.log(`❌ Senha incorreta para: ${email}`);
+      
+      // Incrementar contador de tentativas
+      const emailLower = email.toLowerCase();
+      const attemptData = failedPasswordAttempts.get(emailLower) || { count: 0, firstAttempt: new Date() };
+      attemptData.count += 1;
+      failedPasswordAttempts.set(emailLower, attemptData);
+      
+      // Preparar mensagem de erro
+      let errorMessage = 'Email ou senha incorretos';
+      if (attemptData.count >= MAX_FAILED_ATTEMPTS) {
+        errorMessage += '. Se esqueceu sua senha, solicite o Reset ao gestor';
+      }
+      
+      return res.status(401).json({
+        success: false,
+        error: errorMessage,
+        failedAttempts: attemptData.count
+      });
+    }
+    
+    // Login bem-sucedido - limpar contador de tentativas
+    const emailLower = email.toLowerCase();
+    if (failedPasswordAttempts.has(emailLower)) {
+      failedPasswordAttempts.delete(emailLower);
+      console.log(`✅ Contador de tentativas resetado para: ${email}`);
+    }
+
+    // Login bem-sucedido - preparar dados do usuário
+    const userData = {
+      name: funcionario.colaboradorNome || email,
+      email: funcionario.userMail,
+      picture: funcionario.profile_pic || funcionario.fotoPerfil || null
+    };
+
+    // Registrar login no sistema de sessões
+    const sessionResult = await userSessionLogger.logLogin(
+      funcionario.colaboradorNome,
+      funcionario.userMail,
+      ipAddress,
+      userAgent
+    );
+
+    if (!sessionResult.success) {
+      console.error('⚠️ Erro ao registrar sessão:', sessionResult.error);
+      // Continuar mesmo com erro na sessão (login foi bem-sucedido)
+    }
+
+    console.log(`✅ Login bem-sucedido: ${funcionario.colaboradorNome} (${email})`);
+
+    res.json({
+      success: true,
+      user: userData,
+      sessionId: sessionResult.sessionId,
+      message: 'Login realizado com sucesso'
+    });
+
+  } catch (error) {
+    console.error('❌ Login Error:', error.message);
+    console.error('Stack:', error.stack);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+console.log('✅ Endpoint POST /api/auth/login registrado');
+
+/**
+ * Função helper para sincronizar avatar SSO do Google para GCS
+ * Faz download da imagem do Google, upload para GCS e atualiza MongoDB
+ */
+async function syncSSOAvatar(email, googlePictureUrl) {
+  try {
+    console.log(`🔄 [syncSSOAvatar] Iniciando sincronização de avatar para: ${email}`);
+    console.log(`🔄 [syncSSOAvatar] URL do Google: ${googlePictureUrl}`);
+    
+    // Validar URL do Google
+    if (!googlePictureUrl || !googlePictureUrl.startsWith('http')) {
+      console.warn('⚠️ [syncSSOAvatar] URL inválida do Google:', googlePictureUrl);
+      return null;
+    }
+    
+    // Conectar ao MongoDB
+    await connectToMongo();
+    const db = client.db('console_analises');
+    const funcionariosCollection = db.collection('qualidade_funcionarios');
+    
+    // Buscar funcionário atual
+    const funcionario = await funcionariosCollection.findOne({
+      userMail: email.toLowerCase()
+    });
+    
+    if (!funcionario) {
+      console.warn(`⚠️ [syncSSOAvatar] Funcionário não encontrado: ${email}`);
+      return null;
+    }
+    
+    // Verificar se já tem profile_pic e se é diferente da URL do Google
+    const currentProfilePic = funcionario.profile_pic || null;
+    
+    // Se já tem profile_pic e é uma URL do GCS (não do Google), não sobrescrever
+    // Isso permite que usuários que já fizeram upload manual mantenham sua foto
+    if (currentProfilePic && currentProfilePic.includes('storage.googleapis.com')) {
+      console.log(`ℹ️ [syncSSOAvatar] Usuário já tem foto no GCS, mantendo: ${currentProfilePic}`);
+      return currentProfilePic;
+    }
+    
+    // Fazer download da imagem do Google
+    console.log(`📥 [syncSSOAvatar] Fazendo download da imagem do Google...`);
+    const imageResponse = await fetch(googlePictureUrl);
+    
+    if (!imageResponse.ok) {
+      console.error(`❌ [syncSSOAvatar] Erro ao fazer download: ${imageResponse.status} ${imageResponse.statusText}`);
+      return null;
+    }
+    
+    // Obter tipo de conteúdo da imagem
+    const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+    const imageType = contentType.split('/')[1] || 'jpg';
+    
+    // Validar tipo de imagem
+    const allowedTypes = ['jpeg', 'jpg', 'png', 'webp'];
+    if (!allowedTypes.includes(imageType.toLowerCase())) {
+      console.warn(`⚠️ [syncSSOAvatar] Tipo de imagem não suportado: ${contentType}`);
+      return null;
+    }
+    
+    // Converter resposta para buffer
+    const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+    
+    // Validar tamanho (máx 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (imageBuffer.length > maxSize) {
+      console.warn(`⚠️ [syncSSOAvatar] Imagem muito grande: ${imageBuffer.length} bytes`);
+      return null;
+    }
+    
+    // Preparar nome do arquivo: email-timestamp.extensao
+    const timestamp = Date.now();
+    const emailSanitized = email.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const nomeArquivo = `sso_${emailSanitized}_${timestamp}.${imageType === 'jpeg' ? 'jpg' : imageType}`;
+    const filePath = `profile_picture/${nomeArquivo}`;
+    
+    // Inicializar Google Cloud Storage
+    const bucketName = process.env.GCS_BUCKET_NAME2 || 'mediabank_velohub';
+    
+    let storage;
+    try {
+      const googleCredentials = process.env.GOOGLE_CREDENTIALS;
+      let gcpProjectId = process.env.GCP_PROJECT_ID;
+      
+      // Tentar obter project_id das credenciais se não estiver definido
+      if ((!gcpProjectId || gcpProjectId === 'your-gcp-project-id') && googleCredentials) {
+        try {
+          const credentials = JSON.parse(googleCredentials);
+          if (credentials.project_id) {
+            gcpProjectId = credentials.project_id;
+          }
+        } catch (parseError) {
+          // Ignorar erro de parse
+        }
+      }
+      
+      if (!gcpProjectId || gcpProjectId === 'your-gcp-project-id') {
+        console.error('❌ [syncSSOAvatar] GCP_PROJECT_ID não configurado');
+        return null;
+      }
+      
+      if (googleCredentials) {
+        if (googleCredentials.trim().startsWith('{') || googleCredentials.trim().startsWith('[')) {
+          try {
+            const credentials = JSON.parse(googleCredentials);
+            if (credentials.private_key) {
+              credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+            }
+            storage = new Storage({
+              projectId: gcpProjectId,
+              credentials: credentials
+            });
+          } catch (parseError) {
+            storage = new Storage({
+              projectId: gcpProjectId,
+              keyFilename: googleCredentials
+            });
+          }
+        } else {
+          storage = new Storage({
+            projectId: gcpProjectId,
+            keyFilename: googleCredentials
+          });
+        }
+      } else {
+        console.error('❌ [syncSSOAvatar] GOOGLE_CREDENTIALS não configurado');
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ [syncSSOAvatar] Erro ao inicializar Storage:', error);
+      return null;
+    }
+    
+    const bucket = storage.bucket(bucketName);
+    const blob = bucket.file(filePath);
+    
+    // Upload do arquivo
+    await new Promise((resolve, reject) => {
+      const stream = blob.createWriteStream({
+        metadata: {
+          contentType: contentType,
+          metadata: {
+            originalName: nomeArquivo,
+            uploadedBy: email,
+            uploadedAt: new Date().toISOString(),
+            source: 'google_sso'
+          }
+        }
+      });
+      
+      stream.on('error', (error) => {
+        console.error('❌ [syncSSOAvatar] Erro ao fazer upload:', error);
+        reject(error);
+      });
+      
+      stream.on('finish', () => {
+        resolve();
+      });
+      
+      stream.end(imageBuffer);
+    });
+    
+    // Obter URL pública
+    const publicUrl = `https://storage.googleapis.com/${bucketName}/${filePath}`;
+    
+    // Atualizar campo profile_pic no MongoDB
+    await funcionariosCollection.updateOne(
+      { userMail: email.toLowerCase() },
+      { 
+        $set: { 
+          profile_pic: publicUrl,
+          updatedAt: new Date()
+        } 
+      }
+    );
+    
+    console.log(`✅ [syncSSOAvatar] Avatar sincronizado com sucesso para: ${email}`);
+    console.log(`📸 [syncSSOAvatar] URL: ${publicUrl}`);
+    
+    return publicUrl;
+    
+  } catch (error) {
+    console.error('❌ [syncSSOAvatar] Erro ao sincronizar avatar:', error);
+    console.error('❌ [syncSSOAvatar] Stack:', error.stack);
+    return null;
+  }
+}
+
+// POST /api/auth/validate-access
+app.post('/api/auth/validate-access', async (req, res) => {
+  try {
+    const { email, picture } = req.body; // picture é opcional (URL do Google SSO)
+
+    // Validação
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email é obrigatório'
+      });
+    }
+
+    console.log(`🔍 Validando acesso para: ${email}`);
+
+    // Conectar ao MongoDB
+    await connectToMongo();
+    const db = client.db('console_analises');
+    const funcionariosCollection = db.collection('qualidade_funcionarios');
+
+    // Buscar usuário por email
+    const funcionario = await funcionariosCollection.findOne({
+      userMail: email.toLowerCase()
+    });
+
+    if (!funcionario) {
+      console.log(`❌ Usuário não encontrado: ${email}`);
+      return res.status(404).json({
+        success: false,
+        error: 'Usuário Inexistente. Contate seu gestor'
+      });
+    }
+
+    // Validar acesso ao VeloHub
+    const acessos = funcionario.acessos || {};
+    const acessoVelohub = acessos.Velohub || acessos.velohub || false;
+    
+    if (!acessoVelohub) {
+      console.log(`❌ Acesso negado para ${email}: Velohub = false`);
+      return res.status(403).json({
+        success: false,
+        error: 'Acesso Negado. Contate Administrador do Acesso'
+      });
+    }
+
+    // Sincronizar avatar SSO se fornecido
+    let profilePic = funcionario.profile_pic || funcionario.fotoPerfil || null;
+    
+    if (picture && picture.startsWith('http')) {
+      // Se há picture do Google e não há profile_pic no GCS, sincronizar
+      const currentProfilePic = funcionario.profile_pic || null;
+      if (!currentProfilePic || !currentProfilePic.includes('storage.googleapis.com')) {
+        console.log(`🔄 [validate-access] Sincronizando avatar SSO para: ${email}`);
+        const syncedPic = await syncSSOAvatar(email, picture);
+        if (syncedPic) {
+          profilePic = syncedPic;
+          // Buscar funcionário atualizado para garantir dados mais recentes
+          const updatedFuncionario = await funcionariosCollection.findOne({
+            userMail: email.toLowerCase()
+          });
+          if (updatedFuncionario && updatedFuncionario.profile_pic) {
+            profilePic = updatedFuncionario.profile_pic;
+          }
+        }
+      }
+    }
+
+    // Preparar dados do usuário
+    const userData = {
+      name: funcionario.colaboradorNome || email,
+      email: funcionario.userMail,
+      picture: profilePic
+    };
+
+    console.log(`✅ Acesso validado: ${funcionario.colaboradorNome} (${email})`);
+
+    res.json({
+      success: true,
+      user: userData,
+      message: 'Acesso validado com sucesso'
+    });
+
+  } catch (error) {
+    console.error('❌ Validate Access Error:', error.message);
+    console.error('Stack:', error.stack);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+console.log('✅ Endpoint POST /api/auth/validate-access registrado');
+
+// POST /api/auth/profile/upload-photo
+console.log('🔧 Registrando endpoint POST /api/auth/profile/upload-photo...');
+app.post('/api/auth/profile/upload-photo', async (req, res) => {
+  try {
+    const { email, nome, sobrenome, imageData } = req.body;
+
+    // Validações
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email é obrigatório'
+      });
+    }
+
+    if (!imageData) {
+      return res.status(400).json({
+        success: false,
+        error: 'Imagem é obrigatória'
+      });
+    }
+
+    // Validar formato base64
+    if (!imageData.startsWith('data:image/')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Formato de imagem inválido. Use data:image/jpeg;base64,... ou data:image/png;base64,...'
+      });
+    }
+
+    // Extrair tipo e dados da imagem
+    const matches = imageData.match(/^data:image\/(\w+);base64,(.+)$/);
+    if (!matches) {
+      return res.status(400).json({
+        success: false,
+        error: 'Formato de imagem inválido'
+      });
+    }
+
+    const imageType = matches[1].toLowerCase();
+    const base64Data = matches[2];
+
+    // Validar tipo de imagem
+    const allowedTypes = ['jpeg', 'jpg', 'png', 'webp'];
+    if (!allowedTypes.includes(imageType)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Tipo de imagem não suportado. Use JPEG, PNG ou WebP'
+      });
+    }
+
+    // Converter base64 para buffer
+    const imageBuffer = Buffer.from(base64Data, 'base64');
+
+    // Validar tamanho (máx 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (imageBuffer.length > maxSize) {
+      return res.status(400).json({
+        success: false,
+        error: 'Imagem muito grande. Tamanho máximo: 5MB'
+      });
+    }
+
+    // Conectar ao MongoDB
+    await connectToMongo();
+    const db = client.db('console_analises');
+    const funcionariosCollection = db.collection('qualidade_funcionarios');
+
+    // Verificar se usuário existe
+    const funcionario = await funcionariosCollection.findOne({
+      userMail: email.toLowerCase()
+    });
+
+    if (!funcionario) {
+      return res.status(404).json({
+        success: false,
+        error: 'Usuário não encontrado'
+      });
+    }
+
+    // Preparar nome do arquivo: nome.sobrenome-timestamp.extensao
+    const timestamp = Date.now();
+    const nomeArquivo = `${nome || 'user'}.${sobrenome || 'profile'}-${timestamp}.${imageType === 'jpeg' ? 'jpg' : imageType}`;
+    const filePath = `profile_picture/${nomeArquivo}`;
+
+    // Inicializar Google Cloud Storage
+    const bucketName = process.env.GCS_BUCKET_NAME2 || 'mediabank_velohub';
+    
+    let storage;
+    try {
+      const googleCredentials = process.env.GOOGLE_CREDENTIALS;
+      const gcpProjectId = process.env.GCP_PROJECT_ID;
+      
+      // Verificar se variáveis necessárias estão definidas
+      if (!gcpProjectId || gcpProjectId === 'your-gcp-project-id') {
+        console.error('❌ GCP_PROJECT_ID não está definido ou está com valor placeholder');
+        return res.status(500).json({
+          success: false,
+          error: 'GCP_PROJECT_ID não configurado. Verifique o arquivo backend/env'
+        });
+      }
+      
+      if (googleCredentials) {
+        if (googleCredentials.trim().startsWith('{') || googleCredentials.trim().startsWith('[')) {
+          try {
+            const credentials = JSON.parse(googleCredentials);
+            
+            // Verificar se credenciais são placeholders
+            if (credentials.project_id === 'your-project-id' || 
+                credentials.private_key === '-----BEGIN PRIVATE KEY-----
+REDACTED
+-----END PRIVATE KEY-----\n' ||
+                credentials.private_key?.includes('...')) {
+              console.error('❌ GOOGLE_CREDENTIALS contém valores placeholder. Configure credenciais reais no arquivo backend/env');
+              return res.status(500).json({
+                success: false,
+                error: 'Credenciais do Google Cloud não configuradas. Verifique o arquivo backend/env'
+              });
+            }
+            
+            // Corrigir chave privada: converter \n literais para quebras de linha reais
+            if (credentials.private_key) {
+              credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+            }
+            
+            storage = new Storage({
+              projectId: gcpProjectId,
+              credentials: credentials
+            });
+          } catch (parseError) {
+            console.error('❌ Erro ao fazer parse das credenciais JSON:', parseError);
+            storage = new Storage({
+              projectId: gcpProjectId,
+              keyFilename: googleCredentials
+            });
+          }
+        } else {
+          storage = new Storage({
+            projectId: gcpProjectId,
+            keyFilename: googleCredentials
+          });
+        }
+      } else {
+        console.error('❌ GOOGLE_CREDENTIALS não está definido');
+        return res.status(500).json({
+          success: false,
+          error: 'GOOGLE_CREDENTIALS não configurado. Verifique o arquivo backend/env'
+        });
+      }
+    } catch (error) {
+      console.error('❌ Erro ao inicializar Storage:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao inicializar Google Cloud Storage',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+
+    const bucket = storage.bucket(bucketName);
+    const blob = bucket.file(filePath);
+
+    // Upload do arquivo
+    const contentType = `image/${imageType === 'jpeg' ? 'jpeg' : imageType}`;
+    
+    await new Promise((resolve, reject) => {
+      const stream = blob.createWriteStream({
+        metadata: {
+          contentType: contentType,
+          metadata: {
+            originalName: nomeArquivo,
+            uploadedBy: email,
+            uploadedAt: new Date().toISOString()
+          }
+        }
+      });
+
+      stream.on('error', (error) => {
+        console.error('❌ Erro ao fazer upload:', error);
+        reject(error);
+      });
+
+      stream.on('finish', async () => {
+        try {
+          // Nota: Não é necessário tornar arquivo público manualmente quando o bucket tem uniform bucket-level access habilitado
+          resolve();
+        } catch (error) {
+          console.error('❌ Erro ao finalizar upload:', error);
+          reject(error);
+        }
+      });
+
+      stream.end(imageBuffer);
+    });
+
+    // Obter URL pública
+    const publicUrl = `https://storage.googleapis.com/${bucketName}/${filePath}`;
+
+    // Atualizar campo profile_pic no MongoDB
+    await funcionariosCollection.updateOne(
+      { userMail: email.toLowerCase() },
+      { 
+        $set: { 
+          profile_pic: publicUrl,
+          updatedAt: new Date()
+        } 
+      }
+    );
+
+    console.log(`✅ Foto de perfil enviada com sucesso para: ${email}`);
+    console.log(`📸 URL: ${publicUrl}`);
+
+    res.json({
+      success: true,
+      url: publicUrl,
+      message: 'Foto de perfil enviada com sucesso'
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao fazer upload da foto de perfil:', error);
+    console.error('Stack:', error.stack);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao fazer upload da foto de perfil',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+console.log('✅ Endpoint POST /api/auth/profile/upload-photo registrado');
+
+// GET /api/auth/profile/get-upload-url
+console.log('🔧 Registrando endpoint GET /api/auth/profile/get-upload-url...');
+app.get('/api/auth/profile/get-upload-url', async (req, res) => {
+  try {
+    const { email, fileName, contentType } = req.query;
+    
+    console.log('🔍 [get-upload-url] Parâmetros recebidos:', { email, fileName, contentType });
+
+    // Validações
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email é obrigatório'
+      });
+    }
+
+    if (!contentType || !contentType.startsWith('image/')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Content-Type deve ser image/jpeg, image/png ou image/webp'
+      });
+    }
+
+    console.log(`🔍 Gerando signed URL para upload: ${email}`);
+
+    // Conectar ao MongoDB para validar usuário
+    await connectToMongo();
+    const db = client.db('console_analises');
+    const funcionariosCollection = db.collection('qualidade_funcionarios');
+
+    // Verificar se usuário existe
+    const funcionario = await funcionariosCollection.findOne({
+      userMail: email.toLowerCase()
+    });
+
+    if (!funcionario) {
+      console.log(`❌ Usuário não encontrado: ${email}`);
+      return res.status(404).json({
+        success: false,
+        error: 'Usuário não encontrado'
+      });
+    }
+
+    // Preparar nome do arquivo
+    const timestamp = Date.now();
+    const nomeArquivo = fileName || `profile-${timestamp}.${contentType.split('/')[1]}`;
+    const filePath = `profile_picture/${nomeArquivo}`;
+
+    // Inicializar Google Cloud Storage
+    const bucketName = process.env.GCS_BUCKET_NAME2 || 'mediabank_velohub';
+    
+    let storage;
+    try {
+      const googleCredentials = process.env.GOOGLE_CREDENTIALS;
+      const googleApplicationCredentials = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      const gcpProjectId = process.env.GCP_PROJECT_ID;
+      
+      console.log('🔍 [get-upload-url] Verificando credenciais...');
+      console.log('🔍 [get-upload-url] GCP_PROJECT_ID:', gcpProjectId ? `${gcpProjectId.substring(0, 20)}...` : 'NÃO DEFINIDO');
+      console.log('🔍 [get-upload-url] GOOGLE_CREDENTIALS:', googleCredentials ? `${googleCredentials.substring(0, 50)}...` : 'NÃO DEFINIDO');
+      console.log('🔍 [get-upload-url] GOOGLE_APPLICATION_CREDENTIALS:', googleApplicationCredentials || 'NÃO DEFINIDO');
+      
+      // Verificar se variáveis necessárias estão definidas
+      if (!gcpProjectId || gcpProjectId === 'your-gcp-project-id') {
+        console.error('❌ [get-upload-url] GCP_PROJECT_ID não está definido ou está com valor placeholder');
+        return res.status(500).json({
+          success: false,
+          error: 'GCP_PROJECT_ID não configurado. Verifique o arquivo backend/env'
+        });
+      }
+      
+      // Prioridade 1: GOOGLE_APPLICATION_CREDENTIALS (caminho para arquivo JSON)
+      if (googleApplicationCredentials) {
+        console.log('🔍 [get-upload-url] Usando GOOGLE_APPLICATION_CREDENTIALS:', googleApplicationCredentials);
+        try {
+          storage = new Storage({
+            projectId: gcpProjectId,
+            keyFilename: googleApplicationCredentials
+          });
+          console.log('✅ [get-upload-url] Storage inicializado com GOOGLE_APPLICATION_CREDENTIALS');
+        } catch (fileError) {
+          console.error('❌ [get-upload-url] Erro ao carregar arquivo de credenciais:', fileError);
+          // Continuar para tentar outras opções
+        }
+      }
+      
+      // Prioridade 2: GOOGLE_CREDENTIALS (JSON string ou caminho de arquivo)
+      if (!storage && googleCredentials) {
+        // Se começa com { ou [, é JSON
+        if (googleCredentials.trim().startsWith('{') || googleCredentials.trim().startsWith('[')) {
+          try {
+            const credentials = JSON.parse(googleCredentials);
+            
+            console.log('🔍 [get-upload-url] Credenciais parseadas com sucesso');
+            console.log('🔍 [get-upload-url] Project ID nas credenciais:', credentials.project_id);
+            console.log('🔍 [get-upload-url] Client email:', credentials.client_email);
+            console.log('🔍 [get-upload-url] Private key length:', credentials.private_key ? credentials.private_key.length : 'N/A');
+            console.log('🔍 [get-upload-url] Private key preview:', credentials.private_key ? credentials.private_key.substring(0, 50) + '...' : 'N/A');
+            
+            // Verificar se credenciais são placeholders
+            if (credentials.project_id === 'your-project-id' || 
+                credentials.private_key === '-----BEGIN PRIVATE KEY-----
+REDACTED
+-----END PRIVATE KEY-----\n' ||
+                credentials.private_key?.includes('...')) {
+              console.warn('⚠️ [get-upload-url] GOOGLE_CREDENTIALS contém valores placeholder. Tentando usar Application Default Credentials...');
+              // Não retornar erro, tentar usar ADC
+              storage = null; // Será inicializado abaixo com ADC
+            } else {
+              // Credenciais válidas, usar normalmente
+              // Corrigir chave privada: converter \n literais para quebras de linha reais
+              if (credentials.private_key) {
+                const originalLength = credentials.private_key.length;
+                credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+                console.log('🔍 [get-upload-url] Chave privada processada. Tamanho original:', originalLength, 'Tamanho após processamento:', credentials.private_key.length);
+                
+                // Verificar se a chave privada tem formato válido
+                if (!credentials.private_key.includes('BEGIN PRIVATE KEY') || 
+                    !credentials.private_key.includes('END PRIVATE KEY')) {
+                  console.error('❌ [get-upload-url] Chave privada não tem formato válido');
+                  return res.status(500).json({
+                    success: false,
+                    error: 'Chave privada inválida: não contém BEGIN/END PRIVATE KEY'
+                  });
+                }
+              }
+              
+              console.log('🔍 [get-upload-url] Inicializando Storage com credenciais JSON...');
+              storage = new Storage({
+                projectId: gcpProjectId,
+                credentials: credentials
+              });
+              console.log('✅ [get-upload-url] Storage inicializado com credenciais JSON');
+            }
+          } catch (parseError) {
+            console.error('❌ Erro ao fazer parse das credenciais JSON:', parseError);
+            // Tentar como caminho de arquivo mesmo assim
+            storage = new Storage({
+              projectId: gcpProjectId,
+              keyFilename: googleCredentials
+            });
+          }
+        } else {
+          // É um caminho de arquivo
+          console.log('🔍 [get-upload-url] Inicializando Storage com arquivo de credenciais...');
+          storage = new Storage({
+            projectId: gcpProjectId,
+            keyFilename: googleCredentials
+          });
+          console.log('✅ [get-upload-url] Storage inicializado com arquivo de credenciais');
+        }
+      } else {
+        console.warn('⚠️ [get-upload-url] GOOGLE_CREDENTIALS não está definido. Tentando usar Application Default Credentials...');
+        storage = null; // Será inicializado abaixo com ADC
+      }
+      
+      // Se storage ainda não foi inicializado (credenciais eram placeholders ou não existiam), usar ADC
+      if (!storage) {
+        console.log('⚠️ [get-upload-url] Tentando usar Application Default Credentials (ADC)...');
+        console.log('⚠️ [get-upload-url] Se não funcionar, execute: gcloud auth application-default login');
+        try {
+          storage = new Storage({
+            projectId: gcpProjectId
+            // Sem credentials - usa ADC automaticamente
+          });
+          console.log('✅ [get-upload-url] Storage inicializado com Application Default Credentials');
+        } catch (adcError) {
+          console.error('❌ [get-upload-url] Erro ao usar Application Default Credentials:', adcError);
+          const errorMessage = adcError.message || 'Erro desconhecido';
+          
+          // Mensagem mais detalhada para desenvolvimento
+          let userMessage = 'Credenciais do Google Cloud não configuradas.';
+          let instructions = [];
+          
+          if (errorMessage.includes('Could not load the default credentials')) {
+            instructions.push('Opção 1: Execute no terminal: gcloud auth application-default login');
+            instructions.push('Opção 2: Configure GOOGLE_CREDENTIALS no arquivo backend/env com o JSON completo do Service Account');
+            instructions.push('Opção 3: Configure GOOGLE_APPLICATION_CREDENTIALS apontando para o arquivo JSON do Service Account');
+          }
+          
+          return res.status(500).json({
+            success: false,
+            error: userMessage,
+            instructions: instructions.length > 0 ? instructions : undefined,
+            details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+          });
+        }
+      }
+    } catch (error) {
+      console.error('❌ [get-upload-url] Erro ao inicializar Storage:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao inicializar Google Cloud Storage',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+
+    const bucket = storage.bucket(bucketName);
+    const file = bucket.file(filePath);
+
+    console.log('🔍 [get-upload-url] Tentando gerar signed URL para:', filePath);
+    console.log('🔍 [get-upload-url] ContentType:', contentType);
+    console.log('🔍 [get-upload-url] Bucket:', bucketName);
+
+    // Gerar signed URL para upload (válida por 15 minutos)
+    let signedUrl;
+    try {
+      [signedUrl] = await file.getSignedUrl({
+        version: 'v4',
+        action: 'write',
+        expires: Date.now() + 15 * 60 * 1000, // 15 minutos
+        contentType: contentType
+      });
+      console.log('✅ [get-upload-url] Signed URL gerada com sucesso');
+    } catch (signError) {
+      console.error('❌ [get-upload-url] Erro ao gerar signed URL:', signError);
+      console.error('❌ [get-upload-url] Stack:', signError.stack);
+      throw signError;
+    }
+
+    // URL pública esperada após upload
+    const publicUrl = `https://storage.googleapis.com/${bucketName}/${filePath}`;
+
+    console.log(`✅ Signed URL gerada para: ${email}`);
+    console.log(`📸 FilePath: ${filePath}`);
+
+    res.json({
+      success: true,
+      signedUrl: signedUrl,
+      filePath: filePath,
+      publicUrl: publicUrl,
+      expiresIn: 15 * 60 * 1000 // 15 minutos em ms
+    });
+
+  } catch (error) {
+    console.error('❌ [get-upload-url] Erro ao gerar signed URL:', error);
+    console.error('❌ [get-upload-url] Stack:', error.stack);
+    console.error('❌ [get-upload-url] Error name:', error.name);
+    console.error('❌ [get-upload-url] Error message:', error.message);
+    
+    // Verificar se é erro de credenciais
+    if (error.message && error.message.includes('DECODER')) {
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao processar credenciais do Google Cloud. Verifique se GOOGLE_CREDENTIALS está configurado corretamente no arquivo backend/env',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+    
+    // Verificar se é erro de credenciais não encontradas
+    if (error.message && error.message.includes('Could not load the default credentials')) {
+      return res.status(500).json({
+        success: false,
+        error: 'Credenciais do Google Cloud não configuradas',
+        instructions: [
+          'Opção 1: Execute no terminal: gcloud auth application-default login',
+          'Opção 2: Configure GOOGLE_CREDENTIALS no arquivo backend/env com o JSON completo do Service Account',
+          'Opção 3: Configure a variável GOOGLE_APPLICATION_CREDENTIALS apontando para o arquivo JSON'
+        ],
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+    
+    // Verificar se é erro de falta de client_email (ADC de usuário não funciona para signed URLs)
+    if (error.message && error.message.includes('Cannot sign data without `client_email`')) {
+      return res.status(500).json({
+        success: false,
+        error: 'Credenciais de usuário não podem gerar signed URLs. É necessário um Service Account.',
+        instructions: [
+          'Para gerar signed URLs, você precisa de um Service Account com chave privada.',
+          'Opção 1: Configure GOOGLE_CREDENTIALS no arquivo backend/env com o JSON completo do Service Account',
+          'Opção 2: Configure GOOGLE_APPLICATION_CREDENTIALS apontando para o arquivo JSON do Service Account',
+          'Como obter: Google Cloud Console > IAM & Admin > Service Accounts > Criar/Selecionar > Keys > Add Key > JSON'
+        ],
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao gerar URL de upload',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+console.log('✅ Endpoint GET /api/auth/profile/get-upload-url registrado');
+
+// POST /api/auth/profile/confirm-upload
+console.log('🔧 Registrando endpoint POST /api/auth/profile/confirm-upload...');
+app.post('/api/auth/profile/confirm-upload', async (req, res) => {
+  try {
+    const { email, filePath } = req.body;
+
+    // Validações
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email é obrigatório'
+      });
+    }
+
+    if (!filePath) {
+      return res.status(400).json({
+        success: false,
+        error: 'filePath é obrigatório'
+      });
+    }
+
+    console.log(`🔍 Confirmando upload para: ${email}, arquivo: ${filePath}`);
+
+    // Conectar ao MongoDB
+    await connectToMongo();
+    const db = client.db('console_analises');
+    const funcionariosCollection = db.collection('qualidade_funcionarios');
+
+    // Verificar se usuário existe
+    const funcionario = await funcionariosCollection.findOne({
+      userMail: email.toLowerCase()
+    });
+
+    if (!funcionario) {
+      console.log(`❌ Usuário não encontrado: ${email}`);
+      return res.status(404).json({
+        success: false,
+        error: 'Usuário não encontrado'
+      });
+    }
+
+    // Verificar se arquivo existe no GCS
+    const bucketName = process.env.GCS_BUCKET_NAME2 || 'mediabank_velohub';
+    
+    let storage;
+    try {
+      const googleCredentials = process.env.GOOGLE_CREDENTIALS;
+      const gcpProjectId = process.env.GCP_PROJECT_ID;
+      
+      // Verificar se variáveis necessárias estão definidas
+      if (!gcpProjectId || gcpProjectId === 'your-gcp-project-id') {
+        console.error('❌ GCP_PROJECT_ID não está definido ou está com valor placeholder');
+        return res.status(500).json({
+          success: false,
+          error: 'GCP_PROJECT_ID não configurado. Verifique o arquivo backend/env'
+        });
+      }
+      
+      if (googleCredentials) {
+        if (googleCredentials.trim().startsWith('{') || googleCredentials.trim().startsWith('[')) {
+          try {
+            const credentials = JSON.parse(googleCredentials);
+            
+            // Verificar se credenciais são placeholders
+            if (credentials.project_id === 'your-project-id' || 
+                credentials.private_key === '-----BEGIN PRIVATE KEY-----
+REDACTED
+-----END PRIVATE KEY-----\n' ||
+                credentials.private_key?.includes('...')) {
+              console.error('❌ GOOGLE_CREDENTIALS contém valores placeholder. Configure credenciais reais no arquivo backend/env');
+              return res.status(500).json({
+                success: false,
+                error: 'Credenciais do Google Cloud não configuradas. Verifique o arquivo backend/env'
+              });
+            }
+            
+            // Corrigir chave privada: converter \n literais para quebras de linha reais
+            if (credentials.private_key) {
+              credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+            }
+            
+            storage = new Storage({
+              projectId: gcpProjectId,
+              credentials: credentials
+            });
+          } catch (parseError) {
+            console.error('❌ Erro ao fazer parse das credenciais JSON:', parseError);
+            storage = new Storage({
+              projectId: gcpProjectId,
+              keyFilename: googleCredentials
+            });
+          }
+        } else {
+          storage = new Storage({
+            projectId: gcpProjectId,
+            keyFilename: googleCredentials
+          });
+        }
+      } else {
+        console.error('❌ GOOGLE_CREDENTIALS não está definido');
+        return res.status(500).json({
+          success: false,
+          error: 'GOOGLE_CREDENTIALS não configurado. Verifique o arquivo backend/env'
+        });
+      }
+    } catch (error) {
+      console.error('❌ Erro ao inicializar Storage:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao inicializar Google Cloud Storage',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+
+    const bucket = storage.bucket(bucketName);
+    const file = bucket.file(filePath);
+
+    // Verificar se arquivo existe
+    const [exists] = await file.exists();
+    if (!exists) {
+      return res.status(404).json({
+        success: false,
+        error: 'Arquivo não encontrado no GCS'
+      });
+    }
+
+    // Nota: Não é necessário tornar arquivo público manualmente quando o bucket tem uniform bucket-level access habilitado
+    // O arquivo já será acessível publicamente se o bucket estiver configurado corretamente
+
+    // URL pública
+    const publicUrl = `https://storage.googleapis.com/${bucketName}/${filePath}`;
+
+    // Atualizar campo profile_pic no MongoDB
+    await funcionariosCollection.updateOne(
+      { userMail: email.toLowerCase() },
+      { 
+        $set: { 
+          profile_pic: publicUrl,
+          updatedAt: new Date()
+        } 
+      }
+    );
+
+    console.log(`✅ Upload confirmado para: ${email}`);
+    console.log(`📸 URL: ${publicUrl}`);
+
+    res.json({
+      success: true,
+      url: publicUrl,
+      message: 'Upload confirmado com sucesso'
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao confirmar upload:', error);
+    console.error('Stack:', error.stack);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao confirmar upload',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+console.log('✅ Endpoint POST /api/auth/profile/confirm-upload registrado');
+
+// POST /api/chat/attachments/get-upload-url
+console.log('🔧 Registrando endpoint POST /api/chat/attachments/get-upload-url...');
+app.post('/api/chat/attachments/get-upload-url', async (req, res) => {
+  try {
+    const { fileName, contentType, mediaType } = req.body;
+    const sessionId = req.headers['x-session-id'] || req.body?.sessionId;
+    
+    console.log('🔍 [chat-attachments/get-upload-url] Parâmetros recebidos:', { fileName, contentType, mediaType });
+
+    // Validações
+    if (!sessionId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Sessão não encontrada'
+      });
+    }
+
+    if (!contentType || !contentType.startsWith('image/') && !contentType.startsWith('video/') && !contentType.startsWith('application/') && !contentType.startsWith('text/')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Content-Type inválido'
+      });
+    }
+
+    if (!mediaType || !['image', 'video', 'file', 'audio'].includes(mediaType)) {
+      return res.status(400).json({
+        success: false,
+        error: 'mediaType deve ser: image, video, file ou audio'
+      });
+    }
+
+    // Obter dados do usuário da sessão
+    await connectToMongo();
+    const db = client.db('console_conteudo');
+    const session = await db.collection('hub_sessions').findOne({
+      sessionId: sessionId,
+      isActive: true
+    });
+
+    if (!session) {
+      return res.status(401).json({
+        success: false,
+        error: 'Sessão inválida ou expirada'
+      });
+    }
+
+    const userEmail = session.userEmail;
+
+    // Determinar pasta baseado em mediaType
+    // NOTA: Pastas são criadas diretamente no bucket velochat_anexos (sem prefixo)
+    let folderPath;
+    switch (mediaType) {
+      case 'image':
+        folderPath = 'imagens';
+        break;
+      case 'video':
+        folderPath = 'videos';
+        break;
+      case 'file':
+        folderPath = 'documentos';
+        break;
+      case 'audio':
+        folderPath = 'audios';
+        break;
+      default:
+        return res.status(400).json({
+          success: false,
+          error: 'mediaType inválido'
+        });
+    }
+
+    // Preparar nome do arquivo com timestamp
+    const timestamp = Date.now();
+    const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const finalFileName = `${timestamp}-${sanitizedFileName}`;
+    const filePath = `${folderPath}/${finalFileName}`;
+
+    console.log(`🔍 Gerando signed URL para upload de anexo: ${filePath}`);
+    console.log(`📁 [Classificação] mediaType: ${mediaType}, folderPath: ${folderPath}, contentType: ${contentType}`);
+    
+    // Validação adicional: garantir que contentType corresponde ao mediaType
+    if (mediaType === 'image' && !contentType.startsWith('image/')) {
+      console.warn(`⚠️ [Classificação] Inconsistência: mediaType=image mas contentType=${contentType}`);
+    }
+    if (mediaType === 'video' && !contentType.startsWith('video/')) {
+      console.warn(`⚠️ [Classificação] Inconsistência: mediaType=video mas contentType=${contentType}`);
+    }
+
+    // Inicializar Google Cloud Storage
+    // NOTA: GCS_BUCKET_CHAT é específico para anexos do chat
+    // GCS_BUCKET_NAME2 continua sendo usado para outras mídias do VeloHub (fotos de perfil, etc.)
+    const bucketName = process.env.GCS_BUCKET_CHAT || 'velochat_anexos';
+    
+    let storage;
+    try {
+      const googleCredentials = process.env.GOOGLE_CREDENTIALS;
+      const googleApplicationCredentials = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      let gcpProjectId = process.env.GCP_PROJECT_ID;
+      
+      console.log('🔍 [chat-attachments/get-upload-url] Verificando credenciais...');
+      console.log('🔍 [chat-attachments/get-upload-url] GCP_PROJECT_ID:', gcpProjectId ? `${gcpProjectId.substring(0, 20)}...` : 'NÃO DEFINIDO');
+      console.log('🔍 [chat-attachments/get-upload-url] GOOGLE_CREDENTIALS:', googleCredentials ? `${googleCredentials.substring(0, 50)}...` : 'NÃO DEFINIDO');
+      console.log('🔍 [chat-attachments/get-upload-url] GOOGLE_APPLICATION_CREDENTIALS:', googleApplicationCredentials || 'NÃO DEFINIDO');
+      
+      // Tentar obter project_id das credenciais se GCP_PROJECT_ID não estiver definido
+      if ((!gcpProjectId || gcpProjectId === 'your-gcp-project-id') && googleCredentials) {
+        try {
+          const credentials = JSON.parse(googleCredentials);
+          if (credentials.project_id) {
+            gcpProjectId = credentials.project_id;
+            console.log('✅ [chat-attachments/get-upload-url] Usando project_id das credenciais:', gcpProjectId);
+          }
+        } catch (parseError) {
+          // Ignorar erro de parse, tentará usar como arquivo depois
+        }
+      }
+      
+      // Prioridade 1: GOOGLE_APPLICATION_CREDENTIALS (caminho para arquivo JSON)
+      // Tentar obter project_id do arquivo se ainda não foi obtido
+      if ((!gcpProjectId || gcpProjectId === 'your-gcp-project-id') && googleApplicationCredentials) {
+        try {
+          const fs = require('fs');
+          const credentialsContent = fs.readFileSync(googleApplicationCredentials, 'utf8');
+          const credentials = JSON.parse(credentialsContent);
+          if (credentials.project_id) {
+            gcpProjectId = credentials.project_id;
+            console.log('✅ [chat-attachments/get-upload-url] Usando project_id do arquivo GOOGLE_APPLICATION_CREDENTIALS:', gcpProjectId);
+          }
+        } catch (readError) {
+          console.warn('⚠️ [chat-attachments/get-upload-url] Não foi possível ler project_id do arquivo GOOGLE_APPLICATION_CREDENTIALS:', readError.message);
+        }
+      }
+      
+      // Verificar se variáveis necessárias estão definidas (após tentar obter de todas as fontes)
+      if (!gcpProjectId || gcpProjectId === 'your-gcp-project-id') {
+        console.error('❌ [chat-attachments/get-upload-url] GCP_PROJECT_ID não está definido ou está com valor placeholder');
+        return res.status(500).json({
+          success: false,
+          error: 'GCP_PROJECT_ID não configurado. Verifique o arquivo backend/env ou configure GOOGLE_CREDENTIALS/GOOGLE_APPLICATION_CREDENTIALS com project_id'
+        });
+      }
+      
+      if (googleApplicationCredentials) {
+        console.log('🔍 [chat-attachments/get-upload-url] Usando GOOGLE_APPLICATION_CREDENTIALS:', googleApplicationCredentials);
+        try {
+          storage = new Storage({
+            projectId: gcpProjectId,
+            keyFilename: googleApplicationCredentials
+          });
+          console.log('✅ [chat-attachments/get-upload-url] Storage inicializado com GOOGLE_APPLICATION_CREDENTIALS');
+        } catch (fileError) {
+          console.error('❌ [chat-attachments/get-upload-url] Erro ao carregar arquivo de credenciais:', fileError);
+          // Continuar para tentar outras opções
+        }
+      }
+      
+      // Prioridade 2: GOOGLE_CREDENTIALS (JSON string ou caminho de arquivo)
+      if (!storage && googleCredentials) {
+        // Se começa com { ou [, é JSON
+        if (googleCredentials.trim().startsWith('{') || googleCredentials.trim().startsWith('[')) {
+          try {
+            const credentials = JSON.parse(googleCredentials);
+            
+            console.log('🔍 [chat-attachments/get-upload-url] Credenciais parseadas com sucesso');
+            console.log('🔍 [chat-attachments/get-upload-url] Project ID nas credenciais:', credentials.project_id);
+            console.log('🔍 [chat-attachments/get-upload-url] Client email:', credentials.client_email);
+            console.log('🔍 [chat-attachments/get-upload-url] Private key length:', credentials.private_key ? credentials.private_key.length : 'N/A');
+            console.log('🔍 [chat-attachments/get-upload-url] Private key preview:', credentials.private_key ? credentials.private_key.substring(0, 50) + '...' : 'N/A');
+            
+            // Usar project_id das credenciais se disponível e GCP_PROJECT_ID não foi definido
+            if (credentials.project_id && (!gcpProjectId || gcpProjectId === 'your-gcp-project-id')) {
+              gcpProjectId = credentials.project_id;
+              console.log('✅ [chat-attachments/get-upload-url] Usando project_id das credenciais:', gcpProjectId);
+            }
+            
+            // Verificar se credenciais são placeholders
+            if (credentials.project_id === 'your-project-id' || 
+                credentials.private_key === '-----BEGIN PRIVATE KEY-----
+REDACTED
+-----END PRIVATE KEY-----\n' ||
+                credentials.private_key?.includes('...')) {
+              console.warn('⚠️ [chat-attachments/get-upload-url] GOOGLE_CREDENTIALS contém valores placeholder. Tentando usar Application Default Credentials...');
+              // Não retornar erro, tentar usar ADC
+              storage = null; // Será inicializado abaixo com ADC
+            } else {
+              // Credenciais válidas, usar normalmente
+              // Corrigir chave privada: converter \n literais para quebras de linha reais
+              if (credentials.private_key) {
+                const originalLength = credentials.private_key.length;
+                credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+                console.log('🔍 [chat-attachments/get-upload-url] Chave privada processada. Tamanho original:', originalLength, 'Tamanho após processamento:', credentials.private_key.length);
+                
+                // Verificar se a chave privada tem formato válido
+                if (!credentials.private_key.includes('BEGIN PRIVATE KEY') || 
+                    !credentials.private_key.includes('END PRIVATE KEY')) {
+                  console.error('❌ [chat-attachments/get-upload-url] Chave privada não tem formato válido');
+                  return res.status(500).json({
+                    success: false,
+                    error: 'Chave privada inválida: não contém BEGIN/END PRIVATE KEY'
+                  });
+                }
+              }
+              
+              console.log('🔍 [chat-attachments/get-upload-url] Inicializando Storage com credenciais JSON...');
+              storage = new Storage({
+                projectId: gcpProjectId,
+                credentials: credentials
+              });
+              console.log('✅ [chat-attachments/get-upload-url] Storage inicializado com credenciais JSON');
+            }
+          } catch (parseError) {
+            console.error('❌ [chat-attachments/get-upload-url] Erro ao fazer parse das credenciais JSON:', parseError);
+            // Tentar como caminho de arquivo mesmo assim
+            try {
+              storage = new Storage({
+                projectId: gcpProjectId,
+                keyFilename: googleCredentials
+              });
+            } catch (fileError) {
+              console.error('❌ [chat-attachments/get-upload-url] Erro ao usar como arquivo:', fileError);
+              // Continuar para tentar ADC
+            }
+          }
+        } else {
+          // É um caminho de arquivo
+          console.log('🔍 [chat-attachments/get-upload-url] Inicializando Storage com arquivo de credenciais...');
+          try {
+            // Tentar ler o arquivo para obter project_id se necessário
+            if ((!gcpProjectId || gcpProjectId === 'your-gcp-project-id')) {
+              try {
+                const fs = require('fs');
+                const credentialsContent = fs.readFileSync(googleCredentials, 'utf8');
+                const credentials = JSON.parse(credentialsContent);
+                if (credentials.project_id) {
+                  gcpProjectId = credentials.project_id;
+                  console.log('✅ [chat-attachments/get-upload-url] Usando project_id do arquivo de credenciais:', gcpProjectId);
+                }
+              } catch (readError) {
+                console.warn('⚠️ [chat-attachments/get-upload-url] Não foi possível ler project_id do arquivo:', readError.message);
+              }
+            }
+            
+            storage = new Storage({
+              projectId: gcpProjectId,
+              keyFilename: googleCredentials
+            });
+            console.log('✅ [chat-attachments/get-upload-url] Storage inicializado com arquivo de credenciais');
+          } catch (fileError) {
+            console.error('❌ [chat-attachments/get-upload-url] Erro ao carregar arquivo de credenciais:', fileError);
+            // Continuar para tentar ADC
+          }
+        }
+      }
+      
+      // Se storage ainda não foi inicializado (credenciais eram placeholders ou não existiam), usar ADC
+      if (!storage) {
+        // Tentar obter project_id do ADC se ainda não foi obtido
+        if ((!gcpProjectId || gcpProjectId === 'your-gcp-project-id')) {
+          try {
+            const { GoogleAuth } = require('google-auth-library');
+            const auth = new GoogleAuth({
+              scopes: ['https://www.googleapis.com/auth/cloud-platform']
+            });
+            const projectId = await auth.getProjectId();
+            if (projectId) {
+              gcpProjectId = projectId;
+              console.log('✅ [chat-attachments/get-upload-url] Usando project_id do ADC:', gcpProjectId);
+            }
+          } catch (adcProjectError) {
+            console.warn('⚠️ [chat-attachments/get-upload-url] Não foi possível obter project_id do ADC:', adcProjectError.message);
+          }
+        }
+        
+        console.log('⚠️ [chat-attachments/get-upload-url] Tentando usar Application Default Credentials (ADC)...');
+        console.log('⚠️ [chat-attachments/get-upload-url] Se não funcionar, execute: gcloud auth application-default login');
+        try {
+          storage = new Storage({
+            projectId: gcpProjectId || undefined // Se não tiver projectId, deixa undefined para usar ADC
+            // Sem credentials - usa ADC automaticamente
+          });
+          console.log('✅ [chat-attachments/get-upload-url] Storage inicializado com Application Default Credentials');
+          
+          // Verificar se as credenciais ADC têm client_email (necessário para signed URLs)
+          // ADC de usuário não tem client_email, apenas Service Accounts têm
+          try {
+            const { GoogleAuth } = require('google-auth-library');
+            const auth = new GoogleAuth({
+              scopes: ['https://www.googleapis.com/auth/cloud-platform']
+            });
+            const client = await auth.getClient();
+            
+            let hasClientEmail = false;
+            
+            // Verificar se é Service Account (tem client_email) ou credencial de usuário
+            // Tentar múltiplas formas de verificar
+            if (client) {
+              // Método 1: getCredentials()
+              if (typeof client.getCredentials === 'function') {
+                try {
+                  const credentials = await client.getCredentials();
+                  hasClientEmail = !!credentials?.client_email;
+                  console.log('🔍 [chat-attachments/get-upload-url] Verificação via getCredentials():', { hasClientEmail, clientEmail: credentials?.client_email?.substring(0, 20) + '...' });
+                } catch (getCredsError) {
+                  console.warn('⚠️ [chat-attachments/get-upload-url] Erro ao chamar getCredentials():', getCredsError.message);
+                }
+              }
+              
+              // Método 2: Verificar propriedades diretas do client
+              if (!hasClientEmail && client.client_email) {
+                hasClientEmail = true;
+                console.log('🔍 [chat-attachments/get-upload-url] client_email encontrado diretamente no client');
+              }
+              
+              // Método 3: Verificar se é JWT (Service Account) vs OAuth2 (usuário)
+              if (!hasClientEmail && client.credentials && client.credentials.client_email) {
+                hasClientEmail = true;
+                console.log('🔍 [chat-attachments/get-upload-url] client_email encontrado em client.credentials');
+              }
+            }
+            
+            if (!hasClientEmail) {
+              console.error('❌ [chat-attachments/get-upload-url] ADC não tem client_email - credenciais de usuário não podem gerar signed URLs');
+              return res.status(500).json({
+                success: false,
+                error: 'Credenciais de usuário não podem gerar signed URLs. É necessário um Service Account.',
+                instructions: [
+                  'Para gerar signed URLs, você precisa de um Service Account com chave privada.',
+                  'Opção 1: Configure GOOGLE_CREDENTIALS no arquivo backend/env com o JSON completo do Service Account',
+                  'Opção 2: Configure GOOGLE_APPLICATION_CREDENTIALS apontando para o arquivo JSON do Service Account',
+                  'Como obter: Google Cloud Console > IAM & Admin > Service Accounts > Criar/Selecionar > Keys > Add Key > JSON'
+                ],
+                details: process.env.NODE_ENV === 'development' ? 'ADC não possui client_email necessário para assinar URLs' : undefined
+              });
+            } else {
+              console.log('✅ [chat-attachments/get-upload-url] Credenciais ADC têm client_email - Service Account detectado');
+            }
+          } catch (checkError) {
+            console.warn('⚠️ [chat-attachments/get-upload-url] Não foi possível verificar tipo de credenciais ADC:', checkError.message);
+            console.warn('⚠️ [chat-attachments/get-upload-url] Continuando - se falhar ao gerar signed URL, será capturado abaixo');
+            // Continuar e tentar gerar signed URL - se falhar, será capturado abaixo
+          }
+        } catch (adcError) {
+          console.error('❌ [chat-attachments/get-upload-url] Erro ao usar Application Default Credentials:', adcError);
+          const errorMessage = adcError.message || 'Erro desconhecido';
+          
+          // Mensagem mais detalhada para desenvolvimento
+          let userMessage = 'Credenciais do Google Cloud não configuradas.';
+          let instructions = [];
+          
+          if (errorMessage.includes('Could not load the default credentials')) {
+            instructions.push('Opção 1: Execute no terminal: gcloud auth application-default login');
+            instructions.push('Opção 2: Configure GOOGLE_CREDENTIALS no arquivo backend/env com o JSON completo do Service Account');
+            instructions.push('Opção 3: Configure GOOGLE_APPLICATION_CREDENTIALS apontando para o arquivo JSON do Service Account');
+          }
+          
+          // Verificar se é erro de falta de client_email (ADC de usuário não funciona para signed URLs)
+          if (errorMessage.includes('Cannot sign data without `client_email`')) {
+            userMessage = 'Credenciais de usuário não podem gerar signed URLs. É necessário um Service Account.';
+            instructions = [
+              'Para gerar signed URLs, você precisa de um Service Account com chave privada.',
+              'Opção 1: Configure GOOGLE_CREDENTIALS no arquivo backend/env com o JSON completo do Service Account',
+              'Opção 2: Configure GOOGLE_APPLICATION_CREDENTIALS apontando para o arquivo JSON do Service Account',
+              'Como obter: Google Cloud Console > IAM & Admin > Service Accounts > Criar/Selecionar > Keys > Add Key > JSON'
+            ];
+          }
+          
+          return res.status(500).json({
+            success: false,
+            error: userMessage,
+            instructions: instructions.length > 0 ? instructions : undefined,
+            details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+          });
+        }
+      }
+    } catch (error) {
+      console.error('❌ [chat-attachments/get-upload-url] Erro ao inicializar Storage:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao inicializar Google Cloud Storage',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+
+    const bucket = storage.bucket(bucketName);
+    const file = bucket.file(filePath);
+
+    // Gerar signed URL válida por 15 minutos
+    let signedUrl;
+    try {
+      [signedUrl] = await file.getSignedUrl({
+        version: 'v4',
+        action: 'write',
+        expires: Date.now() + 15 * 60 * 1000, // 15 minutos
+        contentType: contentType
+      });
+    } catch (signError) {
+      console.error('❌ [chat-attachments/get-upload-url] Erro ao gerar signed URL:', signError);
+      console.error('❌ [chat-attachments/get-upload-url] Stack:', signError.stack);
+      
+      // Verificar se é erro de falta de client_email (ADC de usuário não funciona para signed URLs)
+      if (signError.message && signError.message.includes('Cannot sign data without `client_email`')) {
+        return res.status(500).json({
+          success: false,
+          error: 'Credenciais de usuário não podem gerar signed URLs. É necessário um Service Account.',
+          instructions: [
+            'Para gerar signed URLs, você precisa de um Service Account com chave privada.',
+            'Opção 1: Configure GOOGLE_CREDENTIALS no arquivo backend/env com o JSON completo do Service Account',
+            'Opção 2: Configure GOOGLE_APPLICATION_CREDENTIALS apontando para o arquivo JSON do Service Account',
+            'Como obter: Google Cloud Console > IAM & Admin > Service Accounts > Criar/Selecionar > Keys > Add Key > JSON'
+          ],
+          details: process.env.NODE_ENV === 'development' ? signError.message : undefined
+        });
+      }
+      
+      // Re-lançar outros erros para serem capturados pelo catch externo
+      throw signError;
+    }
+
+    // URL pública esperada após upload
+    const publicUrl = `https://storage.googleapis.com/${bucketName}/${filePath}`;
+
+    console.log(`✅ Signed URL gerada para: ${filePath}`);
+
+    // Tentar configurar CORS automaticamente se necessário (apenas em desenvolvimento)
+    if (process.env.NODE_ENV === 'development') {
+      try {
+        const corsConfig = [
+          {
+            origin: [
+              'http://localhost:8080',
+              'http://localhost:3000',
+              'https://app.velohub.velotax.com.br',
+              'https://velohub-278491073220.us-east1.run.app'
+            ],
+            method: ['GET', 'HEAD', 'PUT', 'POST', 'OPTIONS'],
+            responseHeader: [
+              'Content-Type',
+              'Content-Length',
+              'Content-Disposition',
+              'Access-Control-Allow-Origin',
+              'Access-Control-Allow-Methods',
+              'Access-Control-Allow-Headers',
+              'x-goog-resumable'
+            ],
+            maxAgeSeconds: 3600
+          }
+        ];
+        
+        // Configurar CORS no bucket (pode falhar se não tiver permissões)
+        await bucket.setCorsConfiguration(corsConfig).catch(err => {
+          // Log silencioso - não é crítico se falhar
+          console.log('ℹ️ [get-upload-url] Não foi possível configurar CORS automaticamente:', err.message);
+          console.log('ℹ️ [get-upload-url] Configure manualmente via: gsutil cors set gcs-cors-config-velochat.json gs://velochat_anexos');
+        });
+      } catch (corsError) {
+        // Ignorar erro de CORS - não é crítico
+        console.log('ℹ️ [get-upload-url] CORS não configurado automaticamente. Configure manualmente se necessário.');
+      }
+    }
+
+    return res.json({
+      success: true,
+      signedUrl,
+      publicUrl,
+      filePath
+    });
+
+  } catch (error) {
+    console.error('❌ [chat-attachments/get-upload-url] Erro ao gerar signed URL:', error);
+    console.error('❌ [chat-attachments/get-upload-url] Stack:', error.stack);
+    console.error('❌ [chat-attachments/get-upload-url] Error name:', error.name);
+    console.error('❌ [chat-attachments/get-upload-url] Error message:', error.message);
+    
+    // Verificar se é erro de credenciais
+    if (error.message && error.message.includes('DECODER')) {
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao processar credenciais do Google Cloud. Verifique se GOOGLE_CREDENTIALS está configurado corretamente no arquivo backend/env',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+    
+    // Verificar se é erro de credenciais não encontradas
+    if (error.message && error.message.includes('Could not load the default credentials')) {
+      return res.status(500).json({
+        success: false,
+        error: 'Credenciais do Google Cloud não configuradas',
+        instructions: [
+          'Opção 1: Execute no terminal: gcloud auth application-default login',
+          'Opção 2: Configure GOOGLE_CREDENTIALS no arquivo backend/env com o JSON completo do Service Account',
+          'Opção 3: Configure a variável GOOGLE_APPLICATION_CREDENTIALS apontando para o arquivo JSON'
+        ],
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+    
+    // Verificar se é erro de falta de client_email (ADC de usuário não funciona para signed URLs)
+    if (error.message && error.message.includes('Cannot sign data without `client_email`')) {
+      return res.status(500).json({
+        success: false,
+        error: 'Credenciais de usuário não podem gerar signed URLs. É necessário um Service Account.',
+        instructions: [
+          'Para gerar signed URLs, você precisa de um Service Account com chave privada.',
+          'Opção 1: Configure GOOGLE_CREDENTIALS no arquivo backend/env com o JSON completo do Service Account',
+          'Opção 2: Configure GOOGLE_APPLICATION_CREDENTIALS apontando para o arquivo JSON do Service Account',
+          'Como obter: Google Cloud Console > IAM & Admin > Service Accounts > Criar/Selecionar > Keys > Add Key > JSON'
+        ],
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao gerar URL de upload',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+console.log('✅ Endpoint POST /api/chat/attachments/get-upload-url registrado');
+
+// POST /api/chat/attachments/confirm-upload
+// Tornar arquivo público após upload bem-sucedido
+app.post('/api/chat/attachments/confirm-upload', async (req, res) => {
+  try {
+    const { filePath } = req.body;
+    
+    if (!filePath) {
+      return res.status(400).json({
+        success: false,
+        error: 'filePath é obrigatório'
+      });
+    }
+
+    const bucketName = 'velochat_anexos';
+    
+    // Inicializar Storage
+    let storage;
+    try {
+      if (process.env.GOOGLE_CREDENTIALS) {
+        const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+        storage = new Storage({
+          projectId: credentials.project_id || process.env.GCP_PROJECT_ID,
+          credentials: credentials
+        });
+      } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+        storage = new Storage({
+          keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS
+        });
+      } else {
+        storage = new Storage({
+          projectId: process.env.GCP_PROJECT_ID
+        });
+      }
+    } catch (error) {
+      console.error('❌ [confirm-upload] Erro ao inicializar Storage:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao inicializar Google Cloud Storage'
+      });
+    }
+
+    const bucket = storage.bucket(bucketName);
+    const file = bucket.file(filePath);
+
+    // Verificar se arquivo existe
+    const [exists] = await file.exists();
+    if (!exists) {
+      return res.status(404).json({
+        success: false,
+        error: 'Arquivo não encontrado no GCS'
+      });
+    }
+
+    // Tornar arquivo público (public access prevention foi removida)
+    try {
+      await file.makePublic();
+      console.log(`✅ Arquivo tornado público: ${filePath}`);
+    } catch (makePublicError) {
+      // Se já for público, não é erro crítico
+      if (makePublicError.message && makePublicError.message.includes('already public')) {
+        console.log(`ℹ️ Arquivo já é público: ${filePath}`);
+      } else {
+        console.error('❌ Erro ao tornar arquivo público:', makePublicError);
+        return res.status(500).json({
+          success: false,
+          error: 'Erro ao tornar arquivo público',
+          details: process.env.NODE_ENV === 'development' ? makePublicError.message : undefined
+        });
+      }
+    }
+
+    // URL pública permanente
+    const publicUrl = `https://storage.googleapis.com/${bucketName}/${filePath}`;
+
+    return res.json({
+      success: true,
+      publicUrl: publicUrl,
+      filePath
+    });
+
+  } catch (error) {
+    console.error('❌ [confirm-upload] Erro ao confirmar upload:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Erro ao confirmar upload',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+console.log('✅ Endpoint POST /api/chat/attachments/confirm-upload registrado');
+
+// GET /api/auth/profile
+console.log('🔧 Registrando endpoint GET /api/auth/profile...');
+app.get('/api/auth/profile', async (req, res) => {
+  try {
+    const { email } = req.query;
+
+    // Validação
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email é obrigatório'
+      });
+    }
+
+    console.log(`🔍 Buscando perfil para: ${email}`);
+
+    // Conectar ao MongoDB
+    await connectToMongo();
+    const db = client.db('console_analises');
+    const funcionariosCollection = db.collection('qualidade_funcionarios');
+
+    // Buscar usuário por email
+    const funcionario = await funcionariosCollection.findOne({
+      userMail: email.toLowerCase()
+    });
+
+    if (!funcionario) {
+      console.log(`❌ Usuário não encontrado: ${email}`);
+      return res.status(404).json({
+        success: false,
+        error: 'Usuário não encontrado'
+      });
+    }
+
+    // Preparar dados do perfil
+    const profile = {
+      colaboradorNome: funcionario.colaboradorNome || '',
+      telefone: funcionario.telefone || '',
+      userMail: funcionario.userMail || email,
+      profile_pic: funcionario.profile_pic || null
+    };
+
+    console.log(`✅ Perfil encontrado: ${funcionario.colaboradorNome} (${email})`);
+
+    res.json({
+      success: true,
+      profile: profile
+    });
+
+  } catch (error) {
+    console.error('❌ Profile Error:', error.message);
+    console.error('Stack:', error.stack);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+console.log('✅ Endpoint GET /api/auth/profile registrado');
+
+// PUT /api/auth/profile
+console.log('🔧 Registrando endpoint PUT /api/auth/profile...');
+app.put('/api/auth/profile', async (req, res) => {
+  try {
+    const { email, colaboradorNome, telefone } = req.body;
+
+    // Validação
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email é obrigatório'
+      });
+    }
+
+    console.log(`🔍 Atualizando perfil para: ${email}`);
+
+    // Conectar ao MongoDB
+    await connectToMongo();
+    const db = client.db('console_analises');
+    const funcionariosCollection = db.collection('qualidade_funcionarios');
+
+    // Verificar se usuário existe
+    const funcionario = await funcionariosCollection.findOne({
+      userMail: email.toLowerCase()
+    });
+
+    if (!funcionario) {
+      console.log(`❌ Usuário não encontrado: ${email}`);
+      return res.status(404).json({
+        success: false,
+        error: 'Usuário não encontrado'
+      });
+    }
+
+    // Preparar campos para atualização
+    const updateFields = {
+      updatedAt: new Date()
+    };
+
+    if (colaboradorNome !== undefined) {
+      updateFields.colaboradorNome = colaboradorNome;
+    }
+
+    if (telefone !== undefined) {
+      updateFields.telefone = telefone;
+    }
+
+    // Atualizar perfil no MongoDB
+    await funcionariosCollection.updateOne(
+      { userMail: email.toLowerCase() },
+      { $set: updateFields }
+    );
+
+    console.log(`✅ Perfil atualizado com sucesso para: ${email}`);
+
+    res.json({
+      success: true,
+      message: 'Perfil atualizado com sucesso'
+    });
+
+  } catch (error) {
+    console.error('❌ Update Profile Error:', error.message);
+    console.error('Stack:', error.stack);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+console.log('✅ Endpoint PUT /api/auth/profile registrado');
+
+// POST /api/auth/profile/change-password
+console.log('🔧 Registrando endpoint POST /api/auth/profile/change-password...');
+app.post('/api/auth/profile/change-password', async (req, res) => {
+  try {
+    const { email, novaSenha } = req.body;
+
+    // Validações
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email é obrigatório'
+      });
+    }
+
+    if (!novaSenha) {
+      return res.status(400).json({
+        success: false,
+        error: 'Nova senha é obrigatória'
+      });
+    }
+
+    // Validar senha usando validatePassword (mínimo 8 caracteres)
+    const passwordValidation = validatePassword(novaSenha);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: passwordValidation.error || 'A senha deve ter no mínimo 8 caracteres'
+      });
+    }
+
+    console.log(`🔍 Alterando senha para: ${email}`);
+
+    // Conectar ao MongoDB
+    await connectToMongo();
+    const db = client.db('console_analises');
+    const funcionariosCollection = db.collection('qualidade_funcionarios');
+
+    // Buscar usuário por email
+    const funcionario = await funcionariosCollection.findOne({
+      userMail: email.toLowerCase()
+    });
+
+    if (!funcionario) {
+      console.log(`❌ Usuário não encontrado: ${email}`);
+      return res.status(404).json({
+        success: false,
+        error: 'Usuário não encontrado'
+      });
+    }
+
+    // Armazenar senha em texto plano (sem hash)
+    // Atualizar senha no MongoDB (texto plano)
+    await funcionariosCollection.updateOne(
+      { userMail: email.toLowerCase() },
+      { 
+        $set: { 
+          password: novaSenha, // Armazenar em texto plano
+          updatedAt: new Date()
+        } 
+      }
+    );
+
+    console.log(`✅ Senha alterada com sucesso para: ${email}`);
+
+    res.json({
+      success: true,
+      message: 'Senha alterada com sucesso'
+    });
+
+  } catch (error) {
+    console.error('❌ Change Password Error:', error.message);
+    console.error('Stack:', error.stack);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+console.log('✅ Endpoint POST /api/auth/profile/change-password registrado');
+
 // ===== API DE SESSÕES DE LOGIN/LOGOUT =====
 
 // POST /api/auth/session/login
@@ -2339,11 +4366,211 @@ app.get('/api/auth/session/validate/:sessionId', async (req, res) => {
 });
 
 console.log('✅ Endpoint GET /api/auth/session/validate/:sessionId registrado');
+
+// PUT /api/auth/session/chat-status
+console.log('🔧 Registrando endpoint PUT /api/auth/session/chat-status...');
+app.put('/api/auth/session/chat-status', async (req, res) => {
+  try {
+    const sessionId = req.body.sessionId || req.headers['x-session-id'];
+    const { status } = req.body;
+
+    // Validação
+    if (!sessionId) {
+      return res.status(400).json({
+        success: false,
+        error: 'sessionId é obrigatório (body ou header x-session-id)'
+      });
+    }
+
+    if (!status || !['online', 'ausente'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Status inválido. Deve ser: online ou ausente. Offline é automático quando sessão está inativa.'
+      });
+    }
+
+    // Conectar ao MongoDB
+    if (!client) {
+      return res.status(503).json({
+        success: false,
+        error: 'MongoDB não configurado'
+      });
+    }
+
+    await connectToMongo();
+    const db = client.db('console_conteudo');
+    const sessionsCollection = db.collection('hub_sessions');
+
+    // Buscar sessão ativa
+    const session = await sessionsCollection.findOne({
+      sessionId: sessionId,
+      isActive: true
+    });
+
+    if (!session) {
+      return res.status(400).json({
+        success: false,
+        error: 'Sessão não encontrada ou não está ativa. Status offline é automático quando sessão está inativa.'
+      });
+    }
+
+    // Atualizar chatStatus no hub_sessions IMEDIATAMENTE
+    const { getCurrentTimestamp, getCurrentTimestampISO } = require('./utils/timestamp');
+    const now = getCurrentTimestamp();
+    const timestampISO = getCurrentTimestampISO();
+
+    const result = await sessionsCollection.updateOne(
+      { _id: session._id },
+      {
+        $set: {
+          chatStatus: status,
+          updatedAt: now
+        }
+      }
+    );
+
+    if (result.modifiedCount > 0) {
+      // Logs detalhados da alteração
+      console.log(`✅ ChatStatus atualizado: ${session.colaboradorNome} (${session.userEmail}) → ${status}`);
+      console.log(`📝 SessionId: ${sessionId}`);
+      console.log(`🕒 Timestamp: ${timestampISO}`);
+
+      // Notificar VeloChat Server sobre mudança de status (para emitir evento WebSocket)
+      // NOTA: O VeloChat Server deve ter um endpoint POST /api/notify-status-change
+      // que recebe { userEmail, status, timestamp } e emite evento WebSocket
+      const velochatServerUrl = process.env.VELOCHAT_SERVER_URL || 'http://localhost:3001';
+      
+      // Log no console do backend para debug
+      console.log(`📡 [STATUS CHANGE] Tentando notificar VeloChat Server: ${velochatServerUrl}/api/notify-status-change`);
+      console.log(`📡 [STATUS CHANGE] Dados:`, {
+        userEmail: session.userEmail,
+        userName: session.colaboradorNome,
+        status: status,
+        timestamp: timestampISO
+      });
+      
+      fetch(`${velochatServerUrl}/api/notify-status-change`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userEmail: session.userEmail,
+          userName: session.colaboradorNome,
+          status: status,
+          timestamp: timestampISO
+        })
+      }).then(response => {
+        console.log(`✅ [STATUS CHANGE] VeloChat Server respondeu: ${response.status} ${response.ok ? 'OK' : 'ERROR'}`);
+      }).catch(err => {
+        console.log(`❌ [STATUS CHANGE] Erro ao notificar VeloChat Server: ${err.message}`);
+        console.log(`❌ [STATUS CHANGE] Stack:`, err.stack);
+        // Log silencioso - VeloChat Server pode não estar disponível ou endpoint não implementado
+        console.log(`⚠️ Não foi possível notificar VeloChat Server sobre mudança de status: ${err.message}`);
+      });
+
+      res.json({
+        success: true,
+        status: status,
+        message: `Status atualizado para ${status}`
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: 'Erro ao atualizar status - nenhum documento modificado'
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Erro ao atualizar chatStatus:', error.message);
+    console.error('Stack:', error.stack);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+console.log('✅ Endpoint PUT /api/auth/session/chat-status registrado');
+
+// GET /api/status
+console.log('🔧 Registrando endpoint GET /api/status...');
+app.get('/api/status', async (req, res) => {
+  try {
+    const sessionId = req.headers['x-session-id'] || req.query.sessionId;
+    
+    if (!sessionId) {
+      return res.status(400).json({
+        success: false,
+        error: 'sessionId é obrigatório (header x-session-id ou query sessionId)'
+      });
+    }
+
+    // Conectar ao MongoDB
+    if (!client) {
+      return res.status(503).json({
+        success: false,
+        error: 'MongoDB não configurado'
+      });
+    }
+
+    await connectToMongo();
+    const db = client.db('console_conteudo');
+    const sessionsCollection = db.collection('hub_sessions');
+
+    // Buscar sessão no MongoDB
+    const session = await sessionsCollection.findOne({
+      sessionId: sessionId
+    });
+
+    if (!session) {
+      console.log(`⚠️ Get Status: Sessão não encontrada - ${sessionId}`);
+      return res.status(401).json({
+        success: false,
+        error: 'Sessão não encontrada'
+      });
+    }
+
+    // Retornar status e isActive
+    const isActive = session.isActive || false;
+    
+    // Se sessão está inativa, sempre retornar offline
+    // Se sessão está ativa e chatStatus existe, usar chatStatus
+    // Se sessão está ativa mas chatStatus não existe (sessões antigas), usar 'online' como padrão
+    const chatStatus = !isActive 
+      ? 'offline' 
+      : (session.chatStatus || 'online');
+
+    console.log(`✅ Get Status: ${session.colaboradorNome} (${session.userEmail}) - status: ${chatStatus}, isActive: ${isActive}`);
+
+    res.json({
+      success: true,
+      status: chatStatus,
+      isActive: isActive
+    });
+
+  } catch (error) {
+    console.error('❌ Get Status Error:', error.message);
+    console.error('Stack:', error.stack);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+console.log('✅ Endpoint GET /api/status registrado');
 console.log('✅ Todos os endpoints de sessão registrados com sucesso!');
 console.log('📋 Endpoints de sessão disponíveis:');
 console.log('   - POST /api/auth/session/heartbeat');
 console.log('   - POST /api/auth/session/reactivate');
 console.log('   - GET /api/auth/session/validate/:sessionId');
+console.log('   - PUT /api/auth/session/chat-status');
+console.log('   - GET /api/status');
 
 // ===== API VELONEWS - ACKNOWLEDGE =====
 
@@ -3482,16 +5709,10 @@ try {
   
   try {
     errosBugsRouter = initErrosBugsRoutes(client, connectToMongo, { userActivityLogger });
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.js:3478',message:'errosBugsRouter INITIALIZED',data:{routerType:typeof errosBugsRouter,isNull:errosBugsRouter===null,isUndefined:errosBugsRouter===undefined,hasGet:typeof errosBugsRouter?.get==='function',hasPost:typeof errosBugsRouter?.post==='function'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     console.log('✅ Router de erros/bugs inicializado:', typeof errosBugsRouter);
     console.log('🔍 [DEBUG] errosBugsRouter tem método get?', typeof errosBugsRouter?.get === 'function');
     console.log('🔍 [DEBUG] errosBugsRouter tem método post?', typeof errosBugsRouter?.post === 'function');
   } catch (error) {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.js:3482',message:'errosBugsRouter INIT ERROR',data:{errorMessage:error.message,errorStack:error.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
     console.error('❌ Erro ao inicializar router de erros/bugs:', error);
     console.error('❌ Stack trace:', error.stack);
     throw error;
@@ -3528,13 +5749,7 @@ try {
     throw new Error('errosBugsRouter não é um router válido');
   }
   
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.js:3519',message:'BEFORE app.use erros-bugs',data:{routerType:typeof errosBugsRouter,routerValue:errosBugsRouter?String(errosBugsRouter).substring(0,100):null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-  // #endregion
   app.use('/api/escalacoes/erros-bugs', errosBugsRouter);
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.js:3520',message:'AFTER app.use erros-bugs',data:{registered:true},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-  // #endregion
   app.use('/api/escalacoes/logs', logsRouter);
   
   console.log('✅ Rotas registradas no Express');
@@ -3562,6 +5777,106 @@ try {
   console.error('Stack:', error.stack);
   console.error('Detalhes do erro:', error);
 }
+
+// ===== API PARA MÓDULO VELOCHAT =====
+// VERSION: v2.0.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+// 
+// NOTA: Rotas de chat foram movidas para VeloChat Server conforme arquitetura definida
+// Apenas rotas de status de usuário permanecem no Backend VeloHub:
+// - GET /api/status - Obter status do chat do usuário
+// - PUT /api/auth/session/chat-status - Atualizar status do chat
+//
+// Todas as outras rotas de chat (conversas, mensagens, salas, contatos, upload)
+// devem ser acessadas via VeloChat Server (REACT_APP_VELOCHAT_API_URL)
+
+// Rotas de chat comentadas - agora gerenciadas pelo VeloChat Server
+/*
+console.log('💬 Registrando rotas do módulo VeloChat...');
+
+try {
+  console.log('📦 Carregando módulos de VeloChat...');
+  const { initConversationsRoutes } = require('./routes/api/chat/conversations');
+  const { initMensagensRoutes } = require('./routes/api/chat/mensagens');
+  const { initSalasRoutes } = require('./routes/api/chat/salas');
+  const { initUploadRoutes } = require('./routes/api/chat/upload');
+  const { initContactsRoutes } = require('./routes/api/chat/contacts');
+  console.log('✅ Módulos carregados com sucesso');
+
+  console.log('🔧 Inicializando routers...');
+  // Registrar rotas
+  let conversationsRouter, mensagensRouter, salasRouter, uploadRouter, contactsRouter;
+  
+  try {
+    conversationsRouter = initConversationsRoutes(client, connectToMongo);
+    console.log('✅ Router de conversas inicializado');
+  } catch (error) {
+    console.error('❌ Erro ao inicializar router de conversas:', error);
+    throw error;
+  }
+  
+  try {
+    mensagensRouter = initMensagensRoutes(client, connectToMongo);
+    console.log('✅ Router de mensagens inicializado');
+  } catch (error) {
+    console.error('❌ Erro ao inicializar router de mensagens:', error);
+    throw error;
+  }
+  
+  try {
+    salasRouter = initSalasRoutes(client, connectToMongo);
+    console.log('✅ Router de salas inicializado');
+  } catch (error) {
+    console.error('❌ Erro ao inicializar router de salas:', error);
+    throw error;
+  }
+  
+  try {
+    uploadRouter = initUploadRoutes(client, connectToMongo);
+    console.log('✅ Router de upload inicializado');
+  } catch (error) {
+    console.error('❌ Erro ao inicializar router de upload:', error);
+    throw error;
+  }
+  
+  try {
+    contactsRouter = initContactsRoutes(client, connectToMongo);
+    console.log('✅ Router de contatos inicializado');
+  } catch (error) {
+    console.error('❌ Erro ao inicializar router de contatos:', error);
+    throw error;
+  }
+  
+  console.log('✅ Routers inicializados');
+
+  console.log('🔗 Registrando rotas no Express...');
+  
+  // Registrar rotas
+  app.use('/api/chat/conversations', conversationsRouter);
+  app.use('/api/chat', mensagensRouter);
+  app.use('/api/chat/salas', salasRouter);
+  app.use('/api/chat/upload', uploadRouter);
+  app.use('/api/chat/contacts', contactsRouter);
+  
+  console.log('✅ Rotas registradas no Express');
+  console.log('✅ Rotas do módulo VeloChat registradas com sucesso!');
+  console.log('📋 Rotas disponíveis:');
+  console.log('   - GET /api/chat/conversations');
+  console.log('   - GET/POST /api/chat/salas/:salaId/mensagens');
+  console.log('   - PUT /api/chat/mensagens/:mensagemId');
+  console.log('   - DELETE /api/chat/mensagens/:mensagemId');
+  console.log('   - GET/POST /api/chat/salas');
+  console.log('   - POST /api/chat/upload');
+} catch (error) {
+  console.error('❌ Erro ao registrar rotas de VeloChat:', error.message);
+  console.error('Stack:', error.stack);
+  console.error('Detalhes do erro:', error);
+}
+*/
+
+console.log('💬 Rotas de chat movidas para VeloChat Server conforme arquitetura definida');
+console.log('📋 Rotas de status permanecem no Backend VeloHub:');
+console.log('   - GET /api/status');
+console.log('   - PUT /api/auth/session/chat-status');
 
 // ===== API DE IMAGENS (GCS) =====
 console.log('🖼️ Registrando endpoint de imagens GCS...');
@@ -3710,26 +6025,15 @@ const staticMiddleware = express.static(path.join(__dirname, 'public'), {
   index: false // Não servir index.html automaticamente
 });
 app.use((req, res, next) => {
-  // #region agent log
-  if (req.path.startsWith('/api/')) {
-    fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.js:3690',message:'express.static MIDDLEWARE CALLED FOR API PATH',data:{path:req.path,method:req.method},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-  }
-  // #endregion
   staticMiddleware(req, res, next);
 });
 
 // Rota para servir o React app (SPA) - DEVE SER A ÚLTIMA ROTA
 // IMPORTANTE: Não capturar rotas que começam com /api
 app.all('*', (req, res, next) => {
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.js:3660',message:'CATCH-ALL app.all(*) CALLED',data:{path:req.path,method:req.method,isApiPath:req.path.startsWith('/api/')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-  // #endregion
   // Se for uma rota da API, não servir o HTML
   if (req.path.startsWith('/api/')) {
     console.log(`⚠️ [CATCH-ALL] Rota da API não encontrada: ${req.method} ${req.path}`);
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.js:3663',message:'CATCH-ALL RETURNING 404',data:{path:req.path,method:req.method},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
     return res.status(404).json({
       success: false,
       message: 'Rota da API não encontrada',

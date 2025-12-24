@@ -1,93 +1,162 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.2.7 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.6.3 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
  * 
- * Mudanças v2.2.7:
- * - Correção parsing de formatação Artigos: aplicado formatResponseText antes de processContentHtml
- * - Markdown (**texto**, emojis, quebras de linha) agora é convertido corretamente para HTML nos artigos
- * - Correção aplicada em: modal de artigo da HomePage
+ * Mudanças v2.6.3:
+ * - Removidos logs de debug após correção bem-sucedida
  * 
- * Mudanças v2.2.6:
- * - Correção parsing de formatação VeloNews: aplicado formatResponseText antes de processContentHtml
- * - Markdown (**texto**, emojis, quebras de linha) agora é convertido corretamente para HTML
- * - Correções aplicadas em: modal crítico, widget Recentes, modal de notícia
+ * Mudanças v2.6.2:
+ * - Listener global agora entra em todas as conversas ativas para receber mensagens
+ * - Adicionada atualização periódica (30s) para entrar em novas conversas
+ * - Listener global funciona independentemente do estado do widget (sidebar oculta/expandida)
+ * - Adicionado listener para conversation_created para entrar automaticamente em novas conversas
+ * - Adicionado listener para last_message_updated como fallback
  * 
- * Mudanças v2.2.5:
- * - Adicionado bloqueio do VeloChatWidget em produção (exceto para Lucas Gravina)
- * - Verificação de ambiente (prod vs dev) para controle de acesso ao chat
+ * Mudanças v2.6.1:
+ * - Melhoradas funções de áudio globais (volume, preload, tratamento de erros)
+ * - Melhorada detecção de mensagens próprias (comparação normalizada)
+ * - Notificações de áudio agora funcionam corretamente mesmo quando sidebar está recolhida
+ * - Suporte a mensagens de chamada de atenção via campo 'content' além de 'mensagem'
+ * 
+ * Mudanças v2.6.0:
+ * - Adicionado sidebar direito com widget de chat em todos os módulos (ProcessosPage, ArtigosPage, ApoioPage)
+ * - Criada função helper reutilizável renderRightSidebarChat para evitar duplicação de código
+ * - Sidebar direito inicia recolhido por padrão em módulos não-Home
+ * - Sidebar direito mantém estado expandido por padrão na HomePage
+ * 
+ * Mudanças v2.5.5:
+ * - Corrigido footer: removido caractere estranho (┬® → ©) e padronizado texto
+ * - Footer agora segue padrão: "© {ano} VeloHub. Todos os direitos reservados."
+ * - Removida versão hardcoded do footer
+ * 
+ * Mudanças v2.5.4:
+ * - Corrigido ReferenceError: sortedVeloNews is not defined na função checkCriticalNews
+ * 
+ * Mudanças v2.5.3:
+ * - Adicionado polling para verificar mudan├ºas na sess├úo do usu├írio
+ * - Adicionado listener para mudan├ºas no localStorage
+ * - Melhorados logs de debug para rastrear carregamento da foto
+ * - Garantido que avatar sempre seja exibido (padr├úo quando n├úo houver foto)
+ * 
+ * Mudan├ºas v2.5.2:
+ * - Corrigido carregamento e atualiza├º├úo da foto do usu├írio ap├│s login SSO
+ * - Adicionado tratamento de erro na imagem (fallback para avatar padr├úo)
+ * - Adicionados logs para debug do carregamento de dados do usu├írio
+ * - Garantido que evento user-info-updated seja disparado ap├│s login SSO
+ * 
+ * Mudan├ºas v2.5.1:
+ * - Corrigido renderiza├º├úo da foto do usu├írio no header: agora sempre exibe avatar (padr├úo quando n├úo houver foto)
+ * 
+ * Mudan├ºas v2.5.0:
+ * - Corrigido carregamento da foto do usu├írio no header ap├│s login SSO
+ * - Header agora usa estado React para gerenciar foto e nome do usu├írio
+ * - Integrado com evento customizado 'user-info-updated' para atualiza├º├úo em tempo real
+ * 
+ * Mudan├ºas v2.4.0:
+ * - Restaurado ChatStatusSelector no header do chat
+ * - Componente permite alterar status (online, offline, ausente)
+ * 
+ * Mudan├ºas v2.3.0:
+ * - Ajustada altura fixa da sidebar direita igual ao container central (calc(100vh - 160px))
+ * - Container do chat agora ├® scroll├ível mantendo header e abas fixos
+ * - Sidebar esquerda serve como refer├¬ncia de altura para o chat
+ * 
+ * Mudan├ºas v2.2.9:
+ * - Restaurado VeloChatWidget.js do Git (commit aafa99d)
+ * - Criado velochatApi.js com fun├º├Áes necess├írias (getConversations, getMessages, createConversation, getContacts)
+ * - Removida importa├º├úo do ChatStatusSelector (componente n├úo existe)
+ * - Substitu├¡do placeholder "Chat em desenvolvimento" pelo componente VeloChatWidget funcional
+ * 
+ * Mudan├ºas v2.2.8:
+ * - Removidos logs de debug desnecess├írios do console (processContentHtml, getImageUrl, getYouTubeThumbnail, renderiza├º├úo de imagens/v├¡deos)
+ * - Console agora exibe apenas logs essenciais, sem polui├º├úo de logs de todos os artigos do hist├│rico
+ * 
+ * Mudan├ºas v2.2.7:
+ * - Corre├º├úo parsing de formata├º├úo Artigos: aplicado formatResponseText antes de processContentHtml
+ * - Markdown (**texto**, emojis, quebras de linha) agora ├® convertido corretamente para HTML nos artigos
+ * - Corre├º├úo aplicada em: modal de artigo da HomePage
+ * 
+ * Mudan├ºas v2.2.6:
+ * - Corre├º├úo parsing de formata├º├úo VeloNews: aplicado formatResponseText antes de processContentHtml
+ * - Markdown (**texto**, emojis, quebras de linha) agora ├® convertido corretamente para HTML
+ * - Corre├º├Áes aplicadas em: modal cr├¡tico, widget Recentes, modal de not├¡cia
+ * 
+ * Mudan├ºas v2.2.5:
+ * - Adicionado bloqueio do VeloChatWidget em produ├º├úo (exceto para Lucas Gravina)
+ * - Verifica├º├úo de ambiente (prod vs dev) para controle de acesso ao chat
  * - Bloqueio visual "EM BREVE" similar ao widget do pontomais
- * - Importação do VeloChatWidget comentada até arquivo ser adicionado ao repositório
+ * - Importa├º├úo do VeloChatWidget comentada at├® arquivo ser adicionado ao reposit├│rio
  * 
- * Mudanças v2.2.4:
- * - Atualizada lista de serviços online: adicionados Clube Velotax e Divida Zero
- * - Renomeados serviços: "Seguro Cred." → "Prestamista", "Seguro Cel." → "Seguro Celular"
- * - Layout do grid de serviços alterado de 2x4 para 3x3 para acomodar 9 serviços
+ * Mudan├ºas v2.2.4:
+ * - Atualizada lista de servi├ºos online: adicionados Clube Velotax e Divida Zero
+ * - Renomeados servi├ºos: "Seguro Cred." ÔåÆ "Prestamista", "Seguro Cel." ÔåÆ "Seguro Celular"
+ * - Layout do grid de servi├ºos alterado de 2x4 para 3x3 para acomodar 9 servi├ºos
  * 
- * Mudanças v2.2.3:
- * - Removida linha de divisão abaixo do título "Chat"
- * - Adicionado ícone de lupa na mesma linha do título
- * - Implementado campo de busca expansível que move o título para a esquerda
+ * Mudan├ºas v2.2.3:
+ * - Removida linha de divis├úo abaixo do t├¡tulo "Chat"
+ * - Adicionado ├¡cone de lupa na mesma linha do t├¡tulo
+ * - Implementado campo de busca expans├¡vel que move o t├¡tulo para a esquerda
  * - Busca de contatos integrada com filtro em tempo real
  * 
- * Mudanças v2.2.2:
+ * Mudan├ºas v2.2.2:
  * - Padronizado padding das sidebars para 19.0px
  * - Removido marginRight da sidebar direita
  * - Adicionado seletor de abas (Conversas, Contatos, Grupos) no Chat
  * - Implementada funcionalidade de Contatos com indicadores de status
  * 
- * Mudanças v2.2.1:
- * - Removida área clicável complexa das bordas
- * - Adicionados botões com ícones de seta (ChevronLeft/ChevronRight)
- * - Botões posicionados no canto superior interno de cada sidebar
- * - Estilo: cinza translúcido que muda para azul opaco no hover
- * - Implementação mais simples e intuitiva
+ * Mudan├ºas v2.2.1:
+ * - Removida ├írea clic├ível complexa das bordas
+ * - Adicionados bot├Áes com ├¡cones de seta (ChevronLeft/ChevronRight)
+ * - Bot├Áes posicionados no canto superior interno de cada sidebar
+ * - Estilo: cinza transl├║cido que muda para azul opaco no hover
+ * - Implementa├º├úo mais simples e intuitiva
  * 
- * Mudanças v2.1.99:
+ * Mudan├ºas v2.1.99:
  * - Corrigido layout quebrava ao retrair sidebar esquerda
- * - Implementada renderização condicional das sidebars (sem wrappers com width 0)
- * - Adicionada transição suave no grid-template-columns
- * - Velonews e sidebar direita agora deslizam suavemente durante retração
+ * - Implementada renderiza├º├úo condicional das sidebars (sem wrappers com width 0)
+ * - Adicionada transi├º├úo suave no grid-template-columns
+ * - Velonews e sidebar direita agora deslizam suavemente durante retra├º├úo
  * - Usado minmax() no grid para melhor responsividade
  * 
- * Mudanças v2.1.98:
- * - Implementado sistema de retração de sidebars com bordas clicáveis
+ * Mudan├ºas v2.1.98:
+ * - Implementado sistema de retra├º├úo de sidebars com bordas clic├íveis
  * - Efeito hover nas bordas igual aos cards do Apoio
  * - Velonews desliza para esquerda quando sidebar esquerda retrai
  * - Sidebar direita expande automaticamente quando esquerda retrai
- * - Faixas clicáveis de 3px nas bordas internas e externas
+ * - Faixas clic├íveis de 3px nas bordas internas e externas
  * 
- * Mudanças v2.1.97:
+ * Mudan├ºas v2.1.97:
  * - Integrado VeloChatWidget na sidebar direita
  * - Sistema de chat interno VeloChat implementado
  * 
- * Mudanças v2.1.96:
- * - Removida implementação do Rocket.Chat e sidebar direita
- * - Layout ajustado para 2 colunas (sidebar esquerda + conteúdo principal)
+ * Mudan├ºas v2.1.96:
+ * - Removida implementa├º├úo do RocketChat (substitu├¡do por VeloChat interno)
+ * - Layout ajustado para 2 colunas (sidebar esquerda + conte├║do principal)
  * 
- * Mudanças v2.1.95:
+ * Mudan├ºas v2.1.95:
  * - Modais atualizados com z-index 9999 para ficarem acima do header
  * 
- * Mudanças v2.1.93:
- * - Suporte completo para YouTube Shorts: detecção, conversão e exibição com proporção 9:16
+ * Mudan├ºas v2.1.93:
+ * - Suporte completo para YouTube Shorts: detec├º├úo, convers├úo e exibi├º├úo com propor├º├úo 9:16
  * 
- * Mudanças v2.1.92:
+ * Mudan├ºas v2.1.92:
  * - Modificado getYouTubeThumbnail e getYouTubeEmbedUrl para aceitar URLs como strings
- * - Criada função convertYouTubeUrlToEmbed para converter URLs do YouTube para formato embed
- * - Atualizada renderização de vídeos nos modais para processar strings de URL
- * - Adicionados logs de debug para rastreamento de vídeos YouTube
+ * - Criada fun├º├úo convertYouTubeUrlToEmbed para converter URLs do YouTube para formato embed
+ * - Atualizada renderiza├º├úo de v├¡deos nos modais para processar strings de URL
+ * - Adicionados logs de debug para rastreamento de v├¡deos YouTube
  * 
- * Mudanças v2.1.90:
- * - Corrigida codificação de URLs para imagens com espaços e caracteres especiais nos nomes de arquivos
- * - Funções getImageUrl e getAllImages agora codificam corretamente cada parte do caminho
+ * Mudan├ºas v2.1.90:
+ * - Corrigida codifica├º├úo de URLs para imagens com espa├ºos e caracteres especiais nos nomes de arquivos
+ * - Fun├º├Áes getImageUrl e getAllImages agora codificam corretamente cada parte do caminho
  * 
- * Mudanças v2.1.89:
- * - Adicionadas funções auxiliares para processamento de mídia (getImageUrl, getYouTubeThumbnail, getYouTubeEmbedUrl, getAllImages)
- * - Implementada exibição de imagens e vídeos YouTube na lista de notícias VeloNews
- * - Expandido modal de notícias para exibir todas as imagens e vídeos YouTube
- * - Adicionado modal de imagem expandida para visualização em tamanho completo
- * - Implementada exibição de imagens na lista de artigos
- * - Expandido modal de artigos para exibir todas as imagens e vídeos YouTube
- * - Adicionado suporte para múltiplos formatos de imagens (caminhos relativos, URLs, base64)
+ * Mudan├ºas v2.1.89:
+ * - Adicionadas fun├º├Áes auxiliares para processamento de m├¡dia (getImageUrl, getYouTubeThumbnail, getYouTubeEmbedUrl, getAllImages)
+ * - Implementada exibi├º├úo de imagens e v├¡deos YouTube na lista de not├¡cias VeloNews
+ * - Expandido modal de not├¡cias para exibir todas as imagens e v├¡deos YouTube
+ * - Adicionado modal de imagem expandida para visualiza├º├úo em tamanho completo
+ * - Implementada exibi├º├úo de imagens na lista de artigos
+ * - Expandido modal de artigos para exibir todas as imagens e v├¡deos YouTube
+ * - Adicionado suporte para m├║ltiplos formatos de imagens (caminhos relativos, URLs, base64)
  * - Mantida compatibilidade com formato antigo (images) e novo (media.images)
  */
 
@@ -96,20 +165,19 @@ import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon,
 import { mainAPI, veloNewsAPI, articlesAPI, faqAPI } from './services/api';
 import { checkAuthenticationState, updateUserInfo, getUserSession, stopHeartbeat, logout } from './services/auth';
 import { API_BASE_URL } from './config/api-config';
+import { io } from 'socket.io-client';
 import NewsHistoryModal from './components/NewsHistoryModal';
 import LoginPage from './components/LoginPage';
 import Chatbot from './components/Chatbot';
 import SupportModal from './components/SupportModal';
-// VeloChatWidget - importação comentada até arquivo ser adicionado ao repositório
-// import VeloChatWidget from './components/VeloChatWidget';
-// ChatStatusSelector - importação comentada até arquivo ser adicionado ao repositório
-// import ChatStatusSelector from './components/ChatStatusSelector';
+// VeloChatWidget - arquivo restaurado do Git
+import VeloChatWidget from './components/VeloChatWidget';
+import ChatStatusSelector from './components/ChatStatusSelector';
 import EscalacoesPage from './pages/EscalacoesPage';
-// PerfilPage - importação comentada até arquivo ser adicionado ao repositório
-// import PerfilPage from './pages/PerfilPage';
+import PerfilPage from './pages/PerfilPage';
 import { formatArticleContent, formatPreviewText, formatResponseText } from './utils/textFormatter';
 
-// Sistema de gerenciamento de estado para modal crítico
+// Sistema de gerenciamento de estado para modal cr├¡tico
 const CriticalModalManager = {
   // Chaves para localStorage
   ACKNOWLEDGED_KEY: 'velohub-critical-acknowledged',
@@ -117,10 +185,10 @@ const CriticalModalManager = {
   SHOW_REMIND_BUTTON_KEY: 'velohub-show-remind-button',
   LAST_CRITICAL_KEY: 'velohub-last-critical-news',
   
-  // Verificar se o usuário já foi ciente de uma notícia específica
+  // Verificar se o usu├írio j├í foi ciente de uma not├¡cia espec├¡fica
   isAcknowledged: (newsTitle = null) => {
     if (newsTitle) {
-      // Se tem título específico, verificar por título
+      // Se tem t├¡tulo espec├¡fico, verificar por t├¡tulo
       const acknowledgedNews = localStorage.getItem(CriticalModalManager.ACKNOWLEDGED_KEY);
       return acknowledgedNews === newsTitle;
     }
@@ -128,10 +196,10 @@ const CriticalModalManager = {
     return localStorage.getItem(CriticalModalManager.ACKNOWLEDGED_KEY) === 'true';
   },
   
-  // Marcar como ciente de uma notícia específica
+  // Marcar como ciente de uma not├¡cia espec├¡fica
   setAcknowledged: (newsTitle = null) => {
     if (newsTitle) {
-      // Salvar o título da notícia como chave de reconhecimento
+      // Salvar o t├¡tulo da not├¡cia como chave de reconhecimento
       localStorage.setItem(CriticalModalManager.ACKNOWLEDGED_KEY, newsTitle);
     } else {
       // Fallback para compatibilidade
@@ -155,7 +223,7 @@ const CriticalModalManager = {
   setRemindLater: () => {
     const threeMinutesFromNow = Date.now() + (3 * 60 * 1000);
     localStorage.setItem(CriticalModalManager.REMIND_LATER_KEY, threeMinutesFromNow.toString());
-    // Marcar que o botão "Me lembre mais tarde" já foi usado
+    // Marcar que o bot├úo "Me lembre mais tarde" j├í foi usado
     localStorage.setItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY, 'false');
   },
   
@@ -164,7 +232,7 @@ const CriticalModalManager = {
     localStorage.removeItem(CriticalModalManager.REMIND_LATER_KEY);
   },
   
-  // Verificar se deve mostrar o botão "Me lembre mais tarde"
+  // Verificar se deve mostrar o bot├úo "Me lembre mais tarde"
   shouldShowRemindButton: () => {
     return localStorage.getItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY) !== 'false';
   },
@@ -173,22 +241,22 @@ const CriticalModalManager = {
   shouldShowModal: (criticalNews) => {
     if (!criticalNews) return false;
     
-    // Se já foi ciente desta notícia específica, não mostrar
+    // Se j├í foi ciente desta not├¡cia espec├¡fica, n├úo mostrar
     if (CriticalModalManager.isAcknowledged(criticalNews.title)) {
       return false;
     }
     
     // Se tem lembrete ativo, mostrar
     if (CriticalModalManager.shouldRemindLater()) {
-      CriticalModalManager.clearRemindLater(); // Limpar após verificar
+      CriticalModalManager.clearRemindLater(); // Limpar ap├│s verificar
       return true;
     }
     
-    // Se não tem lembrete, mostrar normalmente
+    // Se n├úo tem lembrete, mostrar normalmente
     return true;
   },
   
-  // Gerenciar a última notícia crítica vista
+  // Gerenciar a ├║ltima not├¡cia cr├¡tica vista
   getLastCriticalNews: () => {
     return localStorage.getItem(CriticalModalManager.LAST_CRITICAL_KEY);
   },
@@ -197,13 +265,13 @@ const CriticalModalManager = {
     localStorage.setItem(CriticalModalManager.LAST_CRITICAL_KEY, criticalKey);
   },
   
-  // Verificar se é uma notícia crítica nova
+  // Verificar se ├® uma not├¡cia cr├¡tica nova
   isNewCriticalNews: (criticalKey) => {
     const lastCritical = CriticalModalManager.getLastCriticalNews();
     return lastCritical !== criticalKey;
   },
   
-  // Resetar o estado para uma nova notícia crítica
+  // Resetar o estado para uma nova not├¡cia cr├¡tica
   resetForNewCriticalNews: () => {
     // RESETAR COMPLETAMENTE O ESTADO
     localStorage.removeItem(CriticalModalManager.ACKNOWLEDGED_KEY);
@@ -211,21 +279,21 @@ const CriticalModalManager = {
     localStorage.setItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY, 'true');
   },
   
-  // Função de debug para limpar manualmente o estado (útil para testes)
+  // Fun├º├úo de debug para limpar manualmente o estado (├║til para testes)
   debugClearState: () => {
-    console.log('🧹 Limpando estado manualmente para debug...');
+    console.log('­ƒº╣ Limpando estado manualmente para debug...');
     localStorage.removeItem(CriticalModalManager.ACKNOWLEDGED_KEY);
     localStorage.removeItem(CriticalModalManager.REMIND_LATER_KEY);
     localStorage.setItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY, 'true');
-    console.log('✅ Estado limpo manualmente');
+    console.log('Ô£à Estado limpo manualmente');
   }
 };
 
-// ===== FUNÇÕES AUXILIARES PARA LÓGICA DE URGÊNCIA =====
+// ===== FUN├ç├òES AUXILIARES PARA L├ôGICA DE URG├èNCIA =====
 
 /**
- * Verifica se notícia crítica passou das 12 horas
- * @param {string|Date} createdAt - Data de criação da notícia
+ * Verifica se not├¡cia cr├¡tica passou das 12 horas
+ * @param {string|Date} createdAt - Data de cria├º├úo da not├¡cia
  * @returns {boolean} true se passou de 12 horas
  */
 const isExpired12Hours = (createdAt) => {
@@ -236,17 +304,17 @@ const isExpired12Hours = (createdAt) => {
   return diffHours >= 12;
 };
 
-// Função global para debug (disponível no console do navegador)
+// Fun├º├úo global para debug (dispon├¡vel no console do navegador)
 window.debugCriticalModal = () => {
-  console.log('🔧 Debug do Modal Crítico');
-  console.log('📝 Estado atual:', {
+  console.log('­ƒöº Debug do Modal Cr├¡tico');
+  console.log('­ƒôØ Estado atual:', {
     acknowledged: localStorage.getItem(CriticalModalManager.ACKNOWLEDGED_KEY),
     remindLater: localStorage.getItem(CriticalModalManager.REMIND_LATER_KEY),
     showRemindButton: localStorage.getItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY),
     lastCriticalNews: CriticalModalManager.getLastCriticalNews()
   });
-  console.log('🧹 Para limpar o estado, execute: CriticalModalManager.debugClearState()');
-  console.log('🔄 Para forçar nova notícia, execute: CriticalModalManager.setLastCriticalNews("")'  );
+  console.log('­ƒº╣ Para limpar o estado, execute: CriticalModalManager.debugClearState()');
+  console.log('­ƒöä Para for├ºar nova not├¡cia, execute: CriticalModalManager.setLastCriticalNews("")'  );
 };
 
 // Componente do Footer
@@ -259,12 +327,12 @@ const Footer = ({ isDarkMode }) => {
         <div className="footer-content">
           <div className="footer-section">
             <p className="footer-text">
-              © {currentYear} VeloHub VeloTax. 
+              © {currentYear} VeloHub. Todos os direitos reservados.
             </p>
           </div>
           <div className="footer-section">
             <p className="footer-text">
-              v5.1.0
+              v6.0.0
             </p>
           </div>
         </div>
@@ -273,10 +341,12 @@ const Footer = ({ isDarkMode }) => {
   );
 };
 
-// Componente do Cabeçalho
+// Componente do Cabe├ºalho
 const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
   const navItems = ['Home', 'VeloBot', 'Artigos', 'Apoio', 'Req_Prod', 'VeloAcademy'];
   const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
+  const [userName, setUserName] = useState('Usu├írio VeloHub');
+  const [userPicture, setUserPicture] = useState(null);
 
   // Função para buscar contagem de tickets não visualizados
   const fetchUnreadTicketsCount = async () => {
@@ -345,7 +415,391 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
     }
   };
 
-  // Buscar contagem quando componente monta e quando página muda para Apoio
+  // Listener global de WebSocket para áudios de notificação (executa mesmo quando widget não está visível)
+  useEffect(() => {
+    const VELOCHAT_WS_URL = process.env.REACT_APP_VELOCHAT_WS_URL || 'http://localhost:3001';
+    
+    const getSessionId = () => {
+      try {
+        return localStorage.getItem('velohub_session_id');
+      } catch (error) {
+        console.error('Erro ao obter sessionId:', error);
+        return null;
+      }
+    };
+
+    const sessionId = getSessionId();
+    if (!sessionId) {
+      return; // Não conectar se não houver sessionId
+    }
+
+    // Funções de áudio globais (melhoradas para garantir reprodução)
+    const playNotificationSound = () => {
+      try {
+        const soundEnabled = localStorage.getItem('velochat_sound_enabled') !== 'false';
+        if (soundEnabled) {
+          const audio = new Audio('/notificação simples.mp3');
+          // Configurar volume e garantir reprodução
+          audio.volume = 0.7;
+          audio.preload = 'auto';
+          
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            playPromise.then(() => {
+              console.log('🔊 [Global Audio Listener] Áudio de notificação reproduzido com sucesso');
+            }).catch(error => {
+              console.warn('❌ [Global Audio Listener] Erro ao reproduzir som de notificação:', error);
+            });
+          }
+        }
+      } catch (error) {
+        console.warn('❌ [Global Audio Listener] Erro ao reproduzir som de notificação:', error);
+      }
+    };
+
+    const playCallerSignSound = () => {
+      try {
+        // Este áudio sempre executa, ignorando status de som
+        const audio = new Audio('/caller sign.mp3');
+        // Configurar volume e garantir reprodução
+        audio.volume = 0.8;
+        audio.preload = 'auto';
+        
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            console.log('🔊 [Global Audio Listener] Áudio de chamada de atenção reproduzido com sucesso');
+          }).catch(error => {
+            console.warn('❌ [Global Audio Listener] Erro ao reproduzir som de chamada:', error);
+          });
+        }
+      } catch (error) {
+        console.warn('❌ [Global Audio Listener] Erro ao reproduzir som de chamada:', error);
+      }
+    };
+
+    // Obter nome do usuário atual (usando mesma lógica do VeloChatWidget)
+    const getCurrentUserName = () => {
+      try {
+        // Tentar obter do localStorage usando a chave correta
+        const sessionData = localStorage.getItem('velohub_user_session') || 
+                           localStorage.getItem('veloacademy_user_session') || 
+                           localStorage.getItem('velohub_session');
+        if (sessionData) {
+          const session = JSON.parse(sessionData);
+          const name = session.user?.name || session.colaboradorNome || session?.user?.email || '';
+          // Normalizar: trim para remover espaços extras
+          return name.trim();
+        }
+        // Fallback para getUserSession
+        const session = getUserSession();
+        const name = session?.user?.name || '';
+        return name.trim();
+      } catch (error) {
+        console.error('❌ [Global Audio Listener] Erro ao obter nome do usuário:', error);
+        return '';
+      }
+    };
+
+    // Conectar ao WebSocket apenas para escutar mensagens e executar áudios
+    const socket = io(VELOCHAT_WS_URL, {
+      query: { sessionId },
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 2000,
+      reconnectionAttempts: 10,
+      timeout: 20000
+    });
+
+    // Função para entrar em todas as conversas ativas do usuário
+    const joinAllConversations = async () => {
+      try {
+        // Importar API dinamicamente para evitar dependência circular
+        const { getConversations } = await import('./services/velochatApi');
+        const data = await getConversations();
+        const conversations = data.conversations || [];
+        
+        console.log(`🔊 [Global Audio Listener] Entrando em ${conversations.length} conversas para receber mensagens`);
+        
+        // Entrar em todas as conversas para receber mensagens
+        conversations.forEach(conv => {
+          const conversationId = conv.conversationId || conv.Id;
+          if (conversationId) {
+            socket.emit('join_conversation', { conversationId });
+            console.log(`🔊 [Global Audio Listener] Entrou na conversa: ${conversationId}`);
+          }
+        });
+      } catch (error) {
+        console.error('❌ [Global Audio Listener] Erro ao entrar em conversas:', error);
+      }
+    };
+
+    socket.on('connect', () => {
+      console.log('🔊 [Global Audio Listener] WebSocket conectado para áudios globais');
+      
+      // Entrar em todas as conversas quando conectar
+      joinAllConversations();
+      
+      // Atualizar lista de conversas periodicamente (a cada 30 segundos) para entrar em novas conversas
+      const updateInterval = setInterval(() => {
+        if (socket.connected) {
+          joinAllConversations();
+        } else {
+          clearInterval(updateInterval);
+        }
+      }, 30000);
+      
+      // Limpar intervalo quando desconectar
+      socket.on('disconnect', () => {
+        clearInterval(updateInterval);
+      });
+    });
+    
+    // Listener para nova conversa criada - entrar automaticamente
+    socket.on('conversation_created', (data) => {
+      const conversationId = data.conversation?.conversationId || data.conversation?.Id;
+      if (conversationId && socket.connected) {
+        socket.emit('join_conversation', { conversationId });
+        console.log(`🔊 [Global Audio Listener] Entrou na nova conversa: ${conversationId}`);
+      }
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('❌ [Global Audio Listener] Erro ao conectar:', error.message);
+    });
+
+    // Listener para mensagens P2P
+    socket.on('p2p_message_received', (data) => {
+      const currentUserName = getCurrentUserName();
+      const messageUserName = data.message?.userName || '';
+      // Comparação mais robusta: normalizar espaços e case
+      const normalizedCurrentUserName = String(currentUserName || '').trim().toLowerCase();
+      const normalizedMessageUserName = String(messageUserName || '').trim().toLowerCase();
+      const isFromCurrentUser = normalizedCurrentUserName && normalizedMessageUserName && 
+                                normalizedCurrentUserName === normalizedMessageUserName;
+      const isCallerSign = data.message?.mensagem === '[att-caller-sign]' || 
+                           data.message?.content === '[att-caller-sign]';
+      
+      console.log('🔊 [Global Audio Listener] Mensagem P2P recebida:', {
+        currentUserName: normalizedCurrentUserName,
+        messageUserName: normalizedMessageUserName,
+        isFromCurrentUser,
+        isCallerSign,
+        mensagem: data.message?.mensagem?.substring(0, 50)
+      });
+      
+      if (!isFromCurrentUser) {
+        if (isCallerSign) {
+          // Áudio de chamada sempre executa, ignorando status de som
+          console.log('🔊 [Global Audio Listener] Executando áudio de chamada de atenção');
+          playCallerSignSound();
+        } else {
+          // Áudio normal respeita status de som
+          console.log('🔊 [Global Audio Listener] Executando áudio de notificação normal');
+          playNotificationSound();
+        }
+      } else {
+        console.log('🔊 [Global Audio Listener] Mensagem do próprio usuário, ignorando áudio');
+      }
+    });
+
+    // Listener para mensagens de Sala
+    socket.on('sala_message_received', (data) => {
+      const currentUserName = getCurrentUserName();
+      const messageUserName = data.message?.userName || '';
+      // Comparação mais robusta: normalizar espaços e case
+      const normalizedCurrentUserName = String(currentUserName || '').trim().toLowerCase();
+      const normalizedMessageUserName = String(messageUserName || '').trim().toLowerCase();
+      const isFromCurrentUser = normalizedCurrentUserName && normalizedMessageUserName && 
+                                normalizedCurrentUserName === normalizedMessageUserName;
+      const isCallerSign = data.message?.mensagem === '[att-caller-sign]' || 
+                           data.message?.content === '[att-caller-sign]';
+      
+      console.log('🔊 [Global Audio Listener] Mensagem de Sala recebida:', {
+        currentUserName: normalizedCurrentUserName,
+        messageUserName: normalizedMessageUserName,
+        isFromCurrentUser,
+        isCallerSign,
+        mensagem: data.message?.mensagem?.substring(0, 50)
+      });
+      
+      if (!isFromCurrentUser) {
+        if (isCallerSign) {
+          // Áudio de chamada sempre executa, ignorando status de som
+          console.log('🔊 [Global Audio Listener] Executando áudio de chamada de atenção');
+          playCallerSignSound();
+        } else {
+          // Áudio normal respeita status de som
+          console.log('🔊 [Global Audio Listener] Executando áudio de notificação normal');
+          playNotificationSound();
+        }
+      } else {
+        console.log('🔊 [Global Audio Listener] Mensagem do próprio usuário, ignorando áudio');
+      }
+    });
+
+    // Listener para last_message_updated (evento global emitido pelo servidor)
+    // Este evento é emitido para TODOS os sockets, não apenas para quem está na conversa
+    socket.on('last_message_updated', (data) => {
+      // Este evento é global, então sempre recebemos mesmo sem estar na conversa
+      // Mas só reproduzir áudio se realmente for uma mensagem nova (não apenas atualização)
+      // Vamos usar este evento como fallback quando não recebemos p2p_message_received/sala_message_received
+      const currentUserName = getCurrentUserName();
+      const messageUserName = data.lastMessage?.userName || '';
+      const normalizedCurrentUserName = String(currentUserName || '').trim().toLowerCase();
+      const normalizedMessageUserName = String(messageUserName || '').trim().toLowerCase();
+      const isFromCurrentUser = normalizedCurrentUserName && normalizedMessageUserName && 
+                                normalizedCurrentUserName === normalizedMessageUserName;
+      
+      // Não reproduzir áudio aqui, pois este evento é apenas para atualização de UI
+      // O áudio deve ser reproduzido apenas quando recebemos p2p_message_received ou sala_message_received
+      console.log('🔊 [Global Audio Listener] Last message updated (não reproduzindo áudio aqui):', {
+        conversationId: data.conversationId,
+        isFromCurrentUser
+      });
+    });
+
+    // Cleanup
+    return () => {
+      if (socket && socket.connected) {
+        socket.disconnect();
+      }
+    };
+  }, []); // Executar apenas uma vez ao montar o componente
+
+  // Buscar dados do usu├írio da sess├úo
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        const session = getUserSession();
+        if (session?.user) {
+          let userName = session.user.name || 'Usu├írio VeloHub';
+          let userPicture = session.user.picture || null;
+          
+          // Se n├úo tem foto na sess├úo, tentar buscar do backend (pode ter sido atualizada)
+          if (!userPicture && session.user.email) {
+            try {
+              const email = session.user.email;
+              const cacheKey = `velohub_validate_access_${email}`;
+              const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+              
+              let cachedResult = null;
+              
+              // Verificar cache
+              try {
+                const cached = localStorage.getItem(cacheKey);
+                if (cached) {
+                  const parsed = JSON.parse(cached);
+                  const now = Date.now();
+                  // Se cache ├® v├ílido (menos de 5 minutos), usar
+                  if (parsed.timestamp && (now - parsed.timestamp) < CACHE_DURATION) {
+                    cachedResult = parsed.data;
+                  }
+                }
+              } catch (error) {
+                // Se houver erro ao ler cache, continuar com requisi├º├úo
+              }
+              
+              let result;
+              if (cachedResult) {
+                result = cachedResult;
+              } else {
+                const response = await fetch(`${API_BASE_URL}/auth/validate-access`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ email: email })
+                });
+                result = await response.json();
+                
+                // Salvar no cache
+                try {
+                  localStorage.setItem(cacheKey, JSON.stringify({
+                    data: result,
+                    timestamp: Date.now()
+                  }));
+                } catch (error) {
+                  // Se n├úo conseguir salvar no localStorage, continuar normalmente
+                }
+              }
+              
+              if (result.success && result.user?.picture) {
+                userPicture = result.user.picture;
+                // Atualizar sess├úo com foto do backend
+                const updatedSession = {
+                  ...session,
+                  user: { ...session.user, picture: userPicture }
+                };
+                localStorage.setItem('velohub_user_session', JSON.stringify(updatedSession));
+              }
+            } catch (error) {
+              // Silenciar erro - n├úo cr├¡tico
+            }
+          }
+          
+          setUserName(userName);
+          setUserPicture(userPicture);
+        } else {
+          // Fallback para localStorage (compatibilidade)
+          const storedName = localStorage.getItem('userName');
+          const storedPicture = localStorage.getItem('userPicture');
+          if (storedName) setUserName(storedName);
+          if (storedPicture) setUserPicture(storedPicture);
+        }
+      } catch (error) {
+        console.error('ÔØî [Header] Erro ao carregar dados do usu├írio:', error);
+      }
+    };
+
+    // Carregar dados imediatamente
+    loadUserData();
+
+    // Escutar mudan├ºas na sess├úo (quando updateUserInfo ├® chamado)
+    const handleUserInfoUpdate = (event) => {
+      const userData = event.detail;
+      if (userData) {
+        const userName = userData.name || 'Usu├írio VeloHub';
+        const userPicture = userData.picture || null;
+        setUserName(userName);
+        setUserPicture(userPicture);
+      } else {
+        loadUserData();
+      }
+    };
+
+    // Escutar mudan├ºas no localStorage (para detectar quando sess├úo ├® salva)
+    const handleStorageChange = (e) => {
+      if (e.key === 'velohub_user_session' || e.key === null) {
+        setTimeout(loadUserData, 100);
+      }
+    };
+
+    // Criar evento customizado para atualizar dados do usu├írio
+    window.addEventListener('user-info-updated', handleUserInfoUpdate);
+    
+    // Escutar mudan├ºas no localStorage
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Polling para verificar mudan├ºas na sess├úo (fallback) - reduzido para evitar logs excessivos
+    const initialSession = getUserSession();
+    let lastSessionHash = JSON.stringify(initialSession || {});
+    const intervalId = setInterval(() => {
+      const currentSession = getUserSession();
+      const currentHash = JSON.stringify(currentSession || {});
+      // S├│ recarregar se houver mudan├ºa real
+      if (currentHash !== lastSessionHash) {
+        lastSessionHash = currentHash;
+        loadUserData();
+      }
+    }, 5000); // Aumentado para 5 segundos para reduzir polling
+
+    return () => {
+      window.removeEventListener('user-info-updated', handleUserInfoUpdate);
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(intervalId);
+    };
+  }, []);
+
+  // Buscar contagem quando componente monta e quando p├ígina muda para Apoio
   useEffect(() => {
     fetchUnreadTicketsCount();
     
@@ -365,14 +819,14 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
     };
   }, [activePage]);
 
-  // Quando usuário clica em Apoio, marcar todos os tickets como visualizados
+  // Quando usu├írio clica em Apoio, marcar todos os tickets como visualizados
   const handleNavClick = (item) => {
     console.log('Clicou em:', item); // Debug
     
     if (item === 'VeloAcademy') {
       console.log('Redirecionando para VeloAcademy...'); // Debug
       window.open('https://veloacademy.vercel.app', '_blank');
-      return; // Não muda a página ativa para VeloAcademy
+      return; // N├úo muda a p├ígina ativa para VeloAcademy
     }
     
     // Se clicou em Apoio, marcar tickets como visualizados
@@ -380,17 +834,17 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
       markTicketsAsViewed();
     }
     
-    console.log('Mudando para página:', item); // Debug
+    console.log('Mudando para p├ígina:', item); // Debug
     setActivePage(item);
   };
 
-  // Função para marcar tickets como visualizados
+  // Fun├º├úo para marcar tickets como visualizados
   const markTicketsAsViewed = async () => {
     try {
       const session = getUserSession();
       if (!session?.user?.email) return;
 
-      // Buscar tickets não visualizados
+      // Buscar tickets n├úo visualizados
       const response = await fetch(`${API_BASE_URL}/support/tickets/unread-count?userEmail=${encodeURIComponent(session.user.email)}`);
       const data = await response.json();
       
@@ -398,7 +852,7 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
         // Obter lista atual de tickets visualizados
         const viewedTickets = JSON.parse(localStorage.getItem('velohub-viewed-tickets') || '[]');
         
-        // Adicionar IDs dos tickets não visualizados à lista
+        // Adicionar IDs dos tickets n├úo visualizados ├á lista
         const ticketIds = data.tickets.map(ticket => ticket._id);
         const updatedViewedTickets = [...new Set([...viewedTickets, ...ticketIds])];
         
@@ -453,7 +907,7 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
                     lineHeight: '1',
                     boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                   }}
-                  title={`${unreadTicketsCount} ticket(s) não visualizado(s)`}
+                  title={`${unreadTicketsCount} ticket(s) n├úo visualizado(s)`}
                 >
                   {unreadTicketsCount > 9 ? '9+' : unreadTicketsCount}
                 </span>
@@ -469,8 +923,50 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
             style={{ cursor: 'pointer' }}
             title="Ver perfil"
           >
-            <img id="user-avatar" className="user-avatar" src="" alt="Avatar" />
-            <span id="user-name" className="user-name">Usuário VeloHub</span>
+            <img 
+              id="user-avatar" 
+              className="user-avatar" 
+              src={userPicture || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiMwMDdiZmYiLz4KPHN2ZyB4PSI4IiB5PSI4IiB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0id2hpdGUiPgo8cGF0aCBkPSJNOCA0QzkuNjYgNCAxMSA1LjM0IDExIDdDMTEgOC42NiA5LjY2IDEwIDggMTBDNi4zNCAxMCA1IDguNjYgNSAxN0M1IDUuMzQgNi4zNCA0IDggNFpNOCAxMkM5LjY2IDEyIDExIDEyLjM0IDExIDE0QzExIDE1LjY2IDkuNjYgMTcgOCAxN0M2LjM0IDE3IDUgMTUuNjYgNSAxNEM1IDEyLjM0IDYuMzQgMTIgOCAxMloiLz4KPC9zdmc+Cjwvc3ZnPgo='} 
+              alt="Avatar"
+              crossOrigin="anonymous"
+              referrerPolicy="no-referrer" 
+              style={{ 
+                display: 'block !important',
+                width: '25.6px !important',
+                height: '25.6px !important',
+                borderRadius: '50% !important',
+                objectFit: 'cover !important',
+                flexShrink: '0 !important',
+                visibility: 'visible !important',
+                opacity: '1 !important'
+              }}
+              ref={(imgEl) => {
+                if (imgEl) {
+                  setTimeout(() => {
+                    const computedStyle = window.getComputedStyle(imgEl);
+                    // For├ºar display block se estiver none
+                    if (computedStyle.display === 'none') {
+                      imgEl.style.setProperty('display', 'block', 'important');
+                      imgEl.style.setProperty('visibility', 'visible', 'important');
+                      imgEl.style.setProperty('opacity', '1', 'important');
+                    }
+                  }, 100);
+                }
+              }}
+              onError={(e) => {
+                const defaultAvatar = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiMwMDdiZmYiLz4KPHN2ZyB4PSI4IiB5PSI4IiB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0id2hpdGUiPgo8cGF0aCBkPSJNOCA0QzkuNjYgNCAxMSA1LjM0IDExIDdDMTEgOC42NiA5LjY2IDEwIDggMTBDNi4zNCAxMCA1IDguNjYgNSAxN0M1IDUuMzQgNi4zNCA0IDggNFpNOCAxMkM5LjY2IDEyIDExIDEyLjM0IDExIDE0QzExIDE1LjY2IDkuNjYgMTcgOCAxN0M2LjM0IDE3IDUgMTUuNjYgNSAxNEM1IDEyLjM0IDYuMzQgMTIgOCAxMloiLz4KPC9zdmc+Cjwvc3ZnPgo=';
+                
+                // Evitar loop infinito: s├│ logar e trocar se n├úo for o avatar padr├úo
+                if (!e.target.src.includes('data:image/svg')) {
+                  // Log apenas se for a primeira tentativa (n├úo o fallback)
+                  if (userPicture && userPicture !== defaultAvatar) {
+                    console.warn('ÔÜá´©Å [Header] Erro ao carregar avatar do Google, usando avatar padr├úo:', userPicture.substring(0, 80) + '...');
+                  }
+                  e.target.src = defaultAvatar;
+                }
+              }}
+            />
+            <span id="user-name" className="user-name">{userName}</span>
             <button 
               id="logout-btn" 
               className="logout-btn"
@@ -494,19 +990,19 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
   );
 };
 
-// Componente do Modal de Notícia Crítica - VERSÃO MELHORADA
+// Componente do Modal de Not├¡cia Cr├¡tica - VERS├âO MELHORADA
 const CriticalNewsModal = ({ news, onClose, onAcknowledge }) => {
   const [isAcknowledged, setIsAcknowledged] = useState(false);
 
   const handleClose = async () => {
     if (isAcknowledged) {
       CriticalModalManager.setAcknowledged(news.title);
-      // Enviar confirmação para o MongoDB
+      // Enviar confirma├º├úo para o MongoDB
       if (onAcknowledge && news._id) {
         try {
           await onAcknowledge(news._id);
         } catch (error) {
-          console.error('❌ Erro ao enviar confirmação de ciência:', error);
+          console.error('ÔØî Erro ao enviar confirma├º├úo de ci├¬ncia:', error);
         }
       }
     }
@@ -518,7 +1014,7 @@ const CriticalNewsModal = ({ news, onClose, onAcknowledge }) => {
     onClose();
   };
 
-  // Verificar se deve mostrar o botão "Me lembre mais tarde"
+  // Verificar se deve mostrar o bot├úo "Me lembre mais tarde"
   const shouldShowRemindButton = CriticalModalManager.shouldShowRemindButton();
 
   return (
@@ -565,7 +1061,7 @@ const CriticalNewsModal = ({ news, onClose, onAcknowledge }) => {
   );
 };
 
-// Componente da Página Principal - VERSÃO MELHORADA
+// Componente da P├ígina Principal - VERS├âO MELHORADA
 export default function App_v2() {
   const [activePage, setActivePage] = useState('Home');
   const [criticalNews, setCriticalNews] = useState(null);
@@ -578,14 +1074,14 @@ export default function App_v2() {
   const [acknowledgedNewsIds, setAcknowledgedNewsIds] = useState([]);
 
   useEffect(() => {
-    // Verificar autenticação primeiro
+    // Verificar autentica├º├úo primeiro
     const checkAuth = async () => {
       const isAuth = await checkAuthenticationState();
       setIsAuthenticated(isAuth);
       setIsCheckingAuth(false);
     };
 
-    // Aguardar um pouco para garantir que o DOM está pronto
+    // Aguardar um pouco para garantir que o DOM est├í pronto
     setTimeout(checkAuth, 100);
     
     // Cleanup: parar heartbeat quando componente desmonta
@@ -645,6 +1141,10 @@ export default function App_v2() {
     console.log('Login realizado com sucesso:', userData);
     setIsAuthenticated(true);
     updateUserInfo(userData);
+    // Disparar evento adicional para garantir que o Header seja atualizado
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('user-info-updated', { detail: userData }));
+    }, 200);
   };
 
   const [refreshAcknowledgedNews, setRefreshAcknowledgedNews] = useState(null);
@@ -671,10 +1171,9 @@ export default function App_v2() {
       case 'Req_Prod':
         return <EscalacoesPage />;
       case 'Perfil':
-        // PerfilPage comentado até arquivo ser adicionado ao repositório
-        return <div className="text-center p-10 text-gray-800 dark:text-gray-200"><h1 className="text-3xl">Perfil</h1><p>Página em desenvolvimento.</p></div>;
+        return <PerfilPage />;
       case 'VeloAcademy':
-        return <div className="text-center p-10 text-gray-800 dark:text-gray-200"><h1 className="text-3xl">VeloAcademy</h1><p>Clique no botão VeloAcademy no header para acessar a plataforma.</p></div>;
+        return <div className="text-center p-10 text-gray-800 dark:text-gray-200"><h1 className="text-3xl">VeloAcademy</h1><p>Clique no bot├úo VeloAcademy no header para acessar a plataforma.</p></div>;
       default:
         return <HomePage 
           setCriticalNews={setCriticalNews} 
@@ -687,24 +1186,24 @@ export default function App_v2() {
     }
   };
 
-  // Mostrar tela de carregamento enquanto verifica autenticação
+  // Mostrar tela de carregamento enquanto verifica autentica├º├úo
   if (isCheckingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Verificando autenticação...</p>
+          <p className="text-gray-600 dark:text-gray-400">Verificando autentica├º├úo...</p>
         </div>
       </div>
     );
   }
 
-  // Mostrar tela de login se não estiver autenticado
+  // Mostrar tela de login se n├úo estiver autenticado
   if (!isAuthenticated) {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }
 
-  // Mostrar aplicação principal se estiver autenticado
+  // Mostrar aplica├º├úo principal se estiver autenticado
   return (
     <div className="min-h-screen font-sans velohub-bg">
       <Header activePage={activePage} setActivePage={setActivePage} isDarkMode={isDarkMode} toggleDarkMode={() => setIsDarkMode(!isDarkMode)} />
@@ -719,7 +1218,7 @@ export default function App_v2() {
             try {
               const session = getUserSession();
               const userEmail = session?.user?.email || 'unknown';
-              const userName = session?.user?.name || 'Usuário';
+              const userName = session?.user?.name || 'Usu├írio';
               
               const response = await fetch(`${API_BASE_URL}/velo-news/${newsId}/acknowledge`, {
                 method: 'POST',
@@ -735,26 +1234,26 @@ export default function App_v2() {
               const result = await response.json();
               
               if (result.success) {
-                console.log('✅ Notícia confirmada no MongoDB:', result.message);
+                console.log('Ô£à Not├¡cia confirmada no MongoDB:', result.message);
                 // Adicionar ID imediatamente ao estado local para remover destaque vermelho
                 if (updateAcknowledgedNewsCallback) {
                   updateAcknowledgedNewsCallback(newsId);
                 }
-                // Recarregar acknowledges do servidor para garantir sincronização
+                // Recarregar acknowledges do servidor para garantir sincroniza├º├úo
                 if (refreshAcknowledgedNews) {
                   await refreshAcknowledgedNews();
                 }
               } else {
-                console.error('❌ Erro ao confirmar notícia:', result.error);
+                console.error('ÔØî Erro ao confirmar not├¡cia:', result.error);
               }
             } catch (error) {
-              console.error('❌ Erro ao confirmar notícia:', error);
+              console.error('ÔØî Erro ao confirmar not├¡cia:', error);
             }
           }}
         />
       )}
       
-      {/* Modal de Histórico de Notícias */}
+      {/* Modal de Hist├│rico de Not├¡cias */}
       <NewsHistoryModal
         isOpen={showHistoryModal}
         onClose={() => setShowHistoryModal(false)}
@@ -764,7 +1263,7 @@ export default function App_v2() {
           try {
             const session = getUserSession();
             const userEmail = session?.user?.email || 'unknown';
-            const finalUserName = userName || session?.user?.name || 'Usuário';
+            const finalUserName = userName || session?.user?.name || 'Usu├írio';
             
             const response = await fetch(`${API_BASE_URL}/velo-news/${newsId}/acknowledge`, {
               method: 'POST',
@@ -780,16 +1279,16 @@ export default function App_v2() {
             const result = await response.json();
             
             if (result.success) {
-              console.log('✅ Notícia marcada como ciente no MongoDB:', result.message);
-              // Recarregar acknowledges após confirmação
+              console.log('Ô£à Not├¡cia marcada como ciente no MongoDB:', result.message);
+              // Recarregar acknowledges ap├│s confirma├º├úo
               if (refreshAcknowledgedNews) {
                 await refreshAcknowledgedNews();
               }
             } else {
-              console.error('❌ Erro ao marcar notícia como ciente:', result.error);
+              console.error('ÔØî Erro ao marcar not├¡cia como ciente:', result.error);
             }
           } catch (error) {
-            console.error('❌ Erro ao marcar notícia como ciente:', error);
+            console.error('ÔØî Erro ao marcar not├¡cia como ciente:', error);
           }
         }}
       />
@@ -820,7 +1319,7 @@ const PontoWidget = () => {
       
       if (data.success) {
         setMessage(data.message);
-        // Atualizar status após bater ponto
+        // Atualizar status ap├│s bater ponto
         setTimeout(() => fetchStatus(), 1000);
       } else {
         setMessage(`Erro: ${data.error}`);
@@ -884,7 +1383,7 @@ const PontoWidget = () => {
         </p>
       </div>
 
-      {/* Botões de Ponto */}
+      {/* Bot├Áes de Ponto */}
       <div className="space-y-2">
         <button
           onClick={() => handlePonto('entrada')}
@@ -907,7 +1406,7 @@ const PontoWidget = () => {
               : 'bg-red-600 hover:bg-red-700 text-white'
           }`}
         >
-          {loading ? 'Registrando...' : 'Saída'}
+          {loading ? 'Registrando...' : 'Sa├¡da'}
         </button>
       </div>
 
@@ -923,35 +1422,30 @@ const PontoWidget = () => {
   );
 };
 
-// ===== FUNÇÕES AUXILIARES PARA PROCESSAMENTO DE MÍDIA =====
-// Função para obter URL da imagem (primeira imagem da notícia/artigo)
+// ===== FUN├ç├òES AUXILIARES PARA PROCESSAMENTO DE M├ìDIA =====
+// Fun├º├úo para obter URL da imagem (primeira imagem da not├¡cia/artigo)
 const getImageUrl = (item) => {
   // Processar item.media.images ou item.images (compatibilidade)
   const images = item?.media?.images || item?.images || [];
-  console.log('🔍 getImageUrl - item:', item?.title || item?.titulo || 'sem título');
-  console.log('🔍 getImageUrl - images:', images);
   
   if (!Array.isArray(images) || images.length === 0) {
-    console.log('🔍 getImageUrl - Sem imagens, retornando null');
     return null;
   }
   
   const firstImage = images[0];
-  console.log('🔍 getImageUrl - firstImage:', firstImage);
   
-  // Se é caminho relativo (formato novo: "img_velonews/123.jpg" ou "img_artigos/123.jpg")
+  // Se ├® caminho relativo (formato novo: "img_velonews/123.jpg" ou "img_artigos/123.jpg")
   if (typeof firstImage === 'string' && (firstImage.startsWith('img_velonews/') || firstImage.startsWith('img_artigos/') || firstImage.startsWith('/img_velonews/') || firstImage.startsWith('/img_artigos/'))) {
     const cleanPath = firstImage.startsWith('/') ? firstImage.substring(1) : firstImage;
-    // Codificar cada parte do caminho separadamente (importante para espaços e caracteres especiais)
-    // Mantém as barras não codificadas, mas codifica o nome do arquivo
+    // Codificar cada parte do caminho separadamente (importante para espa├ºos e caracteres especiais)
+    // Mant├®m as barras n├úo codificadas, mas codifica o nome do arquivo
     const encodedPath = cleanPath.split('/').map(part => encodeURIComponent(part)).join('/');
     // Usar endpoint do backend que redireciona para o GCS
     const imageUrl = `${API_BASE_URL}/images/${encodedPath}`;
-    console.log('🔍 getImageUrl - URL gerada:', { cleanPath, encodedPath, imageUrl });
     return imageUrl;
   }
   
-  // Se é objeto com path (compatibilidade temporária)
+  // Se ├® objeto com path (compatibilidade tempor├íria)
   if (firstImage && typeof firstImage === 'object' && firstImage.path) {
     const cleanPath = firstImage.path.startsWith('/') ? firstImage.path.substring(1) : firstImage.path;
     // Codificar cada parte do caminho separadamente
@@ -959,7 +1453,7 @@ const getImageUrl = (item) => {
     return `${API_BASE_URL}/images/${encodedPath}`;
   }
   
-  // Se é URL completa (compatibilidade com dados antigos)
+  // Se ├® URL completa (compatibilidade com dados antigos)
   if (typeof firstImage === 'string' && firstImage.startsWith('http')) {
     return firstImage;
   }
@@ -968,15 +1462,15 @@ const getImageUrl = (item) => {
     return firstImage.url;
   }
   
-  // Se é base64 (compatibilidade com dados antigos)
+  // Se ├® base64 (compatibilidade com dados antigos)
   if (typeof firstImage === 'string') {
-    // Verificar se é base64 (não começa com http e não é caminho relativo)
+    // Verificar se ├® base64 (n├úo come├ºa com http e n├úo ├® caminho relativo)
     if (!firstImage.startsWith('http') && !firstImage.startsWith('img_velonews/') && !firstImage.startsWith('img_artigos/')) {
       return firstImage.includes('data:') ? firstImage : `data:image/jpeg;base64,${firstImage}`;
     }
   }
   
-  // Se é um objeto com propriedade data (base64 antigo)
+  // Se ├® um objeto com propriedade data (base64 antigo)
   if (firstImage && typeof firstImage === 'object' && firstImage.data) {
     const imageData = firstImage.data;
     if (typeof imageData === 'string' && !imageData.startsWith('http') && !imageData.startsWith('img_velonews/') && !imageData.startsWith('img_artigos/')) {
@@ -987,12 +1481,10 @@ const getImageUrl = (item) => {
   return null;
 };
 
-// Função para obter URL do thumbnail do YouTube
+// Fun├º├úo para obter URL do thumbnail do YouTube
 const getYouTubeThumbnail = (item) => {
   // Processar item.media.videos ou item.videos
   const videos = item?.media?.videos || item?.videos || [];
-  console.log('🔍 getYouTubeThumbnail - item:', item?.title || item?.titulo || 'sem título');
-  console.log('🔍 getYouTubeThumbnail - videos:', videos);
   
   if (!Array.isArray(videos) || videos.length === 0) {
     return null;
@@ -1002,13 +1494,13 @@ const getYouTubeThumbnail = (item) => {
   let youtubeUrl = null;
   for (const v of videos) {
     if (typeof v === 'string') {
-      // É uma string de URL
+      // ├ë uma string de URL
       if (v.includes('youtube.com') || v.includes('youtu.be')) {
         youtubeUrl = v;
         break;
       }
     } else if (v && typeof v === 'object') {
-      // É um objeto com propriedades
+      // ├ë um objeto com propriedades
       if (v.type === 'youtube' || v.embed || v.url) {
         youtubeUrl = v.url || v.embed || '';
         break;
@@ -1026,16 +1518,16 @@ const getYouTubeThumbnail = (item) => {
   return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
 };
 
-// Função auxiliar para detectar se é um YouTube Shorts
+// Fun├º├úo auxiliar para detectar se ├® um YouTube Shorts
 const isYouTubeShorts = (url) => {
   return url && typeof url === 'string' && url.includes('youtube.com/shorts/');
 };
 
-// Função auxiliar para converter URL do YouTube para formato embed
+// Fun├º├úo auxiliar para converter URL do YouTube para formato embed
 const convertYouTubeUrlToEmbed = (url) => {
   if (!url || typeof url !== 'string') return null;
   
-  // Se já está em formato embed, retornar como está
+  // Se j├í est├í em formato embed, retornar como est├í
   if (url.includes('youtube.com/embed/')) {
     return url;
   }
@@ -1048,7 +1540,7 @@ const convertYouTubeUrlToEmbed = (url) => {
   return `https://www.youtube.com/embed/${videoId}`;
 };
 
-// Função para obter URL do embed do YouTube
+// Fun├º├úo para obter URL do embed do YouTube
 const getYouTubeEmbedUrl = (item) => {
   // Processar item.media.videos ou item.videos
   const videos = item?.media?.videos || item?.videos || [];
@@ -1074,7 +1566,7 @@ const getYouTubeEmbedUrl = (item) => {
   
   if (!youtubeUrl) return null;
   
-  // Se já é formato embed, retornar
+  // Se j├í ├® formato embed, retornar
   if (typeof youtubeUrl === 'string' && youtubeUrl.includes('youtube.com/embed/')) {
     return youtubeUrl;
   }
@@ -1083,7 +1575,7 @@ const getYouTubeEmbedUrl = (item) => {
   return convertYouTubeUrlToEmbed(youtubeUrl);
 };
 
-// Função auxiliar para processar todas as imagens de um item (news ou article)
+// Fun├º├úo auxiliar para processar todas as imagens de um item (news ou article)
 const getAllImages = (item) => {
   // Processar item.media.images ou item.images
   const images = item?.media?.images || item?.images || [];
@@ -1092,7 +1584,7 @@ const getAllImages = (item) => {
   }
   
   return images.map(img => {
-    // Se é caminho relativo
+    // Se ├® caminho relativo
     if (typeof img === 'string' && (img.startsWith('img_velonews/') || img.startsWith('img_artigos/') || img.startsWith('/img_velonews/') || img.startsWith('/img_artigos/'))) {
       const cleanPath = img.startsWith('/') ? img.substring(1) : img;
       // Codificar cada parte do caminho separadamente
@@ -1100,7 +1592,7 @@ const getAllImages = (item) => {
       return `${API_BASE_URL}/images/${encodedPath}`;
     }
     
-    // Se é objeto com path
+    // Se ├® objeto com path
     if (img && typeof img === 'object' && img.path) {
       const cleanPath = img.path.startsWith('/') ? img.path.substring(1) : img.path;
       // Codificar cada parte do caminho separadamente
@@ -1108,7 +1600,7 @@ const getAllImages = (item) => {
       return `${API_BASE_URL}/images/${encodedPath}`;
     }
     
-    // Se é URL completa
+    // Se ├® URL completa
     if (typeof img === 'string' && img.startsWith('http')) {
       return img;
     }
@@ -1117,7 +1609,7 @@ const getAllImages = (item) => {
       return img.url;
     }
     
-    // Se é base64
+    // Se ├® base64
     if (typeof img === 'string') {
       if (!img.startsWith('http') && !img.startsWith('img_velonews/') && !img.startsWith('img_artigos/')) {
         return img.includes('data:') ? img : `data:image/jpeg;base64,${img}`;
@@ -1135,16 +1627,14 @@ const getAllImages = (item) => {
   }).filter(url => url !== null);
 };
 
-// Função para processar conteúdo HTML e remover URLs do bucket GCS
-// Substitui URLs do bucket por endpoint local e remove metadados visíveis
+// Fun├º├úo para processar conte├║do HTML e remover URLs do bucket GCS
+// Substitui URLs do bucket por endpoint local e remove metadados vis├¡veis
 const processContentHtml = (htmlContent, mediaImages = []) => {
   if (!htmlContent || typeof htmlContent !== 'string') return htmlContent || '';
   
-  console.log('🔍 processContentHtml - ANTES:', htmlContent.substring(0, 200));
-  
   let processedHtml = htmlContent;
   
-  // Padrão para URLs do bucket GCS
+  // Padr├úo para URLs do bucket GCS
   const bucketUrlPattern = /https:\/\/storage\.googleapis\.com\/[^\/]+\/(img_velonews\/[^"'\s\)]+|img_artigos\/[^"'\s\)]+)/g;
   
   // 1. Substituir URLs do bucket em markdown por endpoint local
@@ -1154,7 +1644,7 @@ const processContentHtml = (htmlContent, mediaImages = []) => {
       const cleanPath = pathMatch[1];
       const encodedPath = cleanPath.split('/').map(part => encodeURIComponent(part)).join('/');
       const newUrl = `${API_BASE_URL}/images/${encodedPath}`;
-      // Remover markdown completamente - a imagem será renderizada separadamente via getAllImages
+      // Remover markdown completamente - a imagem ser├í renderizada separadamente via getAllImages
       return '';
     }
     return match;
@@ -1177,13 +1667,13 @@ const processContentHtml = (htmlContent, mediaImages = []) => {
       // Remover title se contiver apenas nome de arquivo
       processedAttrs = processedAttrs.replace(/\s+title=["']([^"']*\.(jpg|jpeg|png|gif|webp))["']/gi, '');
       
-      // Preservar width, height e style (dimensões definidas pelo Console)
+      // Preservar width, height e style (dimens├Áes definidas pelo Console)
       return `<img${beforeSrc}${newSrc}${processedAttrs}>`;
     }
     return match;
   });
   
-  // 3. Substituir URLs do bucket em texto simples (caso apareçam como links)
+  // 3. Substituir URLs do bucket em texto simples (caso apare├ºam como links)
   processedHtml = processedHtml.replace(bucketUrlPattern, (match, imagePath) => {
     const cleanPath = imagePath;
     const encodedPath = cleanPath.split('/').map(part => encodeURIComponent(part)).join('/');
@@ -1193,15 +1683,351 @@ const processContentHtml = (htmlContent, mediaImages = []) => {
   // 4. Remover texto que contenha apenas URLs do bucket (linhas soltas)
   processedHtml = processedHtml.replace(/https:\/\/storage\.googleapis\.com\/[^\/]+\/(img_velonews\/[^\s\)]+|img_artigos\/[^\s\)]+)/g, '');
   
-  console.log('🔍 processContentHtml - DEPOIS:', processedHtml.substring(0, 200));
-  
   return processedHtml;
 };
 
-// Conteúdo da Página Home - VERSÃO MELHORADA
+// Função helper reutilizável para renderizar sidebar direito com chat
+// VERSION: v1.0.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+const renderRightSidebarChat = ({
+    isCollapsed,
+    onToggleCollapse,
+    activeTab,
+    setActiveTab,
+    isSearchExpanded,
+    setIsSearchExpanded,
+    searchQuery,
+    setSearchQuery,
+    soundEnabled,
+    toggleSound
+}) => {
+    if (isCollapsed) {
+        return (
+            <div 
+                style={{
+                    position: 'relative',
+                    width: '10px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    justifyContent: 'center',
+                    paddingTop: '12px'
+                }}
+                onClick={onToggleCollapse}
+            >
+                <ChevronLeft 
+                    size={22} 
+                    style={{
+                        color: 'var(--blue-dark)',
+                        transition: 'color 0.3s ease'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = 'var(--blue-opaque)'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = 'var(--blue-dark)'}
+                />
+            </div>
+        );
+    }
+
+    return (
+        <aside 
+            className="rounded-lg shadow-sm flex flex-col velohub-container" 
+            style={{
+                borderRadius: '9.6px', 
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', 
+                padding: '19.0px', 
+                position: 'relative', 
+                display: 'flex',
+                flexDirection: 'column',
+                minWidth: 0,
+                height: '700px',
+                maxHeight: '700px',
+                overflow: 'hidden',
+                transition: 'opacity 0.3s ease, transform 0.3s ease'
+            }}
+        >
+            {/* Botão de retração no canto superior esquerdo */}
+            <button
+                onClick={onToggleCollapse}
+                style={{
+                    position: 'absolute',
+                    top: '12px',
+                    left: '12px',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 10,
+                    transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={(e) => {
+                    e.currentTarget.querySelector('svg').style.color = 'var(--blue-opaque)';
+                }}
+                onMouseLeave={(e) => {
+                    e.currentTarget.querySelector('svg').style.color = 'rgba(128, 128, 128, 0.5)';
+                }}
+            >
+                <ChevronRight 
+                    size={18} 
+                    style={{
+                        color: 'rgba(128, 128, 128, 0.5)',
+                        transition: 'color 0.3s ease'
+                    }}
+                />
+            </button>
+            
+            {/* Widget VeloChat */}
+            <div className="flex-1 flex flex-col" style={{ minHeight: 0, overflow: 'hidden' }}>
+                {/* Header com título e busca */}
+                <div className="flex items-center mb-4" style={{ gap: '8px', position: 'relative', flexShrink: 0 }}>
+                    {isSearchExpanded ? (
+                        <>
+                            <input 
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Buscar contato..."
+                                className="flex-1 px-3 py-2 rounded-lg border"
+                                style={{
+                                    borderColor: 'var(--blue-opaque)',
+                                    borderRadius: '8px',
+                                    outline: 'none',
+                                    transition: 'all 0.3s ease',
+                                    fontFamily: 'Poppins, sans-serif',
+                                    marginLeft: '40px'
+                                }}
+                                autoFocus
+                            />
+                            <button 
+                                onClick={() => { setIsSearchExpanded(false); setSearchQuery(''); }}
+                                className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center justify-center"
+                                style={{ color: 'var(--blue-dark)', minWidth: '32px', height: '32px' }}
+                                title="Fechar busca"
+                            >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            {/* Status à esquerda */}
+                            <div style={{ marginLeft: '16px', flexShrink: 0 }}>
+                                <ChatStatusSelector 
+                                    sessionId={localStorage.getItem('velohub_session_id')} 
+                                    onStatusChange={(newStatus) => {
+                                        // Status atualizado
+                                    }}
+                                />
+                            </div>
+                            
+                            {/* Chat centralizado */}
+                            <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                <h3 className="font-bold text-xl velohub-title" style={{ 
+                                    color: 'var(--blue-dark)', 
+                                    margin: 0,
+                                    textAlign: 'center',
+                                    position: 'absolute',
+                                    left: '50%',
+                                    transform: 'translateX(-50%)'
+                                }}>
+                                    Chat
+                                </h3>
+                            </div>
+                            
+                            {/* Ícone de som */}
+                            <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                <button
+                                    onClick={toggleSound}
+                                    className="flex items-center justify-center p-1 rounded transition-colors"
+                                    style={{
+                                        border: 'none',
+                                        background: 'transparent',
+                                        cursor: 'pointer',
+                                        padding: '4px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}
+                                    title={soundEnabled ? 'Desativar som' : 'Ativar som'}
+                                >
+                                    {soundEnabled ? (
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--blue-dark)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                                        </svg>
+                                    ) : (
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(128, 128, 128, 0.6)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}>
+                                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                            <line x1="23" y1="9" x2="17" y2="15"></line>
+                                            <line x1="17" y1="9" x2="23" y2="15"></line>
+                                        </svg>
+                                    )}
+                                </button>
+                            </div>
+                            
+                            {/* Botão de busca */}
+                            <div style={{ flexShrink: 0 }}>
+                                <button 
+                                    onClick={() => setIsSearchExpanded(true)}
+                                    className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    style={{ color: 'var(--blue-dark)' }}
+                                    title="Buscar contato"
+                                >
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="11" cy="11" r="8"></circle>
+                                        <path d="m21 21-4.35-4.35"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </div>
+                
+                {/* Seletor de Abas */}
+                <div className="flex border-b mb-2" style={{ borderColor: 'var(--blue-opaque)', flexShrink: 0 }}>
+                    <button 
+                        className="flex-1 py-2 text-sm font-medium transition-colors"
+                        onClick={() => setActiveTab('conversations')}
+                        style={activeTab === 'conversations' ? {
+                            color: 'var(--blue-dark)',
+                            borderBottom: '2px solid var(--blue-opaque)'
+                        } : {
+                            color: 'var(--cor-texto-secundario)'
+                        }}
+                    >
+                        Conversas
+                    </button>
+                    <button 
+                        className="flex-1 py-2 text-sm font-medium transition-colors"
+                        onClick={() => setActiveTab('contacts')}
+                        style={activeTab === 'contacts' ? {
+                            color: 'var(--blue-dark)',
+                            borderBottom: '2px solid var(--blue-opaque)'
+                        } : {
+                            color: 'var(--cor-texto-secundario)'
+                        }}
+                    >
+                        Contatos
+                    </button>
+                    <button 
+                        className="flex-1 py-2 text-sm font-medium transition-colors"
+                        onClick={() => setActiveTab('salas')}
+                        style={activeTab === 'salas' ? {
+                            color: 'var(--blue-dark)',
+                            borderBottom: '2px solid var(--blue-opaque)'
+                        } : {
+                            color: 'var(--cor-texto-secundario)'
+                        }}
+                    >
+                        Salas
+                    </button>
+                </div>
+                    
+                {/* Container scrollável para conteúdo do chat */}
+                <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+                    {/* VeloChatWidget com bloqueio em produção */}
+                    {(() => {
+                        const isProduction = typeof window !== 'undefined' && 
+                            !window.location.hostname.includes('localhost') && 
+                            !window.location.hostname.includes('127.0.0.1');
+                        
+                        let userName = '';
+                        try {
+                            const sessionData = localStorage.getItem('velohub_user_session');
+                            if (sessionData) {
+                                const session = JSON.parse(sessionData);
+                                userName = session?.user?.name || '';
+                            }
+                        } catch (err) {
+                            console.error('Erro ao obter nome do usuário:', err);
+                        }
+                        
+                        const isLucasGravina = userName && 
+                            userName.toLowerCase().includes('lucas') && 
+                            userName.toLowerCase().includes('gravina');
+                        
+                        const shouldShowChat = !isProduction || isLucasGravina;
+                        
+                        if (!shouldShowChat) {
+                            return (
+                                <div style={{
+                                    position: 'relative',
+                                    width: '100%',
+                                    height: '100%',
+                                    minHeight: '400px',
+                                    background: 'transparent',
+                                    border: '1.5px solid var(--blue-dark)',
+                                    borderRadius: '8px',
+                                    padding: '16px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'center',
+                                    alignItems: 'center'
+                                }}>
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 0,
+                                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        borderRadius: '8px',
+                                        zIndex: 10
+                                    }}>
+                                        <span style={{
+                                            color: 'white',
+                                            fontSize: '1.2rem',
+                                            fontWeight: 'bold',
+                                            fontFamily: 'Poppins, sans-serif',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '1.6px'
+                                        }}>
+                                            EM BREVE
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        }
+                        
+                        return (
+                            <VeloChatWidget activeTab={activeTab} searchQuery={searchQuery} />
+                        );
+                    })()}
+                </div>
+            </div>
+        </aside>
+    );
+};
+
+// Conte├║do da P├ígina Home - VERS├âO MELHORADA
 const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews, setRefreshAcknowledgedNews, setAcknowledgedNewsIds: setParentAcknowledgedNewsIds, setUpdateAcknowledgedNewsCallback }) => {
     const [selectedNews, setSelectedNews] = useState(null);
     const [selectedArticle, setSelectedArticle] = useState(null);
+    // Estado para controle de som do chat
+    const [soundEnabled, setSoundEnabled] = useState(() => {
+        try {
+            return localStorage.getItem('velochat_sound_enabled') !== 'false';
+        } catch {
+            return true; // Default: som ativado
+        }
+    });
+    
+    // Função para alternar som
+    const toggleSound = () => {
+        const newState = !soundEnabled;
+        setSoundEnabled(newState);
+        try {
+            localStorage.setItem('velochat_sound_enabled', newState.toString());
+        } catch (error) {
+            console.error('Erro ao salvar preferência de som:', error);
+        }
+    };
     const [recentItems, setRecentItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [lastRefresh, setLastRefresh] = useState(Date.now());
@@ -1214,7 +2040,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
     const [isSearchExpanded, setIsSearchExpanded] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     
-    // Estados dos módulos - controlados pelo Console VeloHub
+    // Estados dos m├│dulos - controlados pelo Console VeloHub
     const [moduleStatus, setModuleStatus] = useState({
         'credito-trabalhador': 'on',
         'credito-pessoal': 'on', 
@@ -1252,12 +2078,12 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
         }
     };
 
-    // Função para carregar acknowledges do usuário
+    // Fun├º├úo para carregar acknowledges do usu├írio
     const loadAcknowledgedNews = async () => {
         try {
             const session = getUserSession();
             if (!session?.user?.email) {
-                console.log('⚠️ Usuário não autenticado, não é possível carregar acknowledges');
+                console.log('ÔÜá´©Å Usu├írio n├úo autenticado, n├úo ├® poss├¡vel carregar acknowledges');
                 return;
             }
 
@@ -1265,28 +2091,28 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
             const data = await response.json();
             
             if (data.success) {
-                console.log(`✅ Acknowledges carregados: ${data.acknowledgedNewsIds.length} notícias confirmadas`);
+                console.log(`Ô£à Acknowledges carregados: ${data.acknowledgedNewsIds.length} not├¡cias confirmadas`);
                 const acknowledgedIds = data.acknowledgedNewsIds || [];
                 setAcknowledgedNewsIds(acknowledgedIds);
-                // Atualizar também no componente pai
+                // Atualizar tamb├®m no componente pai
                 if (setParentAcknowledgedNewsIds) {
                     setParentAcknowledgedNewsIds(acknowledgedIds);
                 }
             } else {
-                console.error('❌ Erro ao carregar acknowledges:', data.error);
+                console.error('ÔØî Erro ao carregar acknowledges:', data.error);
             }
         } catch (error) {
-            console.error('❌ Erro ao carregar acknowledges:', error);
+            console.error('ÔØî Erro ao carregar acknowledges:', error);
         }
     };
 
-    // Função para adicionar ID imediatamente ao estado local
+    // Fun├º├úo para adicionar ID imediatamente ao estado local
     const addAcknowledgedNewsId = (newsId) => {
         const newsIdString = String(newsId);
         setAcknowledgedNewsIds(prev => {
             if (!prev.includes(newsIdString) && !prev.some(id => String(id) === newsIdString)) {
                 const updated = [...prev, newsIdString];
-                // Atualizar também no componente pai
+                // Atualizar tamb├®m no componente pai
                 if (setParentAcknowledgedNewsIds) {
                     setParentAcknowledgedNewsIds(updated);
                 }
@@ -1296,7 +2122,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
         });
     };
 
-    // Passar função de refresh e callback de atualização para o componente pai
+    // Passar fun├º├úo de refresh e callback de atualiza├º├úo para o componente pai
     useEffect(() => {
         if (setRefreshAcknowledgedNews) {
             setRefreshAcknowledgedNews(() => loadAcknowledgedNews);
@@ -1306,55 +2132,65 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
         }
     }, [setRefreshAcknowledgedNews, setUpdateAcknowledgedNewsCallback]);
 
-    // Função para abrir modal de artigo
+    // Fun├º├úo para abrir modal de artigo
     const handleArticleClick = (article) => {
         setSelectedArticle(article);
     };
 
-    // Função para renderizar status do módulo
+    // Fun├º├úo para renderizar status do m├│dulo como badge
     const renderModuleStatus = (moduleKey, moduleName, title) => {
         const status = moduleStatus[moduleKey];
-        let statusConfig = {};
+        let badgeConfig = {};
         
         switch (status) {
             case 'on':
-                statusConfig = {
-                    color: 'bg-green-500',
-                    animate: 'animate-pulse',
-                    title: 'Serviço Online - Funcionando normalmente'
+                badgeConfig = {
+                    bgColor: 'bg-green-100',
+                    textColor: 'text-green-800',
+                    darkBg: 'dark:bg-green-900',
+                    darkText: 'dark:text-green-200',
+                    title: 'Servi├ºo Online - Funcionando normalmente'
                 };
                 break;
             case 'revisao':
-                statusConfig = {
-                    color: 'bg-yellow-500',
-                    animate: '',
-                    title: 'Em Revisão - Serviço temporariamente indisponível'
+                badgeConfig = {
+                    bgColor: 'bg-yellow-100',
+                    textColor: 'text-yellow-800',
+                    darkBg: 'dark:bg-yellow-900',
+                    darkText: 'dark:text-yellow-200',
+                    title: 'Em Revis├úo - Servi├ºo temporariamente indispon├¡vel'
                 };
                 break;
             case 'off':
-                statusConfig = {
-                    color: 'bg-red-500',
-                    animate: '',
-                    title: 'Serviço Offline - Indisponível no momento'
+                badgeConfig = {
+                    bgColor: 'bg-red-100',
+                    textColor: 'text-red-800',
+                    darkBg: 'dark:bg-red-900',
+                    darkText: 'dark:text-red-200',
+                    title: 'Servi├ºo Offline - Indispon├¡vel no momento'
                 };
                 break;
             default:
-                statusConfig = {
-                    color: 'bg-gray-500',
-                    animate: '',
+                badgeConfig = {
+                    bgColor: 'bg-gray-100',
+                    textColor: 'text-gray-800',
+                    darkBg: 'dark:bg-gray-900',
+                    darkText: 'dark:text-gray-200',
                     title: 'Status Desconhecido'
                 };
         }
         
         return (
-            <div className="flex items-center gap-1 text-sm p-1 rounded hover:bg-gray-50 transition-colors" title={statusConfig.title}>
-                <span className={`h-2 w-2 ${statusConfig.color} rounded-full ${statusConfig.animate}`}></span>
-                <span style={{color: 'var(--cor-texto-principal)'}}>{moduleName}</span>
-            </div>
+            <span 
+                className={`${badgeConfig.bgColor} ${badgeConfig.textColor} ${badgeConfig.darkBg} ${badgeConfig.darkText} text-xs px-2 py-1 rounded-full`}
+                title={badgeConfig.title}
+            >
+                {moduleName}
+            </span>
         );
     };
 
-    // ===== FUNÇÃO PARA ACKNOWLEDGE DE NOTÍCIAS =====
+    // ===== FUN├ç├âO PARA ACKNOWLEDGE DE NOT├ìCIAS =====
     const handleAcknowledgeNews = async (newsId, userName) => {
         try {
             const response = await fetch(`${API_BASE_URL}/velo-news/${newsId}/acknowledge`, {
@@ -1364,15 +2200,15 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                 },
                 body: JSON.stringify({
                     userId: user?.email || 'unknown',
-                    userName: userName || user?.name || 'Usuário'
+                    userName: userName || user?.name || 'Usu├írio'
                 })
             });
 
             const result = await response.json();
             
             if (result.success) {
-                console.log('✅ Notícia confirmada:', result.message);
-                // Atualizar a notícia local para mostrar como confirmada
+                console.log('Ô£à Not├¡cia confirmada:', result.message);
+                // Atualizar a not├¡cia local para mostrar como confirmada
                 setVeloNews(prevNews => 
                     prevNews.map(news => 
                         news._id === newsId 
@@ -1381,10 +2217,10 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                     )
                 );
             } else {
-                console.error('❌ Erro ao confirmar notícia:', result.error);
+                console.error('ÔØî Erro ao confirmar not├¡cia:', result.error);
             }
         } catch (error) {
-            console.error('❌ Erro ao confirmar notícia:', error);
+            console.error('ÔØî Erro ao confirmar not├¡cia:', error);
         }
     };
 
@@ -1392,22 +2228,38 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
         const fetchAllData = async () => {
             try {
                 setLoading(true);
-                const velonewsResponse = await veloNewsAPI.getAll();
+                // ✅ Carregar apenas as 4 notícias mais recentes inicialmente
+                console.log('🔍 [fetchAllData] Iniciando carregamento de VeloNews...');
+                const velonewsResponse = await veloNewsAPI.getRecent(4);
+                console.log('🔍 [fetchAllData] Resposta recebida:', velonewsResponse);
+                console.log('🔍 [fetchAllData] velonewsResponse.data:', velonewsResponse?.data);
+                console.log('🔍 [fetchAllData] Tipo de data:', Array.isArray(velonewsResponse?.data) ? 'array' : typeof velonewsResponse?.data);
                 
                 // ✅ Handshake das IAs do VeloBot movido para o componente Chatbot.js
                 // O handshake agora é executado apenas quando a aba VeloBot é acessada
                 
-                // ✅ Usar todos os velonews recebidos da API
-                const sortedVeloNews = [...velonewsResponse.data].sort((a, b) => {
+                // ✅ Usar apenas as 4 notícias recebidas da API (já ordenadas pelo backend)
+                const newsData = velonewsResponse?.data || [];
+                console.log('🔍 [fetchAllData] Quantidade de notícias recebidas:', newsData.length);
+                
+                // Ordenar notícias (definir sortedVeloNews no escopo correto)
+                let sortedVeloNews = [];
+                if (!Array.isArray(newsData)) {
+                    console.error('❌ [fetchAllData] Erro: data não é um array:', newsData);
+                    setVeloNews([]);
+                } else {
+                    sortedVeloNews = [...newsData].sort((a, b) => {
                     const da = new Date(a.createdAt || a.updatedAt || 0) || 0;
                     const db = new Date(b.createdAt || b.updatedAt || 0) || 0;
                     return db - da;
                 });
                 
-                console.log('🔍 FRONTEND - veloNews[0]:', sortedVeloNews[0]);
-                console.log('🔍 FRONTEND - solved tipo:', typeof sortedVeloNews[0]?.solved);
-                console.log('🔍 FRONTEND - solved valor:', sortedVeloNews[0]?.solved);
+                    console.log('🔍 [fetchAllData] Notícias ordenadas:', sortedVeloNews.length);
+                    console.log('🔍 [fetchAllData] Primeira notícia:', sortedVeloNews[0]);
+                    console.log('🔍 [fetchAllData] solved tipo:', typeof sortedVeloNews[0]?.solved);
+                    console.log('🔍 [fetchAllData] solved valor:', sortedVeloNews[0]?.solved);
                 setVeloNews(sortedVeloNews);
+                }
                 
                 // Carregar acknowledges primeiro
                 await loadAcknowledgedNews();
@@ -1428,14 +2280,14 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                             const mostRecentCritical = criticalNews.length > 0 ? criticalNews[0] : null;
                             
                             if (mostRecentCritical) {
-                                // Verificar se já foi confirmada
+                                // Verificar se j├í foi confirmada
                                 const isAcknowledged = currentAcknowledgedIds.includes(mostRecentCritical._id);
                                 
                                 if (!isAcknowledged) {
-                                    // Criar uma chave única para a notícia crítica mais recente (ID + título)
+                                    // Criar uma chave ├║nica para a not├¡cia cr├¡tica mais recente (ID + t├¡tulo)
                                     const criticalKey = `${mostRecentCritical._id}-${mostRecentCritical.title}`;
                                     
-                                    // Verificar se é uma notícia crítica nova usando localStorage
+                                    // Verificar se ├® uma not├¡cia cr├¡tica nova usando localStorage
                                     if (CriticalModalManager.isNewCriticalNews(criticalKey)) {
                                         CriticalModalManager.resetForNewCriticalNews();
                                         CriticalModalManager.setLastCriticalNews(criticalKey);
@@ -1443,13 +2295,13 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                     }
                                     
                                     if (CriticalModalManager.shouldShowModal(mostRecentCritical)) {
-                                        console.log('🚨 Modal crítico exibido para notícia mais recente:', mostRecentCritical.title);
+                                        console.log('­ƒÜ¿ Modal cr├¡tico exibido para not├¡cia mais recente:', mostRecentCritical.title);
                                         setCriticalNews(mostRecentCritical);
                                     }
                                 }
                             }
                         } catch (error) {
-                            console.error('❌ Erro ao verificar notícia crítica:', error);
+                            console.error('ÔØî Erro ao verificar not├¡cia cr├¡tica:', error);
                         }
                     }
                 };
@@ -1479,7 +2331,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
 
                 fetchRecentItems();
                 
-                // Carregar status dos módulos
+                // Carregar status dos m├│dulos
                 fetchModuleStatus();
             } catch (error) {
                 console.error('❌ Erro ao carregar dados da API:', error);
@@ -1493,11 +2345,17 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
         
         fetchAllData();
         
-        // Carregar status dos módulos imediatamente ao carregar a página
+        // Carregar status dos m├│dulos imediatamente ao carregar a p├ígina
         fetchModuleStatus();
     }, [setCriticalNews, lastCriticalNewsId]);
 
-    // Refresh inteligente - verifica mudanças antes de atualizar
+    // Refresh inteligente - verifica mudan├ºas antes de atualizar
+    // NOTA: getAll() carrega todas as notícias porque é necessário para:
+    // 1. Comparar todas as notícias e detectar mudanças (linha 1757)
+    // 2. Verificar notícias críticas em todas as notícias (linha 1776)
+    // 3. Atualizar o estado completo quando há mudanças (linha 1763)
+    // Uma otimização futura poderia usar metadados (contagem/timestamp) para detectar mudanças
+    // e carregar todas apenas quando necessário, mas isso requer mudanças no backend.
     useEffect(() => {
         const intelligentRefresh = async () => {
             try {
@@ -1518,15 +2376,15 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                 const veloNewsChanged = JSON.stringify(sortedNewVeloNews) !== JSON.stringify(veloNews);
                 const moduleStatusChanged = JSON.stringify(newModuleStatusData) !== JSON.stringify(moduleStatus);
                 
-                // Atualizar apenas se houver mudanças
+                // Atualizar apenas se houver mudan├ºas
                 if (veloNewsChanged) {
-                    console.log('🔄 Mudanças detectadas em VeloNews, atualizando...');
+                    console.log('­ƒöä Mudan├ºas detectadas em VeloNews, atualizando...');
                     setVeloNews(sortedNewVeloNews);
                     
-                    // Recarregar acknowledges antes de verificar notícias críticas
+                    // Recarregar acknowledges antes de verificar not├¡cias cr├¡ticas
                     await loadAcknowledgedNews();
                     
-                    // Verificar notícias críticas após carregar acknowledges
+                    // Verificar not├¡cias cr├¡ticas ap├│s carregar acknowledges
                     const session = getUserSession();
                     if (session?.user?.email) {
                         try {
@@ -1538,7 +2396,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                             const mostRecentCritical = criticalNews.length > 0 ? criticalNews[0] : null;
                             
                             if (mostRecentCritical) {
-                                // Verificar se já foi confirmada
+                                // Verificar se j├í foi confirmada
                                 const isAcknowledged = currentAcknowledgedIds.includes(mostRecentCritical._id);
                                 
                                 if (!isAcknowledged) {
@@ -1554,21 +2412,21 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                 }
                             }
                         } catch (error) {
-                            console.error('❌ Erro ao verificar notícia crítica no refresh:', error);
+                            console.error('ÔØî Erro ao verificar not├¡cia cr├¡tica no refresh:', error);
                         }
                     }
                 } else {
-                    console.log('✅ Sem mudanças em VeloNews, mantendo dados atuais');
+                    console.log('Ô£à Sem mudan├ºas em VeloNews, mantendo dados atuais');
                 }
                 
                 if (moduleStatusChanged) {
-                    console.log('🔄 Mudanças detectadas em ModuleStatus, atualizando...');
+                    console.log('­ƒöä Mudan├ºas detectadas em ModuleStatus, atualizando...');
                     setModuleStatus(newModuleStatusData);
                 } else {
-                    console.log('✅ Sem mudanças em ModuleStatus, mantendo dados atuais');
+                    console.log('Ô£à Sem mudan├ºas em ModuleStatus, mantendo dados atuais');
                 }
                 
-                // Atualizar recentItems apenas se necessário
+                // Atualizar recentItems apenas se necess├írio
                 const newRecentItems = newArticlesData
                     .filter(article => article.createdAt)
                     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
@@ -1576,14 +2434,14 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                 
                 const recentItemsChanged = JSON.stringify(newRecentItems) !== JSON.stringify(recentItems);
                 if (recentItemsChanged) {
-                    console.log('🔄 Mudanças detectadas em RecentItems, atualizando...');
+                    console.log('­ƒöä Mudan├ºas detectadas em RecentItems, atualizando...');
                     setRecentItems(newRecentItems);
                 } else {
-                    console.log('✅ Sem mudanças em RecentItems, mantendo dados atuais');
+                    console.log('Ô£à Sem mudan├ºas em RecentItems, mantendo dados atuais');
                 }
                 
             } catch (error) {
-                console.error('❌ Erro no refresh inteligente:', error);
+                console.error('ÔØî Erro no refresh inteligente:', error);
             }
         };
         
@@ -1593,7 +2451,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
         return () => clearInterval(intelligentInterval);
     }, [veloNews, moduleStatus, recentItems, setCriticalNews, lastCriticalNewsId]);
 
-    // Função para calcular grid columns dinamicamente
+    // Fun├º├úo para calcular grid columns dinamicamente
     const getGridColumns = (leftCollapsed, rightCollapsed) => {
         if (leftCollapsed && rightCollapsed) {
             return '10px 1fr 10px';
@@ -1630,13 +2488,13 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                     onClick={() => setIsLeftSidebarCollapsed(false)}
                 >
                     <ChevronRight 
-                        size={16} 
+                        size={22} 
                         style={{
-                            color: 'rgba(128, 128, 128, 0.5)',
+                            color: 'var(--blue-dark)',
                             transition: 'color 0.3s ease'
                         }}
                         onMouseEnter={(e) => e.currentTarget.style.color = 'var(--blue-opaque)'}
-                        onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(128, 128, 128, 0.5)'}
+                        onMouseLeave={(e) => e.currentTarget.style.color = 'var(--blue-dark)'}
                     />
                 </div>
             ) : (
@@ -1648,11 +2506,13 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                         padding: '19.0px',
                         position: 'relative',
                         minWidth: 0,
+                        height: '700px',
+                        maxHeight: '700px',
                         overflow: 'hidden',
                         transition: 'opacity 0.3s ease, transform 0.3s ease'
                     }}
                 >
-                    {/* Botão de retração no canto superior direito - seta aponta para fora */}
+                    {/* Bot├úo de retra├º├úo no canto superior direito - seta aponta para fora */}
                     <button
                         onClick={() => setIsLeftSidebarCollapsed(true)}
                         style={{
@@ -1692,16 +2552,16 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                     {/* Grid de Status dos Serviços - Layout 3x3 */}
                     <div className="grid grid-cols-3 gap-1">
                         {/* Crédito Trabalhador */}
-                        {renderModuleStatus('credito-trabalhador', 'C. Trabalhador')}
+                        {renderModuleStatus('credito-trabalhador', 'Trabalhador')}
                         
                         {/* Crédito Pessoal */}
-                        {renderModuleStatus('credito-pessoal', 'C. Pessoal')}
+                        {renderModuleStatus('credito-pessoal', 'Pessoal')}
                         
                         {/* Antecipação */}
                         {renderModuleStatus('antecipacao', 'Antecipação')}
                         
                         {/* Pagamento Antecipado */}
-                        {renderModuleStatus('pagamento-antecipado', 'Pgto Antecipado')}
+                        {renderModuleStatus('pagamento-antecipado', 'Pgto Antec')}
                         
                         {/* Módulo IRPF */}
                         {renderModuleStatus('modulo-irpf', 'IRPF')}
@@ -1730,7 +2590,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                     </div>
                  ) : recentItems.length > 0 ? (
                     <div className="space-y-3">
-                         {recentItems.map(item => (
+                         {recentItems.slice(0, 2).map(item => (
                              <div key={item._id || item.id} className="border-b dark:border-gray-700 pb-3 last:border-b-0">
                                  <div className="flex items-center justify-between gap-2 mb-2">
                                      <div className="flex items-center gap-2">
@@ -1822,7 +2682,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                 </p>
                             </div>
                         </div>
-                        {/* Título Ponto */}
+                        {/* T├¡tulo Ponto */}
                         <h3 className="font-bold text-lg text-center" style={{color: 'var(--blue-dark)'}}>Ponto</h3>
                         
                         {/* Marcador de Status do Agente */}
@@ -1839,7 +2699,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                             className="agent-status-indicator offline"
                         />
                         
-                        {/* Relógio */}
+                        {/* Rel├│gio */}
                         <div style={{
                             display: 'flex',
                             flexDirection: 'column',
@@ -1874,14 +2734,14 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                             </div>
                         </div>
                         
-                        {/* Botões de Ponto */}
+                        {/* Bot├Áes de Ponto */}
                         <div style={{
                             display: 'flex',
                             gap: '20px',
                             alignItems: 'center',
                             marginTop: 'auto'
                         }}>
-                            {/* Botão de Entrada */}
+                            {/* Bot├úo de Entrada */}
                             <div style={{
                                 position: 'relative',
                                 width: '64px',
@@ -1890,7 +2750,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                 alignItems: 'center',
                                 justifyContent: 'center'
                             }}>
-                                {/* Círculo externo vazio */}
+                                {/* C├¡rculo externo vazio */}
                                 <div style={{
                                     position: 'absolute',
                                     width: '67px',
@@ -1901,7 +2761,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                     left: '50%',
                                     transform: 'translate(-50%, -50%)'
                                 }}></div>
-                                {/* Círculo interno sólido */}
+                                {/* C├¡rculo interno s├│lido */}
                                 <div 
                                     style={{
                                         position: 'absolute',
@@ -1930,7 +2790,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                 </div>
                             </div>
                             
-                            {/* Botão de Saída */}
+                            {/* Bot├úo de Sa├¡da */}
                             <div style={{
                                 position: 'relative',
                                 width: '64px',
@@ -1939,7 +2799,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                 alignItems: 'center',
                                 justifyContent: 'center'
                             }}>
-                                {/* Círculo externo vazio */}
+                                {/* C├¡rculo externo vazio */}
                                 <div style={{
                                     position: 'absolute',
                                     width: '67px',
@@ -1950,7 +2810,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                     left: '50%',
                                     transform: 'translate(-50%, -50%)'
                                 }}></div>
-                                {/* Círculo interno sólido */}
+                                {/* C├¡rculo interno s├│lido */}
                                 <div 
                                     style={{
                                         position: 'absolute',
@@ -1975,7 +2835,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                         indicator.classList.add('offline');
                                     }}
                                 >
-                                    Saída
+                                    Sa├¡da
                                 </div>
                             </div>
                         </div>
@@ -1983,7 +2843,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                 </div>
                 
                 {/* CSS para estados do agente */}
-                <style jsx>{`
+                <style>{`
                     .agent-status-indicator.online {
                         opacity: 1 !important;
                         filter: none !important;
@@ -2004,6 +2864,9 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                     borderRadius: '9.6px', 
                     boxShadow: '0 3.2px 16px rgba(0, 0, 0, 0.1)', 
                     padding: '19.2px',
+                    height: '700px',
+                    maxHeight: '700px',
+                    overflow: 'hidden',
                     transition: 'width 0.3s ease'
                 }}
             >
@@ -2020,18 +2883,18 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                     ) : veloNews.length > 0 ? (
                         veloNews.slice(0, 4).map(news => {
                             const isSolved = news.solved === true;
-                            // Converter ambos para string para garantir comparação correta
+                            // Converter ambos para string para garantir compara├º├úo correta
                             const newsIdString = String(news._id);
-                            // Verificar se está na lista de acknowledges (comparando como strings)
+                            // Verificar se est├í na lista de acknowledges (comparando como strings)
                             const isAcknowledged = acknowledgedNewsIds.some(id => String(id) === newsIdString);
                             const isCritical = news.is_critical === 'Y';
-                            // Remover destaque vermelho se foi confirmada ou se está resolvida
+                            // Remover destaque vermelho se foi confirmada ou se est├í resolvida
                             const shouldRemoveHighlight = isAcknowledged || isSolved;
                             
                             // Handler para "Ler mais"
                             const handleReadMore = () => {
                                 if (isCritical && !isAcknowledged) {
-                                    // Abrir modal obrigatório para notícia crítica não confirmada
+                                    // Abrir modal obrigat├│rio para not├¡cia cr├¡tica n├úo confirmada
                                     setCriticalNews(news);
                                 } else {
                                     // Abrir modal normal
@@ -2056,18 +2919,15 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                             )}
                                             {isCritical && !isSolved && !shouldRemoveHighlight && (
                                                 <span className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 px-2 py-1 rounded-full text-xs font-medium">
-                                                    Crítica
+                                                    Cr├¡tica
                                                 </span>
                                             )}
                                         </div>
                                     </div>
                                     
-                                    {/* Renderizar primeira imagem ou vídeo se existir */}
+                                    {/* Renderizar primeira imagem ou v├¡deo se existir */}
                                     {(() => {
                                         const imageUrl = getImageUrl(news);
-                                        console.log('🔍 Renderizando imagem - news:', news.title);
-                                        console.log('🔍 Renderizando imagem - imageUrl:', imageUrl);
-                                        console.log('🔍 Renderizando imagem - media.images:', news?.media?.images);
                                         
                                         return imageUrl ? (
                                             <div className="mb-3">
@@ -2090,11 +2950,11 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                                         }}
                                                         onClick={() => setExpandedImage(imageUrl)}
                                                         onError={(e) => {
-                                                            console.error('❌ Erro ao carregar imagem:', imageUrl, e);
-                                                            e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="280" height="120"%3E%3Crect width="280" height="120" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-family="Arial" font-size="12"%3EImagem não encontrada%3C/text%3E%3C/svg%3E';
+                                                            console.error('ÔØî Erro ao carregar imagem:', imageUrl, e);
+                                                            e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="280" height="120"%3E%3Crect width="280" height="120" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-family="Arial" font-size="12"%3EImagem n├úo encontrada%3C/text%3E%3C/svg%3E';
                                                         }}
                                                         onLoad={() => {
-                                                            console.log('✅ Imagem carregada com sucesso:', imageUrl);
+                                                            console.log('Ô£à Imagem carregada com sucesso:', imageUrl);
                                                         }}
                                                     />
                                                 </div>
@@ -2103,9 +2963,6 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                     })()}
                                     {(() => {
                                         const thumbnailUrl = getYouTubeThumbnail(news);
-                                        console.log('🔍 Renderizando vídeo YouTube - news:', news.title);
-                                        console.log('🔍 Renderizando vídeo YouTube - thumbnailUrl:', thumbnailUrl);
-                                        console.log('🔍 Renderizando vídeo YouTube - media.videos:', news?.media?.videos);
                                         
                                         return thumbnailUrl ? (
                                             <div className="mb-3 flex justify-center">
@@ -2122,7 +2979,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                                     >
                                                         <img 
                                                             src={thumbnailUrl} 
-                                                            alt={`${news.title} - Vídeo`}
+                                                            alt={`${news.title} - V├¡deo`}
                                                             className="w-full h-auto"
                                                             style={{
                                                                 maxHeight: '120px',
@@ -2131,7 +2988,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                                                 display: 'block'
                                                             }}
                                                         />
-                                                        {/* Overlay com ícone de play */}
+                                                        {/* Overlay com ├¡cone de play */}
                                                         <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 hover:bg-opacity-40 transition-opacity">
                                                             <div className="bg-white bg-opacity-90 rounded-full p-2 shadow-lg">
                                                                 <svg className="w-8 h-8 text-red-600" fill="currentColor" viewBox="0 0 24 24">
@@ -2173,305 +3030,39 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                         </div>
                     )}
                     
-                    {/* Botão Ver Notícias Anteriores */}
-                    {veloNews.length > 4 && (
-                        <div className="text-center mt-6">
-                            <button
-                                onClick={() => {
-                                    console.log('🔍 Abrindo modal de histórico de notícias');
-                                    setShowHistoryModal(true);
-                                }}
-                                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
-                                style={{
-                                    background: 'linear-gradient(135deg, var(--blue-dark) 0%, var(--blue-medium) 100%)',
-                                    border: 'none',
-                                    boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)'
-                                }}
-                            >
-                                Ver Notícias Anteriores
-                            </button>
-                        </div>
-                    )}
+                    {/* Botão Ver Notícias Anteriores - sempre visível */}
+                    <div className="text-center mt-6">
+                        <button
+                            onClick={() => {
+                                console.log('📜 Abrindo modal de histórico de notícias');
+                                setShowHistoryModal(true);
+                            }}
+                            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                            style={{
+                                background: 'linear-gradient(135deg, var(--blue-dark) 0%, var(--blue-medium) 100%)',
+                                border: 'none',
+                                boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)'
+                            }}
+                        >
+                            Ver Notícias Anteriores
+                        </button>
+                    </div>
                 </div>
             </section>
             
             {/* Sidebar direita */}
-            {isRightSidebarCollapsed ? (
-                <div 
-                    style={{
-                        position: 'relative',
-                        width: '10px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        justifyContent: 'center',
-                        paddingTop: '12px'
-                    }}
-                    onClick={() => setIsRightSidebarCollapsed(false)}
-                >
-                    <ChevronLeft 
-                        size={16} 
-                        style={{
-                            color: 'rgba(128, 128, 128, 0.5)',
-                            transition: 'color 0.3s ease'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.color = 'var(--blue-opaque)'}
-                        onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(128, 128, 128, 0.5)'}
-                    />
-                </div>
-            ) : (
-            <aside 
-                className="rounded-lg shadow-sm flex flex-col min-h-[calc(100vh-160px)] velohub-container" 
-                style={{
-                        borderRadius: '9.6px', 
-                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', 
-                        padding: '19.0px', 
-                    position: 'relative', 
-                    display: 'flex',
-                        flexDirection: 'column',
-                        minWidth: 0,
-                        overflow: 'hidden',
-                        transition: 'opacity 0.3s ease, transform 0.3s ease'
-                }}
-            >
-                    {/* Botão de retração no canto superior esquerdo - seta aponta para fora */}
-                    <button
-                        onClick={() => setIsRightSidebarCollapsed(true)}
-                        style={{
-                            position: 'absolute',
-                            top: '12px',
-                            left: '12px',
-                            background: 'transparent',
-                            border: 'none',
-                            cursor: 'pointer',
-                            padding: '4px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            zIndex: 10,
-                            transition: 'all 0.3s ease'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.querySelector('svg').style.color = 'var(--blue-opaque)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.querySelector('svg').style.color = 'rgba(128, 128, 128, 0.5)';
-                        }}
-                    >
-                        <ChevronRight 
-                            size={18} 
-                            style={{
-                                color: 'rgba(128, 128, 128, 0.5)',
-                                transition: 'color 0.3s ease'
-                            }}
-                        />
-                    </button>
-                    
-                    {/* Widget VeloChat */}
-                <div className="flex-1 flex flex-col">
-                    {/* Header com título e busca */}
-                    <div className="flex items-center justify-between mb-4" style={{ gap: '8px', position: 'relative' }}>
-                        {isSearchExpanded ? (
-                            <>
-                                <input 
-                                    type="text"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    placeholder="Buscar contato..."
-                                    className="flex-1 px-3 py-2 rounded-lg border"
-                                    style={{
-                                        borderColor: 'var(--blue-opaque)',
-                                        borderRadius: '8px',
-                                        outline: 'none',
-                                        transition: 'all 0.3s ease',
-                                        fontFamily: 'Poppins, sans-serif'
-                                    }}
-                                    autoFocus
-                                />
-                                <button 
-                                    onClick={() => { setIsSearchExpanded(false); setSearchQuery(''); }}
-                                    className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                    style={{ color: 'var(--blue-dark)' }}
-                                >
-                                    ✕
-                                </button>
-                            </>
-                        ) : (
-                            <>
-                                {/* Status à esquerda - comentado até ChatStatusSelector ser adicionado ao repositório */}
-                                {/* <div style={{ marginLeft: '40px' }}>
-                                    <ChatStatusSelector 
-                                        sessionId={localStorage.getItem('velohub_session_id')} 
-                                        onStatusChange={(newStatus) => {
-                                            // Status atualizado
-                                        }}
-                                    />
-                                </div> */}
-                                
-                                {/* Chat centralizado */}
-                                <div style={{ flex: 1 }}></div>
-                                <h3 className="font-bold text-xl velohub-title" style={{ 
-                                    color: 'var(--blue-dark)', 
-                                    margin: 0,
-                                    textAlign: 'center',
-                                    position: 'absolute',
-                                    left: '50%',
-                                    transform: 'translateX(-50%)',
-                                    width: 'auto'
-                                }}>
-                                    Chat
-                                </h3>
-                                <div style={{ flex: 1 }}></div>
-                                
-                                {/* Botão de busca à direita */}
-                                <button 
-                                    onClick={() => setIsSearchExpanded(true)}
-                                    className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                    style={{ color: 'var(--blue-dark)', marginLeft: 'auto' }}
-                                    title="Buscar contato"
-                                >
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <circle cx="11" cy="11" r="8"></circle>
-                                        <path d="m21 21-4.35-4.35"></path>
-                                    </svg>
-                                </button>
-                            </>
-                        )}
-                    </div>
-                    
-                        {/* Seletor de Abas */}
-                        <div className="flex border-b mb-2" style={{ borderColor: 'var(--blue-opaque)' }}>
-                            <button 
-                                className="flex-1 py-2 text-sm font-medium transition-colors"
-                                onClick={() => setActiveTab('conversations')}
-                                style={activeTab === 'conversations' ? {
-                                    color: 'var(--blue-dark)',
-                                    borderBottom: '2px solid var(--blue-opaque)'
-                                } : {
-                                    color: 'var(--cor-texto-secundario)'
-                                }}
-                            >
-                                Conversas
-                            </button>
-                            <button 
-                                className="flex-1 py-2 text-sm font-medium transition-colors"
-                                onClick={() => setActiveTab('contacts')}
-                                style={activeTab === 'contacts' ? {
-                                    color: 'var(--blue-dark)',
-                                    borderBottom: '2px solid var(--blue-opaque)'
-                                } : {
-                                    color: 'var(--cor-texto-secundario)'
-                                }}
-                            >
-                                Contatos
-                            </button>
-                            <button 
-                                className="flex-1 py-2 text-sm font-medium transition-colors"
-                                onClick={() => setActiveTab('groups')}
-                                style={activeTab === 'groups' ? {
-                                    color: 'var(--blue-dark)',
-                                    borderBottom: '2px solid var(--blue-opaque)'
-                                } : {
-                                    color: 'var(--cor-texto-secundario)'
-                        }}
-                    >
-                                Grupos
-                            </button>
-                    </div>
-                        
-                        {/* VeloChatWidget com bloqueio em produção */}
-                        {(() => {
-                            // Verificar se está em produção
-                            const isProduction = typeof window !== 'undefined' && 
-                                !window.location.hostname.includes('localhost') && 
-                                !window.location.hostname.includes('127.0.0.1');
-                            
-                            // Obter nome do usuário logado
-                            let userName = '';
-                            try {
-                                const sessionData = localStorage.getItem('velohub_user_session');
-                                if (sessionData) {
-                                    const session = JSON.parse(sessionData);
-                                    userName = session?.user?.name || '';
-                                }
-                            } catch (err) {
-                                console.error('Erro ao obter nome do usuário:', err);
-                            }
-                            
-                            // Verificar se é Lucas Gravina (bypass)
-                            const isLucasGravina = userName && 
-                                userName.toLowerCase().includes('lucas') && 
-                                userName.toLowerCase().includes('gravina');
-                            
-                            // Em produção, bloquear para todos exceto Lucas Gravina
-                            const shouldShowChat = !isProduction || isLucasGravina;
-                            
-                            if (!shouldShowChat) {
-                                // Mostrar bloqueio similar ao widget do ponto
-                                return (
-                                    <div style={{
-                                        position: 'relative',
-                                        width: '100%',
-                                        height: '100%',
-                                        minHeight: '400px',
-                                        background: 'transparent',
-                                        border: '1.5px solid var(--blue-dark)',
-                                        borderRadius: '8px',
-                                        padding: '16px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        justifyContent: 'center',
-                                        alignItems: 'center'
-                                    }}>
-                                        {/* Overlay "EM BREVE" */}
-                                        <div style={{
-                                            position: 'absolute',
-                                            top: 0,
-                                            left: 0,
-                                            right: 0,
-                                            bottom: 0,
-                                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            borderRadius: '8px',
-                                            zIndex: 10
-                                        }}>
-                                            <span style={{
-                                                color: 'white',
-                                                fontSize: '1.2rem',
-                                                fontWeight: 'bold',
-                                                fontFamily: 'Poppins, sans-serif',
-                                                textTransform: 'uppercase',
-                                                letterSpacing: '1.6px'
-                                            }}>
-                                                EM BREVE
-                                            </span>
-                                        </div>
-                                    </div>
-                                );
-                            }
-                            
-                            // Mostrar chat normalmente (quando arquivo estiver disponível)
-                            // Por enquanto, mostrar mensagem de desenvolvimento
-                            return (
-                                <div style={{
-                                    width: '100%',
-                                    height: '100%',
-                                    minHeight: '400px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: 'var(--cor-texto-secundario)',
-                                    fontSize: '0.9rem'
-                                }}>
-                                    Chat em desenvolvimento
-                                </div>
-                            );
-                        })()}
-                </div>
-            </aside>
-            )}
+            {renderRightSidebarChat({
+                isCollapsed: isRightSidebarCollapsed,
+                onToggleCollapse: () => setIsRightSidebarCollapsed(!isRightSidebarCollapsed),
+                activeTab,
+                setActiveTab,
+                isSearchExpanded,
+                setIsSearchExpanded,
+                searchQuery,
+                setSearchQuery,
+                soundEnabled,
+                toggleSound
+            })}
             {selectedNews && (
                  <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[9999] p-4" onClick={() => setSelectedNews(null)} style={{ zIndex: 9999 }}>
                     <div className="rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] bg-white dark:bg-gray-800 flex flex-col overflow-hidden" onClick={e => e.stopPropagation()} style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)', zIndex: 10000}}>
@@ -2497,7 +3088,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                                         style={{ maxHeight: '400px', objectFit: 'contain' }}
                                                         onClick={() => setExpandedImage(imgUrl)}
                                                         onError={(e) => {
-                                                            e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="200"%3E%3Crect width="400" height="200" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-family="Arial" font-size="14"%3EImagem não encontrada%3C/text%3E%3C/svg%3E';
+                                                            e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="200"%3E%3Crect width="400" height="200" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-family="Arial" font-size="14"%3EImagem n├úo encontrada%3C/text%3E%3C/svg%3E';
                                                         }}
                                                     />
                                                     <div className="text-center mt-2 text-sm text-gray-500 dark:text-gray-400">
@@ -2510,22 +3101,21 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                 );
                             })()}
                             
-                            {/* Renderizar vídeos do YouTube */}
+                            {/* Renderizar v├¡deos do YouTube */}
                             {(() => {
                                 const videos = selectedNews?.media?.videos || selectedNews?.videos || [];
-                                console.log('🔍 Modal - vídeos encontrados:', videos);
                                 
-                                // Processar vídeos (podem ser strings ou objetos)
+                                // Processar v├¡deos (podem ser strings ou objetos)
                                 const youtubeVideos = videos
                                     .map(v => {
                                         if (typeof v === 'string') {
-                                            // É uma string de URL
+                                            // ├ë uma string de URL
                                             if (v.includes('youtube.com') || v.includes('youtu.be')) {
                                                 return { url: v, embed: convertYouTubeUrlToEmbed(v) };
                                             }
                                             return null;
                                         } else if (v && typeof v === 'object') {
-                                            // É um objeto
+                                            // ├ë um objeto
                                             if (v.type === 'youtube' || v.embed || v.url) {
                                                 return {
                                                     url: v.url || v.embed || '',
@@ -2537,18 +3127,16 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                     })
                                     .filter(v => v !== null && v.embed);
                                 
-                                console.log('🔍 Modal - vídeos processados:', youtubeVideos);
-                                
                                 return youtubeVideos.length > 0 ? (
                                     <div className="mb-4 space-y-3">
                                         {youtubeVideos.map((vid, idx) => {
                                             if (!vid.embed) return null;
-                                            // Detectar se é Shorts para aplicar proporção 9:16 com tamanho limitado
+                                            // Detectar se ├® Shorts para aplicar propor├º├úo 9:16 com tamanho limitado
                                             const isShorts = isYouTubeShorts(vid.url);
                                             if (isShorts) {
-                                                // Para Shorts: proporção 9:16 (largura:altura = 9:16)
-                                                // Definir altura máxima e calcular largura, ou vice-versa
-                                                // Altura máxima de 400px -> largura = 400 × (9/16) = 225px
+                                                // Para Shorts: propor├º├úo 9:16 (largura:altura = 9:16)
+                                                // Definir altura m├íxima e calcular largura, ou vice-versa
+                                                // Altura m├íxima de 400px -> largura = 400 ├ù (9/16) = 225px
                                                 return (
                                                     <div key={idx} className="flex justify-center">
                                                         <div className="relative rounded-lg overflow-hidden" style={{ width: '225px', maxWidth: '100%', height: '400px', maxHeight: '50vh' }}>
@@ -2563,7 +3151,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                                     </div>
                                                 );
                                             } else {
-                                                // Para vídeos normais: proporção 16:9 padrão
+                                                // Para v├¡deos normais: propor├º├úo 16:9 padr├úo
                                                 return (
                                                     <div key={idx} className="relative w-full" style={{ paddingBottom: '56.25%', height: 0 }}>
                                                         <iframe
@@ -2636,7 +3224,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                             </div>
                         </div>
                         
-                        {/* Conteúdo com scroll */}
+                        {/* Conte├║do com scroll */}
                         <div className="flex-1 overflow-y-auto p-4">
                             {/* Renderizar todas as imagens */}
                             {(() => {
@@ -2654,7 +3242,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                                         style={{ maxHeight: '400px', objectFit: 'contain' }}
                                                         onClick={() => setExpandedImage(imgUrl)}
                                                         onError={(e) => {
-                                                            e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="200"%3E%3Crect width="400" height="200" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-family="Arial" font-size="14"%3EImagem não encontrada%3C/text%3E%3C/svg%3E';
+                                                            e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="200"%3E%3Crect width="400" height="200" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-family="Arial" font-size="14"%3EImagem n├úo encontrada%3C/text%3E%3C/svg%3E';
                                                         }}
                                                     />
                                                     <div className="text-center mt-2 text-sm text-gray-500 dark:text-gray-400">
@@ -2667,22 +3255,22 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                 );
                             })()}
                             
-                            {/* Renderizar vídeos do YouTube */}
+                            {/* Renderizar v├¡deos do YouTube */}
                             {(() => {
                                 const videos = selectedArticle?.media?.videos || selectedArticle?.videos || [];
-                                console.log('🔍 Modal Artigo - vídeos encontrados:', videos);
+                                console.log('­ƒöì Modal Artigo - v├¡deos encontrados:', videos);
                                 
-                                // Processar vídeos (podem ser strings ou objetos)
+                                // Processar v├¡deos (podem ser strings ou objetos)
                                 const youtubeVideos = videos
                                     .map(v => {
                                         if (typeof v === 'string') {
-                                            // É uma string de URL
+                                            // ├ë uma string de URL
                                             if (v.includes('youtube.com') || v.includes('youtu.be')) {
                                                 return { url: v, embed: convertYouTubeUrlToEmbed(v) };
                                             }
                                             return null;
                                         } else if (v && typeof v === 'object') {
-                                            // É um objeto
+                                            // ├ë um objeto
                                             if (v.type === 'youtube' || v.embed || v.url) {
                                                 return {
                                                     url: v.url || v.embed || '',
@@ -2694,18 +3282,18 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                     })
                                     .filter(v => v !== null && v.embed);
                                 
-                                console.log('🔍 Modal Artigo - vídeos processados:', youtubeVideos);
+                                console.log('­ƒöì Modal Artigo - v├¡deos processados:', youtubeVideos);
                                 
                                 return youtubeVideos.length > 0 ? (
                                     <div className="mb-4 space-y-3">
                                         {youtubeVideos.map((vid, idx) => {
                                             if (!vid.embed) return null;
-                                            // Detectar se é Shorts para aplicar proporção 9:16 com tamanho limitado
+                                            // Detectar se ├® Shorts para aplicar propor├º├úo 9:16 com tamanho limitado
                                             const isShorts = isYouTubeShorts(vid.url);
                                             if (isShorts) {
-                                                // Para Shorts: proporção 9:16 (largura:altura = 9:16)
-                                                // Definir altura máxima e calcular largura, ou vice-versa
-                                                // Altura máxima de 400px -> largura = 400 × (9/16) = 225px
+                                                // Para Shorts: propor├º├úo 9:16 (largura:altura = 9:16)
+                                                // Definir altura m├íxima e calcular largura, ou vice-versa
+                                                // Altura m├íxima de 400px -> largura = 400 ├ù (9/16) = 225px
                                                 return (
                                                     <div key={idx} className="flex justify-center">
                                                         <div className="relative rounded-lg overflow-hidden" style={{ width: '225px', maxWidth: '100%', height: '400px', maxHeight: '50vh' }}>
@@ -2720,7 +3308,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                                     </div>
                                                 );
                                             } else {
-                                                // Para vídeos normais: proporção 16:9 padrão
+                                                // Para v├¡deos normais: propor├º├úo 16:9 padr├úo
                                                 return (
                                                     <div key={idx} className="relative w-full" style={{ paddingBottom: '56.25%', height: 0 }}>
                                                         <iframe
@@ -2751,7 +3339,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
     );
 };
 
-// Componente para listagem de tickets do usuário
+// Componente para listagem de tickets do usu├írio
 const TicketsListPage = () => {
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -2764,12 +3352,12 @@ const TicketsListPage = () => {
     const [isSubmittingReply, setIsSubmittingReply] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
-    // Função para carregar tickets do usuário logado
+    // Fun├º├úo para carregar tickets do usu├írio logado
     const loadTickets = async () => {
         try {
             const session = getUserSession();
             if (!session?.user?.email) {
-                setError('Usuário não autenticado');
+                setError('Usu├írio n├úo autenticado');
                 setLoading(false);
                 return;
             }
@@ -2790,19 +3378,19 @@ const TicketsListPage = () => {
         }
     };
 
-    // Função para atualizar tickets
+    // Fun├º├úo para atualizar tickets
     const handleRefreshTickets = async () => {
         setIsRefreshing(true);
         await loadTickets();
         setIsRefreshing(false);
     };
 
-    // Carregar tickets do usuário logado
+    // Carregar tickets do usu├írio logado
     useEffect(() => {
         loadTickets();
     }, []);
 
-    // Função para obter cor do status
+    // Fun├º├úo para obter cor do status
     const getStatusColor = (status) => {
         switch (status) {
             case 'novo':
@@ -2838,21 +3426,21 @@ const TicketsListPage = () => {
     const activeTickets = filteredTickets.filter(ticket => ticket._statusHub !== 'resolvido');
     const resolvedTickets = filteredTickets.filter(ticket => ticket._statusHub === 'resolvido');
 
-    // Função para visualizar ticket
+    // Fun├º├úo para visualizar ticket
     const handleViewTicket = (ticket) => {
         setSelectedTicket(ticket);
         setOpenModal(true);
         setReplyText('');
     };
 
-    // Função para fechar modal
+    // Fun├º├úo para fechar modal
     const handleCloseModal = () => {
         setOpenModal(false);
         setSelectedTicket(null);
         setReplyText('');
     };
 
-    // Função para enviar resposta
+    // Fun├º├úo para enviar resposta
     const handleSendReply = async () => {
         if (!replyText.trim() || !selectedTicket) return;
 
@@ -2920,7 +3508,7 @@ const TicketsListPage = () => {
         }
     };
 
-    // Função para formatar data
+    // Fun├º├úo para formatar data
     const formatDate = (dateString) => {
         const date = new Date(dateString);
         return date.toLocaleDateString('pt-BR', {
@@ -2956,7 +3544,7 @@ const TicketsListPage = () => {
 
     return (
         <div className="space-y-6">
-            {/* Filtros e ordenação */}
+            {/* Filtros e ordena├º├úo */}
             <div className="flex justify-end items-center gap-3 mb-4" style={{paddingLeft: '20px', paddingRight: '20px'}}>
                 <select
                     value={filterStatus}
@@ -3021,7 +3609,7 @@ const TicketsListPage = () => {
                         margin: '17.6px 20px',
                         border: '1px solid rgba(22, 52, 255, 0.1)'
                     }}>
-                        {/* Cabeçalho da tabela */}
+                        {/* Cabe├ºalho da tabela */}
                         <div className="grid grid-cols-5 gap-4 py-3 px-4 font-semibold border-b" style={{
                             borderColor: 'var(--blue-opaque)',
                             fontFamily: 'Poppins, sans-serif',
@@ -3072,7 +3660,7 @@ const TicketsListPage = () => {
                 </div>
             )}
 
-            {/* Tickets Resolvidos - SEMPRE VISÍVEL */}
+            {/* Tickets Resolvidos - SEMPRE VIS├ìVEL */}
             <div>
                 <h3 className="text-lg font-semibold mb-4 velohub-title" style={{fontFamily: 'Poppins, sans-serif'}}>
                     Tickets Resolvidos ({resolvedTickets.length})
@@ -3084,7 +3672,7 @@ const TicketsListPage = () => {
                     margin: '17.6px 20px',
                     border: '1px solid rgba(22, 52, 255, 0.1)'
                 }}>
-                    {/* Cabeçalho da tabela */}
+                    {/* Cabe├ºalho da tabela */}
                     <div className="grid grid-cols-5 gap-4 py-3 px-4 font-semibold border-b" style={{
                         borderColor: 'var(--blue-opaque)',
                         fontFamily: 'Poppins, sans-serif',
@@ -3142,28 +3730,7 @@ const TicketsListPage = () => {
                 </div>
             </div>
 
-            {/* Mensagem quando não há tickets */}
-            {tickets.length === 0 && (
-                <div className="text-center py-16">
-                    <div className="velohub-card" style={{
-                        borderRadius: '12px',
-                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
-                        padding: '32px',
-                        margin: '16px auto',
-                        maxWidth: '448px',
-                        border: '1px solid rgba(22, 52, 255, 0.1)'
-                    }}>
-                        <h3 className="text-xl font-semibold mb-4" style={{color: 'var(--blue-dark)', fontFamily: 'Poppins, sans-serif'}}>
-                            Nenhum ticket encontrado
-                        </h3>
-                        <p style={{color: 'var(--gray)', fontFamily: 'Poppins, sans-serif'}}>
-                            Você ainda não possui tickets de apoio. Use a aba "Solicite Apoio" para criar um novo ticket.
-                        </p>
-                    </div>
-                </div>
-            )}
-
-            {/* Modal de visualização e resposta */}
+            {/* Modal de visualiza├º├úo e resposta */}
             {openModal && selectedTicket && (
                 <div className="fixed bg-black bg-opacity-50" style={{
                     zIndex: 99999,
@@ -3183,7 +3750,7 @@ const TicketsListPage = () => {
                         bottom: '0px',
                         zIndex: 10000
                     }}>
-                        {/* Cabeçalho do modal */}
+                        {/* Cabe├ºalho do modal */}
                         <div className="border-b border-gray-200 dark:border-gray-700" style={{padding: '19.8px'}}>
                             <div className="flex justify-between items-center">
                                 <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
@@ -3206,7 +3773,7 @@ const TicketsListPage = () => {
                             display: 'flex',
                             flexDirection: 'column'
                         }}>
-                            {/* Área de Mensagens */}
+                            {/* ├ürea de Mensagens */}
                             <div style={{
                                 flex: '1',
                                 overflowY: 'auto'
@@ -3241,7 +3808,7 @@ const TicketsListPage = () => {
                                                 </span>
                                             </div>
                                             
-                                            {/* Conteúdo da mensagem */}
+                                            {/* Conte├║do da mensagem */}
                                             <div className="text-base whitespace-pre-wrap" style={{color: 'var(--gray)', fontFamily: 'Poppins, sans-serif'}}>
                                                 {mensagem.mensagem}
                                             </div>
@@ -3256,7 +3823,7 @@ const TicketsListPage = () => {
                                 </div>
                             </div>
 
-                            {/* Área de Resposta */}
+                            {/* ├ürea de Resposta */}
                             {selectedTicket._statusHub !== 'resolvido' && (
                                 <div style={{
                                     flex: '0 0 auto',
@@ -3309,19 +3876,51 @@ const TicketsListPage = () => {
     );
 };
 
-// Conteúdo da Página de Apoio
+// Conte├║do da P├ígina de Apoio
 const ApoioPage = () => {
     const [activeModal, setActiveModal] = useState(null);
     const [activeTab, setActiveTab] = useState('solicitar');
     
-    // Marcar tickets como visualizados quando a página é aberta
+    // Estados do sidebar direito com chat
+    const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(true); // Recolhido por padrão
+    const [chatActiveTab, setChatActiveTab] = useState('conversations');
+    const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [soundEnabled, setSoundEnabled] = useState(() => {
+        try {
+            return localStorage.getItem('velochat_sound_enabled') !== 'false';
+        } catch {
+            return true;
+        }
+    });
+    
+    const toggleSound = () => {
+        const newState = !soundEnabled;
+        setSoundEnabled(newState);
+        try {
+            localStorage.setItem('velochat_sound_enabled', newState.toString());
+        } catch (error) {
+            console.error('Erro ao salvar preferência de som:', error);
+        }
+    };
+    
+    // Função para calcular grid columns
+    const getGridColumns = (rightCollapsed) => {
+        if (rightCollapsed) {
+            return '1fr 10px';
+        } else {
+            return 'minmax(0, 1fr) minmax(0, 35%)';
+        }
+    };
+    
+    // Marcar tickets como visualizados quando a p├ígina ├® aberta
     useEffect(() => {
         const markTicketsAsViewed = async () => {
             try {
                 const session = getUserSession();
                 if (!session?.user?.email) return;
 
-                // Buscar tickets não visualizados
+                // Buscar tickets n├úo visualizados
                 const response = await fetch(`${API_BASE_URL}/support/tickets/unread-count?userEmail=${encodeURIComponent(session.user.email)}`);
                 const data = await response.json();
                 
@@ -3348,11 +3947,11 @@ const ApoioPage = () => {
                         }
                     }
                     
-                    // Timestamp atual para marcar visualização (momento em que o usuário está visualizando)
+                    // Timestamp atual para marcar visualiza├º├úo (momento em que o usu├írio est├í visualizando)
                     const currentTimestamp = new Date().toISOString();
                     
-                    // Atualizar timestamp de visualização para cada ticket visível
-                    // Usar timestamp atual para garantir que todas as mensagens até este momento sejam consideradas visualizadas
+                    // Atualizar timestamp de visualiza├º├úo para cada ticket vis├¡vel
+                    // Usar timestamp atual para garantir que todas as mensagens at├® este momento sejam consideradas visualizadas
                     data.tickets.forEach(ticket => {
                         viewedTickets[ticket._id] = currentTimestamp;
                     });
@@ -3378,7 +3977,7 @@ const ApoioPage = () => {
             icon: <FileText size={32} />, 
             type: 'artigo',
             title: 'Solicitar Artigo',
-            description: 'solicite a criação ou alteração de artigos da central'
+            description: 'Solicite a criação ou alteração de artigos da central'
         }, 
         { 
             name: 'Processo', 
@@ -3450,8 +4049,17 @@ const ApoioPage = () => {
 
     return (
         <div className="w-full py-12" style={{paddingLeft: '20px', paddingRight: '20px'}}>
-            {/* Sistema de Abas */}
-            <div className="mb-8" style={{marginTop: '-15px'}}>
+            <div 
+                className="grid gap-4" 
+                style={{
+                    gridTemplateColumns: getGridColumns(isRightSidebarCollapsed),
+                    transition: 'grid-template-columns 0.3s ease'
+                }}
+            >
+                {/* Conteúdo principal */}
+                <div style={{ minWidth: 0 }}>
+                    {/* Sistema de Abas */}
+                    <div className="mb-8" style={{marginTop: '-15px'}}>
                 {/* Abas */}
                 <div className="flex justify-start mb-2" style={{gap: '2rem'}}>
                     <button
@@ -3478,7 +4086,7 @@ const ApoioPage = () => {
                 <div className="w-full" style={{ height: '1px', backgroundColor: 'var(--cor-borda)', opacity: 0.5 }}></div>
             </div>
 
-            {/* Conteúdo baseado na aba ativa */}
+            {/* Conte├║do baseado na aba ativa */}
             {activeTab === 'solicitar' && (
             <div className="space-y-4">
                 {/* Primeira linha - Artigo, Processo, Roteiro */}
@@ -3597,7 +4205,7 @@ const ApoioPage = () => {
                 {/* Linha separadora */}
                 <div className="w-full h-px" style={{ backgroundColor: 'var(--cor-borda)', opacity: 0.5 }}></div>
 
-                {/* Terceira linha - Gestão, RH e Financeiro, Facilities */}
+                {/* Terceira linha - Gest├úo, RH e Financeiro, Facilities */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {supportItems.slice(6, 9).map(item => {
                     const isDisabled = item.type === 'rh_financeiro' || item.type === 'facilities';
@@ -3689,25 +4297,41 @@ const ApoioPage = () => {
             </div>
             )}
 
-            {/* Aba Acompanhe seus Tickets */}
-            {activeTab === 'acompanhar' && (
-                <TicketsListPage />
-            )}
+                    {/* Aba Acompanhe seus Tickets */}
+                    {activeTab === 'acompanhar' && (
+                        <TicketsListPage />
+                    )}
 
-            {/* Modal */}
-            {activeModal && (
-                <SupportModal
-                    isOpen={!!activeModal}
-                    onClose={handleCloseModal}
-                    type={activeModal.type}
-                    title={activeModal.title}
-                />
-            )}
+                    {/* Modal */}
+                    {activeModal && (
+                        <SupportModal
+                            isOpen={!!activeModal}
+                            onClose={handleCloseModal}
+                            type={activeModal.type}
+                            title={activeModal.title}
+                        />
+                    )}
+                </div>
+                
+                {/* Sidebar direito com chat */}
+                {renderRightSidebarChat({
+                    isCollapsed: isRightSidebarCollapsed,
+                    onToggleCollapse: () => setIsRightSidebarCollapsed(!isRightSidebarCollapsed),
+                    activeTab: chatActiveTab,
+                    setActiveTab: setChatActiveTab,
+                    isSearchExpanded,
+                    setIsSearchExpanded,
+                    searchQuery,
+                    setSearchQuery,
+                    soundEnabled,
+                    toggleSound
+                })}
+            </div>
         </div>
     );
 };
 
-// Página de Artigos
+// P├ígina de Artigos
 const ArtigosPage = () => {
     const [articles, setArticles] = useState([]);
     const [filteredArticles, setFilteredArticles] = useState([]);
@@ -3718,14 +4342,46 @@ const ArtigosPage = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
     const [expandedImage, setExpandedImage] = useState(null);
+    
+    // Estados do sidebar direito com chat
+    const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(true); // Recolhido por padrão
+    const [activeTab, setActiveTab] = useState('conversations');
+    const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [soundEnabled, setSoundEnabled] = useState(() => {
+        try {
+            return localStorage.getItem('velochat_sound_enabled') !== 'false';
+        } catch {
+            return true;
+        }
+    });
+    
+    const toggleSound = () => {
+        const newState = !soundEnabled;
+        setSoundEnabled(newState);
+        try {
+            localStorage.setItem('velochat_sound_enabled', newState.toString());
+        } catch (error) {
+            console.error('Erro ao salvar preferência de som:', error);
+        }
+    };
+    
+    // Função para calcular grid columns
+    const getGridColumns = (rightCollapsed) => {
+        if (rightCollapsed) {
+            return '1fr 10px';
+        } else {
+            return 'minmax(0, 1fr) minmax(0, 35%)';
+        }
+    };
 
-    // Função para renderizar HTML de forma segura
+    // Fun├º├úo para renderizar HTML de forma segura
     const renderHTML = (htmlContent) => {
         if (!htmlContent) return '';
         return { __html: htmlContent };
     };
 
-    // Função para buscar artigos por título e palavras-chave
+    // Fun├º├úo para buscar artigos por t├¡tulo e palavras-chave
     const searchArticles = (term, articlesList) => {
         if (!term || term.trim() === '') {
             return articlesList;
@@ -3734,10 +4390,10 @@ const ArtigosPage = () => {
         const searchTerm = term.toLowerCase().trim();
         
         return articlesList.filter(article => {
-            // Buscar no título
+            // Buscar no t├¡tulo
             const titleMatch = article.title && article.title.toLowerCase().includes(searchTerm);
             
-            // Buscar no conteúdo (removendo tags HTML)
+            // Buscar no conte├║do (removendo tags HTML)
             const contentText = article.content ? article.content.replace(/<[^>]*>/g, '').toLowerCase() : '';
             const contentMatch = contentText.includes(searchTerm);
             
@@ -3761,15 +4417,15 @@ const ArtigosPage = () => {
                 if (response.data && response.data.length > 0) {
                     setArticles(response.data);
                 } else {
-                    console.warn('⚠️ Dados de artigos não encontrados ou vazios, usando mock...');
+                    console.warn('ÔÜá´©Å Dados de artigos n├úo encontrados ou vazios, usando mock...');
                     throw new Error('Dados vazios da API');
                 }
             } catch (error) {
                 console.error('Erro ao carregar artigos da API:', error);
-                console.log('📋 Usando dados mock como fallback...');
+                console.log('­ƒôï Usando dados mock como fallback...');
                 
                 // Em caso de erro, usar arrays vazios
-                console.warn('⚠️ Usando arrays vazios como fallback');
+                console.warn('ÔÜá´©Å Usando arrays vazios como fallback');
                 setArticles([]);
             } finally {
                 setLoading(false);
@@ -3779,7 +4435,7 @@ const ArtigosPage = () => {
         fetchArticles();
     }, []);
 
-    // Extrair categorias únicas dos artigos
+    // Extrair categorias ├║nicas dos artigos
     useEffect(() => {
         if (articles.length > 0) {
             const uniqueCategories = ['Todas', ...new Set(articles.map(article => article.category).filter(Boolean))];
@@ -3827,9 +4483,17 @@ const ArtigosPage = () => {
 
     return (
         <div className="w-full py-8" style={{paddingLeft: '20px', paddingRight: '20px'}}>
-            <div className="grid grid-cols-1 lg:grid-cols-4" style={{gap: '30px'}}>
-                {/* Sidebar de Categorias */}
-                <aside className="lg:col-span-1 p-6 rounded-lg shadow-sm h-fit velohub-container" style={{borderRadius: '9.6px', boxShadow: '0 3.2px 16px rgba(0, 0, 0, 0.1)', padding: '19.2px'}}>
+            <div 
+                className="grid gap-4" 
+                style={{
+                    gridTemplateColumns: getGridColumns(isRightSidebarCollapsed),
+                    transition: 'grid-template-columns 0.3s ease'
+                }}
+            >
+                {/* Conteúdo principal com categorias e artigos */}
+                <div className="grid grid-cols-1 lg:grid-cols-4" style={{gap: '30px', minWidth: 0}}>
+                    {/* Sidebar de Categorias */}
+                    <aside className="lg:col-span-1 p-6 rounded-lg shadow-sm h-fit velohub-container" style={{borderRadius: '9.6px', boxShadow: '0 3.2px 16px rgba(0, 0, 0, 0.1)', padding: '19.2px'}}>
                     {/* Campo de Busca */}
                     <div className="mb-6">
                         <div className="relative w-full">
@@ -4016,7 +4680,7 @@ const ArtigosPage = () => {
                                                                 setSelectedArticle(article);
                                                             }}
                                                             onError={(e) => {
-                                                                e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="280" height="120"%3E%3Crect width="280" height="120" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-family="Arial" font-size="12"%3EImagem não encontrada%3C/text%3E%3C/svg%3E';
+                                                                e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="280" height="120"%3E%3Crect width="280" height="120" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-family="Arial" font-size="12"%3EImagem n├úo encontrada%3C/text%3E%3C/svg%3E';
                                                             }}
                                                         />
                                                     </div>
@@ -4048,6 +4712,21 @@ const ArtigosPage = () => {
                         </>
                     )}
                 </div>
+                </div>
+                
+                {/* Sidebar direito com chat */}
+                {renderRightSidebarChat({
+                    isCollapsed: isRightSidebarCollapsed,
+                    onToggleCollapse: () => setIsRightSidebarCollapsed(!isRightSidebarCollapsed),
+                    activeTab,
+                    setActiveTab,
+                    isSearchExpanded,
+                    setIsSearchExpanded,
+                    searchQuery,
+                    setSearchQuery,
+                    soundEnabled,
+                    toggleSound
+                })}
             </div>
 
             {/* Modal do Artigo */}
@@ -4069,7 +4748,7 @@ const ArtigosPage = () => {
                                 onClick={() => setSelectedArticle(null)}
                                 className="text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white text-2xl font-bold"
                             >
-                                ×
+                                ├ù
                             </button>
                         </div>
                         
@@ -4094,7 +4773,7 @@ const ArtigosPage = () => {
                                                         style={{ maxHeight: '400px', objectFit: 'contain' }}
                                                         onClick={() => setExpandedImage(imgUrl)}
                                                         onError={(e) => {
-                                                            e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="200"%3E%3Crect width="400" height="200" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-family="Arial" font-size="14"%3EImagem não encontrada%3C/text%3E%3C/svg%3E';
+                                                            e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="200"%3E%3Crect width="400" height="200" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-family="Arial" font-size="14"%3EImagem n├úo encontrada%3C/text%3E%3C/svg%3E';
                                                         }}
                                                     />
                                                     <div className="text-center mt-2 text-sm text-gray-500 dark:text-gray-400">
@@ -4107,22 +4786,22 @@ const ArtigosPage = () => {
                                 );
                             })()}
                             
-                            {/* Renderizar vídeos do YouTube */}
+                            {/* Renderizar v├¡deos do YouTube */}
                             {(() => {
                                 const videos = selectedArticle?.media?.videos || selectedArticle?.videos || [];
-                                console.log('🔍 Modal Artigo (ArtigosPage) - vídeos encontrados:', videos);
+                                console.log('­ƒöì Modal Artigo (ArtigosPage) - v├¡deos encontrados:', videos);
                                 
-                                // Processar vídeos (podem ser strings ou objetos)
+                                // Processar v├¡deos (podem ser strings ou objetos)
                                 const youtubeVideos = videos
                                     .map(v => {
                                         if (typeof v === 'string') {
-                                            // É uma string de URL
+                                            // ├ë uma string de URL
                                             if (v.includes('youtube.com') || v.includes('youtu.be')) {
                                                 return { url: v, embed: convertYouTubeUrlToEmbed(v) };
                                             }
                                             return null;
                                         } else if (v && typeof v === 'object') {
-                                            // É um objeto
+                                            // ├ë um objeto
                                             if (v.type === 'youtube' || v.embed || v.url) {
                                                 return {
                                                     url: v.url || v.embed || '',
@@ -4134,18 +4813,18 @@ const ArtigosPage = () => {
                                     })
                                     .filter(v => v !== null && v.embed);
                                 
-                                console.log('🔍 Modal Artigo (ArtigosPage) - vídeos processados:', youtubeVideos);
+                                console.log('­ƒöì Modal Artigo (ArtigosPage) - v├¡deos processados:', youtubeVideos);
                                 
                                 return youtubeVideos.length > 0 ? (
                                     <div className="mb-6 space-y-3">
                                         {youtubeVideos.map((vid, idx) => {
                                             if (!vid.embed) return null;
-                                            // Detectar se é Shorts para aplicar proporção 9:16 com tamanho limitado
+                                            // Detectar se ├® Shorts para aplicar propor├º├úo 9:16 com tamanho limitado
                                             const isShorts = isYouTubeShorts(vid.url);
                                             if (isShorts) {
-                                                // Para Shorts: proporção 9:16 (largura:altura = 9:16)
-                                                // Definir altura máxima e calcular largura, ou vice-versa
-                                                // Altura máxima de 400px -> largura = 400 × (9/16) = 225px
+                                                // Para Shorts: propor├º├úo 9:16 (largura:altura = 9:16)
+                                                // Definir altura m├íxima e calcular largura, ou vice-versa
+                                                // Altura m├íxima de 400px -> largura = 400 ├ù (9/16) = 225px
                                                 return (
                                                     <div key={idx} className="flex justify-center">
                                                         <div className="relative rounded-lg overflow-hidden" style={{ width: '225px', maxWidth: '100%', height: '400px', maxHeight: '50vh' }}>
@@ -4160,7 +4839,7 @@ const ArtigosPage = () => {
                                                     </div>
                                                 );
                                             } else {
-                                                // Para vídeos normais: proporção 16:9 padrão
+                                                // Para v├¡deos normais: propor├º├úo 16:9 padr├úo
                                                 return (
                                                     <div key={idx} className="relative w-full" style={{ paddingBottom: '56.25%', height: 0 }}>
                                                         <iframe
@@ -4224,11 +4903,43 @@ const ArtigosPage = () => {
     );
 };
 
-// Página de Processos (Chatbot)
+// P├ígina de Processos (Chatbot)
 const ProcessosPage = () => {
     const [promptFromFaq, setPromptFromFaq] = useState(null);
     const [faq, setFaq] = useState([]);
     const [loading, setLoading] = useState(true);
+    
+    // Estados do sidebar direito com chat
+    const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(true); // Recolhido por padrão
+    const [activeTab, setActiveTab] = useState('conversations');
+    const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [soundEnabled, setSoundEnabled] = useState(() => {
+        try {
+            return localStorage.getItem('velochat_sound_enabled') !== 'false';
+        } catch {
+            return true;
+        }
+    });
+    
+    const toggleSound = () => {
+        const newState = !soundEnabled;
+        setSoundEnabled(newState);
+        try {
+            localStorage.setItem('velochat_sound_enabled', newState.toString());
+        } catch (error) {
+            console.error('Erro ao salvar preferência de som:', error);
+        }
+    };
+    
+    // Função para calcular grid columns
+    const getGridColumns = (rightCollapsed) => {
+        if (rightCollapsed) {
+            return '1fr 10px';
+        } else {
+            return 'minmax(0, 1fr) minmax(0, 35%)';
+        }
+    };
 
     useEffect(() => {
         const fetchTop10FAQ = async () => {
@@ -4244,14 +4955,14 @@ const ProcessosPage = () => {
                 if (result.success && result.data && result.data.length > 0) {
                     setFaq(result.data);
                 } else {
-                    console.warn('⚠️ Nenhuma pergunta frequente encontrada');
+                    console.warn('ÔÜá´©Å Nenhuma pergunta frequente encontrada');
                     setFaq([]);
                 }
             } catch (error) {
                 console.error('Erro ao carregar Top 10 FAQ do backend:', error);
-                console.log('📋 Usando fallback para FAQ padrão...');
+                console.log('­ƒôï Usando fallback para FAQ padr├úo...');
                 
-                // Fallback para FAQ padrão se Apps Script falhar
+                // Fallback para FAQ padr├úo se Apps Script falhar
                 try {
                     const fallbackResponse = await faqAPI.getAll();
                     if (fallbackResponse.data && fallbackResponse.data.length > 0) {
@@ -4277,37 +4988,58 @@ const ProcessosPage = () => {
 
     return (
         <div className="w-full py-8" style={{paddingLeft: '20px', paddingRight: '20px'}}>
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                <div className="lg:col-span-3">
-                    <Chatbot prompt={promptFromFaq} />
+            <div 
+                className="grid gap-4" 
+                style={{
+                    gridTemplateColumns: getGridColumns(isRightSidebarCollapsed),
+                    transition: 'grid-template-columns 0.3s ease'
+                }}
+            >
+                {/* Conteúdo principal com FAQ e Chatbot */}
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8" style={{ minWidth: 0 }}>
+                    <div className="lg:col-span-3">
+                        <Chatbot prompt={promptFromFaq} />
+                    </div>
+                    <aside className="lg:col-span-1 p-6 rounded-lg shadow-sm h-fit velohub-container" style={{borderRadius: '9.6px', boxShadow: '0 3.2px 16px rgba(0, 0, 0, 0.1)', padding: '19.2px'}}>
+                        <h3 className="font-bold text-xl mb-4 border-b pb-2 text-center velohub-title" style={{borderColor: 'var(--blue-opaque)'}}>Perguntas Frequentes</h3>
+                        
+                        {loading && (
+                            <div className="text-center py-4">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                                <p className="text-gray-600 dark:text-gray-400 mt-2">Carregando...</p>
+                            </div>
+                        )}
+                        
+                        {!loading && (
+                            <>
+                                <ul className="space-y-3">
+                                    {faq.slice(0, 10).map((item, index) => {
+                                        const questionText = item.pergunta || item.question || 'Pergunta não disponível';
+                                        return (
+                                            <li key={index} onClick={() => handleFaqClick(questionText)} className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer text-sm">
+                                                {questionText}
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </>
+                        )}
+                    </aside>
                 </div>
-                                <aside className="lg:col-span-1 p-6 rounded-lg shadow-sm h-fit velohub-container" style={{borderRadius: '9.6px', boxShadow: '0 3.2px 16px rgba(0, 0, 0, 0.1)', padding: '19.2px'}}>
-                    <h3 className="font-bold text-xl mb-4 border-b pb-2 text-center velohub-title" style={{borderColor: 'var(--blue-opaque)'}}>Perguntas Frequentes</h3>
-                    
-                    {loading && (
-                        <div className="text-center py-4">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                            <p className="text-gray-600 dark:text-gray-400 mt-2">Carregando...</p>
-                        </div>
-                    )}
-                    
-                    {!loading && (
-                        <>
-                            <ul className="space-y-3">
-                                {faq.slice(0, 10).map((item, index) => {
-                                    // Estrutura do Apps Script: {pergunta: string, frequencia: number}
-                                    // Estrutura do MongoDB: {pergunta: string, palavras_chave: string, resposta: string, ...}
-                                    const questionText = item.pergunta || item.question || 'Pergunta não disponível';
-                                    return (
-                                        <li key={index} onClick={() => handleFaqClick(questionText)} className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer text-sm">
-                                            {questionText}
-                                        </li>
-                                    );
-                                })}
-                            </ul>
-                        </>
-                    )}
-                </aside>
+                
+                {/* Sidebar direito com chat */}
+                {renderRightSidebarChat({
+                    isCollapsed: isRightSidebarCollapsed,
+                    onToggleCollapse: () => setIsRightSidebarCollapsed(!isRightSidebarCollapsed),
+                    activeTab,
+                    setActiveTab,
+                    isSearchExpanded,
+                    setIsSearchExpanded,
+                    searchQuery,
+                    setSearchQuery,
+                    soundEnabled,
+                    toggleSound
+                })}
             </div>
         </div>
     );

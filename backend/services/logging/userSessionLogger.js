@@ -1,5 +1,5 @@
 // User Session Logger - Log de sessões de login/logout dos usuários
-// VERSION: v1.1.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+// VERSION: v1.2.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
 const { MongoClient } = require('mongodb');
 const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
@@ -54,6 +54,7 @@ class UserSessionLogger {
         ipAddress,
         userAgent,
         isActive: true,
+        chatStatus: 'online', // Inicializar status do chat como 'online' por padrão
         loginTimestamp: now,
         logoutTimestamp: null,
         createdAt: now,
