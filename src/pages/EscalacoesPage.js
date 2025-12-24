@@ -1,6 +1,11 @@
 /**
  * VeloHub V3 - EscalacoesPage (Escalações Module)
- * VERSION: v1.3.2 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.4.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.4.0:
+ * - Adicionado sidebar direito com widget de chat (recolhido por padrão)
+ * - Integrado VeloChatWidget com todas as funcionalidades (Conversas, Contatos, Salas)
+ * - Implementado sistema de retração/expansão do sidebar direito
  * Branch: escalacoes
  * 
  * Esta página contém o módulo de Escalações completo (Painel de Serviços migrado).
@@ -28,8 +33,11 @@
  */
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import FormSolicitacao from '../components/Escalacoes/FormSolicitacao';
 import ErrosBugsTab from '../components/Escalacoes/ErrosBugsTab';
+import VeloChatWidget from '../components/VeloChatWidget';
+import ChatStatusSelector from '../components/ChatStatusSelector';
 import { solicitacoesAPI } from '../services/escalacoesApi';
 import { API_BASE_URL } from '../config/api-config';
 
@@ -168,6 +176,332 @@ const EscalacoesPage = () => {
   const [backendUrl, setBackendUrl] = useState('');
   const [replies, setReplies] = useState([]);
   const [myAgent, setMyAgent] = useState('');
+  
+  // Estados do sidebar direito com chat
+  const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(true); // Recolhido por padrão
+  const [chatActiveTab, setChatActiveTab] = useState('conversations');
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    try {
+      return localStorage.getItem('velochat_sound_enabled') !== 'false';
+    } catch {
+      return true;
+    }
+  });
+  
+  const toggleSound = () => {
+    const newState = !soundEnabled;
+    setSoundEnabled(newState);
+    try {
+      localStorage.setItem('velochat_sound_enabled', newState.toString());
+    } catch (error) {
+      console.error('Erro ao salvar preferência de som:', error);
+    }
+  };
+  
+  // Função para calcular grid columns
+  const getGridColumns = (rightCollapsed) => {
+    if (rightCollapsed) {
+      return '1fr 10px';
+    } else {
+      return 'minmax(0, 1fr) minmax(0, 35%)';
+    }
+  };
+  
+  // Função helper para renderizar sidebar direito com chat
+  const renderRightSidebarChat = () => {
+    if (isRightSidebarCollapsed) {
+      return (
+        <div 
+          style={{
+            position: 'relative',
+            width: '10px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'center',
+            paddingTop: '12px'
+          }}
+          onClick={() => setIsRightSidebarCollapsed(false)}
+        >
+          <ChevronLeft 
+            size={22} 
+            style={{
+              color: 'var(--blue-dark)',
+              transition: 'color 0.3s ease'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--blue-opaque)'}
+            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--blue-dark)'}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <aside 
+        className="rounded-lg shadow-sm flex flex-col velohub-container" 
+        style={{
+          borderRadius: '9.6px', 
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', 
+          padding: '19.0px', 
+          position: 'relative', 
+          display: 'flex',
+          flexDirection: 'column',
+          minWidth: 0,
+          height: '700px',
+          maxHeight: '700px',
+          overflow: 'hidden',
+          transition: 'opacity 0.3s ease, transform 0.3s ease'
+        }}
+      >
+        {/* Botão de retração */}
+        <button
+          onClick={() => setIsRightSidebarCollapsed(true)}
+          style={{
+            position: 'absolute',
+            top: '12px',
+            left: '12px',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '4px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10,
+            transition: 'all 0.3s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.querySelector('svg').style.color = 'var(--blue-opaque)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.querySelector('svg').style.color = 'rgba(128, 128, 128, 0.5)';
+          }}
+        >
+          <ChevronRight 
+            size={18} 
+            style={{
+              color: 'rgba(128, 128, 128, 0.5)',
+              transition: 'color 0.3s ease'
+            }}
+          />
+        </button>
+        
+        {/* Widget VeloChat */}
+        <div className="flex-1 flex flex-col" style={{ minHeight: 0, overflow: 'hidden' }}>
+          {/* Header */}
+          <div className="flex items-center mb-4" style={{ gap: '8px', position: 'relative', flexShrink: 0 }}>
+            {isSearchExpanded ? (
+              <>
+                <input 
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar contato..."
+                  className="flex-1 px-3 py-2 rounded-lg border"
+                  style={{
+                    borderColor: 'var(--blue-opaque)',
+                    borderRadius: '8px',
+                    outline: 'none',
+                    transition: 'all 0.3s ease',
+                    fontFamily: 'Poppins, sans-serif',
+                    marginLeft: '40px'
+                  }}
+                  autoFocus
+                />
+                <button 
+                  onClick={() => { setIsSearchExpanded(false); setSearchQuery(''); }}
+                  className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center justify-center"
+                  style={{ color: 'var(--blue-dark)', minWidth: '32px', height: '32px' }}
+                  title="Fechar busca"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ marginLeft: '16px', flexShrink: 0 }}>
+                  <ChatStatusSelector 
+                    sessionId={localStorage.getItem('velohub_session_id')} 
+                    onStatusChange={() => {}}
+                  />
+                </div>
+                <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <h3 className="font-bold text-xl velohub-title" style={{ 
+                    color: 'var(--blue-dark)', 
+                    margin: 0,
+                    textAlign: 'center',
+                    position: 'absolute',
+                    left: '50%',
+                    transform: 'translateX(-50%)'
+                  }}>
+                    Chat
+                  </h3>
+                </div>
+                <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <button
+                    onClick={toggleSound}
+                    className="flex items-center justify-center p-1 rounded transition-colors"
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                      padding: '4px'
+                    }}
+                    title={soundEnabled ? 'Desativar som' : 'Ativar som'}
+                  >
+                    {soundEnabled ? (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--blue-dark)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                      </svg>
+                    ) : (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(128, 128, 128, 0.6)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}>
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        <line x1="23" y1="9" x2="17" y2="15"></line>
+                        <line x1="17" y1="9" x2="23" y2="15"></line>
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                <div style={{ flexShrink: 0 }}>
+                  <button 
+                    onClick={() => setIsSearchExpanded(true)}
+                    className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    style={{ color: 'var(--blue-dark)' }}
+                    title="Buscar contato"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="11" cy="11" r="8"></circle>
+                      <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          
+          {/* Seletor de Abas */}
+          <div className="flex border-b mb-2" style={{ borderColor: 'var(--blue-opaque)', flexShrink: 0 }}>
+            <button 
+              className="flex-1 py-2 text-sm font-medium transition-colors"
+              onClick={() => setChatActiveTab('conversations')}
+              style={chatActiveTab === 'conversations' ? {
+                color: 'var(--blue-dark)',
+                borderBottom: '2px solid var(--blue-opaque)'
+              } : {
+                color: 'var(--cor-texto-secundario)'
+              }}
+            >
+              Conversas
+            </button>
+            <button 
+              className="flex-1 py-2 text-sm font-medium transition-colors"
+              onClick={() => setChatActiveTab('contacts')}
+              style={chatActiveTab === 'contacts' ? {
+                color: 'var(--blue-dark)',
+                borderBottom: '2px solid var(--blue-opaque)'
+              } : {
+                color: 'var(--cor-texto-secundario)'
+              }}
+            >
+              Contatos
+            </button>
+            <button 
+              className="flex-1 py-2 text-sm font-medium transition-colors"
+              onClick={() => setChatActiveTab('salas')}
+              style={chatActiveTab === 'salas' ? {
+                color: 'var(--blue-dark)',
+                borderBottom: '2px solid var(--blue-opaque)'
+              } : {
+                color: 'var(--cor-texto-secundario)'
+              }}
+            >
+              Salas
+            </button>
+          </div>
+              
+          {/* Container scrollável */}
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+            {(() => {
+              const isProduction = typeof window !== 'undefined' && 
+                !window.location.hostname.includes('localhost') && 
+                !window.location.hostname.includes('127.0.0.1');
+              
+              let userName = '';
+              try {
+                const sessionData = localStorage.getItem('velohub_user_session');
+                if (sessionData) {
+                  const session = JSON.parse(sessionData);
+                  userName = session?.user?.name || '';
+                }
+              } catch (err) {
+                console.error('Erro ao obter nome do usuário:', err);
+              }
+              
+              const isLucasGravina = userName && 
+                userName.toLowerCase().includes('lucas') && 
+                userName.toLowerCase().includes('gravina');
+              
+              const shouldShowChat = !isProduction || isLucasGravina;
+              
+              if (!shouldShowChat) {
+                return (
+                  <div style={{
+                    position: 'relative',
+                    width: '100%',
+                    height: '100%',
+                    minHeight: '400px',
+                    background: 'transparent',
+                    border: '1.5px solid var(--blue-dark)',
+                    borderRadius: '8px',
+                    padding: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                  }}>
+                    <div style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: '8px',
+                      zIndex: 10
+                    }}>
+                      <span style={{
+                        color: 'white',
+                        fontSize: '1.2rem',
+                        fontWeight: 'bold',
+                        fontFamily: 'Poppins, sans-serif',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1.6px'
+                      }}>
+                        EM BREVE
+                      </span>
+                    </div>
+                  </div>
+                );
+              }
+              
+              return (
+                <VeloChatWidget activeTab={chatActiveTab} searchQuery={searchQuery} />
+              );
+            })()}
+          </div>
+        </div>
+      </aside>
+    );
+  };
 
   /**
    * Normalizar string para comparação
@@ -417,8 +751,17 @@ const EscalacoesPage = () => {
 
   return (
     <div className="w-full py-12" style={{paddingLeft: '20px', paddingRight: '20px'}}>
-        {/* Sistema de Abas */}
-        <div className="mb-8" style={{marginTop: '-15px'}}>
+        <div 
+          className="grid gap-4" 
+          style={{
+            gridTemplateColumns: getGridColumns(isRightSidebarCollapsed),
+            transition: 'grid-template-columns 0.3s ease'
+          }}
+        >
+          {/* Conteúdo principal */}
+          <div style={{ minWidth: 0 }}>
+            {/* Sistema de Abas */}
+            <div className="mb-8" style={{marginTop: '-15px'}}>
           {/* Abas */}
           <div className="flex justify-start mb-2" style={{gap: '2rem'}}>
             <button
@@ -808,9 +1151,14 @@ const EscalacoesPage = () => {
           <ErrosBugsTab />
         )}
 
-        {activeTab === 'calculadora-restituicao' && (
-          <CalculadoraRestituicao />
-        )}
+            {activeTab === 'calculadora-restituicao' && (
+              <CalculadoraRestituicao />
+            )}
+          </div>
+          
+          {/* Sidebar direito com chat */}
+          {renderRightSidebarChat()}
+        </div>
     </div>
   );
 };

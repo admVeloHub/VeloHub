@@ -1,6 +1,10 @@
 /**
  * VeloHub V3 - API Service
- * VERSION: v1.0.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.1.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.1.0:
+ * - getRecent agora passa limit como query parameter ao backend
+ * - Removida ordenação e limitação no cliente (backend já faz isso)
  */
 
 import { API_BASE_URL } from '../config/api-config';
@@ -44,6 +48,22 @@ export const mainAPI = {
 export const veloNewsAPI = {
   // Buscar todas as notícias
   getAll: () => apiRequest('/velo-news'),
+  
+  // Buscar notícias recentes (limitadas por quantidade)
+  // O backend já faz a ordenação e limitação, então apenas passamos o limit como query parameter
+  getRecent: (limit = 4) => {
+    console.log('🔍 [veloNewsAPI.getRecent] Iniciando busca com limit:', limit);
+    return apiRequest(`/velo-news?limit=${limit}`).then(data => {
+      // Backend já retorna as notícias ordenadas e limitadas
+      const news = data?.data || [];
+      console.log('🔍 [veloNewsAPI.getRecent] Notícias recebidas do backend:', news.length);
+      
+      return { data: news };
+    }).catch(error => {
+      console.error('❌ [veloNewsAPI.getRecent] Erro ao buscar notícias:', error);
+      return { data: [] };
+    });
+  },
   
   // Buscar notícias críticas
   getCritical: () => apiRequest('/velo-news').then(data => 
