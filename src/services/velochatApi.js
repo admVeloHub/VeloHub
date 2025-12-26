@@ -1,6 +1,10 @@
 /**
  * VeloChat API Service - Frontend
- * VERSION: v4.3.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v4.4.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v4.4.0:
+ * - Adicionados logs de debug para investigar erro "failed to fetch"
+ * - Logs capturam: URL, headers, erros de fetch, status de resposta, erros CORS
  * 
  * Mudanças v4.3.0:
  * - Removidos logs de debug do endpoint de ingest que causavam erros no console
@@ -49,6 +53,9 @@ const getSessionId = () => {
  * Função genérica para fazer requisições autenticadas
  */
 const authenticatedFetch = async (url, options = {}) => {
+  // #region agent log
+  fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'velochatApi.js:51',message:'authenticatedFetch entry',data:{url,method:options.method||'GET',hasOptions:!!options},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
   const sessionId = getSessionId();
   
   console.log(`🔐 [authenticatedFetch] Fazendo requisição para ${url}:`, {
@@ -56,8 +63,15 @@ const authenticatedFetch = async (url, options = {}) => {
     sessionId: sessionId ? `${sessionId.substring(0, 8)}...` : null
   });
   
+  // #region agent log
+  fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'velochatApi.js:59',message:'sessionId check',data:{hasSessionId:!!sessionId,sessionIdPrefix:sessionId?sessionId.substring(0,8):null},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'B'})}).catch(()=>{});
+  // #endregion
+  
   if (!sessionId) {
     console.error('❌ [authenticatedFetch] SessionId não encontrado no localStorage');
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'velochatApi.js:61',message:'sessionId missing error',data:{url},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     throw new Error('SessionId não encontrado. Faça login novamente.');
   }
 
@@ -67,16 +81,39 @@ const authenticatedFetch = async (url, options = {}) => {
     ...options.headers,
   };
 
+  const fullUrl = `${VELOCHAT_API_URL}${url}`;
+  
+  // #region agent log
+  fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'velochatApi.js:75',message:'before fetch',data:{fullUrl,method:options.method||'GET',headers:Object.keys(headers),origin:typeof window!=='undefined'?window.location.origin:null},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'C'})}).catch(()=>{});
+  // #endregion
+
   console.log(`📤 [authenticatedFetch] Enviando requisição:`, {
-    url: `${VELOCHAT_API_URL}${url}`,
+    url: fullUrl,
     method: options.method || 'GET',
     hasSessionIdHeader: !!headers['X-Session-Id']
   });
 
-  const response = await fetch(`${VELOCHAT_API_URL}${url}`, {
-    ...options,
-    headers,
-  });
+  let response;
+  try {
+    response = await fetch(fullUrl, {
+      ...options,
+      headers,
+    });
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'velochatApi.js:81',message:'fetch success',data:{url:fullUrl,status:response.status,statusText:response.statusText,ok:response.ok,headers:Object.fromEntries(response.headers.entries())},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
+  } catch (fetchError) {
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'velochatApi.js:85',message:'fetch error caught',data:{url:fullUrl,errorName:fetchError.name,errorMessage:fetchError.message,errorStack:fetchError.stack,isCorsError:fetchError.message&&(fetchError.message.includes('CORS')||fetchError.message.includes('Failed to fetch')||fetchError.name==='TypeError')},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
+    console.error(`❌ [authenticatedFetch] Erro na requisição fetch:`, {
+      url: fullUrl,
+      error: fetchError.message,
+      name: fetchError.name,
+      stack: fetchError.stack
+    });
+    throw fetchError;
+  }
 
   console.log(`📥 [authenticatedFetch] Resposta recebida:`, {
     url,
@@ -92,10 +129,17 @@ const authenticatedFetch = async (url, options = {}) => {
       status: response.status,
       error: error.error || error.message
     });
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'velochatApi.js:96',message:'response not ok',data:{url:fullUrl,status:response.status,statusText:response.statusText,error},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'F'})}).catch(()=>{});
+    // #endregion
     throw new Error(error.error || `Erro ${response.status}`);
   }
 
-  return await response.json();
+  const result = await response.json();
+  // #region agent log
+  fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'velochatApi.js:99',message:'authenticatedFetch success',data:{url,hasResult:!!result},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'D'})}).catch(()=>{});
+  // #endregion
+  return result;
 };
 
 // ==================== APIs P2P ====================

@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.6.3 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.6.4 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.6.4:
+ * - Removido bypass de Lucas Gravina - todos os usuários têm acesso ao chat
  * 
  * Mudanças v2.6.3:
  * - Removidos logs de debug após correção bem-sucedida
@@ -1946,56 +1949,7 @@ const renderRightSidebarChat = ({
                             console.error('Erro ao obter nome do usuário:', err);
                         }
                         
-                        const isLucasGravina = userName && 
-                            userName.toLowerCase().includes('lucas') && 
-                            userName.toLowerCase().includes('gravina');
-                        
-                        const shouldShowChat = !isProduction || isLucasGravina;
-                        
-                        if (!shouldShowChat) {
-                            return (
-                                <div style={{
-                                    position: 'relative',
-                                    width: '100%',
-                                    height: '100%',
-                                    minHeight: '400px',
-                                    background: 'transparent',
-                                    border: '1.5px solid var(--blue-dark)',
-                                    borderRadius: '8px',
-                                    padding: '16px',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    justifyContent: 'center',
-                                    alignItems: 'center'
-                                }}>
-                                    <div style={{
-                                        position: 'absolute',
-                                        top: 0,
-                                        left: 0,
-                                        right: 0,
-                                        bottom: 0,
-                                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        borderRadius: '8px',
-                                        zIndex: 10
-                                    }}>
-                                        <span style={{
-                                            color: 'white',
-                                            fontSize: '1.2rem',
-                                            fontWeight: 'bold',
-                                            fontFamily: 'Poppins, sans-serif',
-                                            textTransform: 'uppercase',
-                                            letterSpacing: '1.6px'
-                                        }}>
-                                            EM BREVE
-                                        </span>
-                                    </div>
-                                </div>
-                            );
-                        }
-                        
+                        // Removido bypass - todos os usuários têm acesso ao chat
                         return (
                             <VeloChatWidget activeTab={activeTab} searchQuery={searchQuery} />
                         );
