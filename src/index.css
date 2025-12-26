@@ -507,7 +507,7 @@ code {
     margin-top: auto;
     width: 100%;
     transition: all 0.3s ease;
-    height: 30px;
+    height: 24px;
     display: flex;
     align-items: center;
 }
@@ -527,7 +527,7 @@ code {
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 8px;
     height: 100%;
 }
 
@@ -538,10 +538,11 @@ code {
 
 .footer-text {
     color: var(--gray);
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-family: 'Poppins', sans-serif;
     margin: 0;
-    line-height: 1.1;
+    padding: 0;
+    line-height: 1;
 }
 
 /* Tema escuro - Footer */
