@@ -40,15 +40,37 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Correção Build GCP: Adicionadas Dependências Peer do Material-UI**
+- **Data/Hora**: 2025-01-31 16:00:00
+- **Tipo**: GitHub Push
+- **Commit**: [Pendente]
+- **Versão**: package.json v3.0.2 → v3.0.3
+- **Arquivos Modificados**:
+  - `package.json` (v3.0.2 → v3.0.3 - adicionadas dependências peer do Material-UI)
+  - `package-lock.json` (sincronização com dependências peer)
+- **Descrição**: Correção do erro de build no GCP. O `@mui/icons-material` requer dependências peer do Material-UI que não estavam instaladas. Adicionadas dependências `@mui/material` versão `^5.15.0`, `@emotion/react` versão `^11.11.1` e `@emotion/styled` versão `^11.11.0` ao `package.json`. Executado `npm install` para sincronizar o `package-lock.json`. Versão do projeto atualizada de `v3.0.2` para `v3.0.3`. Resolve erro "Module not found: Error: Can't resolve '@mui/icons-material'" que impedia o build de produção no GCP.
+- **Status**: ✅ Concluído com sucesso
+
+### **GitHub Push - Correção Completa Build GCP: Dependências Faltantes e Sincronização package-lock.json**
+- **Data/Hora**: 2025-01-31 15:30:00
+- **Tipo**: GitHub Push
+- **Commit**: [Pendente]
+- **Versão**: package.json v3.0.1 → v3.0.2
+- **Arquivos Modificados**:
+  - `package.json` (v3.0.1 → v3.0.2 - adicionadas dependências faltantes)
+  - `package-lock.json` (sincronização completa com todas as dependências)
+- **Descrição**: Correção completa do erro de build no GCP Cloud Build. Identificadas e corrigidas duas dependências faltantes: `socket.io-client` (usado em `src/App_v2-1.js` e `src/hooks/useWebSocket.js`) e `@mui/icons-material` (usado em `src/components/VeloChatWidget.js`). Adicionadas dependências `socket.io-client` versão `^4.7.2` e `@mui/icons-material` versão `^5.15.0` ao `package.json`. Executado `npm install` para sincronizar completamente o `package-lock.json` com todas as dependências e sub-dependências. Versão do projeto atualizada de `v3.0.1` para `v3.0.2`. Resolve erros "Module not found" e "Missing from lock file" que impediam o build de produção no GCP (`npm ci` falhava por incompatibilidade entre package.json e package-lock.json).
+- **Status**: ✅ Concluído com sucesso
+
 ### **GitHub Push - Correção Build GCP: Adicionada Dependência socket.io-client**
 - **Data/Hora**: 2025-01-31 15:00:00
 - **Tipo**: GitHub Push
-- **Commit**: [Pendente]
+- **Commit**: 8316d8a
 - **Versão**: package.json v3.0.0 → v3.0.1
 - **Arquivos Modificados**:
   - `package.json` (v3.0.0 → v3.0.1 - adicionada dependência socket.io-client)
-- **Descrição**: Correção crítica do erro de build no GCP Cloud Build. O código importava `socket.io-client` em `src/App_v2-1.js` e `src/hooks/useWebSocket.js`, mas a dependência não estava listada no `package.json`. Adicionada dependência `socket.io-client` versão `^4.7.2` às dependências do projeto. Versão do projeto atualizada de `v3.0.0` para `v3.0.1`. Resolve erro "Module not found: Error: Can't resolve 'socket.io-client' in '/app/src'" que impedia o build de produção no GCP.
-- **Status**: ✅ Concluído com sucesso
+- **Descrição**: Correção crítica do erro de build no GCP Cloud Build. O código importava `socket.io-client` em `src/App_v2-1.js` e `src/hooks/useWebSocket.js`, mas a dependência não estava listada no `package.json`. Adicionada dependência `socket.io-client` versão `^4.7.2` às dependências do projeto. Versão do projeto atualizada de `v3.0.0` para `v3.0.1`. Resolve erro "Module not found: Error: Can't resolve 'socket.io-client' in '/app/src'" que impedia o build de produção no GCP. Nota: Este push não incluiu atualização do package-lock.json, causando erro subsequente no npm ci.
+- **Status**: ⚠️ Parcialmente resolvido (package-lock.json não sincronizado)
 
 ### **GitHub Push - Correção Parsing Formatação Markdown VeloNews e Artigos**
 - **Data/Hora**: 2025-01-31 14:30:00
