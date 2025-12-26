@@ -40,6 +40,16 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Correção Build GCP: Adicionada Dependência socket.io-client**
+- **Data/Hora**: 2025-01-31 15:00:00
+- **Tipo**: GitHub Push
+- **Commit**: [Pendente]
+- **Versão**: package.json v3.0.0 → v3.0.1
+- **Arquivos Modificados**:
+  - `package.json` (v3.0.0 → v3.0.1 - adicionada dependência socket.io-client)
+- **Descrição**: Correção crítica do erro de build no GCP Cloud Build. O código importava `socket.io-client` em `src/App_v2-1.js` e `src/hooks/useWebSocket.js`, mas a dependência não estava listada no `package.json`. Adicionada dependência `socket.io-client` versão `^4.7.2` às dependências do projeto. Versão do projeto atualizada de `v3.0.0` para `v3.0.1`. Resolve erro "Module not found: Error: Can't resolve 'socket.io-client' in '/app/src'" que impedia o build de produção no GCP.
+- **Status**: ✅ Concluído com sucesso
+
 ### **GitHub Push - Correção Parsing Formatação Markdown VeloNews e Artigos**
 - **Data/Hora**: 2025-01-31 14:30:00
 - **Tipo**: GitHub Push

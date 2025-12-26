@@ -1,10 +1,10 @@
 {
   "name": "velohub",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "private": true,
   "_versionInfo": {
-    "version": "v3.0.0",
-    "date": "2025-01-29",
+    "version": "v3.0.1",
+    "date": "2025-01-31",
     "author": "VeloHub Development Team"
   },
   "dependencies": {
@@ -19,6 +19,7 @@
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.8.0",
     "react-scripts": "5.0.1",
+    "socket.io-client": "^4.7.2",
     "tailwindcss": "^3.3.0"
   },
   "devDependencies": {
