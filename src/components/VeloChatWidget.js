@@ -1,6 +1,10 @@
 /**
  * VeloChatWidget - Componente Principal do Chat
- * VERSION: v3.17.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.18.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v3.18.0:
+ * - Adicionados logs de debug para investigar erro "failed to fetch"
+ * - Logs capturam erros em loadConversations e loadContacts
  * 
  * Mudanças v3.17.1:
  * - Removidos logs de debug após correção bem-sucedida
@@ -474,12 +478,24 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
    * Carregar conversas do usuário
    */
   const loadConversations = useCallback(async () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'VeloChatWidget.js:476',message:'loadConversations entry',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'G'})}).catch(()=>{});
+    // #endregion
     try {
       setLoading(true);
       setError(null);
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'VeloChatWidget.js:480',message:'calling getConversations',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'G'})}).catch(()=>{});
+      // #endregion
       const data = await velochatApi.getConversations();
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'VeloChatWidget.js:481',message:'getConversations success',data:{hasData:!!data,conversationsCount:data?.conversations?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'G'})}).catch(()=>{});
+      // #endregion
       setConversations(data.conversations || []);
     } catch (err) {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'VeloChatWidget.js:483',message:'loadConversations error',data:{errorName:err.name,errorMessage:err.message,errorStack:err.stack,isFailedFetch:err.message&&err.message.includes('Failed to fetch'),isCorsError:err.message&&err.message.includes('CORS')},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H'})}).catch(()=>{});
+      // #endregion
       console.error('Erro ao carregar conversas:', err);
       setError(err.message);
     } finally {
@@ -491,10 +507,19 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
    * Carregar contatos do usuário
    */
   const loadContacts = useCallback(async () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'VeloChatWidget.js:493',message:'loadContacts entry',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'I'})}).catch(()=>{});
+    // #endregion
     try {
       setLoadingContacts(true);
       setError(null);
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'VeloChatWidget.js:496',message:'calling getContacts',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'I'})}).catch(()=>{});
+      // #endregion
       const data = await velochatApi.getContacts();
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'VeloChatWidget.js:497',message:'getContacts success',data:{hasData:!!data,contactsCount:data?.contacts?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'I'})}).catch(()=>{});
+      // #endregion
       
       // Filtrar contatos omitindo usuários com acessos.Velotax === false
       const filteredContacts = (data.contacts || []).filter(contact => {
@@ -505,6 +530,9 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
       
       setContacts(filteredContacts);
     } catch (err) {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'VeloChatWidget.js:508',message:'loadContacts error',data:{errorName:err.name,errorMessage:err.message,errorStack:err.stack,isFailedFetch:err.message&&err.message.includes('Failed to fetch'),isCorsError:err.message&&err.message.includes('CORS')},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'J'})}).catch(()=>{});
+      // #endregion
       console.error('Erro ao carregar contatos:', err);
       setError(err.message);
     } finally {
