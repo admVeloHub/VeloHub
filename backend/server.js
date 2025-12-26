@@ -1,6 +1,10 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.41.0 | DATE: 2025-12-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.42.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.42.0:
+ * - Corrigida porta padrão de 8090 para 8080 (padrão Cloud Run)
+ * - Cloud Run usa PORT=8080 automaticamente, desenvolvimento local pode usar outra porta via .env
  * 
  * Mudanças v2.41.0:
  * - Adicionadas dependências faltantes: @google-cloud/storage e google-auth-library
@@ -230,8 +234,8 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 const app = express();
-// REGRA: Backend porta 8090 na rede local | Frontend porta 8080
-const PORT = process.env.PORT || 8090;
+// Cloud Run usa PORT=8080 (padrão). Desenvolvimento local pode usar outra porta via .env
+const PORT = process.env.PORT || 8080;
 
 // Middleware
 app.use(cors({
