@@ -26,8 +26,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
+import { getVeloChatWsUrl } from '../config/api-config';
 
-const VELOCHAT_WS_URL = process.env.REACT_APP_VELOCHAT_WS_URL || 'http://localhost:3001';
+// Usar detecção automática de ambiente ao invés de fallback hardcoded
+const VELOCHAT_WS_URL = getVeloChatWsUrl();
 
 /**
  * Hook para gerenciar conexão WebSocket

@@ -28,9 +28,10 @@
  * Serviço para comunicação com a API REST do VeloChat Server
  */
 
-import { API_BASE_URL } from '../config/api-config';
+import { API_BASE_URL, getVeloChatApiUrl } from '../config/api-config';
 
-const VELOCHAT_API_URL = process.env.REACT_APP_VELOCHAT_API_URL || 'http://localhost:3001';
+// Usar detecção automática de ambiente ao invés de fallback hardcoded
+const VELOCHAT_API_URL = getVeloChatApiUrl();
 
 /**
  * Obter sessionId do localStorage

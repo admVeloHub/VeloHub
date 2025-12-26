@@ -1,11 +1,21 @@
 /**
  * Script para criar índices simples para campos existentes
- * VERSION: v1.0.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * SEGURANÇA: Usa variável de ambiente MONGO_ENV para conexão MongoDB.
+ * NUNCA exponha credenciais hardcoded no código.
  */
 
 const { MongoClient } = require('mongodb');
 
-const MONGODB_URI = 'mongodb+srv://lucasgravina:nKQu8bSN6iZl8FPo@velohubcentral.od7vwts.mongodb.net/?retryWrites=true&w=majority&appName=VelohubCentral';
+// ATENÇÃO: Credenciais removidas por segurança. Use variável de ambiente MONGO_ENV
+const MONGODB_URI = process.env.MONGO_ENV || process.env.MONGODB_ENV;
+
+if (!MONGODB_URI) {
+  console.error('❌ ERRO CRÍTICO: Variável de ambiente MONGO_ENV não configurada!');
+  console.error('Configure a variável MONGO_ENV com a string de conexão MongoDB.');
+  process.exit(1);
+}
 
 const createSimpleIndexes = async () => {
   let client;
