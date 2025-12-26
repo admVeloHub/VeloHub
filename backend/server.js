@@ -1,6 +1,12 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.40.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.41.0 | DATE: 2025-12-26 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.41.0:
+ * - Adicionadas dependências faltantes: @google-cloud/storage e google-auth-library
+ * - Tornado carregamento de config-local condicional (apenas em desenvolvimento)
+ * - Melhorado tratamento de erros no carregamento de serviços (servidor não encerra mais)
+ * - Servidor agora inicia mesmo se alguns serviços falharem ao carregar
  * 
  * Mudanças v2.40.0:
  * - Atualizado endpoint confirm-upload para tornar arquivos públicos permanentemente ao invés de gerar signed URLs
@@ -147,8 +153,16 @@ if (process.env.MONGO_ENV) {
   console.warn('⚠️ Verifique se backend/env existe e contém MONGO_ENV');
 }
 
-// Carregar configuração local para testes (apenas se variáveis não estiverem definidas)
-const localConfig = require('./config-local');
+// Carregar configuração local para testes (apenas em desenvolvimento)
+let localConfig = null;
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    localConfig = require('./config-local');
+    console.log('✅ Configuração local carregada (modo desenvolvimento)');
+  } catch (error) {
+    console.warn('⚠️ Não foi possível carregar config-local.js:', error.message);
+  }
+}
 
 // Importar serviços do chatbot
 // VERSION: v2.19.0 | DATE: 2025-01-10 | AUTHOR: VeloHub Development Team
@@ -193,8 +207,10 @@ try {
 } catch (error) {
   console.error('❌ Erro ao carregar serviços:', error.message);
   console.error('Stack:', error.stack);
-  console.error('❌ Falha crítica - encerrando processo');
-  process.exit(1);
+  console.error('⚠️ AVISO: Servidor continuará iniciando mesmo com falha no carregamento de serviços');
+  console.error('⚠️ Algumas funcionalidades podem não estar disponíveis');
+  // Não encerrar o processo - permitir que o servidor inicie mesmo com serviços faltando
+  // Isso garante que o container não falhe completamente no Cloud Run
 }
 
 // Carregar config para verificação de configurações WhatsApp
