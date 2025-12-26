@@ -164,7 +164,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Map, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen, X, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { mainAPI, veloNewsAPI, articlesAPI, faqAPI } from './services/api';
 import { checkAuthenticationState, updateUserInfo, getUserSession, stopHeartbeat, logout } from './services/auth';
-import { API_BASE_URL } from './config/api-config';
+import { API_BASE_URL, getVeloChatWsUrl } from './config/api-config';
 import { io } from 'socket.io-client';
 import NewsHistoryModal from './components/NewsHistoryModal';
 import LoginPage from './components/LoginPage';
@@ -417,7 +417,8 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
 
   // Listener global de WebSocket para áudios de notificação (executa mesmo quando widget não está visível)
   useEffect(() => {
-    const VELOCHAT_WS_URL = process.env.REACT_APP_VELOCHAT_WS_URL || 'http://localhost:3001';
+    // Usar detecção automática de ambiente ao invés de fallback hardcoded
+    const VELOCHAT_WS_URL = getVeloChatWsUrl();
     
     const getSessionId = () => {
       try {

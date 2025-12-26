@@ -6,7 +6,7 @@
 
 /**
  * Obtém a URL base da API automaticamente baseada no ambiente
- * VERSION: v1.0.10 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.11 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
  * @returns {string} URL base da API (já inclui /api no final)
  */
 export const getApiBaseUrl = () => {
@@ -27,22 +27,26 @@ export const getApiBaseUrl = () => {
       return 'http://localhost:8090/api';
     }
     
-    // Se estamos no Cloud Run diretamente, usar o mesmo domínio
+    // Se estamos no Cloud Run diretamente (staging ou produção), usar o mesmo domínio
     if (currentHost.includes('run.app')) {
       return `https://${currentHost}/api`;
     }
     
     // Se estamos em produção (domínio velotax.com.br ou velohub.velotax.com.br)
-    // usar o backend do Cloud Run (não o mesmo domínio do frontend)
+    // usar o backend do Cloud Run apropriado
     if (currentHost.includes('velotax.com.br') || currentHost.includes('velohub')) {
+      // Detectar se é staging pelo hostname
+      if (currentHost.includes('staging')) {
+        return 'https://velohub-main-staging-278491073220.us-east1.run.app/api';
+      }
       return 'https://velohub-278491073220.us-east1.run.app/api';
     }
     
-    // Fallback para URL padrão online
+    // Fallback para URL padrão online (produção)
     return 'https://velohub-278491073220.us-east1.run.app/api';
   }
   
-  // Fallback para server-side rendering - sempre URL online
+  // Fallback para server-side rendering - sempre URL de produção
   return 'https://velohub-278491073220.us-east1.run.app/api';
 };
 
@@ -107,14 +111,72 @@ export const WHATSAPP_API_URL = getWhatsAppApiUrl();
 export const WHATSAPP_DEFAULT_JID = getWhatsAppDefaultJid();
 
 /**
+ * Obtém a URL base da API do VeloChat automaticamente baseada no ambiente
+ * VERSION: v1.0.2 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * IMPORTANTE: VeloChat Server é um projeto separado com deploy próprio
+ * - Produção: https://velochat-server-278491073220.us-east1.run.app
+ * - Staging: https://velochat-server-278491073220.us-east1.run.app (mesmo servidor)
+ * - Local: http://localhost:3001 (porta padrão do VeloChat Server)
+ * 
+ * @returns {string} URL base da API do VeloChat Server (sem /api no final)
+ */
+export const getVeloChatApiUrl = () => {
+  // Prioridade 1: Se há uma variável de ambiente definida, usar ela
+  if (process.env.REACT_APP_VELOCHAT_API_URL) {
+    return process.env.REACT_APP_VELOCHAT_API_URL.trim();
+  }
+  
+  // Prioridade 2: Detecta automaticamente a URL baseada no ambiente do VeloHub
+  if (typeof window !== 'undefined') {
+    const currentHost = window.location.hostname;
+    
+    // Se estamos em localhost, usar o VeloChat Server local na porta 3001
+    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
+      return 'http://localhost:3001';
+    }
+    
+    // Se estamos em staging ou produção do VeloHub, usar o VeloChat Server de produção
+    // O VeloChat Server tem deploy único que serve ambos os ambientes
+    if (currentHost.includes('run.app') || currentHost.includes('velotax.com.br') || currentHost.includes('velohub')) {
+      return 'https://velochat-server-278491073220.us-east1.run.app';
+    }
+    
+    // Fallback para URL padrão do VeloChat Server (produção)
+    return 'https://velochat-server-278491073220.us-east1.run.app';
+  }
+  
+  // Fallback para server-side rendering - sempre URL do VeloChat Server de produção
+  return 'https://velochat-server-278491073220.us-east1.run.app';
+};
+
+/**
+ * Obtém a URL do WebSocket do VeloChat automaticamente baseada no ambiente
+ * VERSION: v1.0.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * @returns {string} URL do WebSocket do VeloChat
+ */
+export const getVeloChatWsUrl = () => {
+  // Prioridade 1: Se há uma variável de ambiente definida, usar ela
+  if (process.env.REACT_APP_VELOCHAT_WS_URL) {
+    return process.env.REACT_APP_VELOCHAT_WS_URL.trim();
+  }
+  
+  // Prioridade 2: Usar a mesma URL da API (mesmo servidor)
+  return getVeloChatApiUrl();
+};
+
+/**
  * Log da configuração da API (apenas em desenvolvimento)
  */
 if (process.env.NODE_ENV === 'development') {
   console.log('🔧 API Config:', {
     baseUrl: API_BASE_URL,
+    velochatApiUrl: getVeloChatApiUrl(),
+    velochatWsUrl: getVeloChatWsUrl(),
     environment: process.env.NODE_ENV,
     hostname: typeof window !== 'undefined' ? window.location.hostname : 'server-side',
     reactAppApiUrl: process.env.REACT_APP_API_URL,
+    reactAppVeloChatApiUrl: process.env.REACT_APP_VELOCHAT_API_URL,
     nodeEnv: process.env.NODE_ENV
   });
 }
@@ -122,9 +184,12 @@ if (process.env.NODE_ENV === 'development') {
 // Log sempre (para debug do problema)
 console.log('🔧 API Config (SEMPRE):', {
   baseUrl: API_BASE_URL,
+  velochatApiUrl: getVeloChatApiUrl(),
+  velochatWsUrl: getVeloChatWsUrl(),
   environment: process.env.NODE_ENV,
   hostname: typeof window !== 'undefined' ? window.location.hostname : 'server-side',
   reactAppApiUrl: process.env.REACT_APP_API_URL,
+  reactAppVeloChatApiUrl: process.env.REACT_APP_VELOCHAT_API_URL,
   detectedEnv: typeof window !== 'undefined' 
     ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
         ? 'DEV' 
