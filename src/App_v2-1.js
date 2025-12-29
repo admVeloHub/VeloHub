@@ -1,6 +1,23 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.6.4 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.7.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.7.0:
+ * - Adicionada LoadingPage intermediária após login bem-sucedido
+ * - LoadingPage exibe imagem de fundo, toca áudio de abertura e mostra mensagens sequenciais
+ * - Executa operações de inicialização (sessão, contatos, notícias) durante período do áudio
+ * - Fluxo: Login → LoadingPage → (handleLoginSuccess → inicializa sessão + chat) → HomePage
+ * 
+ * Mudanças v2.6.6:
+ * - Modais velonews (crítico automático e clique manual) agora centralizados verticalmente na tela mantendo dimensões
+ * - Ambos os modais renderizados via React Portal com z-index máximo (2147483647) para ficarem acima de tudo
+ * - Altura dos modais ajustada para calc(100vh - 160px) permitindo centralização com margens adequadas
+ * - Scroll automático no conteúdo quando necessário
+ * 
+ * Mudanças v2.6.5:
+ * - Corrigido dimensionamento do modal velonews: overlay cobre toda tela com z-index máximo (2147483647)
+ * - Modal agora renderizado via React Portal diretamente no document.body para garantir que fique acima de TUDO
+ * - Estilos aplicados inline no JSX para garantir máxima especificidade e evitar conflitos CSS
  * 
  * Mudanças v2.6.4:
  * - Removido bypass de Lucas Gravina - todos os usuários têm acesso ao chat
@@ -164,6 +181,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Map, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen, X, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { mainAPI, veloNewsAPI, articlesAPI, faqAPI } from './services/api';
 import { checkAuthenticationState, updateUserInfo, getUserSession, stopHeartbeat, logout } from './services/auth';
@@ -171,6 +189,7 @@ import { API_BASE_URL, getVeloChatWsUrl } from './config/api-config';
 import { io } from 'socket.io-client';
 import NewsHistoryModal from './components/NewsHistoryModal';
 import LoginPage from './components/LoginPage';
+import LoadingPage from './components/LoadingPage';
 import Chatbot from './components/Chatbot';
 import SupportModal from './components/SupportModal';
 // VeloChatWidget - arquivo restaurado do Git
@@ -1021,15 +1040,54 @@ const CriticalNewsModal = ({ news, onClose, onAcknowledge }) => {
   // Verificar se deve mostrar o bot├úo "Me lembre mais tarde"
   const shouldShowRemindButton = CriticalModalManager.shouldShowRemindButton();
 
-  return (
-    <div className="fixed inset-0 flex items-center justify-center z-50" style={{backgroundColor: 'rgba(39, 42, 48, 0.8)'}}>
-              <div className="rounded-lg shadow-2xl p-8 max-w-2xl w-full mx-4 velohub-container" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'}}>
-        <h2 className="text-2xl font-bold text-red-600 mb-4">{news.title}</h2>
-                 <div 
-             className="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200"
-             dangerouslySetInnerHTML={{ __html: processContentHtml(formatResponseText(news.content || '', 'velonews'), news?.media?.images || []) }}
-         />
-        <div className="mt-8 flex justify-between items-center">
+  const overlayStyle = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 2147483647,
+    padding: '16px',
+    backgroundColor: 'rgba(39, 42, 48, 0.8)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden'
+  };
+  const contentHeight = `calc(100vh - 160px)`; // Altura máxima com margens para centralização
+  const contentStyle = {
+    borderRadius: '12px',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+    maxWidth: '56rem',
+    width: 'calc(100% - 32px)',
+    height: contentHeight,
+    maxHeight: contentHeight,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+    zIndex: 2147483647,
+    position: 'relative',
+    marginTop: '0px',
+    marginLeft: '0px',
+    marginRight: '0px',
+    marginBottom: '0px',
+    padding: '2rem',
+    backgroundColor: 'var(--cor-container)'
+  };
+
+  return typeof document !== 'undefined' ? createPortal(
+    <div style={overlayStyle} onClick={onClose}>
+      <div className="rounded-lg shadow-2xl velohub-container flex flex-col overflow-hidden" style={contentStyle} onClick={e => e.stopPropagation()}>
+        <div className="flex-shrink-0 mb-4">
+          <h2 className="text-2xl font-bold text-red-600">{news.title}</h2>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <div 
+            className="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200"
+            dangerouslySetInnerHTML={{ __html: processContentHtml(formatResponseText(news.content || '', 'velonews'), news?.media?.images || []) }}
+          />
+        </div>
+        <div className="mt-8 flex justify-between items-center flex-shrink-0">
           <button
             onClick={handleClose}
             disabled={!isAcknowledged}
@@ -1061,8 +1119,9 @@ const CriticalNewsModal = ({ news, onClose, onAcknowledge }) => {
           </div>
         </div>
       </div>
-    </div>
-  );
+    </div>,
+    document.body
+  ) : null;
 };
 
 // Componente da P├ígina Principal - VERS├âO MELHORADA
@@ -1074,6 +1133,8 @@ export default function App_v2() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showLoadingPage, setShowLoadingPage] = useState(false);
+  const [pendingUserData, setPendingUserData] = useState(null);
   const [veloNews, setVeloNews] = useState([]);
   const [acknowledgedNewsIds, setAcknowledgedNewsIds] = useState([]);
 
@@ -1143,12 +1204,20 @@ export default function App_v2() {
 
   const handleLoginSuccess = (userData) => {
     console.log('Login realizado com sucesso:', userData);
-    setIsAuthenticated(true);
-    updateUserInfo(userData);
-    // Disparar evento adicional para garantir que o Header seja atualizado
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('user-info-updated', { detail: userData }));
-    }, 200);
+    // Salvar dados do usuário e mostrar loading page primeiro
+    // handleLoginSuccess será chamado dentro da LoadingPage
+    setPendingUserData(userData);
+    setShowLoadingPage(true);
+  };
+
+  const handleLoadingComplete = () => {
+    // Após loading page completar, autenticar e redirecionar para home
+    // A inicialização da sessão já foi feita dentro da LoadingPage
+    if (pendingUserData) {
+      setIsAuthenticated(true);
+    }
+    setShowLoadingPage(false);
+    setPendingUserData(null);
   };
 
   const [refreshAcknowledgedNews, setRefreshAcknowledgedNews] = useState(null);
@@ -1200,6 +1269,11 @@ export default function App_v2() {
         </div>
       </div>
     );
+  }
+
+  // Mostrar loading page após login bem-sucedido
+  if (showLoadingPage && pendingUserData) {
+    return <LoadingPage userData={pendingUserData} onComplete={handleLoadingComplete} />;
   }
 
   // Mostrar tela de login se n├úo estiver autenticado
@@ -3018,9 +3092,41 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                 soundEnabled,
                 toggleSound
             })}
-            {selectedNews && (
-                 <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[9999] p-4" onClick={() => setSelectedNews(null)} style={{ zIndex: 9999 }}>
-                    <div className="rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] bg-white dark:bg-gray-800 flex flex-col overflow-hidden" onClick={e => e.stopPropagation()} style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)', zIndex: 10000}}>
+            {selectedNews && typeof document !== 'undefined' && createPortal(
+                <div 
+                    onClick={() => setSelectedNews(null)}
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        zIndex: 2147483647,
+                        padding: '16px',
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        overflow: 'hidden'
+                    }}
+                >
+                    <div 
+                        className="rounded-lg shadow-2xl bg-white dark:bg-gray-800 flex flex-col overflow-hidden" 
+                        onClick={e => e.stopPropagation()} 
+                        style={{
+                            borderRadius: '12px',
+                            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+                            maxWidth: '56rem',
+                            width: 'calc(100% - 32px)',
+                            height: 'calc(100vh - 160px)',
+                            maxHeight: 'calc(100vh - 160px)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            overflow: 'hidden',
+                            zIndex: 2147483647,
+                            position: 'relative'
+                        }}
+                    >
                         <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
                            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 pr-4">{selectedNews.title}</h2>
                            <button onClick={() => setSelectedNews(null)} className="text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white text-3xl flex-shrink-0">&times;</button>
@@ -3130,7 +3236,8 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                             />
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
             
             {/* Modal de imagem expandida */}
