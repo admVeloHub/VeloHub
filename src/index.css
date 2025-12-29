@@ -1,6 +1,12 @@
 /**
  * VeloHub V3 - Main Styles
- * VERSION: v1.2.4 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.2.5 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.2.5:
+ * - Adicionadas classes CSS específicas para modal velonews (.velonews-modal-overlay e .velonews-modal-content) com z-index máximo (2147483647) e !important
+ * - Overlay: cobre toda tela, padding-top 72px (abaixo do header), background escuro
+ * - Conteúdo: altura limitada (calc(100vh - 72px - 32px)), max-width 56rem, flex column, overflow hidden no container
+ * - Conteúdo interno tem overflow-y-auto para scroll quando necessário
  */
 
 /* ============================================= */
@@ -629,3 +635,8 @@ code {
 .dark .velohub-filter-select {
   border-color: var(--blue-opaque) !important;
 }
+
+/* ============================================= */
+/* == MODAL VELONEWS - Z-INDEX MÁXIMO == */
+/* ============================================= */
+/* Classes removidas - usando apenas estilos inline para evitar conflitos CSS */
