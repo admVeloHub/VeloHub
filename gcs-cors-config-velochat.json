@@ -4,9 +4,10 @@
       "http://localhost:8080",
       "http://localhost:3000",
       "https://app.velohub.velotax.com.br",
-      "https://velohub-278491073220.us-east1.run.app"
+      "https://velohub-278491073220.us-east1.run.app",
+      "https://velohub-main-staging-278491073220.us-east1.run.app"
     ],
-    "method": ["GET", "HEAD", "PUT", "POST", "OPTIONS"],
+    "method": ["GET", "HEAD", "PUT", "POST", "OPTIONS", "DELETE"],
     "responseHeader": [
       "Content-Type",
       "Content-Length",
@@ -14,7 +15,8 @@
       "Access-Control-Allow-Origin",
       "Access-Control-Allow-Methods",
       "Access-Control-Allow-Headers",
-      "x-goog-resumable"
+      "x-goog-resumable",
+      "x-goog-meta-*"
     ],
     "maxAgeSeconds": 3600
   }
