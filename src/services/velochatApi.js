@@ -95,22 +95,37 @@ const authenticatedFetch = async (url, options = {}) => {
 
   let response;
   try {
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'velochatApi.js:96',message:'fetch attempt',data:{fullUrl,method:options.method||'GET',origin:typeof window!=='undefined'?window.location.origin:null,headersKeys:Object.keys(headers),hasCustomHeaders:!!headers['X-Session-Id']},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     response = await fetch(fullUrl, {
       ...options,
       headers,
+      mode: 'cors',
+      credentials: 'omit'
     });
     // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'velochatApi.js:81',message:'fetch success',data:{url:fullUrl,status:response.status,statusText:response.statusText,ok:response.ok,headers:Object.fromEntries(response.headers.entries())},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'D'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'velochatApi.js:102',message:'fetch success',data:{url:fullUrl,status:response.status,statusText:response.statusText,ok:response.ok,headers:Object.fromEntries(response.headers.entries()),corsHeaders:{'access-control-allow-origin':response.headers.get('access-control-allow-origin'),'access-control-allow-methods':response.headers.get('access-control-allow-methods'),'access-control-allow-headers':response.headers.get('access-control-allow-headers')}},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'D'})}).catch(()=>{});
     // #endregion
   } catch (fetchError) {
     // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'velochatApi.js:85',message:'fetch error caught',data:{url:fullUrl,errorName:fetchError.name,errorMessage:fetchError.message,errorStack:fetchError.stack,isCorsError:fetchError.message&&(fetchError.message.includes('CORS')||fetchError.message.includes('Failed to fetch')||fetchError.name==='TypeError')},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'E'})}).catch(()=>{});
+    const corsErrorDetails = {
+      isCorsError: fetchError.message && (fetchError.message.includes('CORS') || fetchError.message.includes('Failed to fetch') || fetchError.name === 'TypeError'),
+      isPreflightFailure: fetchError.message && fetchError.message.includes('preflight'),
+      origin: typeof window !== 'undefined' ? window.location.origin : null,
+      targetUrl: fullUrl,
+      method: options.method || 'GET',
+      hasCustomHeaders: !!headers['X-Session-Id']
+    };
+    fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'velochatApi.js:107',message:'fetch error caught',data:{url:fullUrl,errorName:fetchError.name,errorMessage:fetchError.message,errorStack:fetchError.stack,...corsErrorDetails},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'E'})}).catch(()=>{});
     // #endregion
     console.error(`❌ [authenticatedFetch] Erro na requisição fetch:`, {
       url: fullUrl,
       error: fetchError.message,
       name: fetchError.name,
-      stack: fetchError.stack
+      stack: fetchError.stack,
+      origin: typeof window !== 'undefined' ? window.location.origin : null,
+      corsDetails: corsErrorDetails
     });
     throw fetchError;
   }
