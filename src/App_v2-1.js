@@ -1,6 +1,16 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.7.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.8.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.8.1:
+ * - Movido botão de comentários para o lado direito do header do modal de notícias
+ * 
+ * Mudanças v2.8.0:
+ * - Adicionada funcionalidade de comentários no modal de visualização de notícias
+ * - Modal agora possui aba expansível à direita para exibir e adicionar comentários
+ * - Integrado componente VelonewsCommentThread para gerenciar thread de comentários
+ * 
+ * Mudanças v2.7.0:
  * 
  * Mudanças v2.7.0:
  * - Adicionada LoadingPage intermediária após login bem-sucedido
@@ -197,6 +207,7 @@ import VeloChatWidget from './components/VeloChatWidget';
 import ChatStatusSelector from './components/ChatStatusSelector';
 import EscalacoesPage from './pages/EscalacoesPage';
 import PerfilPage from './pages/PerfilPage';
+import VelonewsCommentThread from './components/VelonewsCommentThread';
 import { formatArticleContent, formatPreviewText, formatResponseText } from './utils/textFormatter';
 
 // Sistema de gerenciamento de estado para modal cr├¡tico
@@ -1016,6 +1027,8 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
 // Componente do Modal de Not├¡cia Cr├¡tica - VERS├âO MELHORADA
 const CriticalNewsModal = ({ news, onClose, onAcknowledge }) => {
   const [isAcknowledged, setIsAcknowledged] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const [currentNews, setCurrentNews] = useState(news);
 
   const handleClose = async () => {
     if (isAcknowledged) {
@@ -1058,12 +1071,12 @@ const CriticalNewsModal = ({ news, onClose, onAcknowledge }) => {
   const contentStyle = {
     borderRadius: '12px',
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-    maxWidth: '56rem',
-    width: 'calc(100% - 32px)',
+    maxWidth: showComments ? 'calc(56rem + 400px)' : '56rem',
+    width: showComments ? 'calc(100% - 32px)' : 'calc(100% - 32px)',
     height: contentHeight,
     maxHeight: contentHeight,
     display: 'flex',
-    flexDirection: 'column',
+    flexDirection: 'row',
     overflow: 'hidden',
     zIndex: 2147483647,
     position: 'relative',
@@ -1071,53 +1084,82 @@ const CriticalNewsModal = ({ news, onClose, onAcknowledge }) => {
     marginLeft: '0px',
     marginRight: '0px',
     marginBottom: '0px',
-    padding: '2rem',
-    backgroundColor: 'var(--cor-container)'
+    padding: '0',
+    backgroundColor: 'var(--cor-container)',
+    transition: 'max-width 0.3s ease'
   };
 
   return typeof document !== 'undefined' ? createPortal(
     <div style={overlayStyle} onClick={onClose}>
-      <div className="rounded-lg shadow-2xl velohub-container flex flex-col overflow-hidden" style={contentStyle} onClick={e => e.stopPropagation()}>
-        <div className="flex-shrink-0 mb-4">
-          <h2 className="text-2xl font-bold text-red-600">{news.title}</h2>
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          <div 
-            className="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200"
-            dangerouslySetInnerHTML={{ __html: processContentHtml(formatResponseText(news.content || '', 'velonews'), news?.media?.images || []) }}
-          />
-        </div>
-        <div className="mt-8 flex justify-between items-center flex-shrink-0">
-          <button
-            onClick={handleClose}
-            disabled={!isAcknowledged}
-            className={`px-6 py-2 rounded-md font-semibold text-white transition-colors duration-300 ${isAcknowledged ? 'bg-blue-600 hover:bg-blue-700' : 'bg-red-500 cursor-not-allowed'}`}
-          >
-            Fechar
-          </button>
-          <div className="flex flex-col items-end gap-3">
-            <div className="flex items-center">
-              <input
-                id="acknowledge"
-                type="checkbox"
-                checked={isAcknowledged}
-                onChange={() => setIsAcknowledged(!isAcknowledged)}
-                className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-              />
-              <label htmlFor="acknowledge" className="ml-2 text-gray-800 dark:text-gray-200 font-medium">
-                Ciente
-              </label>
-            </div>
-            {shouldShowRemindButton && (
+      <div className="rounded-lg shadow-2xl velohub-container flex overflow-hidden" style={contentStyle} onClick={e => e.stopPropagation()}>
+        {/* Conteúdo Principal */}
+        <div className="flex flex-col overflow-hidden" style={{ width: showComments ? '56rem' : '100%', padding: '2rem', transition: 'width 0.3s ease' }}>
+          <div className="flex-shrink-0 mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-2xl font-bold text-red-600">{currentNews.title}</h2>
               <button
-                onClick={handleRemindLater}
-                className="text-[#272A30] hover:underline font-medium text-sm -mt-1"
+                onClick={() => setShowComments(!showComments)}
+                className="px-3 py-1 text-sm bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 rounded-md hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+                title={showComments ? 'Ocultar comentários' : 'Mostrar comentários'}
               >
-                Me lembre mais tarde
+                {showComments ? 'Ocultar' : 'Comentários'}
               </button>
-            )}
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <div 
+              className="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200"
+              dangerouslySetInnerHTML={{ __html: processContentHtml(formatResponseText(currentNews.content || '', 'velonews'), currentNews?.media?.images || []) }}
+            />
+          </div>
+          <div className="mt-8 flex justify-between items-center flex-shrink-0">
+            <button
+              onClick={handleClose}
+              disabled={!isAcknowledged}
+              className={`px-6 py-2 rounded-md font-semibold text-white transition-colors duration-300 ${isAcknowledged ? 'bg-blue-600 hover:bg-blue-700' : 'bg-red-500 cursor-not-allowed'}`}
+            >
+              Fechar
+            </button>
+            <div className="flex flex-col items-end gap-3">
+              <div className="flex items-center">
+                <input
+                  id="acknowledge"
+                  type="checkbox"
+                  checked={isAcknowledged}
+                  onChange={() => setIsAcknowledged(!isAcknowledged)}
+                  className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="acknowledge" className="ml-2 text-gray-800 dark:text-gray-200 font-medium">
+                  Ciente
+                </label>
+              </div>
+              {shouldShowRemindButton && (
+                <button
+                  onClick={handleRemindLater}
+                  className="text-[#272A30] hover:underline font-medium text-sm -mt-1"
+                >
+                  Me lembre mais tarde
+                </button>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* Container de Comentários */}
+        {showComments && (
+          <div style={{ width: '400px', flexShrink: 0, height: '100%' }}>
+            <VelonewsCommentThread
+              newsId={currentNews._id}
+              thread={currentNews.thread || []}
+              onCommentAdded={(updatedThread) => {
+                setCurrentNews(prev => ({
+                  ...prev,
+                  thread: updatedThread
+                }));
+              }}
+            />
+          </div>
+        )}
       </div>
     </div>,
     document.body
@@ -2038,6 +2080,7 @@ const renderRightSidebarChat = ({
 const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews, setRefreshAcknowledgedNews, setAcknowledgedNewsIds: setParentAcknowledgedNewsIds, setUpdateAcknowledgedNewsCallback }) => {
     const [selectedNews, setSelectedNews] = useState(null);
     const [selectedArticle, setSelectedArticle] = useState(null);
+    const [showComments, setShowComments] = useState(false);
     // Estado para controle de som do chat
     const [soundEnabled, setSoundEnabled] = useState(() => {
         try {
@@ -3111,28 +3154,43 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                     }}
                 >
                     <div 
-                        className="rounded-lg shadow-2xl bg-white dark:bg-gray-800 flex flex-col overflow-hidden" 
+                        className="rounded-lg shadow-2xl bg-white dark:bg-gray-800 flex overflow-hidden" 
                         onClick={e => e.stopPropagation()} 
                         style={{
                             borderRadius: '12px',
                             boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-                            maxWidth: '56rem',
-                            width: 'calc(100% - 32px)',
+                            maxWidth: showComments ? 'calc(56rem + 400px)' : '56rem',
+                            width: showComments ? 'calc(100% - 32px)' : 'calc(100% - 32px)',
                             height: 'calc(100vh - 160px)',
                             maxHeight: 'calc(100vh - 160px)',
                             display: 'flex',
-                            flexDirection: 'column',
+                            flexDirection: 'row',
                             overflow: 'hidden',
                             zIndex: 2147483647,
-                            position: 'relative'
+                            position: 'relative',
+                            transition: 'max-width 0.3s ease'
                         }}
                     >
-                        <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-                           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 pr-4">{selectedNews.title}</h2>
-                           <button onClick={() => setSelectedNews(null)} className="text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white text-3xl flex-shrink-0">&times;</button>
-                        </div>
-                        
-                        <div className="flex-1 overflow-y-auto p-4">
+                        {/* Conteúdo Principal */}
+                        <div className="flex flex-col overflow-hidden" style={{ width: showComments ? '56rem' : '100%', transition: 'width 0.3s ease' }}>
+                            <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+                               <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 pr-4 flex-1">{selectedNews.title}</h2>
+                               <div className="flex items-center gap-2">
+                                   <button
+                                       onClick={() => setShowComments(!showComments)}
+                                       className="px-3 py-1 text-sm bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 rounded-md hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+                                       title={showComments ? 'Ocultar comentários' : 'Mostrar comentários'}
+                                   >
+                                       {showComments ? 'Ocultar' : 'Comentários'}
+                                   </button>
+                                   <button onClick={() => {
+                                       setSelectedNews(null);
+                                       setShowComments(false);
+                                   }} className="text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white text-3xl flex-shrink-0">&times;</button>
+                               </div>
+                            </div>
+                            
+                            <div className="flex-1 overflow-y-auto p-4">
                             {/* Renderizar todas as imagens */}
                             {(() => {
                                 const allImages = getAllImages(selectedNews);
@@ -3234,7 +3292,24 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                 className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
                                 dangerouslySetInnerHTML={{ __html: processContentHtml(formatResponseText(selectedNews.content || '', 'velonews'), selectedNews?.media?.images || []) }}
                             />
+                            </div>
                         </div>
+
+                        {/* Container de Comentários */}
+                        {showComments && (
+                            <div style={{ width: '400px', flexShrink: 0, height: '100%' }}>
+                                <VelonewsCommentThread
+                                    newsId={selectedNews._id}
+                                    thread={selectedNews.thread || []}
+                                    onCommentAdded={(updatedThread) => {
+                                        setSelectedNews(prev => ({
+                                            ...prev,
+                                            thread: updatedThread
+                                        }));
+                                    }}
+                                />
+                            </div>
+                        )}
                     </div>
                 </div>,
                 document.body
