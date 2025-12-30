@@ -1,6 +1,15 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.42.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.43.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.43.1:
+ * - Removida instrumentação de debug do endpoint PUT /api/velo-news/:id/comment
+ * 
+ * Mudanças v2.43.0:
+ * - Adicionado endpoint PUT /api/velo-news/:id/comment para adicionar comentários ao thread
+ * - Modificado endpoint GET /api/velo-news para incluir campo thread no mapeamento
+ * 
+ * Mudanças v2.42.0:
  * 
  * Mudanças v2.42.0:
  * - Corrigida porta padrão de 8090 para 8080 (padrão Cloud Run)
@@ -139,6 +148,7 @@ console.log(`- PORT: ${process.env.PORT}`);
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const { MongoClient, ObjectId } = require('mongodb');
 const fetch = require('node-fetch');
 const { Storage } = require('@google-cloud/storage');
@@ -708,6 +718,7 @@ app.get('/api/velo-news', async (req, res) => {
         is_critical: item.isCritical === true ? 'Y' : 'N',
         solved: item.solved || false,
         media: media, // ✅ Campo media com images e videos
+        thread: Array.isArray(item.thread) ? item.thread : [], // ✅ Campo thread (array de comentários)
         createdAt,
         updatedAt: item.updatedAt ?? createdAt,
         source: 'Velonews'
@@ -737,6 +748,88 @@ app.get('/api/velo-news', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erro ao buscar notícias',
+      error: error.message
+    });
+  }
+});
+
+// PUT /api/velo-news/:id/comment - Adicionar comentário ao thread
+app.put('/api/velo-news/:id/comment', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userName, comentario } = req.body;
+
+    // Validação
+    if (!userName || !comentario || !comentario.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'userName e comentario são obrigatórios'
+      });
+    }
+
+    if (!client) {
+      return res.status(503).json({
+        success: false,
+        message: 'MongoDB não configurado'
+      });
+    }
+
+    await connectToMongo();
+    const db = client.db('console_conteudo');
+    const collection = db.collection('Velonews');
+
+    // Verificar se a notícia existe
+    const news = await collection.findOne({ _id: new ObjectId(id) });
+    
+    if (!news) {
+      return res.status(404).json({
+        success: false,
+        error: 'Notícia não encontrada'
+      });
+    }
+
+    // Criar novo comentário
+    const novoComentario = {
+      userName: userName.trim(),
+      timestamp: new Date(),
+      comentario: comentario.trim()
+    };
+
+    // Adicionar ao array thread (usar $push para adicionar ao array)
+    const result = await collection.updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $push: { thread: novoComentario },
+        $set: { updatedAt: new Date() }
+      }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Notícia não encontrada'
+      });
+    }
+
+    // Buscar notícia atualizada
+    const updatedNews = await collection.findOne({ _id: new ObjectId(id) });
+
+    console.log(`✅ Comentário adicionado à notícia ${id} por ${userName}`);
+
+    res.json({
+      success: true,
+      message: 'Comentário adicionado com sucesso',
+      news: {
+        _id: updatedNews._id,
+        thread: updatedNews.thread || []
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao adicionar comentário:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao adicionar comentário',
       error: error.message
     });
   }

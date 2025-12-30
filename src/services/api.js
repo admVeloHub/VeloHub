@@ -1,6 +1,14 @@
 /**
  * VeloHub V3 - API Service
- * VERSION: v1.1.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.3.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.3.0:
+ * - Melhorado tratamento de erros em apiRequest para operações de escrita (PUT/POST/DELETE)
+ * - Adicionada validação de Content-Type antes de fazer parse JSON
+ * - Operações de escrita agora sempre lançam erro ao invés de retornar dados vazios
+ * 
+ * Mudanças v1.2.0:
+ * - Adicionada função addComment para adicionar comentários ao thread do Velonews
  * 
  * Mudanças v1.1.0:
  * - getRecent agora passa limit como query parameter ao backend
@@ -12,7 +20,8 @@ import { API_BASE_URL } from '../config/api-config';
 // Função genérica para fazer requisições
 async function apiRequest(endpoint, options = {}) {
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const fullUrl = `${API_BASE_URL}${endpoint}`;
+    const response = await fetch(fullUrl, {
       headers: {
         'Content-Type': 'application/json',
         ...options.headers,
@@ -20,20 +29,37 @@ async function apiRequest(endpoint, options = {}) {
       ...options,
     });
 
-    const data = await response.json();
+    const contentType = response.headers.get('content-type');
+    let data;
+    
+    if (contentType && contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      const text = await response.text();
+      throw new Error(`Resposta inválida do servidor: ${response.status} ${response.statusText}`);
+    }
     
     if (!response.ok) {
-      throw new Error(data.message || 'Erro na requisição');
+      throw new Error(data.message || data.error || `Erro ${response.status}: ${response.statusText}`);
     }
     
     return data;
   } catch (error) {
     console.error(`Erro na API ${endpoint}:`, error);
-    // Se for erro de rede, retornar dados vazios em vez de quebrar
+    
+    // Para operações de escrita (POST, PUT, DELETE), sempre lançar erro
+    const isWriteOperation = options.method && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method.toUpperCase());
+    
+    if (isWriteOperation) {
+      throw error;
+    }
+    
+    // Se for erro de rede em operação de leitura, retornar dados vazios
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
       console.warn('API não disponível, retornando dados vazios');
       return { data: [] };
     }
+    
     throw error;
   }
 }
@@ -69,6 +95,23 @@ export const veloNewsAPI = {
   getCritical: () => apiRequest('/velo-news').then(data => 
     data.data.filter(news => news.is_critical)
   ),
+  
+  // Adicionar comentário ao thread de uma notícia
+  addComment: async (newsId, userName, comentario) => {
+    try {
+      const response = await apiRequest(`/velo-news/${newsId}/comment`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          userName,
+          comentario
+        })
+      });
+      return response;
+    } catch (error) {
+      console.error('Erro ao adicionar comentário:', error);
+      throw new Error(error.message || 'Erro ao adicionar comentário. Verifique se o servidor está rodando.');
+    }
+  },
 };
 
 // API para Artigos (mantida para compatibilidade)
