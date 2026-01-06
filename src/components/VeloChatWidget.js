@@ -1,6 +1,19 @@
 /**
  * VeloChatWidget - Componente Principal do Chat
- * VERSION: v3.20.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.22.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v3.22.0:
+ * - CRÍTICO: Melhorada detecção de duplicatas para evitar mensagens duplicadas na UI
+ * - Adicionada verificação por conteúdo/timestamp (< 1s) para capturar eventos simultâneos
+ * - Verificação de duplicatas agora acontece ANTES de qualquer processamento
+ * - Isso garante que mesmo eventos recebidos quase simultaneamente não sejam duplicados
+ * 
+ * Mudanças v3.21.0:
+ * - CRÍTICO: Corrigido problema de mensagens duplicadas
+ * - Melhorada detecção de duplicatas usando _id/messageId como identificador único
+ * - Melhorada remoção de mensagens temporárias (janela de 30s ao invés de 10s)
+ * - Adicionada verificação adicional por ID antes de adicionar mensagem
+ * - Logs adicionados para debug de duplicatas
  * 
  * Mudanças v3.20.0:
  * - CRÍTICO: Corrigido loop infinito de requisições que causava ERR_INSUFFICIENT_RESOURCES
@@ -294,27 +307,73 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
     if (normalizedMessage === normalizedCurrent) {
       // Verificar se já existe (evitar duplicatas) e substituir temporárias
       setMessages(prev => {
+        // CRÍTICO: Verificar duplicatas ANTES de qualquer processamento
+        // Se a mensagem tem _id, verificar se já existe pelo ID (mais confiável e rápido)
+        if (message._id) {
+          const existsById = prev.some(msg => 
+            (msg._id && msg._id === message._id) || 
+            (msg.messageId && msg.messageId === message._id)
+          );
+          if (existsById) {
+            console.log('⏸️ [handleNewMessage] Mensagem já existe pelo ID, ignorando duplicata:', message._id);
+            return prev; // Mensagem já existe, não adicionar novamente
+          }
+        }
+        
+        // Verificação adicional: se não tem _id, verificar por conteúdo + usuário + timestamp muito próximo (< 1s)
+        // Isso captura casos onde eventos chegam quase simultaneamente antes do _id estar disponível
+        const existsByContent = prev.some(msg => {
+          if (msg.isTemporary) return false; // Ignorar temporárias
+          if (msg._id && message._id && msg._id === message._id) return true; // Já verificado acima
+          
+          // Comparar por conteúdo + usuário + timestamp muito próximo
+          const sameContent = msg.mensagem === message.mensagem || msg.content === message.mensagem;
+          const sameUser = msg.userName === message.userName;
+          const timeDiff = Math.abs((msg.timestamp || 0) - (message.timestamp || 0));
+          
+          return sameContent && sameUser && timeDiff < 1000; // Dentro de 1s = mesma mensagem
+        });
+        
+        if (existsByContent) {
+          console.log('⏸️ [handleNewMessage] Mensagem já existe por conteúdo/timestamp, ignorando duplicata');
+          return prev;
+        }
+        
         // Remover mensagem temporária se existir (mesmo conteúdo + userName + timestamp próximo)
         const withoutTemp = prev.filter(msg => {
           if (msg.isTemporary && 
               msg.mensagem === message.mensagem && 
               msg.userName === message.userName) {
-            // Se é temporária com mesmo conteúdo e usuário, remover se timestamp estiver próximo (dentro de 10s)
+            // Se é temporária com mesmo conteúdo e usuário, remover se timestamp estiver próximo (dentro de 30s)
             const timeDiff = Math.abs((msg.timestamp || 0) - (message.timestamp || 0));
-            return timeDiff > 10000; // Se diferença > 10s, manter ambas (caso raro de mensagens muito similares)
+            if (timeDiff <= 30000) { // Dentro de 30s = mesma mensagem
+              console.log('🔄 [handleNewMessage] Removendo mensagem temporária e substituindo por mensagem real');
+              return false; // Remover temporária
+            }
           }
           return true;
         });
         
-        // Verificar se mensagem real já existe (evitar duplicatas)
-        const exists = withoutTemp.some(msg => 
-          !msg.isTemporary &&
-          msg.mensagem === message.mensagem && 
-          msg.userName === message.userName &&
-          Math.abs((msg.timestamp || 0) - (message.timestamp || 0)) < 2000 // Dentro de 2s = mesma mensagem
-        );
+        // Verificar se mensagem real já existe (evitar duplicatas) - verificação adicional
+        // Usar múltiplos critérios para garantir que não adicionamos duplicatas
+        const exists = withoutTemp.some(msg => {
+          if (msg.isTemporary) return false; // Ignorar temporárias nesta verificação
+          
+          // Se ambas têm _id, comparar por ID
+          if (message._id && msg._id) {
+            return msg._id === message._id || msg.messageId === message._id;
+          }
+          
+          // Comparar por conteúdo + usuário + timestamp próximo
+          return msg.mensagem === message.mensagem && 
+                 msg.userName === message.userName &&
+                 Math.abs((msg.timestamp || 0) - (message.timestamp || 0)) < 5000; // Dentro de 5s = mesma mensagem
+        });
         
-        if (exists) return withoutTemp;
+        if (exists) {
+          console.log('⏸️ [handleNewMessage] Mensagem já existe, ignorando duplicata');
+          return withoutTemp;
+        }
         
         // Adicionar mensagem real no final (mensagens mais recentes ficam abaixo)
         // Validar e processar mediaUrl se presente
