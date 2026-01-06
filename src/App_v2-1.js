@@ -1,6 +1,13 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.8.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.9.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.9.0:
+ * - CRÍTICO: Corrigido disparo generalizado de notificações sonoras
+ * - Adicionadas validações rigorosas antes de tocar áudio (verificar dados, ID, timestamp)
+ * - Adicionada proteção contra reprocessamento de mensagens duplicadas
+ * - Mensagens muito antigas (> 30s) são ignoradas para evitar eventos de reconexão
+ * - Refs de mensagens processadas são limpos ao reconectar para evitar bloqueios incorretos
  * 
  * Mudanças v2.8.1:
  * - Movido botão de comentários para o lado direito do header do modal de notícias
@@ -571,6 +578,17 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
     socket.on('connect', () => {
       console.log('🔊 [Global Audio Listener] WebSocket conectado para áudios globais');
       
+      // CRÍTICO: Limpar refs de mensagens processadas ao reconectar
+      // Isso evita que eventos antigos sejam ignorados incorretamente após reconexão
+      if (lastProcessedMessageRef) {
+        lastProcessedMessageRef.id = null;
+        lastProcessedMessageRef.timestamp = 0;
+      }
+      if (lastProcessedSalaMessageRef) {
+        lastProcessedSalaMessageRef.id = null;
+        lastProcessedSalaMessageRef.timestamp = 0;
+      }
+      
       // Entrar em todas as conversas quando conectar
       joinAllConversations();
       
@@ -602,10 +620,52 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
       console.error('❌ [Global Audio Listener] Erro ao conectar:', error.message);
     });
 
+    // Refs para rastrear últimas mensagens processadas (evita reprocessar eventos duplicados)
+    // Declarados ANTES dos listeners para que possam ser limpos no evento 'connect'
+    const lastProcessedMessageRef = { id: null, timestamp: 0 };
+    const lastProcessedSalaMessageRef = { id: null, timestamp: 0 };
+    
     // Listener para mensagens P2P
     socket.on('p2p_message_received', (data) => {
+      // CRÍTICO: Validar se dados da mensagem existem
+      if (!data || !data.message) {
+        console.warn('⚠️ [Global Audio Listener] Evento p2p_message_received sem dados válidos, ignorando');
+        return;
+      }
+      
+      // CRÍTICO: Verificar se mensagem tem ID e timestamp válidos
+      const messageId = data.message._id || data.message.messageId;
+      const messageTimestamp = data.message.timestamp || data.message.createdAt;
+      
+      if (!messageId || !messageTimestamp) {
+        console.warn('⚠️ [Global Audio Listener] Mensagem sem ID ou timestamp válido, ignorando:', {
+          hasId: !!messageId,
+          hasTimestamp: !!messageTimestamp
+        });
+        return;
+      }
+      
+      // CRÍTICO: Evitar reprocessar a mesma mensagem (eventos duplicados ou reconexão)
+      if (lastProcessedMessageRef.id === messageId && 
+          Math.abs(lastProcessedMessageRef.timestamp - messageTimestamp) < 1000) {
+        console.log('⏸️ [Global Audio Listener] Mensagem já processada, ignorando duplicata:', messageId);
+        return;
+      }
+      
+      // CRÍTICO: Ignorar mensagens muito antigas (> 30 segundos) - podem ser de reconexão
+      const now = Date.now();
+      const messageAge = now - messageTimestamp;
+      if (messageAge > 30000) {
+        console.log('⏸️ [Global Audio Listener] Mensagem muito antiga, ignorando:', {
+          messageAge: `${Math.round(messageAge / 1000)}s`,
+          messageId
+        });
+        return;
+      }
+      
       const currentUserName = getCurrentUserName();
       const messageUserName = data.message?.userName || '';
+      
       // Comparação mais robusta: normalizar espaços e case
       const normalizedCurrentUserName = String(currentUserName || '').trim().toLowerCase();
       const normalizedMessageUserName = String(messageUserName || '').trim().toLowerCase();
@@ -615,14 +675,20 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
                            data.message?.content === '[att-caller-sign]';
       
       console.log('🔊 [Global Audio Listener] Mensagem P2P recebida:', {
+        messageId,
         currentUserName: normalizedCurrentUserName,
         messageUserName: normalizedMessageUserName,
         isFromCurrentUser,
         isCallerSign,
+        messageAge: `${Math.round(messageAge / 1000)}s`,
         mensagem: data.message?.mensagem?.substring(0, 50)
       });
       
       if (!isFromCurrentUser) {
+        // Marcar mensagem como processada ANTES de tocar som
+        lastProcessedMessageRef.id = messageId;
+        lastProcessedMessageRef.timestamp = messageTimestamp;
+        
         if (isCallerSign) {
           // Áudio de chamada sempre executa, ignorando status de som
           console.log('🔊 [Global Audio Listener] Executando áudio de chamada de atenção');
@@ -639,8 +705,45 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
 
     // Listener para mensagens de Sala
     socket.on('sala_message_received', (data) => {
+      // CRÍTICO: Validar se dados da mensagem existem
+      if (!data || !data.message) {
+        console.warn('⚠️ [Global Audio Listener] Evento sala_message_received sem dados válidos, ignorando');
+        return;
+      }
+      
+      // CRÍTICO: Verificar se mensagem tem ID e timestamp válidos
+      const messageId = data.message._id || data.message.messageId;
+      const messageTimestamp = data.message.timestamp || data.message.createdAt;
+      
+      if (!messageId || !messageTimestamp) {
+        console.warn('⚠️ [Global Audio Listener] Mensagem de sala sem ID ou timestamp válido, ignorando:', {
+          hasId: !!messageId,
+          hasTimestamp: !!messageTimestamp
+        });
+        return;
+      }
+      
+      // CRÍTICO: Evitar reprocessar a mesma mensagem (eventos duplicados ou reconexão)
+      if (lastProcessedSalaMessageRef.id === messageId && 
+          Math.abs(lastProcessedSalaMessageRef.timestamp - messageTimestamp) < 1000) {
+        console.log('⏸️ [Global Audio Listener] Mensagem de sala já processada, ignorando duplicata:', messageId);
+        return;
+      }
+      
+      // CRÍTICO: Ignorar mensagens muito antigas (> 30 segundos) - podem ser de reconexão
+      const now = Date.now();
+      const messageAge = now - messageTimestamp;
+      if (messageAge > 30000) {
+        console.log('⏸️ [Global Audio Listener] Mensagem de sala muito antiga, ignorando:', {
+          messageAge: `${Math.round(messageAge / 1000)}s`,
+          messageId
+        });
+        return;
+      }
+      
       const currentUserName = getCurrentUserName();
       const messageUserName = data.message?.userName || '';
+      
       // Comparação mais robusta: normalizar espaços e case
       const normalizedCurrentUserName = String(currentUserName || '').trim().toLowerCase();
       const normalizedMessageUserName = String(messageUserName || '').trim().toLowerCase();
@@ -650,14 +753,20 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
                            data.message?.content === '[att-caller-sign]';
       
       console.log('🔊 [Global Audio Listener] Mensagem de Sala recebida:', {
+        messageId,
         currentUserName: normalizedCurrentUserName,
         messageUserName: normalizedMessageUserName,
         isFromCurrentUser,
         isCallerSign,
+        messageAge: `${Math.round(messageAge / 1000)}s`,
         mensagem: data.message?.mensagem?.substring(0, 50)
       });
       
       if (!isFromCurrentUser) {
+        // Marcar mensagem como processada ANTES de tocar som
+        lastProcessedSalaMessageRef.id = messageId;
+        lastProcessedSalaMessageRef.timestamp = messageTimestamp;
+        
         if (isCallerSign) {
           // Áudio de chamada sempre executa, ignorando status de som
           console.log('🔊 [Global Audio Listener] Executando áudio de chamada de atenção');

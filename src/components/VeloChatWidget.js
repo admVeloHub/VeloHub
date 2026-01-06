@@ -1,6 +1,26 @@
 /**
  * VeloChatWidget - Componente Principal do Chat
- * VERSION: v3.22.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.25.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v3.25.0:
+ * - CRÍTICO: Ajustado cache para ser compatível com polling de 5s (validade de 30s)
+ * - Implementado fluxo inteligente: polling busca do servidor → compara com cache → só atualiza se houver mudanças
+ * - Função contactsChanged() detecta mudanças de status, novos/removidos contatos
+ * - Evita re-renders desnecessários quando não há mudanças reais
+ * - Polling passa parâmetro isPolling=true para diferenciar de carga inicial
+ * 
+ * Mudanças v3.24.0:
+ * - CRÍTICO: Implementado cache de status dos contatos para evitar recarregamento ao trocar de módulo
+ * - Contatos são carregados do cache primeiro (exibição imediata) e depois atualizados do servidor
+ * - Cache tem validade de 5 minutos e é atualizado automaticamente quando status muda via WebSocket
+ * - Cache é usado como fallback se houver erro ao carregar do servidor
+ * - Melhor UX: não mostra loading se há cache válido disponível
+ * 
+ * Mudanças v3.23.0:
+ * - CRÍTICO: Adicionados logs detalhados para diagnosticar problema de mensagens não aparecendo
+ * - Validação melhorada da resposta da API antes de processar mensagens
+ * - Verificação explícita se data.messages é um array válido antes de mapear
+ * - Logs mostram quantidade de mensagens recebidas e primeiras mensagens para debug
  * 
  * Mudanças v3.22.0:
  * - CRÍTICO: Melhorada detecção de duplicatas para evitar mensagens duplicadas na UI
@@ -477,6 +497,20 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
           : contact
       );
       
+      // CRÍTICO: Atualizar cache quando status mudar via WebSocket
+      try {
+        const cachedContacts = JSON.parse(localStorage.getItem('velochat_contacts_cache') || '[]');
+        const updatedCache = cachedContacts.map(contact => 
+          contact.userEmail === data.userEmail
+            ? { ...contact, status: data.status, isActive: data.status === 'online' }
+            : contact
+        );
+        localStorage.setItem('velochat_contacts_cache', JSON.stringify(updatedCache));
+        localStorage.setItem('velochat_contacts_cache_timestamp', Date.now().toString());
+      } catch (error) {
+        console.warn('⚠️ [handleContactStatusChange] Erro ao atualizar cache:', error);
+      }
+      
       return updated;
     });
   }, []);
@@ -564,29 +598,167 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
   }, []);
 
   /**
-   * Carregar contatos do usuário
+   * Compara dois arrays de contatos para detectar mudanças
+   * Retorna true se houver diferenças significativas (status, novos contatos, etc)
    */
-  const loadContacts = useCallback(async () => {
+  const contactsChanged = useCallback((oldContacts, newContacts) => {
+    if (!oldContacts || !newContacts) return true;
+    if (oldContacts.length !== newContacts.length) return true;
+    
+    // Criar mapas para comparação rápida
+    const oldMap = new Map(oldContacts.map(c => [c.userEmail || c.email, c]));
+    const newMap = new Map(newContacts.map(c => [c.userEmail || c.email, c]));
+    
+    // Verificar se há novos contatos ou contatos removidos
+    for (const email of newMap.keys()) {
+      if (!oldMap.has(email)) return true;
+    }
+    for (const email of oldMap.keys()) {
+      if (!newMap.has(email)) return true;
+    }
+    
+    // Verificar mudanças de status ou outras propriedades relevantes
+    for (const [email, newContact] of newMap.entries()) {
+      const oldContact = oldMap.get(email);
+      if (!oldContact) continue;
+      
+      // Comparar status (propriedade mais importante para polling)
+      if (oldContact.status !== newContact.status ||
+          oldContact.isOnline !== newContact.isOnline ||
+          oldContact.chatStatus !== newContact.chatStatus) {
+        return true;
+      }
+    }
+    
+    return false; // Sem mudanças significativas
+  }, []);
+
+  /**
+   * Carregar contatos do usuário com cache inteligente
+   * - Primeira carga: carrega do cache para exibição imediata, depois busca do servidor
+   * - Polling: sempre busca do servidor, compara com cache, só atualiza se houver mudanças
+   */
+  const loadContacts = useCallback(async (isPolling = false) => {
     try {
-      setLoadingContacts(true);
-      setError(null);
+      if (!isPolling) {
+        setError(null);
+      }
+      
+      const CACHE_KEY = 'velochat_contacts_cache';
+      const CACHE_TIMESTAMP_KEY = 'velochat_contacts_cache_timestamp';
+      const CACHE_MAX_AGE = 30 * 1000; // 30 segundos (compatível com polling de 5s)
+      
+      // Se não é polling, carregar do cache primeiro para exibição imediata
+      if (!isPolling) {
+        let loadedFromCache = false;
+        try {
+          const cachedData = localStorage.getItem(CACHE_KEY);
+          const cacheTimestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY);
+          
+          if (cachedData && cacheTimestamp) {
+            const age = Date.now() - parseInt(cacheTimestamp, 10);
+            if (age < CACHE_MAX_AGE) {
+              const cachedContacts = JSON.parse(cachedData);
+              console.log(`📦 [loadContacts] Carregando ${cachedContacts.length} contatos do cache (idade: ${Math.round(age / 1000)}s)`);
+              
+              // Filtrar contatos do cache omitindo usuários com acessos.Velotax === false
+              const filteredCachedContacts = cachedContacts.filter(contact => {
+                const acessos = contact.acessos || {};
+                const velotax = acessos.Velotax ?? acessos.velotax ?? true;
+                return velotax !== false;
+              });
+              
+              setContacts(filteredCachedContacts);
+              loadedFromCache = true;
+              setLoadingContacts(false);
+            }
+          }
+        } catch (cacheError) {
+          console.warn('⚠️ [loadContacts] Erro ao carregar cache:', cacheError);
+        }
+        
+        // Se não carregou do cache, mostrar loading
+        if (!loadedFromCache) {
+          setLoadingContacts(true);
+        }
+      }
+      
+      // Sempre buscar dados atualizados do servidor
       const data = await velochatApi.getContacts();
       
       // Filtrar contatos omitindo usuários com acessos.Velotax === false
       const filteredContacts = (data.contacts || []).filter(contact => {
         const acessos = contact.acessos || {};
         const velotax = acessos.Velotax ?? acessos.velotax ?? true;
-        return velotax !== false; // Incluir apenas se velotax !== false
+        return velotax !== false;
       });
       
+      // Se é polling, comparar com cache antes de atualizar
+      if (isPolling) {
+        try {
+          const cachedData = localStorage.getItem(CACHE_KEY);
+          if (cachedData) {
+            const cachedContacts = JSON.parse(cachedData);
+            const filteredCachedContacts = cachedContacts.filter(contact => {
+              const acessos = contact.acessos || {};
+              const velotax = acessos.Velotax ?? acessos.velotax ?? true;
+              return velotax !== false;
+            });
+            
+            // Verificar se há mudanças
+            if (!contactsChanged(filteredCachedContacts, filteredContacts)) {
+              console.log(`✅ [loadContacts] Polling: sem mudanças, mantendo cache`);
+              return; // Sem mudanças, não atualizar estado nem cache
+            }
+            
+            console.log(`🔄 [loadContacts] Polling: mudanças detectadas, atualizando cache e estado`);
+          }
+        } catch (cacheError) {
+          console.warn('⚠️ [loadContacts] Erro ao comparar cache no polling:', cacheError);
+        }
+      }
+      
+      // Atualizar cache (só chega aqui se não é polling OU se há mudanças no polling)
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(filteredContacts));
+        localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
+        console.log(`💾 [loadContacts] Cache atualizado com ${filteredContacts.length} contatos`);
+      } catch (cacheError) {
+        console.warn('⚠️ [loadContacts] Erro ao salvar cache:', cacheError);
+      }
+      
+      // Atualizar estado com dados do servidor
       setContacts(filteredContacts);
     } catch (err) {
       console.error('Erro ao carregar contatos:', err);
-      setError(err.message);
+      if (!isPolling) {
+        setError(err.message);
+      }
+      
+      // Se erro ao carregar do servidor, tentar usar cache mesmo se expirado (apenas se não é polling)
+      if (!isPolling) {
+        try {
+          const cachedData = localStorage.getItem('velochat_contacts_cache');
+          if (cachedData) {
+            const cachedContacts = JSON.parse(cachedData);
+            const filteredCachedContacts = cachedContacts.filter(contact => {
+              const acessos = contact.acessos || {};
+              const velotax = acessos.Velotax ?? acessos.velotax ?? true;
+              return velotax !== false;
+            });
+            console.log(`📦 [loadContacts] Usando cache (expirado) devido a erro: ${filteredCachedContacts.length} contatos`);
+            setContacts(filteredCachedContacts);
+          }
+        } catch (cacheError) {
+          console.warn('⚠️ [loadContacts] Erro ao usar cache de fallback:', cacheError);
+        }
+      }
     } finally {
-      setLoadingContacts(false);
+      if (!isPolling) {
+        setLoadingContacts(false);
+      }
     }
-  }, []);
+  }, [contactsChanged]);
 
   // Verificar se sessionId está disponível antes de carregar dados
   const hasSessionId = () => {
@@ -783,10 +955,11 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
       }
 
       // Usar ref para sempre usar a versão mais recente da função
-      loadContactsRef.current().then(() => {
-        // Contatos atualizados
+      // Passar true para indicar que é polling (sempre busca do servidor, compara com cache)
+      loadContactsRef.current(true).then(() => {
+        // Contatos atualizados apenas se houver mudanças
       }).catch(err => {
-        console.error('Erro ao atualizar contatos:', err);
+        console.error('Erro ao atualizar contatos no polling:', err);
       });
     };
 
@@ -911,7 +1084,29 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
       isLoadingMessagesRef.current = true;
       currentLoadingConversationIdRef.current = conversationId;
       setLoading(true);
+      
+      console.log(`📥 [loadMessages] Carregando mensagens para conversa: ${conversationId}`);
       const data = await velochatApi.getMessages(conversationId);
+      
+      console.log(`📥 [loadMessages] Resposta recebida:`, {
+        conversationId,
+        hasData: !!data,
+        hasMessages: !!(data && data.messages),
+        messagesCount: data?.messages?.length || 0,
+        messages: data?.messages?.slice(0, 3) // Primeiras 3 para debug
+      });
+      
+      // Verificar se data.messages existe e é um array
+      if (!data || !data.messages || !Array.isArray(data.messages)) {
+        console.warn(`⚠️ [loadMessages] Resposta inválida ou sem mensagens:`, {
+          hasData: !!data,
+          hasMessages: !!(data && data.messages),
+          messagesType: data?.messages ? typeof data.messages : 'undefined',
+          data: data
+        });
+        setMessages([]);
+        return;
+      }
       
       // Converter mensagens do novo formato para formato esperado pelo componente
       const formattedMessages = (data.messages || []).map((msg, index) => {
