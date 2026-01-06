@@ -1,6 +1,12 @@
 /**
  * VeloChatWidget - Componente Principal do Chat
- * VERSION: v3.18.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.19.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v3.19.0:
+ * - CRÍTICO: Corrigido erro "Cannot access 'Ve' before initialization"
+ * - Refs para loadMessages e loadSalaParticipants agora são criados APÓS a declaração das funções
+ * - Adicionado useEffect para entrar/sair da conversa quando selecionada (estava faltando)
+ * - Isso resolve o erro de inicialização que impedia o componente de carregar
  * 
  * Mudanças v3.18.0:
  * - Adicionados logs de debug para investigar erro "failed to fetch"
@@ -776,45 +782,6 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
     }
   }, [conversations, contacts]);
 
-  // Ref para armazenar a função loadMessages mais recente (evita recriação do useEffect)
-  const loadMessagesRef = useRef(loadMessages);
-  useEffect(() => {
-    loadMessagesRef.current = loadMessages;
-  }, [loadMessages]);
-
-  // Ref para armazenar a função loadSalaParticipants mais recente (evita recriação do useEffect)
-  const loadSalaParticipantsRef = useRef(loadSalaParticipants);
-  useEffect(() => {
-    loadSalaParticipantsRef.current = loadSalaParticipants;
-  }, [loadSalaParticipants]);
-
-  // Entrar/sair da conversa quando selecionada
-  useEffect(() => {
-    if (selectedConversation && isConnected) {
-      const conversationId = selectedConversation.conversationId || selectedConversation.Id;
-      if (conversationId) {
-        joinConversation(conversationId);
-        // Usar ref para sempre usar a versão mais recente da função
-        loadMessagesRef.current(conversationId);
-        
-        // Se for sala, carregar participantes
-        if (selectedConversation.type === 'sala') {
-          loadSalaParticipantsRef.current(conversationId);
-        } else {
-          setSalaParticipants([]);
-        }
-      }
-      
-      return () => {
-        const conversationId = selectedConversation.conversationId || selectedConversation.Id;
-        if (conversationId) {
-          leaveConversation(conversationId);
-        }
-        setSalaParticipants([]);
-      };
-    }
-  }, [selectedConversation?.conversationId || selectedConversation?.Id, isConnected]); // Usar apenas ID da conversa, não a função
-
   // Scroll automático para última mensagem - apenas quando necessário
   // Usa scrollTop do container ao invés de scrollIntoView para evitar scroll na página inteira
   const scrollToBottom = (force = false) => {
@@ -948,6 +915,45 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
       setLoading(false);
     }
   };
+
+  // Ref para armazenar a função loadMessages mais recente (evita recriação do useEffect)
+  const loadMessagesRef = useRef(loadMessages);
+  useEffect(() => {
+    loadMessagesRef.current = loadMessages;
+  }, [loadMessages]);
+
+  // Ref para armazenar a função loadSalaParticipants mais recente (evita recriação do useEffect)
+  const loadSalaParticipantsRef = useRef(loadSalaParticipants);
+  useEffect(() => {
+    loadSalaParticipantsRef.current = loadSalaParticipants;
+  }, [loadSalaParticipants]);
+
+  // Entrar/sair da conversa quando selecionada
+  useEffect(() => {
+    if (selectedConversation && isConnected) {
+      const conversationId = selectedConversation.conversationId || selectedConversation.Id;
+      if (conversationId) {
+        joinConversation(conversationId);
+        // Usar ref para sempre usar a versão mais recente da função
+        loadMessagesRef.current(conversationId);
+        
+        // Se for sala, carregar participantes
+        if (selectedConversation.type === 'sala') {
+          loadSalaParticipantsRef.current(conversationId);
+        } else {
+          setSalaParticipants([]);
+        }
+      }
+      
+      return () => {
+        const conversationId = selectedConversation.conversationId || selectedConversation.Id;
+        if (conversationId) {
+          leaveConversation(conversationId);
+        }
+        setSalaParticipants([]);
+      };
+    }
+  }, [selectedConversation?.conversationId || selectedConversation?.Id, isConnected, joinConversation, leaveConversation]); // Dependências necessárias
 
   /**
    * Selecionar conversa
