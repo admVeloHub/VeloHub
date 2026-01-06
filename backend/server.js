@@ -224,6 +224,11 @@ try {
   userSessionLogger = require('./services/logging/userSessionLogger');
   console.log('✅ userSessionLogger carregado');
   
+  // Iniciar limpeza automática de sessões inativas
+  if (userSessionLogger && typeof userSessionLogger.startAutoCleanup === 'function') {
+    userSessionLogger.startAutoCleanup();
+  }
+  
   console.log('🎉 Todos os serviços carregados com sucesso!');
 } catch (error) {
   console.error('❌ Erro ao carregar serviços:', error.message);

@@ -1,5 +1,5 @@
 // User Session Logger - Log de sessões de login/logout dos usuários
-// VERSION: v1.2.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+// VERSION: v1.3.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
 const { MongoClient } = require('mongodb');
 const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
@@ -170,6 +170,87 @@ class UserSessionLogger {
   /**
    * Fecha a conexão com MongoDB
    */
+  /**
+   * Limpa sessões inativas que não receberam heartbeat há mais de 2 minutos
+   * Heartbeat é enviado a cada 30s, então 2 minutos sem heartbeat = usuário offline
+   */
+  async cleanupInactiveSessions() {
+    try {
+      await this.connect();
+
+      const now = new Date();
+      const HEARTBEAT_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutos sem heartbeat = offline
+      const timeoutThreshold = new Date(now.getTime() - HEARTBEAT_TIMEOUT_MS);
+
+      // Buscar sessões ativas que não receberam heartbeat há mais de 2 minutos
+      // updatedAt é armazenado como Date no MongoDB, então comparamos diretamente
+      const inactiveSessions = await this.collection.find({
+        isActive: true,
+        updatedAt: { $lt: timeoutThreshold }
+      }).toArray();
+
+      if (inactiveSessions.length > 0) {
+        // Marcar todas como inativas
+        const result = await this.collection.updateMany(
+          {
+            isActive: true,
+            updatedAt: { $lt: timeoutThreshold }
+          },
+          {
+            $set: {
+              isActive: false,
+              chatStatus: 'offline',
+              logoutTimestamp: now,
+              updatedAt: now
+            }
+          }
+        );
+
+        console.log(`🧹 SessionLogger: ${result.modifiedCount} sessão(ões) marcada(s) como offline (sem heartbeat há mais de 2 minutos)`);
+        
+        // Log detalhado das sessões limpas
+        inactiveSessions.forEach(session => {
+          // updatedAt pode ser Date ou timestamp (number)
+          const lastUpdate = session.updatedAt instanceof Date 
+            ? session.updatedAt 
+            : new Date(session.updatedAt);
+          const minutesAgo = Math.round((now - lastUpdate) / 1000 / 60);
+          console.log(`   - ${session.colaboradorNome} (${session.userEmail}): último heartbeat há ${minutesAgo} minutos`);
+        });
+
+        return {
+          success: true,
+          cleaned: result.modifiedCount
+        };
+      }
+
+      return {
+        success: true,
+        cleaned: 0
+      };
+
+    } catch (error) {
+      console.error('❌ SessionLogger: Erro ao limpar sessões inativas:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Inicia limpeza automática de sessões inativas
+   * Executa a cada 1 minuto para garantir detecção rápida de usuários offline
+   */
+  startAutoCleanup() {
+    // Limpeza a cada 1 minuto
+    setInterval(async () => {
+      await this.cleanupInactiveSessions();
+    }, 60 * 1000); // 1 minuto
+
+    console.log('🔄 SessionLogger: Limpeza automática de sessões inativas iniciada (executa a cada 1 minuto)');
+  }
+
   async close() {
     if (this.client) {
       await this.client.close();
