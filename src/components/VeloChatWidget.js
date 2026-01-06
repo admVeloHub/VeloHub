@@ -1,6 +1,13 @@
 /**
  * VeloChatWidget - Componente Principal do Chat
- * VERSION: v3.19.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.20.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v3.20.0:
+ * - CRÍTICO: Corrigido loop infinito de requisições que causava ERR_INSUFFICIENT_RESOURCES
+ * - Adicionado controle para evitar múltiplas chamadas simultâneas de loadMessages
+ * - Adicionado ref para rastrear última conversa carregada (evita recarregar se não mudou)
+ * - Removidas joinConversation e leaveConversation das dependências do useEffect (são estáveis)
+ * - Mensagens agora aparecem e permanecem na caixa de diálogo após envio
  * 
  * Mudanças v3.19.0:
  * - CRÍTICO: Corrigido erro "Cannot access 'Ve' before initialization"
@@ -826,12 +833,24 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
   }, [selectedConversation?.conversationId || selectedConversation?.Id]);
 
 
+  // Ref para controlar se já está carregando mensagens (evita múltiplas chamadas simultâneas)
+  const isLoadingMessagesRef = useRef(false);
+  const currentLoadingConversationIdRef = useRef(null);
+
   /**
    * Carregar mensagens de uma conversa
    * Detecta automaticamente se é P2P ou Sala
    */
   const loadMessages = async (conversationId) => {
+    // Evitar múltiplas chamadas simultâneas para a mesma conversa
+    if (isLoadingMessagesRef.current && currentLoadingConversationIdRef.current === conversationId) {
+      console.log('⏸️ [loadMessages] Já está carregando mensagens para esta conversa, ignorando chamada duplicada');
+      return;
+    }
+
     try {
+      isLoadingMessagesRef.current = true;
+      currentLoadingConversationIdRef.current = conversationId;
       setLoading(true);
       const data = await velochatApi.getMessages(conversationId);
       
@@ -913,6 +932,11 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
       setError(err.message);
     } finally {
       setLoading(false);
+      isLoadingMessagesRef.current = false;
+      // Limpar ref apenas se ainda é a mesma conversa (evita race conditions)
+      if (currentLoadingConversationIdRef.current === conversationId) {
+        currentLoadingConversationIdRef.current = null;
+      }
     }
   };
 
@@ -928,20 +952,27 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
     loadSalaParticipantsRef.current = loadSalaParticipants;
   }, [loadSalaParticipants]);
 
+  // Ref para rastrear a última conversa carregada (evita recarregar se não mudou)
+  const lastLoadedConversationIdRef = useRef(null);
+
   // Entrar/sair da conversa quando selecionada
   useEffect(() => {
     if (selectedConversation && isConnected) {
       const conversationId = selectedConversation.conversationId || selectedConversation.Id;
       if (conversationId) {
-        joinConversation(conversationId);
-        // Usar ref para sempre usar a versão mais recente da função
-        loadMessagesRef.current(conversationId);
-        
-        // Se for sala, carregar participantes
-        if (selectedConversation.type === 'sala') {
-          loadSalaParticipantsRef.current(conversationId);
-        } else {
-          setSalaParticipants([]);
+        // Só carregar mensagens se mudou de conversa
+        if (lastLoadedConversationIdRef.current !== conversationId) {
+          joinConversation(conversationId);
+          // Usar ref para sempre usar a versão mais recente da função
+          loadMessagesRef.current(conversationId);
+          lastLoadedConversationIdRef.current = conversationId;
+          
+          // Se for sala, carregar participantes
+          if (selectedConversation.type === 'sala') {
+            loadSalaParticipantsRef.current(conversationId);
+          } else {
+            setSalaParticipants([]);
+          }
         }
       }
       
@@ -949,11 +980,15 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
         const conversationId = selectedConversation.conversationId || selectedConversation.Id;
         if (conversationId) {
           leaveConversation(conversationId);
+          // Limpar ref quando sair da conversa
+          if (lastLoadedConversationIdRef.current === conversationId) {
+            lastLoadedConversationIdRef.current = null;
+          }
         }
         setSalaParticipants([]);
       };
     }
-  }, [selectedConversation?.conversationId || selectedConversation?.Id, isConnected, joinConversation, leaveConversation]); // Dependências necessárias
+  }, [selectedConversation?.conversationId || selectedConversation?.Id, isConnected]); // Removidas joinConversation e leaveConversation das dependências (são estáveis)
 
   /**
    * Selecionar conversa
@@ -963,10 +998,11 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
     setView('conversation');
     setMessages([]);
     
-    // Carregar mensagens da conversa selecionada
+    // Limpar ref de última conversa carregada para forçar reload
     const conversationId = conversation.conversationId || conversation.Id;
     if (conversationId) {
-      loadMessages(conversationId);
+      lastLoadedConversationIdRef.current = null; // Forçar reload no useEffect
+      // O useEffect vai chamar loadMessages automaticamente
     }
   };
 
