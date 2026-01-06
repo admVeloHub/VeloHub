@@ -1,6 +1,9 @@
 /**
  * Componente de Thread de Comentários do Velonews
- * VERSION: v1.0.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.2 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.0.2:
+ * - Corrigida mensagem de erro que mencionava porta 8090 (agora usa mensagem genérica)
  * 
  * Mudanças v1.0.1:
  * - Melhorado tratamento de erros com mensagens mais específicas
@@ -116,7 +119,7 @@ const VelonewsCommentThread = ({ newsId, thread = [], onCommentAdded }) => {
       let errorMessage = 'Erro ao adicionar comentário. Tente novamente.';
       
       if (err.message.includes('Failed to fetch') || err.message.includes('ERR_CONNECTION_REFUSED')) {
-        errorMessage = 'Não foi possível conectar ao servidor. Verifique se o backend está rodando na porta 8090.';
+        errorMessage = 'Não foi possível conectar ao servidor. Verifique sua conexão com a internet.';
       } else if (err.message.includes('404')) {
         errorMessage = 'Endpoint não encontrado. Verifique se o servidor foi reiniciado após as alterações.';
       } else if (err.message) {
