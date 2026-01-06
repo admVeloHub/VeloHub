@@ -1,7 +1,10 @@
 /**
  * VeloHub V3 - API Configuration
- * VERSION: v1.0.10 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.12 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
  * REGRA: Frontend porta 8080 | Backend porta 8090 na rede local
+ * 
+ * Mudanças v1.0.12:
+ * - Removidos logs de debug que tentavam conectar em 127.0.0.1:7244 (causavam ERR_CONNECTION_REFUSED)
  */
 
 /**
@@ -125,50 +128,30 @@ export const getVeloChatApiUrl = () => {
   // Prioridade 1: Se há uma variável de ambiente definida, usar ela
   if (process.env.REACT_APP_VELOCHAT_API_URL) {
     const url = process.env.REACT_APP_VELOCHAT_API_URL.trim();
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-config.js:126',message:'getVeloChatApiUrl from env',data:{url,origin:typeof window!=='undefined'?window.location.origin:null},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     return url;
   }
   
   // Prioridade 2: Detecta automaticamente a URL baseada no ambiente do VeloHub
   if (typeof window !== 'undefined') {
     const currentHost = window.location.hostname;
-    const currentOrigin = window.location.origin;
     
     // Se estamos em localhost, usar o VeloChat Server local na porta 3001
     if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
-      const url = 'http://localhost:3001';
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-config.js:135',message:'getVeloChatApiUrl localhost',data:{url,currentHost,currentOrigin},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
-      return url;
+      return 'http://localhost:3001';
     }
     
     // Se estamos em staging ou produção do VeloHub, usar o VeloChat Server de produção
     // O VeloChat Server tem deploy único que serve ambos os ambientes
     if (currentHost.includes('run.app') || currentHost.includes('velotax.com.br') || currentHost.includes('velohub')) {
-      const url = 'https://velochat-server-278491073220.us-east1.run.app';
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-config.js:142',message:'getVeloChatApiUrl production',data:{url,currentHost,currentOrigin,isStaging:currentHost.includes('staging')},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
-      return url;
+      return 'https://velochat-server-278491073220.us-east1.run.app';
     }
     
     // Fallback para URL padrão do VeloChat Server (produção)
-    const url = 'https://velochat-server-278491073220.us-east1.run.app';
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-config.js:147',message:'getVeloChatApiUrl fallback',data:{url,currentHost,currentOrigin},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
-    return url;
+    return 'https://velochat-server-278491073220.us-east1.run.app';
   }
   
   // Fallback para server-side rendering - sempre URL do VeloChat Server de produção
-  const url = 'https://velochat-server-278491073220.us-east1.run.app';
-  // #region agent log
-  fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api-config.js:151',message:'getVeloChatApiUrl SSR fallback',data:{url},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'D'})}).catch(()=>{});
-  // #endregion
-  return url;
+  return 'https://velochat-server-278491073220.us-east1.run.app';
 };
 
 /**

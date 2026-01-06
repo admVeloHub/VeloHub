@@ -1,6 +1,13 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.43.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.44.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.44.0:
+ * - CRÍTICO: Melhorada busca de usuário no endpoint /api/auth/validate-access
+ * - Adicionada busca com múltiplas variações (case-insensitive, campos alternativos)
+ * - Adicionados logs detalhados para debug de problemas de login
+ * - Melhorada validação de acesso ao VeloHub (verifica múltiplas variações do campo)
+ * - Corrigido uso de normalizedEmail em todas as buscas para manter consistência
  * 
  * Mudanças v2.43.1:
  * - Removida instrumentação de debug do endpoint PUT /api/velo-news/:id/comment
@@ -2648,32 +2655,91 @@ app.post('/api/auth/validate-access', async (req, res) => {
       });
     }
 
-    console.log(`🔍 Validando acesso para: ${email}`);
+    const normalizedEmail = email.toLowerCase().trim();
+    console.log(`🔍 [validate-access] Validando acesso para: ${normalizedEmail}`);
+    console.log(`🔍 [validate-access] Email original: ${email}`);
 
     // Conectar ao MongoDB
     await connectToMongo();
     const db = client.db('console_analises');
     const funcionariosCollection = db.collection('qualidade_funcionarios');
 
-    // Buscar usuário por email
-    const funcionario = await funcionariosCollection.findOne({
-      userMail: email.toLowerCase()
+    // Buscar usuário por email - tentar múltiplas variações
+    let funcionario = await funcionariosCollection.findOne({
+      userMail: normalizedEmail
     });
 
+    // Se não encontrou, tentar sem normalização (caso o campo tenha case diferente)
     if (!funcionario) {
-      console.log(`❌ Usuário não encontrado: ${email}`);
+      console.log(`⚠️ [validate-access] Tentativa 1 falhou, tentando variações...`);
+      funcionario = await funcionariosCollection.findOne({
+        $or: [
+          { userMail: email }, // Email original
+          { userMail: normalizedEmail }, // Email normalizado
+          { userMail: { $regex: new RegExp(`^${normalizedEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } } // Case-insensitive
+        ]
+      });
+    }
+
+    // Se ainda não encontrou, tentar buscar por email (campo alternativo)
+    if (!funcionario) {
+      console.log(`⚠️ [validate-access] Tentativa 2 falhou, tentando campo 'email'...`);
+      funcionario = await funcionariosCollection.findOne({
+        $or: [
+          { email: normalizedEmail },
+          { email: { $regex: new RegExp(`^${normalizedEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } }
+        ]
+      });
+    }
+
+    if (!funcionario) {
+      console.log(`❌ [validate-access] Usuário não encontrado após todas as tentativas: ${normalizedEmail}`);
+      console.log(`❌ [validate-access] Tentativas realizadas:`);
+      console.log(`   - userMail: ${normalizedEmail}`);
+      console.log(`   - userMail (case-insensitive)`);
+      console.log(`   - email: ${normalizedEmail}`);
+      
+      // Log adicional para debug - contar total de funcionários na collection
+      try {
+        const totalFuncionarios = await funcionariosCollection.countDocuments({});
+        console.log(`📊 [validate-access] Total de funcionários na collection: ${totalFuncionarios}`);
+        
+        // Buscar alguns exemplos de emails para debug (apenas em desenvolvimento)
+        if (process.env.NODE_ENV === 'development') {
+          const sampleEmails = await funcionariosCollection.find({}, { projection: { userMail: 1, email: 1, colaboradorNome: 1 } }).limit(5).toArray();
+          console.log(`📋 [validate-access] Exemplos de emails na collection:`, sampleEmails.map(f => ({ 
+            userMail: f.userMail, 
+            email: f.email, 
+            nome: f.colaboradorNome 
+          })));
+        }
+      } catch (debugError) {
+        console.error(`❌ [validate-access] Erro ao buscar exemplos para debug:`, debugError.message);
+      }
+      
       return res.status(404).json({
         success: false,
         error: 'Usuário Inexistente. Contate seu gestor'
       });
     }
 
-    // Validar acesso ao VeloHub
+    console.log(`✅ [validate-access] Usuário encontrado: ${funcionario.colaboradorNome} (${funcionario.userMail || funcionario.email})`);
+
+    // Validar acesso ao VeloHub - verificar múltiplas variações do campo
     const acessos = funcionario.acessos || {};
-    const acessoVelohub = acessos.Velohub || acessos.velohub || false;
+    const acessoVelohub = acessos.Velohub || acessos.velohub || acessos.VeloHub || acessos.VELOHUB || false;
+    
+    console.log(`🔍 [validate-access] Verificando acesso para ${normalizedEmail}:`, {
+      acessos: acessos,
+      Velohub: acessos.Velohub,
+      velohub: acessos.velohub,
+      VeloHub: acessos.VeloHub,
+      acessoVelohub: acessoVelohub
+    });
     
     if (!acessoVelohub) {
-      console.log(`❌ Acesso negado para ${email}: Velohub = false`);
+      console.log(`❌ [validate-access] Acesso negado para ${normalizedEmail}: Velohub = false`);
+      console.log(`❌ [validate-access] Objeto de acessos completo:`, JSON.stringify(acessos, null, 2));
       return res.status(403).json({
         success: false,
         error: 'Acesso Negado. Contate Administrador do Acesso'
@@ -2693,7 +2759,7 @@ app.post('/api/auth/validate-access', async (req, res) => {
           profilePic = syncedPic;
           // Buscar funcionário atualizado para garantir dados mais recentes
           const updatedFuncionario = await funcionariosCollection.findOne({
-            userMail: email.toLowerCase()
+            userMail: normalizedEmail
           });
           if (updatedFuncionario && updatedFuncionario.profile_pic) {
             profilePic = updatedFuncionario.profile_pic;
@@ -2703,13 +2769,16 @@ app.post('/api/auth/validate-access', async (req, res) => {
     }
 
     // Preparar dados do usuário
+    // Usar userMail do funcionário encontrado (pode ser de qualquer variação da busca)
+    const funcionarioEmail = funcionario.userMail || funcionario.email || normalizedEmail;
+    
     const userData = {
-      name: funcionario.colaboradorNome || email,
-      email: funcionario.userMail,
+      name: funcionario.colaboradorNome || funcionarioEmail,
+      email: funcionarioEmail,
       picture: profilePic
     };
 
-    console.log(`✅ Acesso validado: ${funcionario.colaboradorNome} (${email})`);
+    console.log(`✅ [validate-access] Acesso validado: ${funcionario.colaboradorNome} (${funcionarioEmail})`);
 
     res.json({
       success: true,
