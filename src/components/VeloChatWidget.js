@@ -1,6 +1,13 @@
 /**
  * VeloChatWidget - Componente Principal do Chat
- * VERSION: v3.25.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.26.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v3.26.1:
+ * - Melhorado layout do botão de exclusão de conversa com expansão vermelha animada
+ * - Zona vermelha expande da direita para esquerda ao posicionar mouse na margem direita do card
+ * - Ícone X branco centralizado na zona vermelha clicável
+ * 
+ * Mudanças v3.26.0:
  * 
  * Mudanças v3.25.0:
  * - CRÍTICO: Ajustado cache para ser compatível com polling de 5s (validade de 30s)
@@ -327,6 +334,21 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
     if (normalizedMessage === normalizedCurrent) {
       // Verificar se já existe (evitar duplicatas) e substituir temporárias
       setMessages(prev => {
+        // CRÍTICO: Se mensagem é do próprio usuário, verificar se já existe temporária antes de processar
+        // Isso serve como fallback caso servidor ainda envie evento para remetente
+        if (isFromCurrentUser) {
+          // Verificar se existe mensagem temporária com mesmo conteúdo
+          const tempExists = prev.some(msg => 
+            msg.isTemporary && 
+            msg.userName === message.userName &&
+            (msg.mensagem === message.mensagem || msg.content === message.mensagem)
+          );
+          if (tempExists) {
+            console.log('⏸️ [handleNewMessage] Mensagem do próprio usuário já existe como temporária, ignorando evento duplicado');
+            return prev; // Mensagem temporária já existe, não adicionar novamente
+          }
+        }
+        
         // CRÍTICO: Verificar duplicatas ANTES de qualquer processamento
         // Se a mensagem tem _id, verificar se já existe pelo ID (mais confiável e rápido)
         if (message._id) {
@@ -1296,8 +1318,9 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
         return;
       }
 
-      console.log('📝 Criando nova conversa P2P...');
-      // Criar nova conversa P2P usando novo schema
+      // Não criar conversa ainda - apenas preparar interface para usuário digitar mensagem
+      // Conversa será criada apenas quando primeira mensagem for enviada
+      console.log('📝 Preparando interface para conversa P2P (conversa será criada ao enviar primeira mensagem)');
       const currentUserName = getCurrentUserName();
       const contactName = contact.userName || contact.colaboradorNome;
       
@@ -1305,28 +1328,24 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
         throw new Error('Nomes dos usuários não encontrados');
       }
       
-      // Criar conversa P2P usando a nova API
-      const conversation = await velochatApi.createOrGetP2PConversation(contactName);
-
-      console.log('📦 Resposta da criação de conversa P2P:', conversation);
-
-      if (conversation) {
-        // Adicionar à lista de conversas e selecionar
-        console.log('✅ Conversa P2P criada/obtida com sucesso:', conversation);
-        const formattedConversation = {
-          conversationId: conversation.Id,
-          Id: conversation.Id,
-          type: 'p2p',
-          p2p: conversation.p2p,
-          createdAt: conversation.createdAt,
-          updatedAt: conversation.updatedAt
-        };
-        setConversations(prev => [formattedConversation, ...prev]);
-        handleSelectConversation(formattedConversation);
-      } else {
-        console.error('❌ Resposta inválida ao criar conversa P2P:', conversation);
-        throw new Error('Erro ao criar conversa P2P');
-      }
+      // Criar conversa temporária "em preparação" sem ID real
+      // Isso permite que usuário digite mensagem mesmo sem conversa criada no backend
+      const tempConversation = {
+        conversationId: null,  // Sem ID real ainda
+        Id: null,
+        type: 'p2p',
+        p2p: {
+          colaboradorNome1: currentUserName,
+          colaboradorNome2: contactName
+        },
+        isTemporary: true,  // Flag para identificar conversa temporária
+        contactName: contactName,  // Guardar nome do contato para criar conversa depois
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+      
+      // Selecionar conversa temporária - usuário pode digitar mensagem
+      handleSelectConversation(tempConversation);
     } catch (err) {
       console.error('❌ Erro ao iniciar conversa:', err);
       setError(err.message || 'Erro ao iniciar conversa');
@@ -1483,9 +1502,59 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
     if ((!messageInput.trim() && !selectedFile) || !selectedConversation) return;
 
     try {
-      const conversationId = selectedConversation.conversationId || selectedConversation.Id;
+      let conversationId = selectedConversation.conversationId || selectedConversation.Id;
       const currentUserName = getCurrentUserName();
       const messageToSend = messageInput.trim();
+      
+      // Se conversa é temporária (sem ID real), criar conversa antes de enviar mensagem
+      if (!conversationId || selectedConversation.isTemporary) {
+        console.log('📝 [handleSendMessage] Conversa temporária detectada, criando conversa antes de enviar mensagem');
+        const contactName = selectedConversation.contactName || 
+                           (selectedConversation.p2p?.colaboradorNome2 === currentUserName 
+                             ? selectedConversation.p2p?.colaboradorNome1 
+                             : selectedConversation.p2p?.colaboradorNome2);
+        
+        if (!contactName) {
+          throw new Error('Nome do contato não encontrado para criar conversa');
+        }
+        
+        // Criar conversa P2P usando a API
+        const conversation = await velochatApi.createOrGetP2PConversation(contactName);
+        
+        if (!conversation || !conversation.Id) {
+          throw new Error('Erro ao criar conversa P2P');
+        }
+        
+        conversationId = conversation.Id;
+        console.log('✅ [handleSendMessage] Conversa criada com sucesso:', conversationId);
+        
+        // Atualizar conversa selecionada com dados reais
+        const formattedConversation = {
+          conversationId: conversation.Id,
+          Id: conversation.Id,
+          type: 'p2p',
+          p2p: conversation.p2p,
+          createdAt: conversation.createdAt,
+          updatedAt: conversation.updatedAt
+        };
+        
+        // Substituir conversa temporária na lista
+        setConversations(prev => {
+          const filtered = prev.filter(conv => 
+            !(conv.isTemporary && conv.p2p?.colaboradorNome1 === currentUserName && 
+              conv.p2p?.colaboradorNome2 === contactName)
+          );
+          return [formattedConversation, ...filtered];
+        });
+        
+        // Atualizar conversa selecionada
+        setSelectedConversation(formattedConversation);
+        
+        // Fazer join na sala da conversa via WebSocket
+        if (joinConversation) {
+          joinConversation(conversationId);
+        }
+      }
       
       // Upload de arquivo para GCS se houver anexo
       let mediaUrl = null;
@@ -1599,6 +1668,45 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
   };
 
   /**
+   * Encerrar/remover conversa P2P da lista
+   * Adiciona colaboradorNome ao array encerradaPor sem deletar a conversa
+   */
+  const handleCloseConversation = async (conversationId, e) => {
+    e.stopPropagation(); // Evitar que clique abra a conversa
+    
+    if (!window.confirm('Deseja remover esta conversa da sua lista?')) {
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      await velochatApi.closeP2PConversation(conversationId);
+      
+      // Remover conversa do estado local
+      setConversations(prev => prev.filter(conv => 
+        (conv.conversationId || conv.Id) !== conversationId
+      ));
+      
+      // Se conversa estava selecionada, limpar seleção
+      if (selectedConversation && 
+          (selectedConversation.conversationId || selectedConversation.Id) === conversationId) {
+        setSelectedConversation(null);
+        setView('conversations');
+        setMessages([]);
+      }
+      
+      console.log('✅ Conversa removida com sucesso');
+    } catch (err) {
+      console.error('Erro ao remover conversa:', err);
+      setError('Erro ao remover conversa: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
    * Renderizar tela de conversas
    */
   const renderConversationsView = () => {
@@ -1642,6 +1750,17 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
         if (conv.p2p) {
           const match1 = normalizeName(conv.p2p.colaboradorNome1) === normalizedCurrentName;
           const match2 = normalizeName(conv.p2p.colaboradorNome2) === normalizedCurrentName;
+          
+          // Verificar se conversa foi encerrada pelo usuário atual
+          // Excluir conversas onde encerradaPor contém o nome do usuário atual
+          if (conv.encerradaPor && Array.isArray(conv.encerradaPor)) {
+            const isClosedByUser = conv.encerradaPor.some(name => 
+              normalizeName(name) === normalizedCurrentName
+            );
+            if (isClosedByUser) {
+              return false; // Conversa encerrada pelo usuário, não mostrar
+            }
+          }
           
           // Debug temporário
           if (conversations.length > 0) {
@@ -1782,12 +1901,38 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                   <div
                     key={conversationId}
                     onClick={() => handleSelectConversation(conv)}
-                    className="p-3 rounded-lg mb-2 flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity relative"
+                    className="p-3 rounded-lg mb-2 flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity relative group"
                     style={{
                       border: `1px solid ${colors.border}`,
                       backgroundColor: salaBackground,
                       borderRadius: '8px',
-                      opacity: isP2P && isOffline ? 0.6 : 1
+                      opacity: isP2P && isOffline ? 0.6 : 1,
+                      overflow: 'hidden', // Garantir que expansão vermelha não ultrapasse bordas
+                      position: 'relative'
+                    }}
+                    onMouseMove={(e) => {
+                      if (!isP2P) return;
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const mouseX = e.clientX - rect.left;
+                      const cardWidth = rect.width;
+                      // Se mouse está nos últimos 60px da margem direita, expandir zona vermelha
+                      const deleteZone = e.currentTarget.querySelector('.delete-zone');
+                      if (deleteZone && mouseX > cardWidth - 60) {
+                        const button = deleteZone.querySelector('button');
+                        if (button) {
+                          button.style.width = '60px';
+                        }
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isP2P) return;
+                      const deleteZone = e.currentTarget.querySelector('.delete-zone');
+                      if (deleteZone) {
+                        const button = deleteZone.querySelector('button');
+                        if (button) {
+                          button.style.width = '0';
+                        }
+                      }
                     }}
                   >
                     {isP2P && otherMember && (
@@ -1917,6 +2062,42 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                         className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full"
                         style={{ zIndex: 10 }}
                       />
+                    )}
+                    {/* Botão de remover conversa com expansão vermelha (apenas para P2P) */}
+                    {isP2P && (
+                      <div className="delete-zone absolute top-0 right-0 h-full" style={{ zIndex: 20 }}>
+                        <button
+                          onClick={(e) => handleCloseConversation(conversationId, e)}
+                          className="h-full flex items-center justify-center cursor-pointer absolute top-0 right-0"
+                          style={{
+                            backgroundColor: '#ef4444',
+                            color: '#ffffff',
+                            fontSize: '24px',
+                            fontWeight: 'bold',
+                            borderTopRightRadius: '8px',
+                            borderBottomRightRadius: '8px',
+                            transition: 'width 0.3s ease-out, background-color 0.2s',
+                            width: '0',
+                            overflow: 'hidden',
+                            minWidth: '0',
+                            whiteSpace: 'nowrap',
+                            lineHeight: '1',
+                            letterSpacing: '-2px',
+                            transform: 'scaleY(1.3)'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#dc2626';
+                            e.currentTarget.style.width = '60px';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = '#ef4444';
+                            e.currentTarget.style.width = '0';
+                          }}
+                          title="Remover conversa"
+                        >
+                          ×
+                        </button>
+                      </div>
                     )}
                   </div>
                 );

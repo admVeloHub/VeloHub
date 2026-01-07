@@ -1,6 +1,6 @@
 /**
  * VeloChat API Service - Frontend
- * VERSION: v4.5.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v4.6.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
  * 
  * Mudanças v4.5.1:
  * - Removidos todos os logs de debug que tentavam conectar em 127.0.0.1:7244 (causavam ERR_CONNECTION_REFUSED)
@@ -168,6 +168,17 @@ export const sendP2PMessage = async (conversationId, mensagem) => {
     body: JSON.stringify({ mensagem })
   });
   return data.message;
+};
+
+/**
+ * Encerrar conversa P2P para o usuário atual
+ * Adiciona colaboradorNome ao array encerradaPor sem deletar a conversa
+ */
+export const closeP2PConversation = async (conversationId) => {
+  const data = await authenticatedFetch(`/api/p2p/conversations/${conversationId}/close`, {
+    method: 'PUT'
+  });
+  return data;
 };
 
 // ==================== APIs Salas ====================
