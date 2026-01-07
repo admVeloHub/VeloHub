@@ -1,6 +1,9 @@
 /**
  * Utilitários para manipulação de senhas
- * VERSION: v1.0.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.1.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.1.0:
+ * - Adicionada função generateDefaultPassword para gerar senha padrão (nome.sobrenomeCPF)
  * 
  * Funções para comparação e validação de senhas
  */
@@ -99,9 +102,66 @@ const validateUserAccess = (funcionario) => {
   };
 };
 
+/**
+ * Remove acentos de uma string
+ * @param {string} str - String a ser processada
+ * @returns {string} - String sem acentos
+ */
+const removeAccents = (str) => {
+  if (!str) return '';
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+};
+
+/**
+ * Gera senha padrão no formato: nome.sobrenomeCPF
+ * @param {string} colaboradorNome - Nome completo do colaborador
+ * @param {string} cpf - CPF do colaborador (11 dígitos, sem pontos ou traços)
+ * @returns {string} - Senha padrão gerada (ex: joao.silva12345678901)
+ */
+const generateDefaultPassword = (colaboradorNome, cpf) => {
+  if (!colaboradorNome) {
+    return '';
+  }
+
+  // Remover acentos e converter para minúsculas
+  const nomeSemAcentos = removeAccents(colaboradorNome).toLowerCase().trim();
+  
+  // Dividir nome em partes
+  const partesNome = nomeSemAcentos.split(/\s+/).filter(p => p.length > 0);
+  
+  if (partesNome.length === 0) {
+    return '';
+  }
+
+  // Primeiro nome (primeira parte)
+  const primeiroNome = partesNome[0];
+  
+  // Sobrenome (última parte, ou segunda parte se houver apenas duas)
+  let sobrenome = '';
+  if (partesNome.length === 1) {
+    sobrenome = primeiroNome; // Se só tem um nome, usar ele mesmo
+  } else if (partesNome.length === 2) {
+    sobrenome = partesNome[1]; // Se tem dois nomes, usar o segundo
+  } else {
+    sobrenome = partesNome[partesNome.length - 1]; // Se tem mais de dois, usar o último
+  }
+
+  // Limpar CPF (remover pontos, traços e espaços)
+  const cpfLimpo = cpf ? cpf.replace(/[.\-\s]/g, '') : '';
+
+  // Gerar senha padrão
+  if (cpfLimpo && cpfLimpo.length >= 11) {
+    return `${primeiroNome}.${sobrenome}${cpfLimpo}`;
+  } else {
+    // Fallback: apenas nome.sobrenome se não houver CPF
+    return `${primeiroNome}.${sobrenome}`;
+  }
+};
+
 module.exports = {
   comparePassword,
   validatePassword,
-  validateUserAccess
+  validateUserAccess,
+  generateDefaultPassword
 };
 

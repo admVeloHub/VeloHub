@@ -1,5 +1,9 @@
 // Sistema de Autenticação Centralizado para VeloHub
-// VERSION: v1.2.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+// VERSION: v1.3.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+// Mudanças v1.3.0:
+// - Heartbeat continua funcionando mesmo quando aba está oculta
+// - Intervalo dinâmico: 30s quando visível, 60s quando oculto
+// - Usuários permanecem online mesmo com aba fora de visualização
 import { GOOGLE_CONFIG } from '../config/google-config';
 import { API_BASE_URL } from '../config/api-config';
 
@@ -90,6 +94,8 @@ function isSessionValid() {
  */
 let heartbeatInterval = null;
 let isHeartbeatActive = false;
+const HEARTBEAT_INTERVAL_VISIBLE = 30000; // 30 segundos quando aba está visível
+const HEARTBEAT_INTERVAL_HIDDEN = 60000; // 60 segundos quando aba está oculta
 
 async function sendHeartbeat() {
     try {
@@ -99,11 +105,7 @@ async function sendHeartbeat() {
             return;
         }
 
-        // Não enviar heartbeat se aba está oculta
-        if (document.hidden) {
-            return;
-        }
-
+        // Heartbeat continua funcionando mesmo quando aba está oculta
         const url = `${API_BASE_URL}/auth/session/heartbeat`;
         const response = await fetch(url, {
             method: 'POST',
@@ -145,11 +147,40 @@ async function sendHeartbeat() {
 }
 
 /**
- * Inicia sistema de heartbeat
+ * Reinicia o intervalo do heartbeat com o intervalo apropriado baseado na visibilidade
+ */
+function restartHeartbeatInterval() {
+    if (!isHeartbeatActive) {
+        return;
+    }
+    
+    // Limpar intervalo existente
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+    }
+    
+    // Determinar intervalo baseado na visibilidade atual
+    const interval = document.hidden ? HEARTBEAT_INTERVAL_HIDDEN : HEARTBEAT_INTERVAL_VISIBLE;
+    
+    // Criar novo intervalo
+    heartbeatInterval = setInterval(() => {
+        if (isHeartbeatActive) {
+            sendHeartbeat();
+        }
+    }, interval);
+    
+    console.log(`💓 Heartbeat ajustado para ${interval / 1000}s (aba ${document.hidden ? 'oculta' : 'visível'})`);
+}
+
+/**
+ * Inicia sistema de heartbeat com intervalo dinâmico baseado na visibilidade
  */
 function startHeartbeat() {
     if (heartbeatInterval) {
-        return; // Já está rodando
+        // Se já está rodando, apenas ajustar intervalo se necessário
+        restartHeartbeatInterval();
+        return;
     }
 
     isHeartbeatActive = true;
@@ -157,14 +188,8 @@ function startHeartbeat() {
     // Enviar heartbeat imediatamente
     sendHeartbeat();
     
-    // Enviar heartbeat a cada 30 segundos
-    heartbeatInterval = setInterval(() => {
-        if (isHeartbeatActive && !document.hidden) {
-            sendHeartbeat();
-        }
-    }, 30000); // 30 segundos
-
-    console.log('💓 Heartbeat iniciado');
+    // Iniciar intervalo baseado na visibilidade atual
+    restartHeartbeatInterval();
 }
 
 /**
@@ -460,14 +485,23 @@ window.addEventListener('beforeunload', () => {
 // Listener para quando página fica oculta (aba muda, minimiza, etc)
 document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-        // Pausar heartbeat quando aba está oculta
-        // Mas não marcar como logout ainda
-        console.log('👁️ Aba oculta - heartbeat pausado');
+        // Ajustar intervalo do heartbeat quando aba está oculta (60s)
+        // Mas manter heartbeat ativo - não marcar como logout
+        if (isHeartbeatActive) {
+            restartHeartbeatInterval();
+            console.log('👁️ Aba oculta - heartbeat continua ativo com intervalo de 60s');
+        }
     } else {
-        // Retomar heartbeat quando aba fica visível novamente
-        if (isSessionValid() && !heartbeatInterval) {
-            startHeartbeat();
-            console.log('👁️ Aba visível - heartbeat retomado');
+        // Ajustar intervalo do heartbeat quando aba fica visível novamente (30s)
+        if (isSessionValid()) {
+            if (isHeartbeatActive) {
+                restartHeartbeatInterval();
+                console.log('👁️ Aba visível - heartbeat ajustado para intervalo de 30s');
+            } else {
+                // Se heartbeat não estava rodando, iniciar
+                startHeartbeat();
+                console.log('👁️ Aba visível - heartbeat iniciado');
+            }
         }
     }
 });

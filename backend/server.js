@@ -2385,7 +2385,21 @@ app.post('/api/auth/login', async (req, res) => {
     // Validar senha
     const passwordHash = funcionario.password || '';
     
-    const passwordMatch = comparePassword(password, passwordHash);
+    // Se senha não está definida, gerar senha padrão
+    let passwordToCompare = passwordHash;
+    if (!passwordHash || passwordHash.trim() === '') {
+      const { generateDefaultPassword } = require('./utils/password');
+      const defaultPassword = generateDefaultPassword(
+        funcionario.colaboradorNome || '',
+        funcionario.CPF || ''
+      );
+      passwordToCompare = defaultPassword;
+      console.log(`🔑 Senha padrão gerada para ${email}: ${defaultPassword.substring(0, 10)}...`);
+    }
+    
+    // Comparar senha fornecida com senha armazenada ou padrão (case-insensitive)
+    const passwordMatch = passwordToCompare && 
+      password.toLowerCase() === passwordToCompare.toLowerCase();
     
     if (!passwordMatch) {
       console.log(`❌ Senha incorreta para: ${email}`);
