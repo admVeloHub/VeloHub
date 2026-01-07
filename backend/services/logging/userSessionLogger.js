@@ -1,5 +1,10 @@
 // User Session Logger - Log de sessões de login/logout dos usuários
-// VERSION: v1.3.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+// VERSION: v1.4.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+// 
+// Mudanças v1.4.0:
+// - CRÍTICO: Corrigido problema de chatStatus sendo perdido no heartbeat
+// - Heartbeat agora preserva chatStatus existente (online/ausente) ao invés de sobrescrever
+// - Se chatStatus não existe, usa 'online' como padrão apenas na primeira vez
 const { MongoClient } = require('mongodb');
 const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
@@ -306,14 +311,31 @@ class UserSessionLogger {
         };
       }
 
-      // Atualizar sessão mantendo isActive=true
+      // Atualizar sessão mantendo isActive=true E preservando chatStatus existente
+      // Se chatStatus não existe ou é inválido, usar 'online' como padrão
+      // Se chatStatus existe e é válido (online/ausente), preservar
+      const updateData = {
+        isActive: true,
+        updatedAt: now
+      };
+      
+      // Preservar chatStatus se existir e for válido, senão usar 'online' como padrão
+      if (session.chatStatus && ['online', 'ausente'].includes(session.chatStatus)) {
+        // Manter chatStatus existente - não incluir no $set para preservar
+        // Mas precisamos garantir que não seja sobrescrito, então incluímos explicitamente
+        updateData.chatStatus = session.chatStatus;
+      } else {
+        // Se não tem chatStatus válido, usar 'online' como padrão apenas se não existir
+        // Não sobrescrever se já existe (mesmo que seja 'offline')
+        if (!session.chatStatus) {
+          updateData.chatStatus = 'online';
+        }
+      }
+      
       const result = await this.collection.updateOne(
         { sessionId: sessionId },
         {
-          $set: {
-            isActive: true,
-            updatedAt: now
-          }
+          $set: updateData
         }
       );
 
