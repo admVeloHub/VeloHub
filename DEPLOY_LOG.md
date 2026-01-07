@@ -40,6 +40,19 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Correção URL VeloChat Server: Adicionadas Variáveis de Ambiente para Produção**
+- **Data/Hora**: 2025-01-31 20:05:00
+- **Tipo**: GitHub Push
+- **Commit**: [Pendente]
+- **Versão**: app.yaml v1.2.2 → v1.2.3
+- **Arquivos Modificados**:
+  - `app.yaml` (v1.2.2 → v1.2.3 - adicionadas variáveis REACT_APP_VELOCHAT_API_URL e REACT_APP_VELOCHAT_WS_URL)
+  - `dev - VeloChat Server/PROBLEMA_URL_LOCALHOST.md` (novo arquivo - documentação do problema)
+  - `dev - VeloChat Server/DIAGNOSTICO_LOG.md` (atualizado - diagnóstico completo)
+  - `dev - VeloChat Server/scripts/diagnose-velochat.js` (novo arquivo - script de diagnóstico)
+- **Descrição**: Correção crítica para garantir que o VeloChat Server seja chamado corretamente em produção. Identificado problema onde o chat poderia estar usando localhost mesmo em produção devido à falta de variáveis de ambiente explícitas. Adicionadas variáveis `REACT_APP_VELOCHAT_API_URL` e `REACT_APP_VELOCHAT_WS_URL` no `app.yaml` apontando para `https://velochat-server-278491073220.us-east1.run.app`. Isso garante que o frontend sempre use a URL correta do GCP, independente de detecção automática. Versão do app.yaml atualizada de `v1.2.2` para `v1.2.3`. Resolve problemas de erros 500 nas rotas `/api/contacts`, `/api/salas` e `/api/p2p/conversations` causados por chamadas incorretas ao servidor. Inclui também script de diagnóstico completo e documentação do problema identificado.
+- **Status**: ✅ Pronto para deploy
+
 ### **GitHub Push - Correção Build GCP: Adicionadas Dependências Peer do Material-UI**
 - **Data/Hora**: 2025-01-31 16:00:00
 - **Tipo**: GitHub Push

@@ -1,6 +1,10 @@
 # app.yaml para Google App Engine - VeloHub V3
-# VERSION: v1.2.2 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
+# VERSION: v1.2.3 | DATE: 2025-01-31 | AUTHOR: Lucas Gravina - VeloHub Development Team
 # Configuração para desenvolvimento com variáveis diretas
+# 
+# Mudanças v1.2.3:
+# - Adicionadas variáveis REACT_APP_VELOCHAT_API_URL e REACT_APP_VELOCHAT_WS_URL
+# - Garante que VeloChat Server seja chamado corretamente em produção (GCP)
 
 runtime: nodejs18
 service: velohub-v3
@@ -35,6 +39,10 @@ env_variables:
   REACT_APP_GOOGLE_CLIENT_ID: "278491073220-eb4ogvn3aifu0ut9mq3rvu5r9r9l3137.apps.googleusercontent.com"
   REACT_APP_AUTHORIZED_DOMAIN: "velotax.com.br"
   REACT_APP_API_URL: "https://velohub-278491073220.us-east1.run.app/api"
+  
+  # VeloChat Server URLs (expostas para Frontend)
+  REACT_APP_VELOCHAT_API_URL: "https://velochat-server-278491073220.us-east1.run.app"
+  REACT_APP_VELOCHAT_WS_URL: "https://velochat-server-278491073220.us-east1.run.app"
   
   # Configurações do Chatbot
   CHATBOT_LOG_SHEET_NAME: "Log_IA_Usage"
