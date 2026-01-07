@@ -1,4 +1,8 @@
-// VERSION: v2.2.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+// VERSION: v2.3.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+// Mudanças v2.3.0:
+// - Removida validação de domínio do OAuth Google - qualquer email Google é aceito
+// - Validação de acesso agora é feita apenas no backend (acessos.Velohub === true)
+// - Adicionados links para Termos de Uso e Política de Privacidade no rodapé
 // Mudanças v2.2.0:
 // - Adicionado alerta no rodapé quando CAPS LOCK está ativado
 // - Detecção automática de CAPS LOCK usando getModifierState
@@ -229,8 +233,10 @@ const LoginPage = ({ onLoginSuccess }) => {
       const payload = decodeJWT(response.credential);
       console.log('Payload decodificado:', payload);
 
-      if (payload && payload.email && isAuthorizedDomain(payload.email)) {
-        console.log('Email autorizado:', payload.email);
+      // Removida validação de domínio - qualquer email Google é aceito
+      // Validação de acesso será feita no backend (verificar qualidade_funcionarios e acessos.Velohub)
+      if (payload && payload.email) {
+        console.log('Validando acesso para:', payload.email);
 
         // Validar acesso do usuário no backend (verificar qualidade_funcionarios)
         // Enviar também picture do Google para sincronização automática
@@ -284,8 +290,8 @@ const LoginPage = ({ onLoginSuccess }) => {
         console.log('Login realizado com sucesso');
         onLoginSuccess(userData);
       } else {
-        console.log('Email não autorizado:', payload?.email);
-        setError('Apenas emails do domínio autorizado são permitidos.');
+        console.log('Email não encontrado no payload:', payload);
+        setError('Erro ao processar dados do Google. Tente novamente.');
       }
     } catch (error) {
       console.error('Erro no login:', error);
@@ -511,9 +517,32 @@ const LoginPage = ({ onLoginSuccess }) => {
 
         {/* Footer */}
         <div className="text-center mt-8">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
             © 2025 VeloHub. Todos os direitos reservados.
           </p>
+          <div className="flex justify-center gap-4 text-xs text-gray-400 dark:text-gray-500">
+            <a 
+              href="/termos" 
+              className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              onClick={(e) => {
+                e.preventDefault();
+                window.location.href = '/termos';
+              }}
+            >
+              Termos de Uso
+            </a>
+            <span>•</span>
+            <a 
+              href="/privacidade" 
+              className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              onClick={(e) => {
+                e.preventDefault();
+                window.location.href = '/privacidade';
+              }}
+            >
+              Política de Privacidade
+            </a>
+          </div>
         </div>
       </div>
     </div>

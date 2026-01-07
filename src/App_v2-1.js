@@ -1,6 +1,10 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.9.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.10.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.10.0:
+ * - Adicionadas rotas públicas para Termos de Uso e Política de Privacidade (/termos e /privacidade)
+ * - Páginas públicas acessíveis sem autenticação
  * 
  * Mudanças v2.9.0:
  * - CRÍTICO: Corrigido disparo generalizado de notificações sonoras
@@ -214,6 +218,8 @@ import VeloChatWidget from './components/VeloChatWidget';
 import ChatStatusSelector from './components/ChatStatusSelector';
 import EscalacoesPage from './pages/EscalacoesPage';
 import PerfilPage from './pages/PerfilPage';
+import TermosPage from './pages/TermosPage';
+import PrivacidadePage from './pages/PrivacidadePage';
 import VelonewsCommentThread from './components/VelonewsCommentThread';
 import { formatArticleContent, formatPreviewText, formatResponseText } from './utils/textFormatter';
 
@@ -1288,8 +1294,22 @@ export default function App_v2() {
   const [pendingUserData, setPendingUserData] = useState(null);
   const [veloNews, setVeloNews] = useState([]);
   const [acknowledgedNewsIds, setAcknowledgedNewsIds] = useState([]);
+  const [publicPage, setPublicPage] = useState(null);
 
   useEffect(() => {
+    // Verificar se é uma página pública (termos ou privacidade)
+    const pathname = window.location.pathname;
+    if (pathname === '/termos' || pathname === '/termos.html') {
+      setPublicPage('termos');
+      setIsCheckingAuth(false);
+      return;
+    }
+    if (pathname === '/privacidade' || pathname === '/privacidade.html') {
+      setPublicPage('privacidade');
+      setIsCheckingAuth(false);
+      return;
+    }
+
     // Verificar autentica├º├úo primeiro
     const checkAuth = async () => {
       const isAuth = await checkAuthenticationState();
@@ -1409,6 +1429,14 @@ export default function App_v2() {
         />;
     }
   };
+
+  // Mostrar páginas públicas (termos e privacidade) sem autenticação
+  if (publicPage === 'termos') {
+    return <TermosPage />;
+  }
+  if (publicPage === 'privacidade') {
+    return <PrivacidadePage />;
+  }
 
   // Mostrar tela de carregamento enquanto verifica autentica├º├úo
   if (isCheckingAuth) {
