@@ -1,6 +1,10 @@
 /**
  * VeloChatWidget - Componente Principal do Chat
- * VERSION: v3.27.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.28.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v3.28.0:
+ * - Adicionada data junto com horário na exibição de timestamps das mensagens
+ * - Formato: "DD/MM/AAAA HH:MM" (ex: "31/01/2025 14:30")
  * 
  * Mudanças v3.27.0:
  * - CRÍTICO: Corrigido problema de limpeza desnecessária de mensagens ao selecionar conversa
@@ -1637,12 +1641,27 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
       // O servidor detecta automaticamente se é P2P ou Sala baseado no ID
       // Garantir que sempre enviamos uma string (mesmo que vazia) para content
       const contentToSend = messageToSend || '';
+      // Obter nome do outro participante para P2P (permite criar conversa automaticamente na primeira mensagem)
+      let otherParticipantName = null;
+      if (selectedConversation.type === 'p2p' && selectedConversation.p2p) {
+        const currentUserName = getCurrentUserName();
+        if (selectedConversation.p2p.colaboradorNome1 === currentUserName) {
+          otherParticipantName = selectedConversation.p2p.colaboradorNome2;
+        } else if (selectedConversation.p2p.colaboradorNome2 === currentUserName) {
+          otherParticipantName = selectedConversation.p2p.colaboradorNome1;
+        } else if (selectedConversation.contactName) {
+          // Se temos contactName (conversa temporária), usar ele
+          otherParticipantName = selectedConversation.contactName;
+        }
+      }
+      
       console.log('📤 [handleSendMessage] Enviando via WebSocket:', {
         conversationId,
         content: contentToSend,
         hasMediaUrl: !!mediaUrl,
         mediaUrl,
-        mediaType: selectedMediaType
+        mediaType: selectedMediaType,
+        otherParticipantName
       });
       
       wsSendMessage(
@@ -1654,7 +1673,8 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
           type: selectedFile.type
         }] : [],
         mediaUrl,
-        selectedMediaType
+        selectedMediaType,
+        otherParticipantName // Passar nome do outro participante para criar conversa automaticamente
       );
     } catch (err) {
       console.error('Erro ao enviar mensagem:', err);
@@ -3890,7 +3910,18 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                       </div>
                     )}
                     <div className="text-xs opacity-70 mt-1">
-                      {timestamp ? new Date(timestamp).toLocaleTimeString() : ''}
+                      {timestamp ? (() => {
+                        const date = new Date(timestamp);
+                        if (isNaN(date.getTime())) return '';
+                        // Formatar data e hora: "DD/MM/AAAA HH:MM"
+                        return date.toLocaleString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        });
+                      })() : ''}
                     </div>
                   </div>
                 </div>
