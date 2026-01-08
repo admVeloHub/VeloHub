@@ -1,6 +1,13 @@
 /**
  * VeloChatWidget - Componente Principal do Chat
- * VERSION: v3.26.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.27.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v3.27.0:
+ * - CRÍTICO: Corrigido problema de limpeza desnecessária de mensagens ao selecionar conversa
+ * - handleSelectConversation agora só limpa mensagens quando muda de conversa (evita flash de tela vazia)
+ * - CRÍTICO: Removido scroll forçado repetitivo que impedia leitura de mensagens anteriores
+ * - Scroll automático agora ocorre apenas na primeira carga da conversa
+ * - Carregamentos subsequentes não forçam scroll, permitindo leitura de mensagens antigas e acesso a anexos anteriores
  * 
  * Mudanças v3.26.1:
  * - Melhorado layout do botão de exclusão de conversa com expansão vermelha animada
@@ -1090,6 +1097,8 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
   // Ref para controlar se já está carregando mensagens (evita múltiplas chamadas simultâneas)
   const isLoadingMessagesRef = useRef(false);
   const currentLoadingConversationIdRef = useRef(null);
+  // Ref para rastrear se é primeira carga de uma conversa
+  const isFirstLoadRef = useRef(false);
 
   /**
    * Carregar mensagens de uma conversa
@@ -1105,9 +1114,14 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
     try {
       isLoadingMessagesRef.current = true;
       currentLoadingConversationIdRef.current = conversationId;
+      
+      // Verificar se é primeira carga desta conversa
+      const isFirstLoad = lastLoadedConversationIdRef.current !== conversationId;
+      isFirstLoadRef.current = isFirstLoad;
+      
       setLoading(true);
       
-      console.log(`📥 [loadMessages] Carregando mensagens para conversa: ${conversationId}`);
+      console.log(`📥 [loadMessages] Carregando mensagens para conversa: ${conversationId} (primeira carga: ${isFirstLoad})`);
       const data = await velochatApi.getMessages(conversationId);
       
       console.log(`📥 [loadMessages] Resposta recebida:`, {
@@ -1189,10 +1203,13 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
       
       setMessages(sortedMessages);
       
-      // Scroll para o final apenas ao carregar mensagens pela primeira vez
-      setTimeout(() => {
-        scrollToBottom(true);
-      }, 100);
+      // Scroll para o final APENAS na primeira carga da conversa
+      if (isFirstLoad) {
+        setTimeout(() => {
+          scrollToBottom(true);
+        }, 100);
+      }
+      // Se não é primeira carga, não fazer scroll (usuário pode estar lendo mensagens antigas)
       
       // Marcar conversa como visualizada ao carregar mensagens
       if (conversationId) {
@@ -1270,16 +1287,20 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
    * Selecionar conversa
    */
   const handleSelectConversation = (conversation) => {
+    const conversationId = conversation.conversationId || conversation.Id;
+    const currentConversationId = selectedConversation?.conversationId || selectedConversation?.Id;
+    
+    // Só limpar mensagens se mudou de conversa
+    if (currentConversationId !== conversationId) {
+      setMessages([]);
+      lastLoadedConversationIdRef.current = null; // Forçar reload no useEffect
+    }
+    // Se mesma conversa, manter mensagens visíveis (evita flash de tela vazia)
+    
     setSelectedConversation(conversation);
     setView('conversation');
-    setMessages([]);
     
-    // Limpar ref de última conversa carregada para forçar reload
-    const conversationId = conversation.conversationId || conversation.Id;
-    if (conversationId) {
-      lastLoadedConversationIdRef.current = null; // Forçar reload no useEffect
-      // O useEffect vai chamar loadMessages automaticamente
-    }
+    // O useEffect vai chamar loadMessages automaticamente se necessário
   };
 
   /**
