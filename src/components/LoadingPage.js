@@ -1,26 +1,37 @@
 /**
  * LoadingPage - Página de Loading Intermediária
- * VERSION: v1.0.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.1.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
  * 
- * Página de loading que aparece após login bem-sucedido, antes de redirecionar para a home.
+ * Página de loading que aparece imediatamente ao carregar o app.
+ * Executa verificação de autenticação e carregamento durante o período do áudio.
  * Exibe imagem de fundo (/loading page.jpg), reproduz áudio de abertura (/Velotax Opening.mp3),
  * mostra mensagens sequenciais na parte inferior durante período do áudio e executa operações
- * reais: iniciar sessão, buscar contatos, atualizar notícias.
- * Aguarda áudio terminar completamente antes de redirecionar para home.
+ * reais: verificar autenticação, iniciar sessão, buscar contatos, atualizar notícias.
+ * Aguarda áudio terminar completamente antes de redirecionar para home ou login.
+ * 
+ * Mudanças v1.1.0:
+ * - Agora faz verificação de autenticação internamente se userData não for fornecido
+ * - Toda autenticação e carregamento acontece durante a LoadingPage
+ * - Home é mostrada imediatamente após LoadingPage completar
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { updateUserInfo } from '../services/auth';
+import { updateUserInfo, checkAuthenticationState, getUserSession } from '../services/auth';
 import * as velochatApi from '../services/velochatApi';
 import { veloNewsAPI } from '../services/api';
 
-const LoadingPage = ({ userData, onComplete }) => {
+const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
     const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
     const [audioDuration, setAudioDuration] = useState(0);
     const [isInitializing, setIsInitializing] = useState(false);
     const audioRef = useRef(null);
     const messageIntervalRef = useRef(null);
 
+    const [authChecked, setAuthChecked] = useState(false);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [resolvedUserData, setResolvedUserData] = useState(userData);
+
+    // Sempre mostrar as 3 mensagens originais no rodapé
     const messages = [
         "Iniciando Sessão",
         "Buscando Contatos",
@@ -32,21 +43,63 @@ const LoadingPage = ({ userData, onComplete }) => {
         setCurrentMessageIndex(0);
     }, []);
 
-    // Inicializar sessão e executar operações
+    // Verificar autenticação primeiro se userData não foi fornecido
     useEffect(() => {
-        if (!userData) return;
+        if (userData) {
+            // Se userData foi fornecido (login direto), usar ele
+            setResolvedUserData(userData);
+            setIsAuthenticated(true);
+            setAuthChecked(true);
+            return;
+        }
+
+        // Se não tem userData, verificar autenticação
+        const checkAuth = async () => {
+            try {
+                const isAuth = await checkAuthenticationState();
+                setIsAuthenticated(isAuth);
+                
+                if (isAuth) {
+                    const session = getUserSession();
+                    if (session && session.user) {
+                        setResolvedUserData(session.user);
+                    }
+                }
+                
+                setAuthChecked(true);
+                
+                // Notificar componente pai sobre resultado da autenticação
+                if (onAuthCheck) {
+                    onAuthCheck(isAuth);
+                }
+            } catch (error) {
+                console.error('Erro ao verificar autenticação:', error);
+                setIsAuthenticated(false);
+                setAuthChecked(true);
+                if (onAuthCheck) {
+                    onAuthCheck(false);
+                }
+            }
+        };
+
+        checkAuth();
+    }, [userData, onAuthCheck]);
+
+    // Inicializar sessão e executar operações (apenas se autenticado)
+    useEffect(() => {
+        if (!authChecked || !isAuthenticated || !resolvedUserData) return;
 
         setIsInitializing(true);
 
-        // 1. Iniciar Sessão (mensagem 1) - executar imediatamente
+        // 1. Iniciar Sessão (mensagem 2) - executar após verificação de autenticação
         const initSession = async () => {
             try {
                 // Atualizar informações do usuário
-                updateUserInfo(userData);
+                updateUserInfo(resolvedUserData);
                 
                 // Disparar evento para atualizar header
                 setTimeout(() => {
-                    window.dispatchEvent(new CustomEvent('user-info-updated', { detail: userData }));
+                    window.dispatchEvent(new CustomEvent('user-info-updated', { detail: resolvedUserData }));
                 }, 200);
             } catch (error) {
                 console.error('Erro ao inicializar sessão:', error);
@@ -77,12 +130,13 @@ const LoadingPage = ({ userData, onComplete }) => {
 
         // Executar operações sequencialmente conforme mensagens aparecem
         const executeOperations = async () => {
-            // Mensagem 1: Iniciar Sessão (executar imediatamente)
+            // Usar audioDuration se disponível, senão usar estimativa baseada no índice da mensagem
+            const waitTime = audioDuration > 0 ? audioDuration / 3 : 3000; // Dividir por 3 (3 mensagens)
+            
+            // Mensagem 1: Iniciar Sessão (executar após verificação de autenticação)
             await initSession();
             
             // Aguardar primeira mensagem passar
-            // Usar audioDuration se disponível, senão usar estimativa baseada no índice da mensagem
-            const waitTime = audioDuration > 0 ? audioDuration / 3 : 3000;
             await new Promise(resolve => setTimeout(resolve, waitTime));
             
             // Mensagem 2: Buscar Contatos
@@ -103,12 +157,15 @@ const LoadingPage = ({ userData, onComplete }) => {
         return () => {
             clearTimeout(timeoutId);
         };
-    }, [userData, audioDuration]);
+    }, [authChecked, isAuthenticated, resolvedUserData, audioDuration]);
 
-    // Configurar áudio e mensagens
+    // Configurar áudio e mensagens (sempre, mesmo se não autenticado)
     useEffect(() => {
         const audio = audioRef.current;
         if (!audio) return;
+        
+        // Se não está autenticado, ainda assim tocar áudio e completar após ele terminar
+        // Isso garante experiência consistente mesmo quando redirecionando para login
 
         // Capturar duração do áudio quando metadata carregar
         const handleLoadedMetadata = () => {
@@ -121,7 +178,7 @@ const LoadingPage = ({ userData, onComplete }) => {
             }
             
             // Configurar intervalo para trocar mensagens
-            const messageInterval = duration / 3; // Dividir em 3 partes iguais
+            const messageInterval = duration / 3; // Dividir em 3 partes iguais (3 mensagens)
             
             // Garantir que a primeira mensagem está visível
             setCurrentMessageIndex(0);
@@ -147,7 +204,8 @@ const LoadingPage = ({ userData, onComplete }) => {
             setTimeout(() => {
                 setIsInitializing(false);
                 if (onComplete) {
-                    onComplete();
+                    // Passar resultado da autenticação para callback
+                    onComplete(isAuthenticated);
                 }
             }, 500);
         };
@@ -179,7 +237,24 @@ const LoadingPage = ({ userData, onComplete }) => {
                 clearInterval(messageIntervalRef.current);
             }
         };
-    }, [onComplete, messages.length]);
+    }, [onComplete, messages.length, isAuthenticated, authChecked]);
+    
+    // Se não está autenticado e já verificou, completar rapidamente após mostrar mensagem
+    useEffect(() => {
+        if (!isAuthenticated && authChecked) {
+            // Aguardar tempo suficiente para mostrar as 3 mensagens, depois completar
+            // Estimativa: ~3 segundos por mensagem = 9 segundos total
+            const quickTimeout = setTimeout(() => {
+                if (onComplete) {
+                    onComplete(false);
+                }
+            }, 9000); // Tempo suficiente para mostrar as 3 mensagens
+            
+            return () => {
+                clearTimeout(quickTimeout);
+            };
+        }
+    }, [isAuthenticated, authChecked, onComplete]);
 
     return (
         <div 

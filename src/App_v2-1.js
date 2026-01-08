@@ -1310,15 +1310,10 @@ export default function App_v2() {
       return;
     }
 
-    // Verificar autentica├º├úo primeiro
-    const checkAuth = async () => {
-      const isAuth = await checkAuthenticationState();
-      setIsAuthenticated(isAuth);
-      setIsCheckingAuth(false);
-    };
-
-    // Aguardar um pouco para garantir que o DOM est├í pronto
-    setTimeout(checkAuth, 100);
+    // Mostrar LoadingPage imediatamente - ela fará a verificação de autenticação internamente
+    // Isso garante que toda autenticação e carregamento acontece durante a LoadingPage
+    setShowLoadingPage(true);
+    setIsCheckingAuth(false);
     
     // Cleanup: parar heartbeat quando componente desmonta
     return () => {
@@ -1381,14 +1376,22 @@ export default function App_v2() {
     setShowLoadingPage(true);
   };
 
-  const handleLoadingComplete = () => {
-    // Após loading page completar, autenticar e redirecionar para home
+  const handleLoadingComplete = (isAuth) => {
+    // Após loading page completar, verificar resultado da autenticação
     // A inicialização da sessão já foi feita dentro da LoadingPage
-    if (pendingUserData) {
+    if (isAuth) {
       setIsAuthenticated(true);
+    } else {
+      setIsAuthenticated(false);
     }
     setShowLoadingPage(false);
     setPendingUserData(null);
+  };
+
+  const handleAuthCheck = (isAuth) => {
+    // Callback para quando LoadingPage verificar autenticação
+    // Apenas atualizar estado - LoadingPage continuará rodando até completar
+    setIsAuthenticated(isAuth);
   };
 
   const [refreshAcknowledgedNews, setRefreshAcknowledgedNews] = useState(null);
@@ -1438,29 +1441,18 @@ export default function App_v2() {
     return <PrivacidadePage />;
   }
 
-  // Mostrar tela de carregamento enquanto verifica autentica├º├úo
-  if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Verificando autentica├º├úo...</p>
-        </div>
-      </div>
-    );
+  // Mostrar LoadingPage imediatamente - ela fará verificação de autenticação e carregamento internamente
+  // Isso garante que toda autenticação e carregamento acontece durante a LoadingPage
+  if (showLoadingPage) {
+    return <LoadingPage userData={pendingUserData} onComplete={handleLoadingComplete} onAuthCheck={handleAuthCheck} />;
   }
 
-  // Mostrar loading page após login bem-sucedido
-  if (showLoadingPage && pendingUserData) {
-    return <LoadingPage userData={pendingUserData} onComplete={handleLoadingComplete} />;
-  }
-
-  // Mostrar tela de login se n├úo estiver autenticado
+  // Mostrar tela de login se não estiver autenticado
   if (!isAuthenticated) {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }
 
-  // Mostrar aplica├º├úo principal se estiver autenticado
+  // Mostrar aplicação principal se estiver autenticado
   return (
     <div className="min-h-screen font-sans velohub-bg">
       <Header activePage={activePage} setActivePage={setActivePage} isDarkMode={isDarkMode} toggleDarkMode={() => setIsDarkMode(!isDarkMode)} />
