@@ -2103,7 +2103,7 @@ const renderRightSidebarChat = ({
                                     title={soundEnabled ? 'Desativar som' : 'Ativar som'}
                                 >
                                     {soundEnabled ? (
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--blue-dark)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={document.documentElement.classList.contains('dark') ? '#006AB9' : 'var(--blue-dark)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                             <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
                                             <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
                                         </svg>
@@ -2122,7 +2122,7 @@ const renderRightSidebarChat = ({
                                 <button 
                                     onClick={() => setIsSearchExpanded(true)}
                                     className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                    style={{ color: 'var(--blue-dark)' }}
+                                    style={{ color: document.documentElement.classList.contains('dark') ? '#006AB9' : 'var(--blue-dark)' }}
                                     title="Buscar contato"
                                 >
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2141,7 +2141,7 @@ const renderRightSidebarChat = ({
                         className="flex-1 py-2 text-sm font-medium transition-colors"
                         onClick={() => setActiveTab('conversations')}
                         style={activeTab === 'conversations' ? {
-                            color: 'var(--blue-dark)',
+                            color: document.documentElement.classList.contains('dark') ? '#1634FF' : 'var(--blue-dark)',
                             borderBottom: '2px solid var(--blue-opaque)'
                         } : {
                             color: 'var(--cor-texto-secundario)'
@@ -2153,7 +2153,7 @@ const renderRightSidebarChat = ({
                         className="flex-1 py-2 text-sm font-medium transition-colors"
                         onClick={() => setActiveTab('contacts')}
                         style={activeTab === 'contacts' ? {
-                            color: 'var(--blue-dark)',
+                            color: document.documentElement.classList.contains('dark') ? '#1634FF' : 'var(--blue-dark)',
                             borderBottom: '2px solid var(--blue-opaque)'
                         } : {
                             color: 'var(--cor-texto-secundario)'
@@ -2165,7 +2165,7 @@ const renderRightSidebarChat = ({
                         className="flex-1 py-2 text-sm font-medium transition-colors"
                         onClick={() => setActiveTab('salas')}
                         style={activeTab === 'salas' ? {
-                            color: 'var(--blue-dark)',
+                            color: document.documentElement.classList.contains('dark') ? '#1634FF' : 'var(--blue-dark)',
                             borderBottom: '2px solid var(--blue-opaque)'
                         } : {
                             color: 'var(--cor-texto-secundario)'
