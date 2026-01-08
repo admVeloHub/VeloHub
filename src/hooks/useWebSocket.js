@@ -273,8 +273,14 @@ export const useWebSocket = (onMessage, onTyping, onRead, onContactStatusChange,
   /**
    * Enviar mensagem via WebSocket
    * Detecta automaticamente se é P2P ou Sala baseado no conversationId
+   * @param {string} conversationId - ID da conversa
+   * @param {string} content - Conteúdo da mensagem
+   * @param {Array} attachments - Anexos
+   * @param {string} mediaUrl - URL da mídia
+   * @param {string} mediaType - Tipo da mídia
+   * @param {string} otherParticipantName - Nome do outro participante (para P2P, permite criar conversa automaticamente)
    */
-  const sendMessage = (conversationId, content, attachments = [], mediaUrl = null, mediaType = null) => {
+  const sendMessage = (conversationId, content, attachments = [], mediaUrl = null, mediaType = null, otherParticipantName = null) => {
     console.log('📤 [useWebSocket.sendMessage] Tentando enviar mensagem:', {
       conversationId,
       hasSocket: !!socketRef.current,
@@ -282,7 +288,8 @@ export const useWebSocket = (onMessage, onTyping, onRead, onContactStatusChange,
       hasContent: !!content,
       contentLength: content?.length,
       hasMediaUrl: !!mediaUrl,
-      mediaType
+      mediaType,
+      otherParticipantName
     });
     
     if (!socketRef.current) {
@@ -306,6 +313,11 @@ export const useWebSocket = (onMessage, onTyping, onRead, onContactStatusChange,
     if (mediaUrl) {
       messageData.mediaUrl = mediaUrl;
       messageData.mediaType = mediaType;
+    }
+    
+    // Adicionar nome do outro participante se for P2P (permite criar conversa automaticamente na primeira mensagem)
+    if (otherParticipantName && conversationId && conversationId.startsWith('p2p_')) {
+      messageData.otherParticipantName = otherParticipantName;
     }
     
     console.log('📤 [useWebSocket.sendMessage] Emitindo evento send_message:', messageData);
