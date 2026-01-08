@@ -1,6 +1,70 @@
 /**
  * VeloChatWidget - Componente Principal do Chat
- * VERSION: v3.28.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.33.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v3.33.1:
+ * - Aumentada largura máxima dos balões de mensagem de 70% para 90%
+ * - Reduzido tamanho dos ícones de editar e excluir de 14px para 12px
+ * 
+ * Mudanças v3.33.0:
+ * - Adicionada funcionalidade de editar mensagens (inline)
+ * - Adicionada funcionalidade de excluir mensagens
+ * - Ícones de editar e excluir aparecem apenas em mensagens do usuário atual
+ * - Mensagens excluídas exibem "mensagem apagada (DD/MM, HH:MM)" em itálico e cinza
+ * - Campo mensagemOriginal preservado para arquivamento (não exibido na UI)
+ * 
+ * Mudanças v3.32.2:
+ * - Avatar P2P movido mais para a esquerda (left: 8px)
+ * - Badge P2P ajustado para manter distância do avatar (left: 44px)
+ * - Restaurada cascata de avatares no badge de salas, calculando quantos cabem sem estourar tamanho máximo
+ * - Cascata de avatares agora calcula dinamicamente espaço disponível baseado no tamanho do badge
+ * 
+ * Mudanças v3.32.1:
+ * - Header de sala agora usa mesma estrutura do header P2P, exceto avatar do contato
+ * - Avatar do contato posicionado absolutamente antes do badge apenas para P2P/Direct/Privada
+ * - Badge ajustado para considerar presença do avatar (left: 60px com avatar, 24px sem avatar)
+ * - Removida cascata de avatares de participantes do badge de sala
+ * 
+ * Mudanças v3.32.0:
+ * - Refatorado header para usar posicionamento absoluto ao invés de margens/paddings
+ * - Chevron posicionado absolutamente à esquerda (left: 12px)
+ * - Badge posicionado absolutamente com left: 36px (chevron + 4px) e right: 78px (sino + 4px)
+ * - Sino posicionado absolutamente à direita (right: 54px)
+ * - Anexo posicionado absolutamente à direita (right: 12px)
+ * - Layout agora segue: [Chevron] (4px) [Badge adaptável] limite 4px do sino [Sino] [Anexo]
+ * 
+ * Mudanças v3.31.4:
+ * - Corrigido chevron desaparecido: removido overflow hidden do container pai
+ * - Corrigido badge cortado: aplicado overflow hidden e maxWidth apenas no container interno do badge
+ * - Badge agora respeita limite direito sem cortar o chevron
+ * 
+ * Mudanças v3.31.3:
+ * - Limitado container do badge para que não ultrapasse o sino de chamar atenção
+ * - Adicionado overflow hidden e maxWidth no container pai do badge
+ * 
+ * Mudanças v3.31.2:
+ * - Limitada margem direita do badge de sala à margem do sino de chamar atenção
+ * 
+ * Mudanças v3.31.1:
+ * - Ajustada margem esquerda do badge de sala para posicionar mais à esquerda
+ * 
+ * Mudanças v3.31.0:
+ * - Simplificado handleCallAttention: removida lógica de mensagem temporária, confia no servidor enviar evento de volta
+ * - Botão de chamar atenção agora disponível também para salas (removida condição !== 'sala')
+ * - Corrigido loadSalaParticipants para buscar contatos por nome ao invés de email
+ * - Adicionada função getFirstAndLastName para exibir apenas primeiro e último nome em P2P
+ * - Revisado layout do cabeçalho: chevron mais à esquerda, badge imediatamente após, layout flexbox
+ * - Badge de grupo agora limita tamanho e calcula dinamicamente quantos avatares cabem
+ * - Ícones reorganizados usando flexbox ao invés de posicionamento absoluto
+ * - Nome da sala e P2P agora truncam com ellipsis se muito longos
+ * 
+ * Mudanças v3.29.0:
+ * - Scroll inteligente: scroll automático apenas quando usuário está no rodapé do diálogo
+ * - Função isScrolledToBottom() para detectar se está visualizando mensagens recentes (threshold de 50px)
+ * - Scroll ao enviar mensagem agora verifica se está no rodapé antes de fazer scroll
+ * - Notificações de sistema agora são clicáveis e navegam ao diálogo correspondente
+ * - Handler onclick em notificações foca janela e seleciona conversa automaticamente
+ * - Refs adicionados para evitar dependências desnecessárias em callbacks
  * 
  * Mudanças v3.28.0:
  * - Adicionada data junto com horário na exibição de timestamps das mensagens
@@ -128,7 +192,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useWebSocket } from '../hooks/useWebSocket';
 import * as velochatApi from '../services/velochatApi';
-import { AttachFile, Image, Videocam, InsertDriveFile, Close, GroupAdd, Download, PictureAsPdf, Description } from '@mui/icons-material';
+import { AttachFile, Image, Videocam, InsertDriveFile, Close, GroupAdd, Download, PictureAsPdf, Description, Edit, Delete } from '@mui/icons-material';
 import { API_BASE_URL } from '../config/api-config';
 
 // Tipos MIME aceitos para documentos
@@ -200,12 +264,20 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
   const [filePreview, setFilePreview] = useState(null); // URL do preview (data URL ou blob URL)
   const [selectedAttachment, setSelectedAttachment] = useState(null);
   const [showAttachmentModal, setShowAttachmentModal] = useState(false);
+  const [editingMessage, setEditingMessage] = useState(null); // { conversationId, userName, timestamp }
+  const [editMessageText, setEditMessageText] = useState('');
   
   
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const attachmentMenuRef = useRef(null);
   const fileInputRef = useRef(null);
+  // Armazenar notificações ativas para permitir navegação ao clicar
+  const activeNotificationsRef = useRef(new Map()); // Map<notificationId, { conversationId, conversation, userName }>
+  // Refs para funções usadas em handlers de notificação (evita dependências no callback)
+  const handleSelectConversationRef = useRef(null);
+  const setViewRef = useRef(null);
+  const conversationsRef = useRef([]);
 
   /**
    * Obter email do usuário atual
@@ -230,6 +302,17 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
   const normalizeName = (name) => {
     if (!name) return '';
     return String(name).trim().toLowerCase();
+  };
+
+  /**
+   * Extrair primeiro e último nome de um nome completo
+   * Exemplo: "João Silva Santos" -> "João Santos"
+   */
+  const getFirstAndLastName = (fullName) => {
+    if (!fullName || typeof fullName !== 'string') return fullName;
+    const parts = fullName.trim().split(/\s+/);
+    if (parts.length <= 2) return fullName;
+    return `${parts[0]} ${parts[parts.length - 1]}`;
   };
 
   /**
@@ -335,9 +418,90 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
         const notificationBody = isCallerSign 
           ? `${message.userName} está chamando sua atenção!`
           : `${message.userName}: ${message.mensagem}`;
-        new Notification('Nova mensagem', {
+        
+        // Criar ID único para notificação
+        const notificationId = `notification-${Date.now()}-${Math.random()}`;
+        
+        // Buscar conversa correspondente na lista de conversas
+        // Usar ref para acessar lista atualizada sem depender de dependências do callback
+        const findConversation = () => {
+          // Tentar buscar na lista atual de conversas (via ref)
+          const conversation = conversationsRef.current.find(conv => {
+            const convId = conv.conversationId || conv.Id;
+            return convId === messageConversationId;
+          });
+          
+          if (conversation) {
+            return conversation;
+          }
+          
+          // Se não encontrada, criar objeto temporário com dados mínimos para navegação
+          const currentUserName = getCurrentUserName();
+          return {
+            conversationId: messageConversationId,
+            Id: messageConversationId,
+            type: message.type || 'p2p',
+            p2p: message.type === 'p2p' ? {
+              colaboradorNome1: currentUserName,
+              colaboradorNome2: message.userName
+            } : null,
+            isTemporary: true
+          };
+        };
+        
+        const conversation = findConversation();
+        
+        // Criar notificação com handler de clique
+        const notification = new Notification('Nova mensagem', {
           body: notificationBody,
-          icon: '/mascote avatar.png'
+          icon: '/mascote avatar.png',
+          tag: notificationId // Tag para agrupar notificações da mesma conversa
+        });
+        
+        // Armazenar referência da notificação
+        activeNotificationsRef.current.set(notificationId, {
+          conversationId: messageConversationId,
+          conversation: conversation,
+          userName: message.userName
+        });
+        
+        // Handler de clique: navegar ao diálogo
+        notification.onclick = () => {
+          // Focar na janela do aplicativo
+          window.focus();
+          
+          // Buscar conversa atualizada (pode ter sido atualizada desde que notificação foi criada)
+          const stored = activeNotificationsRef.current.get(notificationId);
+          let targetConversation = stored?.conversation;
+          
+          // Se conversa não encontrada na referência ou é temporária, buscar na lista atual (via ref)
+          if (!targetConversation || targetConversation.isTemporary) {
+            const currentConversation = conversationsRef.current.find(conv => {
+              const convId = conv.conversationId || conv.Id;
+              return convId === messageConversationId;
+            });
+            
+            if (currentConversation) {
+              targetConversation = currentConversation;
+            }
+          }
+          
+          if (targetConversation && handleSelectConversationRef.current && setViewRef.current) {
+            // Selecionar conversa e mudar para view de conversa (usando refs)
+            handleSelectConversationRef.current(targetConversation);
+            setViewRef.current('conversation');
+          } else {
+            console.warn('⚠️ Conversa não encontrada para notificação:', messageConversationId);
+          }
+          
+          // Fechar notificação
+          notification.close();
+          activeNotificationsRef.current.delete(notificationId);
+        };
+        
+        // Limpar referência quando notificação fechar automaticamente
+        notification.addEventListener('close', () => {
+          activeNotificationsRef.current.delete(notificationId);
         });
       }
     }
@@ -1032,6 +1196,14 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
     };
   }, [activeTab, loadContacts]);
 
+  // Limpar referências de notificações ao desmontar componente
+  useEffect(() => {
+    return () => {
+      // Fechar todas as notificações ativas e limpar referências
+      activeNotificationsRef.current.clear();
+    };
+  }, []);
+
   // Carregar participantes da sala quando uma sala é selecionada
   const loadSalaParticipants = useCallback(async (salaId) => {
     if (!salaId) return;
@@ -1040,9 +1212,14 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
       const sala = conversations.find(c => (c.conversationId === salaId || c.Id === salaId) && c.type === 'sala');
       if (sala && sala.participantes) {
         // Mapear participantes para dados de contatos
-        const participantsData = sala.participantes.map(participantEmail => {
-          const contact = contacts.find(c => c.userEmail === participantEmail);
-          return contact || { userEmail: participantEmail, userName: participantEmail };
+        // sala.participantes contém nomes (strings), não emails
+        const participantsData = sala.participantes.map(participantName => {
+          const contact = contacts.find(c => 
+            c.userName === participantName || 
+            c.colaboradorNome === participantName ||
+            c.userEmail === participantName
+          );
+          return contact || { userName: participantName, colaboradorNome: participantName };
         });
         setSalaParticipants(participantsData);
       } else {
@@ -1067,13 +1244,11 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
       return;
     }
     
-    // Se não for forçado, verificar se o usuário está próximo do final antes de fazer scroll
+    // Se não for forçado, verificar se o usuário está no rodapé antes de fazer scroll
     if (!force) {
-      const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
-      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-      // Só fazer scroll se estiver a menos de 200px do final (usuário estava vendo mensagens recentes)
-      if (distanceFromBottom > 200) {
-        return; // Usuário está visualizando mensagens antigas, não fazer scroll
+      if (!isScrolledToBottom()) {
+        // Usuário está visualizando mensagens antigas, não fazer scroll
+        return;
       }
     }
     
@@ -1082,6 +1257,23 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
       top: messagesContainer.scrollHeight,
       behavior: 'smooth'
     });
+  };
+
+  /**
+   * Verifica se o usuário está visualizando mensagens recentes (no rodapé do diálogo)
+   * @returns {boolean} true se está no rodapé (dentro de 50px do final)
+   */
+  const isScrolledToBottom = () => {
+    if (!messagesEndRef.current) return false;
+    
+    const messagesContainer = messagesEndRef.current.closest('.overflow-y-auto, .overflow-auto');
+    if (!messagesContainer) return false;
+    
+    const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    
+    // Considerar "no rodapé" se estiver a menos de 50px do final
+    return distanceFromBottom <= 50;
   };
 
   // Scroll automático apenas quando uma conversa é selecionada pela primeira vez
@@ -1307,6 +1499,14 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
     // O useEffect vai chamar loadMessages automaticamente se necessário
   };
 
+  // Atualizar refs quando funções/estados mudam (para uso em handlers de notificação)
+  // Movido para depois da definição de handleSelectConversation para evitar erro de inicialização
+  useEffect(() => {
+    handleSelectConversationRef.current = handleSelectConversation;
+    setViewRef.current = setView;
+    conversationsRef.current = conversations;
+  }, [handleSelectConversation, setView, conversations]);
+
   /**
    * Lidar com clique em contato - iniciar ou abrir conversa
    */
@@ -1388,8 +1588,31 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
     const conversationId = selectedConversation.conversationId || selectedConversation.Id;
     if (!conversationId) return;
     
-    // Enviar mensagem especial
-    wsSendMessage(conversationId, '[att-caller-sign]', [], null, null);
+    const currentUserName = getCurrentUserName();
+    const callerSignContent = '[att-caller-sign]';
+    
+    // Obter nome do outro participante para P2P (permite criar conversa automaticamente na primeira mensagem)
+    let otherParticipantName = null;
+    if (selectedConversation.type === 'p2p' && selectedConversation.p2p) {
+      if (selectedConversation.p2p.colaboradorNome1 === currentUserName) {
+        otherParticipantName = selectedConversation.p2p.colaboradorNome2;
+      } else if (selectedConversation.p2p.colaboradorNome2 === currentUserName) {
+        otherParticipantName = selectedConversation.p2p.colaboradorNome1;
+      } else if (selectedConversation.contactName) {
+        // Se temos contactName (conversa temporária), usar ele
+        otherParticipantName = selectedConversation.contactName;
+      }
+    }
+    
+    console.log('📤 [handleCallAttention] Enviando chamada de atenção via WebSocket:', {
+      conversationId,
+      content: callerSignContent,
+      otherParticipantName
+    });
+    
+    // Enviar mensagem especial via WebSocket
+    // O servidor enviará o evento de volta para todos (incluindo remetente) e a lógica de duplicatas evitará duplicação
+    wsSendMessage(conversationId, callerSignContent, [], null, null, otherParticipantName);
   };
 
   /**
@@ -1399,6 +1622,120 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
     setView('contacts');
     setSelectedConversation(null);
     setMessages([]);
+    setEditingMessage(null);
+    setEditMessageText('');
+  };
+
+  /**
+   * Iniciar edição de mensagem
+   */
+  const handleEditMessage = (msg) => {
+    const mensagem = msg.mensagem || msg.content || '';
+    // Não permitir editar mensagens excluídas
+    if (mensagem.includes('mensagem apagada')) {
+      return;
+    }
+    setEditingMessage({
+      conversationId: selectedConversation?.conversationId || selectedConversation?.Id,
+      userName: msg.userName || msg.senderName || msg.autorNome,
+      timestamp: msg.timestamp || msg.createdAt
+    });
+    setEditMessageText(mensagem);
+  };
+
+  /**
+   * Salvar edição de mensagem
+   */
+  const handleSaveEdit = async () => {
+    if (!editingMessage || !editMessageText.trim()) {
+      setEditingMessage(null);
+      setEditMessageText('');
+      return;
+    }
+
+    try {
+      const { conversationId, userName, timestamp } = editingMessage;
+      const isP2P = selectedConversation?.type === 'p2p' || selectedConversation?.type === 'direct' || selectedConversation?.type === 'privada';
+      
+      let updatedMessage;
+      if (isP2P) {
+        updatedMessage = await velochatApi.editP2PMessage(conversationId, userName, timestamp, editMessageText.trim());
+      } else {
+        // Sala
+        updatedMessage = await velochatApi.editSalaMessage(conversationId, userName, timestamp, editMessageText.trim());
+      }
+
+      // Atualizar mensagem na lista local
+      setMessages(prevMessages => 
+        prevMessages.map(msg => {
+          const msgTimestamp = msg.timestamp instanceof Date ? msg.timestamp.getTime() : msg.timestamp;
+          const editTimestamp = timestamp instanceof Date ? timestamp.getTime() : timestamp;
+          if ((msg.userName || msg.senderName || msg.autorNome) === userName && msgTimestamp === editTimestamp) {
+            return { ...msg, mensagem: updatedMessage.mensagem, mensagemOriginal: updatedMessage.mensagemOriginal };
+          }
+          return msg;
+        })
+      );
+
+      setEditingMessage(null);
+      setEditMessageText('');
+    } catch (error) {
+      console.error('❌ Erro ao editar mensagem:', error);
+      setError(error.message || 'Erro ao editar mensagem');
+    }
+  };
+
+  /**
+   * Cancelar edição de mensagem
+   */
+  const handleCancelEdit = () => {
+    setEditingMessage(null);
+    setEditMessageText('');
+  };
+
+  /**
+   * Excluir mensagem
+   */
+  const handleDeleteMessage = async (msg) => {
+    const mensagem = msg.mensagem || msg.content || '';
+    // Não permitir excluir mensagens já excluídas
+    if (mensagem.includes('mensagem apagada')) {
+      return;
+    }
+
+    if (!window.confirm('Tem certeza que deseja excluir esta mensagem?')) {
+      return;
+    }
+
+    try {
+      const conversationId = selectedConversation?.conversationId || selectedConversation?.Id;
+      const userName = msg.userName || msg.senderName || msg.autorNome;
+      const timestamp = msg.timestamp || msg.createdAt;
+      const isP2P = selectedConversation?.type === 'p2p' || selectedConversation?.type === 'direct' || selectedConversation?.type === 'privada';
+      
+      let updatedMessage;
+      if (isP2P) {
+        updatedMessage = await velochatApi.deleteP2PMessage(conversationId, userName, timestamp);
+      } else {
+        // Sala
+        updatedMessage = await velochatApi.deleteSalaMessage(conversationId, userName, timestamp);
+      }
+
+      // Atualizar mensagem na lista local
+      setMessages(prevMessages => 
+        prevMessages.map(msg => {
+          const msgTimestamp = msg.timestamp instanceof Date ? msg.timestamp.getTime() : msg.timestamp;
+          const deleteTimestamp = timestamp instanceof Date ? timestamp.getTime() : timestamp;
+          if ((msg.userName || msg.senderName || msg.autorNome) === userName && msgTimestamp === deleteTimestamp) {
+            return { ...msg, mensagem: updatedMessage.mensagem, mensagemOriginal: updatedMessage.mensagemOriginal };
+          }
+          return msg;
+        })
+      );
+    } catch (error) {
+      console.error('❌ Erro ao excluir mensagem:', error);
+      setError(error.message || 'Erro ao excluir mensagem');
+    }
   };
 
   /**
@@ -1628,7 +1965,8 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
           return timeA - timeB; // Ascendente (mais antiga primeiro, mais recente abaixo)
         });
       });
-      scrollToBottom(true); // Forçar scroll quando usuário envia mensagem
+      // Scroll apenas se já estava no rodapé (usuário visualizando mensagens recentes)
+      scrollToBottom(isScrolledToBottom());
       
       // Limpar input e arquivo
       setMessageInput('');
@@ -1871,7 +2209,8 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                     ? conv.p2p.colaboradorNome2
                     : conv.p2p.colaboradorNome1;
                   
-                  conversationName = otherName || 'Conversa P2P';
+                  // Usar primeiro e último nome ao invés de nome completo
+                  conversationName = getFirstAndLastName(otherName) || 'Conversa P2P';
                   
                   // Buscar dados do contato pelo nome
                   contactData = contacts.find(c => 
@@ -1880,13 +2219,14 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                   
                   if (contactData) {
                     memberStatus = contactData.status || 'offline';
+                    const fullName = contactData.userName || contactData.colaboradorNome;
                     otherMember = {
                       userEmail: contactData.userEmail,
-                      userName: contactData.userName || contactData.colaboradorNome
+                      userName: getFirstAndLastName(fullName) || fullName
                     };
                   } else {
                     otherMember = {
-                      userName: otherName
+                      userName: getFirstAndLastName(otherName) || otherName
                     };
                   }
                 } 
@@ -1909,7 +2249,8 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                       contactData = getContactData(otherEmail);
                       memberStatus = contactData?.status || 'offline';
                       if (contactData) {
-                        otherMember.userName = contactData.userName;
+                        const fullName = contactData.userName || contactData.colaboradorNome;
+                        otherMember.userName = getFirstAndLastName(fullName) || fullName;
                       }
                     }
                   }
@@ -2247,7 +2588,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                     />
                     <div style={{ opacity: isOffline ? 0.6 : 1, flex: 1 }}>
                       <div className="font-semibold" style={{ color: 'var(--blue-dark)' }}>
-                        {contact.userName}
+                        {getFirstAndLastName(contact.userName || contact.colaboradorNome) || contact.userName || contact.colaboradorNome}
                       </div>
                       <div className="text-xs" style={{ color: 'var(--cor-texto-secundario)' }}>
                         {statusLabels[contact.status] || 'Offline'}
@@ -3244,7 +3585,8 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
         ? selectedConversation.p2p.colaboradorNome2
         : selectedConversation.p2p.colaboradorNome1;
       
-      conversationName = otherName || 'Conversa P2P';
+      // Usar primeiro e último nome ao invés de nome completo
+      conversationName = getFirstAndLastName(otherName) || 'Conversa P2P';
       
       // Buscar dados do contato pelo nome
       const otherContact = contacts.find(c => 
@@ -3271,7 +3613,9 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
       const otherEmail = membersEmails.find(email => email !== currentUserEmail);
       if (otherEmail) {
         const otherContact = getContactData(otherEmail);
-        conversationName = otherContact?.userName || otherEmail || 'Conversa Direta';
+        const fullName = otherContact?.userName || otherEmail || 'Conversa Direta';
+        // Usar primeiro e último nome ao invés de nome completo
+        conversationName = getFirstAndLastName(fullName) || 'Conversa Direta';
         contactAvatar = otherContact?.profile_pic || otherContact?.fotoPerfil || '/mascote avatar.png';
         contactStatus = otherContact?.status || 'offline';
       } else {
@@ -3297,17 +3641,23 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
     return (
       <div className="flex flex-col h-full" style={{ width: '100%', maxWidth: '100%' }}>
         {/* Header */}
-        <div className="flex items-center p-3 border-b" style={{ borderColor: 'var(--blue-opaque)', width: '100%', position: 'relative' }}>
+        <div className="flex items-center p-3 border-b" style={{ borderColor: 'var(--blue-opaque)', width: '100%', position: 'relative', height: '48px' }}>
+          {/* Chevron - posição absoluta à esquerda */}
           <button
             onClick={handleBackToContacts}
-            className="flex items-center justify-center p-2 rounded-full transition-colors"
+            className="flex items-center justify-center transition-colors"
             style={{ 
-              position: 'absolute', 
-              left: '-12px',
+              position: 'absolute',
+              left: '-8px', // movido mais para a esquerda, ultrapassando borda
+              top: '50%',
+              transform: 'translateY(-50%)',
               color: 'var(--blue-opaque)',
               border: 'none',
               background: 'transparent',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              width: '20px',
+              height: '20px',
+              padding: '0'
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.color = 'var(--blue-medium)';
@@ -3320,148 +3670,213 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
               <path d="M15 18l-6-6 6-6"/>
             </svg>
           </button>
-          <div className="flex items-center gap-2" style={{ marginLeft: '12px' }}>
-            {contactAvatar && (selectedConversation.type === 'p2p' || selectedConversation.type === 'direct' || selectedConversation.type === 'privada') && (
-              <img
-                src={contactAvatar}
-                alt={conversationName}
-                className="rounded-full"
-                style={{ width: '32px', height: '32px', objectFit: 'cover' }}
-                onError={(e) => {
-                  e.target.src = '/mascote avatar.png';
-                }}
-              />
-            )}
-            {/* Avatar da sala (primeira letra) */}
-            {selectedConversation.type === 'sala' && (
-              <div className="w-8 h-8 rounded-full bg-blue-medium flex items-center justify-center text-white font-semibold text-sm">
-                {conversationName.charAt(0).toUpperCase()}
-              </div>
-            )}
-            <div
-              className="px-3 py-1 rounded-full flex items-center gap-2"
-              style={{
-                border: selectedConversation.type === 'sala' 
-                  ? '1px solid var(--blue-dark)' 
-                  : `1px solid ${colors.border}`,
-                backgroundColor: selectedConversation.type === 'sala'
-                  ? 'rgba(22, 148, 255, 0.15)'
-                  : colors.bg,
-                borderRadius: '16px',
-                cursor: selectedConversation.type === 'sala' ? 'pointer' : 'default'
-              }}
-              onClick={selectedConversation.type === 'sala' ? () => setShowManageParticipantsModal(true) : undefined}
-            >
-              <h4 className="font-semibold text-sm" style={{ color: 'var(--blue-dark)' }}>
-                {conversationName}
-              </h4>
-              {/* Cascata de avatares de participantes para salas (máximo 6) */}
-              {selectedConversation.type === 'sala' && salaParticipants.length > 0 && (
-                <div className="flex items-center" style={{ marginLeft: '8px' }}>
-                  {salaParticipants.slice(0, 6).map((participant, index) => {
-                    const avatarUrl = participant.profile_pic || participant.fotoPerfil || '/mascote avatar.png';
-                    return (
-                      <img
-                        key={participant.userEmail || index}
-                        src={avatarUrl}
-                        alt={participant.userName || participant.colaboradorNome || 'Participante'}
-                        className="rounded-full border-2 border-white"
-                        style={{
-                          width: '24px',
-                          height: '24px',
-                          objectFit: 'cover',
-                          marginLeft: index > 0 ? '-8px' : '0',
-                          zIndex: 10 - index,
-                          position: 'relative'
-                        }}
-                        onError={(e) => {
-                          e.target.src = '/mascote avatar.png';
-                        }}
-                        title={participant.userName || participant.colaboradorNome || participant.userEmail}
-                      />
-                    );
-                  })}
-                  {salaParticipants.length > 6 && (
-                    <div
-                      className="rounded-full border-2 border-white flex items-center justify-center text-xs font-semibold"
-                      style={{
-                        width: '24px',
-                        height: '24px',
-                        marginLeft: '-8px',
-                        backgroundColor: 'var(--blue-medium)',
-                        color: 'white',
-                        zIndex: 4,
-                        position: 'relative'
-                      }}
-                      title={`+${salaParticipants.length - 6} mais`}
-                    >
-                      +{salaParticipants.length - 6}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
           
-          {/* Ícone de sino (chamada de atenção) - apenas para conversas P2P, não para salas */}
-          {selectedConversation.type !== 'sala' && (
-            <button
-              onClick={handleCallAttention}
-              className="flex items-center justify-center p-1.5 rounded-full transition-colors"
+          {/* Avatar do contato - apenas para P2P/Direct/Privada, posicionado antes do badge */}
+          {contactAvatar && (selectedConversation.type === 'p2p' || selectedConversation.type === 'direct' || selectedConversation.type === 'privada') && (
+            <img
+              src={contactAvatar}
+              alt={conversationName}
+              className="rounded-full flex-shrink-0"
               style={{
                 position: 'absolute',
-                right: '45px',
-                color: 'var(--blue-medium)',
-                border: 'none',
-                background: 'transparent',
-                cursor: 'pointer'
+                left: '8px', // movido mais para a esquerda
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: '32px',
+                height: '32px',
+                objectFit: 'cover'
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(22, 148, 255, 0.1)';
+              onError={(e) => {
+                e.target.src = '/mascote avatar.png';
               }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }}
-              title="Chamar atenção"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-              </svg>
-            </button>
+            />
           )}
           
-          {/* Botão de anexo no header */}
-          <div className="relative" style={{ position: 'absolute', right: '12px' }}>
-            <button
-              type="button"
-              onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              style={{
-                borderRadius: '8px',
-                minWidth: '32px',
-                height: '32px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--blue-dark)'
+          {/* Badge - mesma estrutura do P2P, sem avatar para salas */}
+          <div
+            className="px-4 py-2 rounded-full flex items-center gap-2"
+            style={{
+              position: 'absolute',
+              left: contactAvatar && (selectedConversation.type === 'p2p' || selectedConversation.type === 'direct' || selectedConversation.type === 'privada')
+                ? '44px' // ajustado para manter distância do avatar
+                : '12px', // movido mais para a esquerda na mesma proporção
+              right: '44px', // sino (20px) + largura sino (20px) + 4px (espaço)
+              top: '50%',
+              transform: 'translateY(-50%)',
+              border: selectedConversation.type === 'sala' 
+                ? '1px solid var(--blue-dark)' 
+                : `1px solid ${colors.border}`,
+              backgroundColor: selectedConversation.type === 'sala'
+                ? 'rgba(22, 148, 255, 0.15)'
+                : colors.bg,
+              borderRadius: '16px',
+              cursor: selectedConversation.type === 'sala' ? 'pointer' : 'default',
+              overflow: 'hidden',
+              minWidth: 0,
+              maxWidth: '100%',
+              width: 'auto'
+            }}
+            onClick={selectedConversation.type === 'sala' ? () => setShowManageParticipantsModal(true) : undefined}
+          >
+            <h4 
+              className="font-semibold" 
+              style={{ 
+                color: 'var(--blue-dark)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                fontSize: '12px',
+                lineHeight: '1.3',
+                flexShrink: 1,
+                minWidth: 0
               }}
-              title="Anexar arquivo"
             >
-              <AttachFile style={{ fontSize: '18px' }} />
-            </button>
+              {conversationName}
+            </h4>
+            {/* Cascata de avatares de participantes para salas - calcular quantos cabem */}
+            {selectedConversation.type === 'sala' && salaParticipants.length > 0 && (
+              <div className="flex items-center" style={{ marginLeft: '8px', overflow: 'hidden', flexShrink: 1, minWidth: 0 }}>
+                {(() => {
+                  // Calcular espaço disponível do badge baseado no tamanho da tela
+                  const badgeLeft = 12;
+                  const badgeRight = 44;
+                  const badgeWidth = window.innerWidth - badgeLeft - badgeRight;
+                  
+                  // Medir o nome real usando canvas ou estimativa conservadora
+                  const nomeWidth = Math.min(conversationName.length * 7, badgeWidth * 0.6); // máximo 60% do badge
+                  const paddingBadge = 32; // px-4 = 16px de cada lado
+                  const marginAvatares = 8; // marginLeft dos avatares
+                  
+                  // Espaço disponível para avatares (margem de segurança maior)
+                  const espacoDisponivel = Math.max(0, badgeWidth - nomeWidth - paddingBadge - marginAvatares - 30);
+                  
+                  // Cada avatar ocupa ~16px considerando overlap (24px - 8px de overlap)
+                  // Ser mais conservador no cálculo
+                  const maxAvatares = Math.max(0, Math.min(6, Math.floor(espacoDisponivel / 18))); // usar 18px para ser mais conservador
+                  const avataresToShow = salaParticipants.slice(0, maxAvatares);
+                  
+                  return (
+                    <>
+                      {avataresToShow.map((participant, index) => {
+                        const avatarUrl = participant.profile_pic || participant.fotoPerfil || '/mascote avatar.png';
+                        return (
+                          <img
+                            key={participant.userName || participant.colaboradorNome || index}
+                            src={avatarUrl}
+                            alt={participant.userName || participant.colaboradorNome || 'Participante'}
+                            className="rounded-full border-2 border-white flex-shrink-0"
+                            style={{
+                              width: '24px',
+                              height: '24px',
+                              objectFit: 'cover',
+                              marginLeft: index > 0 ? '-8px' : '0',
+                              zIndex: 10 - index,
+                              position: 'relative'
+                            }}
+                            onError={(e) => {
+                              e.target.src = '/mascote avatar.png';
+                            }}
+                            title={participant.userName || participant.colaboradorNome || participant.userEmail}
+                          />
+                        );
+                      })}
+                      {salaParticipants.length > maxAvatares && (
+                        <div
+                          className="rounded-full border-2 border-white flex items-center justify-center text-xs font-semibold flex-shrink-0"
+                          style={{
+                            width: '24px',
+                            height: '24px',
+                            marginLeft: '-8px',
+                            backgroundColor: 'var(--blue-medium)',
+                            color: 'white',
+                            zIndex: 4,
+                            position: 'relative'
+                          }}
+                          title={`+${salaParticipants.length - maxAvatares} mais`}
+                        >
+                          +{salaParticipants.length - maxAvatares}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+          
+          {/* Sino - posição absoluta à direita */}
+          <button
+            onClick={handleCallAttention}
+            className="flex items-center justify-center transition-colors"
+            style={{
+              position: 'absolute',
+              right: '20px', // movido mais para a direita, mantendo distância do anexo
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: 'var(--blue-medium)',
+              border: 'none',
+              background: 'transparent',
+              cursor: 'pointer',
+              width: '20px',
+              height: '20px',
+              padding: '0'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(22, 148, 255, 0.1)';
+              e.currentTarget.style.borderRadius = '50%';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+            title="Chamar atenção"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+          </button>
+          
+          {/* Anexo - posição absoluta à direita */}
+          <button
+            type="button"
+            onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
+            className="rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            style={{
+              position: 'absolute',
+              right: '-8px', // movido mais para a direita, ultrapassando borda
+              top: '50%',
+              transform: 'translateY(-50%)',
+              borderRadius: '8px',
+              minWidth: '32px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--blue-dark)',
+              border: 'none',
+              background: 'transparent',
+              cursor: 'pointer',
+              padding: '0'
+            }}
+            title="Anexar arquivo"
+          >
+            <AttachFile style={{ fontSize: '18px' }} />
+          </button>
 
-            {/* Menu de seleção de tipo de anexo */}
-            {showAttachmentMenu && (
-              <div
-                ref={attachmentMenuRef}
-                className="absolute top-full right-0 mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-2 z-50"
-                style={{
-                  minWidth: '150px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--blue-dark)'
-                }}
-              >
+          {/* Menu de seleção de tipo de anexo */}
+          {showAttachmentMenu && (
+            <div
+              ref={attachmentMenuRef}
+              className="absolute bg-white dark:bg-gray-800 rounded-lg shadow-lg p-2 z-50"
+              style={{
+                position: 'absolute',
+                right: '-8px',
+                top: 'calc(50% + 20px)',
+                minWidth: '150px',
+                borderRadius: '8px',
+                border: '1px solid var(--blue-dark)'
+              }}
+            >
                 <button
                   type="button"
                   onClick={() => {
@@ -3512,7 +3927,6 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                 </button>
               </div>
             )}
-          </div>
 
           {/* Input de arquivo oculto */}
           <input
@@ -3615,13 +4029,21 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                 }
               }
               
+              // Verificar se mensagem foi excluída
+              const isDeleted = mensagem.includes('mensagem apagada');
+              
+              // Verificar se esta mensagem está sendo editada
+              const isEditing = editingMessage && 
+                editingMessage.userName === userName && 
+                editingMessage.timestamp === timestamp;
+              
               return (
                 <div
                   key={msg._id || msg.messageId || `msg-${index}`}
                   className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`${msg.mediaUrl ? 'max-w-fit' : 'max-w-[70%]'} p-2 rounded-lg`}
+                    className={`${msg.mediaUrl ? 'max-w-fit' : 'max-w-[90%]'} p-2 rounded-lg`}
                     style={{
                       borderRadius: '8px',
                       // Mensagem enviada (usuário atual)
@@ -3644,7 +4066,54 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                     <div className="text-xs opacity-70 mb-1">
                       {userName}
                     </div>
-                    {mensagem && <div>{mensagem}</div>}
+                    {isEditing ? (
+                      // Modo de edição inline
+                      <div className="space-y-2">
+                        <textarea
+                          value={editMessageText}
+                          onChange={(e) => setEditMessageText(e.target.value)}
+                          className="w-full p-2 border rounded"
+                          style={{
+                            borderColor: 'var(--blue-opaque)',
+                            borderRadius: '4px',
+                            resize: 'vertical',
+                            minHeight: '60px'
+                          }}
+                          autoFocus
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            onClick={handleCancelEdit}
+                            className="px-3 py-1 text-sm rounded"
+                            style={{
+                              backgroundColor: 'transparent',
+                              border: '1px solid var(--blue-opaque)',
+                              color: 'var(--blue-opaque)'
+                            }}
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            onClick={handleSaveEdit}
+                            className="px-3 py-1 text-sm rounded text-white"
+                            style={{
+                              backgroundColor: 'var(--blue-opaque)'
+                            }}
+                          >
+                            Salvar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      mensagem && (
+                        <div style={{
+                          fontStyle: isDeleted ? 'italic' : 'normal',
+                          color: isDeleted ? '#9CA3AF' : undefined
+                        }}>
+                          {mensagem}
+                        </div>
+                      )
+                    )}
                     {/* Renderizar thumbnail de anexo se disponível */}
                     {msg.mediaUrl && (() => {
                       // Extrair nome do arquivo da URL se não estiver disponível
@@ -3909,19 +4378,56 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                         })}
                       </div>
                     )}
-                    <div className="text-xs opacity-70 mt-1">
-                      {timestamp ? (() => {
-                        const date = new Date(timestamp);
-                        if (isNaN(date.getTime())) return '';
-                        // Formatar data e hora: "DD/MM/AAAA HH:MM"
-                        return date.toLocaleString('pt-BR', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        });
-                      })() : ''}
+                    <div className="flex items-center justify-between gap-2 mt-1">
+                      <div className="text-xs opacity-70">
+                        {timestamp ? (() => {
+                          const date = new Date(timestamp);
+                          if (isNaN(date.getTime())) return '';
+                          // Formatar data e hora: "DD/MM/AAAA HH:MM"
+                          return date.toLocaleString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          });
+                        })() : ''}
+                      </div>
+                      {/* Ícones de editar e excluir apenas para mensagens do usuário atual e não excluídas */}
+                      {isCurrentUser && !isDeleted && !isEditing && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleEditMessage(msg)}
+                            className="opacity-70 hover:opacity-100 transition-opacity"
+                            style={{
+                              padding: '2px',
+                              border: 'none',
+                              background: 'transparent',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center'
+                            }}
+                            title="Editar mensagem"
+                          >
+                            <Edit style={{ fontSize: '12px' }} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteMessage(msg)}
+                            className="opacity-70 hover:opacity-100 transition-opacity"
+                            style={{
+                              padding: '2px',
+                              border: 'none',
+                              background: 'transparent',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center'
+                            }}
+                            title="Excluir mensagem"
+                          >
+                            <Delete style={{ fontSize: '12px' }} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

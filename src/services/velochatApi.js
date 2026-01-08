@@ -1,6 +1,10 @@
 /**
  * VeloChat API Service - Frontend
- * VERSION: v4.6.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v4.7.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v4.7.0:
+ * - Adicionadas funções editP2PMessage e deleteP2PMessage para editar/excluir mensagens P2P
+ * - Adicionadas funções editSalaMessage e deleteSalaMessage para editar/excluir mensagens de salas
  * 
  * Mudanças v4.5.1:
  * - Removidos todos os logs de debug que tentavam conectar em 127.0.0.1:7244 (causavam ERR_CONNECTION_REFUSED)
@@ -266,6 +270,50 @@ export const leaveSala = async (salaId) => {
     method: 'POST'
   });
   return data.sala;
+};
+
+/**
+ * Editar mensagem P2P
+ */
+export const editP2PMessage = async (conversationId, userName, timestamp, novaMensagem) => {
+  const data = await authenticatedFetch(`/api/messages/p2p/${conversationId}/edit`, {
+    method: 'PUT',
+    body: JSON.stringify({ userName, timestamp, mensagem: novaMensagem })
+  });
+  return data.message;
+};
+
+/**
+ * Excluir mensagem P2P
+ */
+export const deleteP2PMessage = async (conversationId, userName, timestamp) => {
+  const data = await authenticatedFetch(`/api/messages/p2p/${conversationId}/delete`, {
+    method: 'DELETE',
+    body: JSON.stringify({ userName, timestamp })
+  });
+  return data.message;
+};
+
+/**
+ * Editar mensagem de sala
+ */
+export const editSalaMessage = async (salaId, userName, timestamp, novaMensagem) => {
+  const data = await authenticatedFetch(`/api/messages/salas/${salaId}/edit`, {
+    method: 'PUT',
+    body: JSON.stringify({ userName, timestamp, mensagem: novaMensagem })
+  });
+  return data.message;
+};
+
+/**
+ * Excluir mensagem de sala
+ */
+export const deleteSalaMessage = async (salaId, userName, timestamp) => {
+  const data = await authenticatedFetch(`/api/messages/salas/${salaId}/delete`, {
+    method: 'DELETE',
+    body: JSON.stringify({ userName, timestamp })
+  });
+  return data.message;
 };
 
 // ==================== APIs de Anexos ====================
