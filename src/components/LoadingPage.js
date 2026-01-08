@@ -1,6 +1,6 @@
 /**
  * LoadingPage - Página de Loading Intermediária
- * VERSION: v1.1.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.2.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
  * 
  * Página de loading que aparece imediatamente ao carregar o app.
  * Executa verificação de autenticação e carregamento durante o período do áudio.
@@ -8,6 +8,12 @@
  * mostra mensagens sequenciais na parte inferior durante período do áudio e executa operações
  * reais: verificar autenticação, iniciar sessão, buscar contatos, atualizar notícias.
  * Aguarda áudio terminar completamente antes de redirecionar para home ou login.
+ * 
+ * Mudanças v1.2.0:
+ * - Corrigido problema de autoplay bloqueado pelos navegadores
+ * - Adicionado botão "Clique para iniciar" quando autoplay falha
+ * - Adicionado timeout de fallback (15s) para prosseguir mesmo se áudio não tocar
+ * - Listener de clique na página inteira para iniciar áudio quando usuário interagir
  * 
  * Mudanças v1.1.0:
  * - Agora faz verificação de autenticação internamente se userData não for fornecido
@@ -24,8 +30,11 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
     const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
     const [audioDuration, setAudioDuration] = useState(0);
     const [isInitializing, setIsInitializing] = useState(false);
+    const [audioStarted, setAudioStarted] = useState(false);
+    const [showPlayButton, setShowPlayButton] = useState(false);
     const audioRef = useRef(null);
     const messageIntervalRef = useRef(null);
+    const fallbackTimeoutRef = useRef(null);
 
     const [authChecked, setAuthChecked] = useState(false);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -214,12 +223,47 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
         const playAudio = async () => {
             try {
                 await audio.play();
+                setAudioStarted(true);
+                setShowPlayButton(false);
             } catch (error) {
                 console.warn('Erro ao reproduzir áudio automaticamente:', error);
-                // Se autoplay falhar, tentar reproduzir após interação do usuário
-                document.addEventListener('click', () => {
-                    audio.play().catch(err => console.error('Erro ao reproduzir áudio:', err));
-                }, { once: true });
+                // Se autoplay falhar, mostrar botão para usuário iniciar
+                setShowPlayButton(true);
+                
+                // Configurar timeout de fallback: se áudio não iniciar em 15 segundos, prosseguir mesmo assim
+                fallbackTimeoutRef.current = setTimeout(() => {
+                    if (!audioStarted) {
+                        console.log('Timeout: prosseguindo sem áudio');
+                        setIsInitializing(false);
+                        if (onComplete) {
+                            onComplete(isAuthenticated);
+                        }
+                    }
+                }, 15000);
+            }
+        };
+
+        // Função para iniciar áudio manualmente (quando usuário clicar)
+        const startAudioManually = async () => {
+            try {
+                const audio = audioRef.current;
+                if (audio && !audioStarted) {
+                    await audio.play();
+                    setAudioStarted(true);
+                    setShowPlayButton(false);
+                    if (fallbackTimeoutRef.current) {
+                        clearTimeout(fallbackTimeoutRef.current);
+                    }
+                }
+            } catch (error) {
+                console.error('Erro ao iniciar áudio manualmente:', error);
+            }
+        };
+
+        // Adicionar listener global para clique (qualquer lugar da página)
+        const handlePageClick = () => {
+            if (!audioStarted && showPlayButton) {
+                startAudioManually();
             }
         };
 
@@ -229,15 +273,22 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
         // Tentar reproduzir quando metadata carregar
         audio.addEventListener('loadedmetadata', playAudio, { once: true });
 
+        // Adicionar listener de clique na página inteira
+        document.addEventListener('click', handlePageClick, { once: true });
+
         // Cleanup
         return () => {
             audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
             audio.removeEventListener('ended', handleEnded);
+            document.removeEventListener('click', handlePageClick);
             if (messageIntervalRef.current) {
                 clearInterval(messageIntervalRef.current);
             }
+            if (fallbackTimeoutRef.current) {
+                clearTimeout(fallbackTimeoutRef.current);
+            }
         };
-    }, [onComplete, messages.length, isAuthenticated, authChecked]);
+    }, [onComplete, messages.length, isAuthenticated, authChecked, audioStarted, showPlayButton]);
     
     // Se não está autenticado e já verificou, completar rapidamente após mostrar mensagem
     useEffect(() => {
@@ -328,12 +379,14 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
                     right: 0,
                     padding: '2rem',
                     display: 'flex',
+                    flexDirection: 'column',
                     justifyContent: 'center',
                     alignItems: 'center',
                     backgroundColor: 'rgba(0, 0, 0, 0.6)',
                     backdropFilter: 'blur(4px)',
                     zIndex: 10,
-                    minHeight: '100px'
+                    minHeight: '100px',
+                    gap: '1rem'
                 }}
             >
                 <div 
@@ -353,6 +406,51 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
                 >
                     {messages[currentMessageIndex] ?? messages[0]}
                 </div>
+                
+                {/* Botão para iniciar áudio se autoplay falhar */}
+                {showPlayButton && (
+                    <button
+                        onClick={async () => {
+                            try {
+                                const audio = audioRef.current;
+                                if (audio && !audioStarted) {
+                                    await audio.play();
+                                    setAudioStarted(true);
+                                    setShowPlayButton(false);
+                                    if (fallbackTimeoutRef.current) {
+                                        clearTimeout(fallbackTimeoutRef.current);
+                                    }
+                                }
+                            } catch (error) {
+                                console.error('Erro ao iniciar áudio:', error);
+                            }
+                        }}
+                        style={{
+                            padding: '12px 24px',
+                            fontSize: '1rem',
+                            fontWeight: 600,
+                            fontFamily: "'Poppins', sans-serif",
+                            color: '#ffffff',
+                            backgroundColor: 'var(--blue-medium)',
+                            border: 'none',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s ease',
+                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+                            animation: 'fadeIn 0.5s ease-in'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = 'var(--blue-light)';
+                            e.target.style.transform = 'translateY(-2px)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = 'var(--blue-medium)';
+                            e.target.style.transform = 'translateY(0)';
+                        }}
+                    >
+                        Clique para iniciar
+                    </button>
+                )}
             </div>
 
             {/* Estilos de animação */}

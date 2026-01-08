@@ -1,6 +1,31 @@
 /**
  * VeloChatWidget - Componente Principal do Chat
- * VERSION: v3.33.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.38.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v3.38.0:
+ * - Botão "Nova Sala": cores alteradas para azul médio (#1634FF) - borda e texto
+ * - Botão "Criar Sala" no modal: cores alteradas para azul médio (#1634FF) - borda e texto
+ * 
+ * Mudanças v3.37.0:
+ * - Balões de mensagem enviada no tema escuro: contorno azul claro (#1694FF), texto preto, data/hora e ícones em cinza escuro (#4B5563)
+ * 
+ * Mudanças v3.36.0:
+ * - Cards de sala: nome da sala agora em azul médio (#1634FF) nas abas conversas e salas
+ * - Cards de sala: preenchimento do card sempre em azul opaco (#006AB9) com 40% de opacidade
+ * 
+ * Mudanças v3.35.0:
+ * - Ajustada opacidade do badge P2P no tema escuro: verde (online) e amarelo (ausente) agora com 45% de opacidade (+15%)
+ * 
+ * Mudanças v3.34.0:
+ * - Correções de cores no tema escuro conforme LAYOUT_GUIDELINES.md
+ * - Aba selecionada: azul médio no tema escuro
+ * - Linhas de separação: azul opaco no tema escuro
+ * - Ícones (chevron, sino, anexo): azul claro/opaco conforme especificação
+ * - Ícones do menu de anexos: azul claro no tema escuro
+ * - Cards de contatos: opacidade aumentada em 15% para online e ausente no tema escuro
+ * - Badge P2P: opacidade aumentada em 15% para online e ausente no tema escuro
+ * - Badge Sala: contorno azul claro e nome azul opaco no tema escuro
+ * - Balões de mensagem enviada: contorno azul claro, texto preto, data/hora e ícones em cinza escuro no tema escuro
  * 
  * Mudanças v3.33.1:
  * - Aumentada largura máxima dos balões de mensagem de 70% para 90%
@@ -229,6 +254,13 @@ const ACCEPTED_DOCUMENT_TYPES_STRING = ACCEPTED_DOCUMENT_TYPES.join(',');
 const isValidDocumentType = (mimeType) => {
   if (!mimeType) return false;
   return ACCEPTED_DOCUMENT_TYPES.includes(mimeType);
+};
+
+/**
+ * Verifica se o tema escuro está ativo
+ */
+const isDarkMode = () => {
+  return document.documentElement.classList.contains('dark');
 };
 
 const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
@@ -2257,8 +2289,14 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                 }
 
                 const statusColors = {
-                  online: { border: '#10b981', bg: 'rgba(16, 185, 129, 0.15)' },
-                  ausente: { border: '#eab308', bg: 'rgba(234, 179, 8, 0.15)' },
+                  online: { 
+                    border: '#10b981', 
+                    bg: isDarkMode() ? 'rgba(16, 185, 129, 0.45)' : 'rgba(16, 185, 129, 0.15)' 
+                  },
+                  ausente: { 
+                    border: '#eab308', 
+                    bg: isDarkMode() ? 'rgba(234, 179, 8, 0.45)' : 'rgba(234, 179, 8, 0.15)' 
+                  },
                   offline: { border: '#6b7280', bg: 'rgba(107, 114, 128, 0.5)' }
                 };
                 const statusLabels = {
@@ -2274,8 +2312,8 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                 const isP2P = conv.type === 'p2p' || conv.type === 'direct' || conv.type === 'privada';
                 const unreadCount = calculateUnread(conv);
                 
-                // Determinar background para salas com mensagens não visualizadas
-                const salaBackground = !isP2P && conv.type === 'sala' && unreadCount > 0
+                // Determinar background: salas sempre com azul opaco 40%, P2P usa cores de status
+                const salaBackground = !isP2P && conv.type === 'sala'
                   ? 'rgba(0, 106, 185, 0.4)' // azul opaco com 40% de opacidade
                   : isP2P ? colors.bg : 'transparent';
 
@@ -2330,7 +2368,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                     )}
                     <div style={{ flex: 1, opacity: isP2P && isOffline ? 0.6 : 1 }}>
                       <div className="flex items-center gap-2">
-                        <div className="font-semibold" style={{ color: 'var(--blue-dark)' }}>
+                        <div className="font-semibold" style={{ color: !isP2P && conv.type === 'sala' ? '#1634FF' : 'var(--blue-dark)' }}>
                           {isP2P
                             ? (otherMember?.userName || conversationName || 'Conversa P2P')
                             : (conversationName || conv.salaNome || conv.name || 'Sala')}
@@ -2549,8 +2587,14 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
             <div className="space-y-2">
               {sortedContacts.map((contact) => {
                 const statusColors = {
-                  online: { border: '#10b981', bg: 'rgba(16, 185, 129, 0.15)' },
-                  ausente: { border: '#eab308', bg: 'rgba(234, 179, 8, 0.15)' },
+                  online: { 
+                    border: '#10b981', 
+                    bg: isDarkMode() ? 'rgba(16, 185, 129, 0.45)' : 'rgba(16, 185, 129, 0.15)' 
+                  },
+                  ausente: { 
+                    border: '#eab308', 
+                    bg: isDarkMode() ? 'rgba(234, 179, 8, 0.45)' : 'rgba(234, 179, 8, 0.15)' 
+                  },
                   offline: { border: '#6b7280', bg: 'rgba(107, 114, 128, 0.5)' }
                 };
                 const statusLabels = {
@@ -2632,10 +2676,10 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
             className="rounded-lg hover:opacity-90 transition-colors"
             style={{ 
               background: 'transparent',
-              border: '1.5px solid var(--blue-dark)',
+              border: '1.5px solid #1634FF',
               borderRadius: '8px',
               padding: '6px 12px',
-              color: 'var(--blue-dark)',
+              color: '#1634FF',
               width: 'auto',
               fontSize: '14px',
               fontFamily: "'Poppins', sans-serif",
@@ -2662,10 +2706,8 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                 const participantesCount = sala.participantes?.length || 0;
                 const unreadCount = calculateUnread(sala);
                 
-                // Background azul opaco com 40% de opacidade se houver mensagens não visualizadas
-                const salaBackground = unreadCount > 0
-                  ? 'rgba(0, 106, 185, 0.4)' // azul opaco com 40% de opacidade
-                  : 'transparent';
+                // Background azul opaco com 40% de opacidade para todas as salas
+                const salaBackground = 'rgba(0, 106, 185, 0.4)'; // azul opaco com 40% de opacidade
 
                 return (
                   <div
@@ -2680,7 +2722,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                   >
                     <div style={{ flex: 1 }}>
                       <div className="flex items-center gap-2">
-                        <div className="font-semibold" style={{ color: 'var(--blue-dark)' }}>
+                        <div className="font-semibold" style={{ color: '#1634FF' }}>
                           {salaNome}
                         </div>
                         <div className="flex items-center ml-auto" style={{ marginLeft: 'auto' }}>
@@ -3050,10 +3092,10 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
               className="flex-1 rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               style={{ 
                 background: 'transparent',
-                border: '1.5px solid var(--blue-dark)',
+                border: '1.5px solid #1634FF',
                 borderRadius: '8px',
                 padding: '6px 12px',
-                color: 'var(--blue-dark)',
+                color: '#1634FF',
                 fontSize: '14px',
                 fontFamily: "'Poppins', sans-serif",
                 fontWeight: '500',
@@ -3626,8 +3668,16 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
     }
 
     const statusColors = {
-      online: { border: '#10b981', bg: 'rgba(16, 185, 129, 0.15)', text: '#10b981' },
-      ausente: { border: '#eab308', bg: 'rgba(234, 179, 8, 0.15)', text: '#eab308' },
+      online: { 
+        border: '#10b981', 
+        bg: isDarkMode() ? 'rgba(16, 185, 129, 0.45)' : 'rgba(16, 185, 129, 0.15)', 
+        text: '#10b981' 
+      },
+      ausente: { 
+        border: '#eab308', 
+        bg: isDarkMode() ? 'rgba(234, 179, 8, 0.45)' : 'rgba(234, 179, 8, 0.15)', 
+        text: '#eab308' 
+      },
       offline: { border: '#6b7280', bg: 'rgba(107, 114, 128, 0.5)', text: '#6b7280' }
     };
     const statusLabels = {
@@ -3651,7 +3701,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
               left: '-8px', // movido mais para a esquerda, ultrapassando borda
               top: '50%',
               transform: 'translateY(-50%)',
-              color: 'var(--blue-opaque)',
+              color: isDarkMode() ? 'var(--blue-light)' : 'var(--blue-opaque)',
               border: 'none',
               background: 'transparent',
               cursor: 'pointer',
@@ -3663,7 +3713,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
               e.currentTarget.style.color = 'var(--blue-medium)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'var(--blue-opaque)';
+              e.currentTarget.style.color = isDarkMode() ? 'var(--blue-light)' : 'var(--blue-opaque)';
             }}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -3704,7 +3754,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
               top: '50%',
               transform: 'translateY(-50%)',
               border: selectedConversation.type === 'sala' 
-                ? '1px solid var(--blue-dark)' 
+                ? isDarkMode() ? '1px solid var(--blue-light)' : '1px solid var(--blue-dark)' 
                 : `1px solid ${colors.border}`,
               backgroundColor: selectedConversation.type === 'sala'
                 ? 'rgba(22, 148, 255, 0.15)'
@@ -3721,7 +3771,9 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
             <h4 
               className="font-semibold" 
               style={{ 
-                color: 'var(--blue-dark)',
+                color: selectedConversation.type === 'sala' 
+                  ? (isDarkMode() ? 'var(--blue-opaque)' : 'var(--blue-dark)')
+                  : 'var(--blue-dark)',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
@@ -3813,7 +3865,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
               right: '20px', // movido mais para a direita, mantendo distância do anexo
               top: '50%',
               transform: 'translateY(-50%)',
-              color: 'var(--blue-medium)',
+              color: isDarkMode() ? 'var(--blue-opaque)' : 'var(--blue-medium)',
               border: 'none',
               background: 'transparent',
               cursor: 'pointer',
@@ -3852,7 +3904,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'var(--blue-dark)',
+              color: isDarkMode() ? 'var(--blue-opaque)' : 'var(--blue-dark)',
               border: 'none',
               background: 'transparent',
               cursor: 'pointer',
@@ -3890,7 +3942,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                   className="w-full text-left px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                   style={{ borderRadius: '6px' }}
                 >
-                  <Image style={{ fontSize: '20px', color: 'var(--blue-dark)' }} />
+                  <Image style={{ fontSize: '20px', color: isDarkMode() ? 'var(--blue-light)' : 'var(--blue-dark)' }} />
                   <span>Imagem</span>
                 </button>
                 <button
@@ -3906,7 +3958,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                   className="w-full text-left px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                   style={{ borderRadius: '6px' }}
                 >
-                  <Videocam style={{ fontSize: '20px', color: 'var(--blue-dark)' }} />
+                  <Videocam style={{ fontSize: '20px', color: isDarkMode() ? 'var(--blue-light)' : 'var(--blue-dark)' }} />
                   <span>Vídeo</span>
                 </button>
                 <button
@@ -3922,7 +3974,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                   className="w-full text-left px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                   style={{ borderRadius: '6px' }}
                 >
-                  <InsertDriveFile style={{ fontSize: '20px', color: 'var(--blue-dark)' }} />
+                  <InsertDriveFile style={{ fontSize: '20px', color: isDarkMode() ? 'var(--blue-light)' : 'var(--blue-dark)' }} />
                   <span>Arquivo</span>
                 </button>
               </div>
@@ -4051,8 +4103,8 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                         backgroundColor: 'rgb(229, 231, 235)', // cinza (gray-200)
                         border: isCallerSign 
                           ? '2px solid #FFC107' // Amarelo para chamada de atenção do sender
-                          : '1px solid var(--blue-opaque)', // #006AB9
-                        color: 'var(--cor-texto-principal)' // ou 'black'
+                          : isDarkMode() ? '1px solid #1694FF' : '1px solid var(--blue-opaque)', // #1694FF no tema escuro, #006AB9 no claro
+                        color: isDarkMode() ? '#000000' : 'var(--cor-texto-principal)' // preto no tema escuro
                       } : {
                         // Mensagem recebida
                         backgroundColor: 'rgba(22, 148, 255, 0.7)', // azul claro 70% opacidade
@@ -4063,7 +4115,10 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                       })
                     }}
                   >
-                    <div className="text-xs opacity-70 mb-1">
+                    <div 
+                      className="text-xs opacity-70 mb-1"
+                      style={isCurrentUser && isDarkMode() ? { color: '#000000' } : {}}
+                    >
                       {userName}
                     </div>
                     {isEditing ? (
@@ -4108,7 +4163,9 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                       mensagem && (
                         <div style={{
                           fontStyle: isDeleted ? 'italic' : 'normal',
-                          color: isDeleted ? '#9CA3AF' : undefined
+                          color: isDeleted 
+                            ? '#9CA3AF' 
+                            : (isCurrentUser && isDarkMode() ? '#000000' : undefined) // preto no tema escuro para mensagens enviadas
                         }}>
                           {mensagem}
                         </div>
@@ -4379,7 +4436,10 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                       </div>
                     )}
                     <div className="flex items-center justify-between gap-2 mt-1">
-                      <div className="text-xs opacity-70">
+                      <div 
+                        className="text-xs opacity-70"
+                        style={isCurrentUser && isDarkMode() ? { color: '#4B5563' } : {}}
+                      >
                         {timestamp ? (() => {
                           const date = new Date(timestamp);
                           if (isNaN(date.getTime())) return '';
@@ -4405,11 +4465,12 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                               background: 'transparent',
                               cursor: 'pointer',
                               display: 'flex',
-                              alignItems: 'center'
+                              alignItems: 'center',
+                              color: isDarkMode() ? '#4B5563' : undefined
                             }}
                             title="Editar mensagem"
                           >
-                            <Edit style={{ fontSize: '12px' }} />
+                            <Edit style={{ fontSize: '12px', color: isDarkMode() ? '#4B5563' : undefined }} />
                           </button>
                           <button
                             onClick={() => handleDeleteMessage(msg)}
@@ -4420,11 +4481,12 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                               background: 'transparent',
                               cursor: 'pointer',
                               display: 'flex',
-                              alignItems: 'center'
+                              alignItems: 'center',
+                              color: isDarkMode() ? '#4B5563' : undefined
                             }}
                             title="Excluir mensagem"
                           >
-                            <Delete style={{ fontSize: '12px' }} />
+                            <Delete style={{ fontSize: '12px', color: isDarkMode() ? '#4B5563' : undefined }} />
                           </button>
                         </div>
                       )}
