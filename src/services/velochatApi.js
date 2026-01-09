@@ -175,14 +175,13 @@ export const sendP2PMessage = async (conversationId, mensagem) => {
 };
 
 /**
- * Encerrar conversa P2P para o usuário atual
+ * Encerrar conversa P2P para o usuário atual (DEPRECATED - usar deleteP2PConversation)
  * Adiciona colaboradorNome ao array encerradaPor sem deletar a conversa
+ * @deprecated Use deleteP2PConversation instead
  */
 export const closeP2PConversation = async (conversationId) => {
-  const data = await authenticatedFetch(`/api/p2p/conversations/${conversationId}/close`, {
-    method: 'PUT'
-  });
-  return data;
+  // Usar nova rota DELETE ao invés de PUT
+  return await deleteP2PConversation(conversationId);
 };
 
 // ==================== APIs Salas ====================
@@ -216,6 +215,26 @@ export const createSala = async (salaNome, participantes = [], bloqueioAdm = fal
     body: JSON.stringify({ salaNome, participantes, bloqueioAdm })
   });
   return data.sala;
+};
+
+/**
+ * Excluir conversa P2P (soft delete)
+ */
+export const deleteP2PConversation = async (conversationId) => {
+  const data = await authenticatedFetch(`/api/conversations/p2p/${conversationId}`, {
+    method: 'DELETE'
+  });
+  return data;
+};
+
+/**
+ * Excluir sala (soft delete)
+ */
+export const deleteSalaConversation = async (salaId) => {
+  const data = await authenticatedFetch(`/api/conversations/salas/${salaId}`, {
+    method: 'DELETE'
+  });
+  return data;
 };
 
 /**
@@ -310,6 +329,28 @@ export const editSalaMessage = async (salaId, userName, timestamp, novaMensagem)
  */
 export const deleteSalaMessage = async (salaId, userName, timestamp) => {
   const data = await authenticatedFetch(`/api/messages/salas/${salaId}/delete`, {
+    method: 'DELETE',
+    body: JSON.stringify({ userName, timestamp })
+  });
+  return data.message;
+};
+
+/**
+ * Excluir anexo de mensagem P2P (soft delete)
+ */
+export const deleteP2PAttachment = async (conversationId, userName, timestamp) => {
+  const data = await authenticatedFetch(`/api/messages/p2p/${conversationId}/attachment`, {
+    method: 'DELETE',
+    body: JSON.stringify({ userName, timestamp })
+  });
+  return data.message;
+};
+
+/**
+ * Excluir anexo de mensagem de sala (soft delete)
+ */
+export const deleteSalaAttachment = async (salaId, userName, timestamp) => {
+  const data = await authenticatedFetch(`/api/messages/salas/${salaId}/attachment`, {
     method: 'DELETE',
     body: JSON.stringify({ userName, timestamp })
   });
