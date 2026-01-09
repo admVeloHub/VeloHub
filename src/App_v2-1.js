@@ -1,6 +1,10 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.10.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.10.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.10.1:
+ * - Corrigido: LoadingPage não é mais exibida após logout (verifica sessão válida antes de mostrar)
+ * - LoadingPage só aparece quando há sessão válida, evitando áudio desnecessário após logout
  * 
  * Mudanças v2.10.0:
  * - Adicionadas rotas públicas para Termos de Uso e Política de Privacidade (/termos e /privacidade)
@@ -205,7 +209,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Map, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen, X, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { mainAPI, veloNewsAPI, articlesAPI, faqAPI } from './services/api';
-import { checkAuthenticationState, updateUserInfo, getUserSession, stopHeartbeat, logout } from './services/auth';
+import { checkAuthenticationState, updateUserInfo, getUserSession, stopHeartbeat, logout, isSessionValid } from './services/auth';
 import { API_BASE_URL, getVeloChatWsUrl } from './config/api-config';
 import { io } from 'socket.io-client';
 import NewsHistoryModal from './components/NewsHistoryModal';
@@ -327,11 +331,11 @@ const CriticalModalManager = {
   
   // Fun├º├úo de debug para limpar manualmente o estado (├║til para testes)
   debugClearState: () => {
-    console.log('­ƒº╣ Limpando estado manualmente para debug...');
+    console.log('🔧 Limpando estado manualmente para debug...');
     localStorage.removeItem(CriticalModalManager.ACKNOWLEDGED_KEY);
     localStorage.removeItem(CriticalModalManager.REMIND_LATER_KEY);
     localStorage.setItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY, 'true');
-    console.log('Ô£à Estado limpo manualmente');
+    console.log('✅ Estado limpo manualmente');
   }
 };
 
@@ -352,15 +356,15 @@ const isExpired12Hours = (createdAt) => {
 
 // Fun├º├úo global para debug (dispon├¡vel no console do navegador)
 window.debugCriticalModal = () => {
-  console.log('­ƒöº Debug do Modal Cr├¡tico');
-  console.log('­ƒôØ Estado atual:', {
+  console.log('🐛 Debug do Modal Crítico');
+  console.log('📊 Estado atual:', {
     acknowledged: localStorage.getItem(CriticalModalManager.ACKNOWLEDGED_KEY),
     remindLater: localStorage.getItem(CriticalModalManager.REMIND_LATER_KEY),
     showRemindButton: localStorage.getItem(CriticalModalManager.SHOW_REMIND_BUTTON_KEY),
     lastCriticalNews: CriticalModalManager.getLastCriticalNews()
   });
-  console.log('­ƒº╣ Para limpar o estado, execute: CriticalModalManager.debugClearState()');
-  console.log('­ƒöä Para for├ºar nova not├¡cia, execute: CriticalModalManager.setLastCriticalNews("")'  );
+  console.log('🔧 Para limpar o estado, execute: CriticalModalManager.debugClearState()');
+  console.log('✅ Para forçar nova notícia, execute: CriticalModalManager.setLastCriticalNews("")'  );
 };
 
 // Componente do Footer
@@ -895,7 +899,7 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
           if (storedPicture) setUserPicture(storedPicture);
         }
       } catch (error) {
-        console.error('ÔØî [Header] Erro ao carregar dados do usu├írio:', error);
+        console.error('❌ [Header] Erro ao carregar dados do usuário:', error);
       }
     };
 
@@ -983,7 +987,7 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
       markTicketsAsViewed();
     }
     
-    console.log('Mudando para p├ígina:', item); // Debug
+    console.log('Mudando para página:', item); // Debug
     setActivePage(item);
   };
 
@@ -1153,7 +1157,7 @@ const CriticalNewsModal = ({ news, onClose, onAcknowledge }) => {
         try {
           await onAcknowledge(news._id);
         } catch (error) {
-          console.error('ÔØî Erro ao enviar confirma├º├úo de ci├¬ncia:', error);
+          console.error('❌ Erro ao enviar confirmação de ciência:', error);
         }
       }
     }
@@ -1310,9 +1314,16 @@ export default function App_v2() {
       return;
     }
 
-    // Mostrar LoadingPage imediatamente - ela fará a verificação de autenticação internamente
-    // Isso garante que toda autenticação e carregamento acontece durante a LoadingPage
-    setShowLoadingPage(true);
+    // Verificar se há sessão válida antes de mostrar LoadingPage
+    // Se não houver sessão (ex: após logout), vai direto para LoginPage sem áudio
+    if (isSessionValid()) {
+      // Mostrar LoadingPage apenas se houver sessão válida
+      // Ela fará a verificação de autenticação internamente
+      setShowLoadingPage(true);
+    } else {
+      // Sem sessão válida, não mostrar LoadingPage (vai direto para LoginPage)
+      setIsAuthenticated(false);
+    }
     setIsCheckingAuth(false);
     
     // Cleanup: parar heartbeat quando componente desmonta
@@ -1483,20 +1494,20 @@ export default function App_v2() {
               const result = await response.json();
               
               if (result.success) {
-                console.log('Ô£à Not├¡cia confirmada no MongoDB:', result.message);
+                console.log('✅ Notícia confirmada no MongoDB:', result.message);
                 // Adicionar ID imediatamente ao estado local para remover destaque vermelho
                 if (updateAcknowledgedNewsCallback) {
                   updateAcknowledgedNewsCallback(newsId);
                 }
-                // Recarregar acknowledges do servidor para garantir sincroniza├º├úo
+                // Recarregar acknowledges do servidor para garantir sincronização
                 if (refreshAcknowledgedNews) {
                   await refreshAcknowledgedNews();
                 }
               } else {
-                console.error('ÔØî Erro ao confirmar not├¡cia:', result.error);
+                console.error('❌ Erro ao confirmar notícia:', result.error);
               }
             } catch (error) {
-              console.error('ÔØî Erro ao confirmar not├¡cia:', error);
+              console.error('❌ Erro ao confirmar notícia:', error);
             }
           }}
         />
@@ -1528,16 +1539,16 @@ export default function App_v2() {
             const result = await response.json();
             
             if (result.success) {
-              console.log('Ô£à Not├¡cia marcada como ciente no MongoDB:', result.message);
-              // Recarregar acknowledges ap├│s confirma├º├úo
+              console.log('✅ Notícia marcada como ciente no MongoDB:', result.message);
+              // Recarregar acknowledges após confirmação
               if (refreshAcknowledgedNews) {
                 await refreshAcknowledgedNews();
               }
             } else {
-              console.error('ÔØî Erro ao marcar not├¡cia como ciente:', result.error);
+              console.error('❌ Erro ao marcar notícia como ciente:', result.error);
             }
           } catch (error) {
-            console.error('ÔØî Erro ao marcar not├¡cia como ciente:', error);
+            console.error('❌ Erro ao marcar notícia como ciente:', error);
           }
         }}
       />
@@ -2284,7 +2295,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
         try {
             const session = getUserSession();
             if (!session?.user?.email) {
-                console.log('ÔÜá´©Å Usu├írio n├úo autenticado, n├úo ├® poss├¡vel carregar acknowledges');
+                console.log('⚠️ Usuário não autenticado, não é possível carregar acknowledges');
                 return;
             }
 
@@ -2292,7 +2303,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
             const data = await response.json();
             
             if (data.success) {
-                console.log(`Ô£à Acknowledges carregados: ${data.acknowledgedNewsIds.length} not├¡cias confirmadas`);
+                console.log(`✅ Acknowledges carregados: ${data.acknowledgedNewsIds.length} notícias confirmadas`);
                 const acknowledgedIds = data.acknowledgedNewsIds || [];
                 setAcknowledgedNewsIds(acknowledgedIds);
                 // Atualizar tamb├®m no componente pai
@@ -2300,10 +2311,10 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                     setParentAcknowledgedNewsIds(acknowledgedIds);
                 }
             } else {
-                console.error('ÔØî Erro ao carregar acknowledges:', data.error);
+                console.error('❌ Erro ao carregar acknowledges:', data.error);
             }
         } catch (error) {
-            console.error('ÔØî Erro ao carregar acknowledges:', error);
+            console.error('❌ Erro ao carregar acknowledges:', error);
         }
     };
 
@@ -2408,7 +2419,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
             const result = await response.json();
             
             if (result.success) {
-                console.log('Ô£à Not├¡cia confirmada:', result.message);
+                console.log('✅ Notícia confirmada:', result.message);
                 // Atualizar a not├¡cia local para mostrar como confirmada
                 setVeloNews(prevNews => 
                     prevNews.map(news => 
@@ -2418,10 +2429,10 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                     )
                 );
             } else {
-                console.error('ÔØî Erro ao confirmar not├¡cia:', result.error);
+                console.error('❌ Erro ao confirmar notícia:', result.error);
             }
         } catch (error) {
-            console.error('ÔØî Erro ao confirmar not├¡cia:', error);
+            console.error('❌ Erro ao confirmar notícia:', error);
         }
     };
 
@@ -2496,13 +2507,13 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                     }
                                     
                                     if (CriticalModalManager.shouldShowModal(mostRecentCritical)) {
-                                        console.log('­ƒÜ¿ Modal cr├¡tico exibido para not├¡cia mais recente:', mostRecentCritical.title);
+                                        console.log('🔔 Modal crítico exibido para notícia mais recente:', mostRecentCritical.title);
                                         setCriticalNews(mostRecentCritical);
                                     }
                                 }
                             }
                         } catch (error) {
-                            console.error('ÔØî Erro ao verificar not├¡cia cr├¡tica:', error);
+                            console.error('❌ Erro ao verificar notícia crítica:', error);
                         }
                     }
                 };
@@ -2579,7 +2590,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                 
                 // Atualizar apenas se houver mudan├ºas
                 if (veloNewsChanged) {
-                    console.log('­ƒöä Mudan├ºas detectadas em VeloNews, atualizando...');
+                    console.log('✅ Mudanças detectadas em VeloNews, atualizando...');
                     setVeloNews(sortedNewVeloNews);
                     
                     // Recarregar acknowledges antes de verificar not├¡cias cr├¡ticas
@@ -2613,18 +2624,18 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                 }
                             }
                         } catch (error) {
-                            console.error('ÔØî Erro ao verificar not├¡cia cr├¡tica no refresh:', error);
+                            console.error('❌ Erro ao verificar notícia crítica no refresh:', error);
                         }
                     }
                 } else {
-                    console.log('Ô£à Sem mudan├ºas em VeloNews, mantendo dados atuais');
+                    console.log('✅ Sem mudanças em VeloNews, mantendo dados atuais');
                 }
                 
                 if (moduleStatusChanged) {
-                    console.log('­ƒöä Mudan├ºas detectadas em ModuleStatus, atualizando...');
+                    console.log('✅ Mudanças detectadas em ModuleStatus, atualizando...');
                     setModuleStatus(newModuleStatusData);
                 } else {
-                    console.log('Ô£à Sem mudan├ºas em ModuleStatus, mantendo dados atuais');
+                    console.log('✅ Sem mudanças em ModuleStatus, mantendo dados atuais');
                 }
                 
                 // Atualizar recentItems apenas se necess├írio
@@ -2635,14 +2646,14 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                 
                 const recentItemsChanged = JSON.stringify(newRecentItems) !== JSON.stringify(recentItems);
                 if (recentItemsChanged) {
-                    console.log('­ƒöä Mudan├ºas detectadas em RecentItems, atualizando...');
+                    console.log('✅ Mudanças detectadas em RecentItems, atualizando...');
                     setRecentItems(newRecentItems);
                 } else {
-                    console.log('Ô£à Sem mudan├ºas em RecentItems, mantendo dados atuais');
+                    console.log('✅ Sem mudanças em RecentItems, mantendo dados atuais');
                 }
                 
             } catch (error) {
-                console.error('ÔØî Erro no refresh inteligente:', error);
+                            console.error('❌ Erro no refresh inteligente:', error);
             }
         };
         
@@ -3151,11 +3162,11 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                                         }}
                                                         onClick={() => setExpandedImage(imageUrl)}
                                                         onError={(e) => {
-                                                            console.error('ÔØî Erro ao carregar imagem:', imageUrl, e);
-                                                            e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="280" height="120"%3E%3Crect width="280" height="120" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-family="Arial" font-size="12"%3EImagem n├úo encontrada%3C/text%3E%3C/svg%3E';
+                                                            console.error('❌ Erro ao carregar imagem:', imageUrl, e);
+                                                            e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="280" height="120"%3E%3Crect width="280" height="120" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-family="Arial" font-size="12"%3EImagem não encontrada%3C/text%3E%3C/svg%3E';
                                                         }}
                                                         onLoad={() => {
-                                                            console.log('Ô£à Imagem carregada com sucesso:', imageUrl);
+                                                            console.log('✅ Imagem carregada com sucesso:', imageUrl);
                                                         }}
                                                     />
                                                 </div>
@@ -3524,7 +3535,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                             {/* Renderizar v├¡deos do YouTube */}
                             {(() => {
                                 const videos = selectedArticle?.media?.videos || selectedArticle?.videos || [];
-                                console.log('­ƒöì Modal Artigo - v├¡deos encontrados:', videos);
+                                console.log('📹 Modal Artigo - vídeos encontrados:', videos);
                                 
                                 // Processar v├¡deos (podem ser strings ou objetos)
                                 const youtubeVideos = videos
@@ -3548,7 +3559,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                     })
                                     .filter(v => v !== null && v.embed);
                                 
-                                console.log('­ƒöì Modal Artigo - v├¡deos processados:', youtubeVideos);
+                                console.log('📹 Modal Artigo - vídeos processados:', youtubeVideos);
                                 
                                 return youtubeVideos.length > 0 ? (
                                     <div className="mb-4 space-y-3">
@@ -4688,7 +4699,7 @@ const ArtigosPage = () => {
                 }
             } catch (error) {
                 console.error('Erro ao carregar artigos da API:', error);
-                console.log('­ƒôï Usando dados mock como fallback...');
+                console.log('🔄 Usando dados mock como fallback...');
                 
                 // Em caso de erro, usar arrays vazios
                 console.warn('ÔÜá´©Å Usando arrays vazios como fallback');
@@ -5055,7 +5066,7 @@ const ArtigosPage = () => {
                             {/* Renderizar v├¡deos do YouTube */}
                             {(() => {
                                 const videos = selectedArticle?.media?.videos || selectedArticle?.videos || [];
-                                console.log('­ƒöì Modal Artigo (ArtigosPage) - v├¡deos encontrados:', videos);
+                                console.log('📹 Modal Artigo (ArtigosPage) - vídeos encontrados:', videos);
                                 
                                 // Processar v├¡deos (podem ser strings ou objetos)
                                 const youtubeVideos = videos
@@ -5079,7 +5090,7 @@ const ArtigosPage = () => {
                                     })
                                     .filter(v => v !== null && v.embed);
                                 
-                                console.log('­ƒöì Modal Artigo (ArtigosPage) - v├¡deos processados:', youtubeVideos);
+                                console.log('📹 Modal Artigo (ArtigosPage) - vídeos processados:', youtubeVideos);
                                 
                                 return youtubeVideos.length > 0 ? (
                                     <div className="mb-6 space-y-3">
@@ -5226,7 +5237,7 @@ const ProcessosPage = () => {
                 }
             } catch (error) {
                 console.error('Erro ao carregar Top 10 FAQ do backend:', error);
-                console.log('­ƒôï Usando fallback para FAQ padr├úo...');
+                console.log('🔄 Usando fallback para FAQ padrão...');
                 
                 // Fallback para FAQ padr├úo se Apps Script falhar
                 try {

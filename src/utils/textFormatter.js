@@ -1,5 +1,8 @@
 // Text Formatter Utility - Sistema de formatação de texto para o frontend
-// VERSION: v1.0.2 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+// VERSION: v1.0.3 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+// 
+// Mudanças v1.0.3:
+// - Corrigido parsing de hífens escapados no velonews: formatBulletLists agora remove escapes (\- ou \\-) antes de processar listas
 // 
 // Mudanças v1.0.2:
 // - Adicionada conversão de quebras de linha (\n) para HTML (<br>)
@@ -91,10 +94,14 @@ const formatNumberedLists = (text) => {
 /**
  * Formata listas com bullets
  * @private
+ * VERSION: v1.0.3 - Adicionado tratamento para hífens escapados (\- ou \\-)
  */
 const formatBulletLists = (text) => {
+  // Primeiro, remover escapes de hífens (\- ou \\-)
+  let cleanedText = text.replace(/\\-/g, '-').replace(/\\\\-/g, '-');
+  
   // Padrão: "- Item" ou "* Item"
-  return text.replace(/^[\s]*[-*]\s*([^\n]+)/gm, (match, content) => {
+  return cleanedText.replace(/^[\s]*[-*]\s*([^\n]+)/gm, (match, content) => {
     return `• ${content.trim()}`;
   });
 };

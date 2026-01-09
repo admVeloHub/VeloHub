@@ -1,6 +1,24 @@
 /**
  * VeloChatWidget - Componente Principal do Chat
- * VERSION: v3.38.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.41.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v3.41.0:
+ * - Corrigida exibição de botão de excluir anexo - agora oculta quando anexo já foi excluído (!msg.anexoExcluido)
+ * - Melhorado tratamento de erro ao excluir anexo - erro "Anexo já foi excluído" agora atualiza UI silenciosamente sem mostrar mensagem de erro
+ * - Botão de excluir anexo agora verifica estado anexoExcluido antes de ser exibido em todos os tipos de mídia (imagem, vídeo, arquivo)
+ * 
+ * Mudanças v3.40.0:
+ * - Adicionada sincronização em tempo real de mensagens editadas via WebSocket
+ * - Handler handleMessageEdited implementado para atualizar mensagens editadas imediatamente para todos os destinatários
+ * - Mensagens editadas são atualizadas automaticamente sem necessidade de recarregar ou reentrar no diálogo
+ * - Suporta edição de mensagens tanto em conversas P2P quanto em salas
+ * 
+ * Mudanças v3.39.0:
+ * - Adicionada função handleDeleteAttachment para exclusão soft delete de anexos
+ * - Botões de excluir anexo adicionados em mensagens com mediaUrl (imagem, vídeo, arquivo)
+ * - Função handleCloseConversation atualizada para suportar exclusão de salas além de P2P
+ * - Botão de excluir conversa agora disponível também para salas na view de salas
+ * - Anexos excluídos são ocultados mas mantêm dados para arquivamento
  * 
  * Mudanças v3.38.0:
  * - Botão "Nova Sala": cores alteradas para azul médio (#1634FF) - borda e texto
@@ -771,6 +789,58 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
     }
   }, []);
 
+  // Handler para mensagens editadas via WebSocket (sincronização em tempo real)
+  const handleMessageEdited = useCallback((data) => {
+    const currentConversationId = selectedConversation?.conversationId || selectedConversation?.Id;
+    const messageConversationId = data.conversationId || data.salaId;
+    
+    // Normalizar IDs para comparação
+    const normalizedCurrent = String(currentConversationId || '').trim();
+    const normalizedMessage = String(messageConversationId || '').trim();
+    
+    // Só atualizar se for a conversa atual
+    if (normalizedMessage === normalizedCurrent) {
+      setMessages(prevMessages => 
+        prevMessages.map(msg => {
+          // Normalizar timestamps para comparação (suporta Date, número, ISO string)
+          const msgTimestamp = msg.timestamp instanceof Date 
+            ? msg.timestamp.getTime() 
+            : typeof msg.timestamp === 'number' 
+              ? msg.timestamp 
+              : new Date(msg.timestamp).getTime();
+          
+          const editTimestamp = data.timestamp instanceof Date 
+            ? data.timestamp.getTime() 
+            : typeof data.timestamp === 'number' 
+              ? data.timestamp 
+              : new Date(data.timestamp).getTime();
+          
+          // Comparar userName e timestamp (com tolerância de 1 segundo)
+          const userNameMatch = (msg.userName || msg.senderName || msg.autorNome) === data.userName;
+          const timestampMatch = Math.abs(msgTimestamp - editTimestamp) < 1000;
+          
+          if (userNameMatch && timestampMatch) {
+            // Atualizar mensagem com dados editados
+            return {
+              ...msg,
+              mensagem: data.message.mensagem,
+              mensagemOriginal: data.message.mensagemOriginal
+            };
+          }
+          return msg;
+        })
+      );
+      
+      // Se estava editando esta mensagem, cancelar edição
+      if (editingMessage && 
+          editingMessage.userName === data.userName && 
+          Math.abs((editingMessage.timestamp instanceof Date ? editingMessage.timestamp.getTime() : editingMessage.timestamp) - editTimestamp) < 1000) {
+        setEditingMessage(null);
+        setEditMessageText('');
+      }
+    }
+  }, [selectedConversation, editingMessage]);
+
   // WebSocket connection
   const {
     isConnected,
@@ -784,7 +854,8 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
     handleTyping, 
     handleRead,
     handleContactStatusChange,
-    handleConversationUpdate
+    handleConversationUpdate,
+    handleMessageEdited
   );
 
   /**
@@ -1771,6 +1842,66 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
   };
 
   /**
+   * Excluir anexo de mensagem
+   */
+  const handleDeleteAttachment = async (msg) => {
+    if (!window.confirm('Tem certeza que deseja excluir este anexo?')) {
+      return;
+    }
+
+    // Extrair dados da mensagem antes do try para usar no catch
+    const conversationId = selectedConversation?.conversationId || selectedConversation?.Id;
+    const userName = msg.userName || msg.senderName || msg.autorNome;
+    const timestamp = msg.timestamp || msg.createdAt;
+    const isP2P = selectedConversation?.type === 'p2p' || selectedConversation?.type === 'direct' || selectedConversation?.type === 'privada';
+
+    try {
+      let updatedMessage;
+      if (isP2P) {
+        updatedMessage = await velochatApi.deleteP2PAttachment(conversationId, userName, timestamp);
+      } else {
+        // Sala
+        updatedMessage = await velochatApi.deleteSalaAttachment(conversationId, userName, timestamp);
+      }
+
+      // Atualizar mensagem na lista local usando resposta do backend
+      setMessages(prevMessages => 
+        prevMessages.map(message => {
+          const msgTimestamp = message.timestamp instanceof Date ? message.timestamp.getTime() : message.timestamp;
+          const deleteTimestamp = timestamp instanceof Date ? timestamp.getTime() : timestamp;
+          if ((message.userName || message.senderName || message.autorNome) === userName && msgTimestamp === deleteTimestamp) {
+            // Usar dados atualizados do backend (mediaUrl: null, anexoExcluido: true)
+            return { 
+              ...message, 
+              anexoExcluido: updatedMessage.anexoExcluido || true,
+              mediaUrl: updatedMessage.mediaUrl || null,
+              mediaUrlOriginal: updatedMessage.mediaUrlOriginal || message.mediaUrl
+            };
+          }
+          return message;
+        })
+      );
+    } catch (error) {
+      console.error('❌ Erro ao excluir anexo:', error);
+      // Se o anexo já foi excluído, apenas atualizar a UI silenciosamente
+      if (error.message && error.message.includes('já foi excluído')) {
+        setMessages(prevMessages => 
+          prevMessages.map(message => {
+            const msgTimestamp = message.timestamp instanceof Date ? message.timestamp.getTime() : message.timestamp;
+            const deleteTimestamp = timestamp instanceof Date ? timestamp.getTime() : timestamp;
+            if ((message.userName || message.senderName || message.autorNome) === userName && msgTimestamp === deleteTimestamp) {
+              return { ...message, anexoExcluido: true, mediaUrl: null };
+            }
+            return message;
+          })
+        );
+        return; // Não mostrar erro para o usuário
+      }
+      setError(error.message || 'Erro ao excluir anexo');
+    }
+  };
+
+  /**
    * Gerar preview de arquivo (thumbnail)
    */
   const generateFilePreview = async (file, mediaType) => {
@@ -2079,10 +2210,11 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
   };
 
   /**
-   * Encerrar/remover conversa P2P da lista
-   * Adiciona colaboradorNome ao array encerradaPor sem deletar a conversa
+   * Encerrar/remover conversa da lista (P2P ou Sala)
+   * Soft delete mantendo item no MongoDB mas removendo da lista do usuário
+   * VERSION: v3.39.0 - Adicionado suporte para salas
    */
-  const handleCloseConversation = async (conversationId, e) => {
+  const handleCloseConversation = async (conversationId, e, conversationType = null) => {
     e.stopPropagation(); // Evitar que clique abra a conversa
     
     if (!window.confirm('Deseja remover esta conversa da sua lista?')) {
@@ -2093,7 +2225,16 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
       setLoading(true);
       setError(null);
       
-      await velochatApi.closeP2PConversation(conversationId);
+      // Determinar tipo de conversa
+      const isP2P = conversationType === 'p2p' || conversationType === 'direct' || conversationType === 'privada' || 
+                    (selectedConversation && (selectedConversation.type === 'p2p' || selectedConversation.type === 'direct' || selectedConversation.type === 'privada'));
+      
+      if (isP2P) {
+        await velochatApi.deleteP2PConversation(conversationId);
+      } else {
+        // Sala
+        await velochatApi.deleteSalaConversation(conversationId);
+      }
       
       // Remover conversa do estado local
       setConversations(prev => prev.filter(conv => 
@@ -2331,7 +2472,6 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                       position: 'relative'
                     }}
                     onMouseMove={(e) => {
-                      if (!isP2P) return;
                       const rect = e.currentTarget.getBoundingClientRect();
                       const mouseX = e.clientX - rect.left;
                       const cardWidth = rect.width;
@@ -2345,7 +2485,6 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                       }
                     }}
                     onMouseLeave={(e) => {
-                      if (!isP2P) return;
                       const deleteZone = e.currentTarget.querySelector('.delete-zone');
                       if (deleteZone) {
                         const button = deleteZone.querySelector('button');
@@ -2483,42 +2622,40 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                         style={{ zIndex: 10 }}
                       />
                     )}
-                    {/* Botão de remover conversa com expansão vermelha (apenas para P2P) */}
-                    {isP2P && (
-                      <div className="delete-zone absolute top-0 right-0 h-full" style={{ zIndex: 20 }}>
-                        <button
-                          onClick={(e) => handleCloseConversation(conversationId, e)}
-                          className="h-full flex items-center justify-center cursor-pointer absolute top-0 right-0"
-                          style={{
-                            backgroundColor: '#ef4444',
-                            color: '#ffffff',
-                            fontSize: '24px',
-                            fontWeight: 'bold',
-                            borderTopRightRadius: '8px',
-                            borderBottomRightRadius: '8px',
-                            transition: 'width 0.3s ease-out, background-color 0.2s',
-                            width: '0',
-                            overflow: 'hidden',
-                            minWidth: '0',
-                            whiteSpace: 'nowrap',
-                            lineHeight: '1',
-                            letterSpacing: '-2px',
-                            transform: 'scaleY(1.3)'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = '#dc2626';
-                            e.currentTarget.style.width = '60px';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = '#ef4444';
-                            e.currentTarget.style.width = '0';
-                          }}
-                          title="Remover conversa"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    )}
+                    {/* Botão de remover conversa com expansão vermelha (P2P e Salas) */}
+                    <div className="delete-zone absolute top-0 right-0 h-full" style={{ zIndex: 20 }}>
+                      <button
+                        onClick={(e) => handleCloseConversation(conversationId, e, conv.type)}
+                        className="h-full flex items-center justify-center cursor-pointer absolute top-0 right-0"
+                        style={{
+                          backgroundColor: '#ef4444',
+                          color: '#ffffff',
+                          fontSize: '24px',
+                          fontWeight: 'bold',
+                          borderTopRightRadius: '8px',
+                          borderBottomRightRadius: '8px',
+                          transition: 'width 0.3s ease-out, background-color 0.2s',
+                          width: '0',
+                          overflow: 'hidden',
+                          minWidth: '0',
+                          whiteSpace: 'nowrap',
+                          lineHeight: '1',
+                          letterSpacing: '-2px',
+                          transform: 'scaleY(1.3)'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#dc2626';
+                          e.currentTarget.style.width = '60px';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#ef4444';
+                          e.currentTarget.style.width = '0';
+                        }}
+                        title="Remover conversa"
+                      >
+                        ×
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -2713,11 +2850,35 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                   <div
                     key={salaId}
                     onClick={() => handleSelectConversation(sala)}
-                    className="p-3 rounded-lg mb-2 flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity relative"
+                    className="p-3 rounded-lg mb-2 flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity relative group"
                     style={{
                       border: '1px solid var(--blue-opaque)',
                       backgroundColor: salaBackground,
-                      borderRadius: '8px'
+                      borderRadius: '8px',
+                      overflow: 'hidden',
+                      position: 'relative'
+                    }}
+                    onMouseMove={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const mouseX = e.clientX - rect.left;
+                      const cardWidth = rect.width;
+                      // Se mouse está nos últimos 60px da margem direita, expandir zona vermelha
+                      const deleteZone = e.currentTarget.querySelector('.delete-zone');
+                      if (deleteZone && mouseX > cardWidth - 60) {
+                        const button = deleteZone.querySelector('button');
+                        if (button) {
+                          button.style.width = '60px';
+                        }
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      const deleteZone = e.currentTarget.querySelector('.delete-zone');
+                      if (deleteZone) {
+                        const button = deleteZone.querySelector('button');
+                        if (button) {
+                          button.style.width = '0';
+                        }
+                      }
                     }}
                   >
                     <div style={{ flex: 1 }}>
@@ -2814,6 +2975,40 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                         style={{ zIndex: 10 }}
                       />
                     )}
+                    {/* Botão de remover sala com expansão vermelha */}
+                    <div className="delete-zone absolute top-0 right-0 h-full" style={{ zIndex: 20 }}>
+                      <button
+                        onClick={(e) => handleCloseConversation(salaId, e, 'sala')}
+                        className="h-full flex items-center justify-center cursor-pointer absolute top-0 right-0"
+                        style={{
+                          backgroundColor: '#ef4444',
+                          color: '#ffffff',
+                          fontSize: '24px',
+                          fontWeight: 'bold',
+                          borderTopRightRadius: '8px',
+                          borderBottomRightRadius: '8px',
+                          transition: 'width 0.3s ease-out, background-color 0.2s',
+                          width: '0',
+                          overflow: 'hidden',
+                          minWidth: '0',
+                          whiteSpace: 'nowrap',
+                          lineHeight: '1',
+                          letterSpacing: '-2px',
+                          transform: 'scaleY(1.3)'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#dc2626';
+                          e.currentTarget.style.width = '60px';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#ef4444';
+                          e.currentTarget.style.width = '0';
+                        }}
+                        title="Remover sala"
+                      >
+                        ×
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -4172,7 +4367,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                       )
                     )}
                     {/* Renderizar thumbnail de anexo se disponível */}
-                    {msg.mediaUrl && (() => {
+                    {msg.mediaUrl && !msg.anexoExcluido && (() => {
                       // Extrair nome do arquivo da URL se não estiver disponível
                       const getFileName = () => {
                         if (msg.name) return msg.name;
@@ -4239,31 +4434,45 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                                   }
                                 }}
                               />
-                              <button
-                                className="absolute bottom-0 right-0 p-1 bg-black bg-opacity-50 hover:bg-opacity-70 transition-opacity cursor-pointer rounded-tl-lg z-10"
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  try {
-                                    const response = await fetch(msg.mediaUrl);
-                                    if (!response.ok) throw new Error(`Erro: ${response.status}`);
-                                    const blob = await response.blob();
-                                    const blobUrl = URL.createObjectURL(blob);
-                                    const link = document.createElement('a');
-                                    link.href = blobUrl;
-                                    link.download = fileName || 'imagem.jpg';
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    document.body.removeChild(link);
-                                    setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-                                  } catch (error) {
-                                    console.error('Erro ao baixar imagem:', error);
-                                    setError(`Erro ao baixar imagem: ${error.message}`);
-                                  }
-                                }}
-                                title="Baixar imagem"
-                              >
-                                <Download style={{ fontSize: '16px', color: 'white' }} />
-                              </button>
+                              <div className="absolute bottom-0 right-0 flex gap-1 z-10">
+                                {isCurrentUser && !msg.anexoExcluido && (
+                                  <button
+                                    className="p-1 bg-red-600 bg-opacity-80 hover:bg-opacity-100 transition-opacity cursor-pointer rounded-tl-lg"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      handleDeleteAttachment(msg);
+                                    }}
+                                    title="Excluir anexo"
+                                  >
+                                    <Delete style={{ fontSize: '16px', color: 'white' }} />
+                                  </button>
+                                )}
+                                <button
+                                  className="p-1 bg-black bg-opacity-50 hover:bg-opacity-70 transition-opacity cursor-pointer rounded-tl-lg"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      const response = await fetch(msg.mediaUrl);
+                                      if (!response.ok) throw new Error(`Erro: ${response.status}`);
+                                      const blob = await response.blob();
+                                      const blobUrl = URL.createObjectURL(blob);
+                                      const link = document.createElement('a');
+                                      link.href = blobUrl;
+                                      link.download = fileName || 'imagem.jpg';
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      document.body.removeChild(link);
+                                      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+                                    } catch (error) {
+                                      console.error('Erro ao baixar imagem:', error);
+                                      setError(`Erro ao baixar imagem: ${error.message}`);
+                                    }
+                                  }}
+                                  title="Baixar imagem"
+                                >
+                                  <Download style={{ fontSize: '16px', color: 'white' }} />
+                                </button>
+                              </div>
                             </div>
                           )}
                           {msg.mediaType === 'video' && (
@@ -4288,31 +4497,45 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                               >
                                 <Videocam style={{ fontSize: '48px', color: 'white' }} />
                               </div>
-                              <button
-                                className="absolute bottom-0 right-0 p-1 bg-black bg-opacity-50 hover:bg-opacity-70 transition-opacity cursor-pointer rounded-tl-lg"
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  try {
-                                    const response = await fetch(msg.mediaUrl);
-                                    if (!response.ok) throw new Error(`Erro: ${response.status}`);
-                                    const blob = await response.blob();
-                                    const blobUrl = URL.createObjectURL(blob);
-                                    const link = document.createElement('a');
-                                    link.href = blobUrl;
-                                    link.download = fileName || 'video.mp4';
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    document.body.removeChild(link);
-                                    setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-                                  } catch (error) {
-                                    console.error('Erro ao baixar vídeo:', error);
-                                    setError(`Erro ao baixar vídeo: ${error.message}`);
-                                  }
-                                }}
-                                title="Baixar vídeo"
-                              >
-                                <Download style={{ fontSize: '16px', color: 'white' }} />
-                              </button>
+                              <div className="absolute bottom-0 right-0 flex gap-1 z-10">
+                                {isCurrentUser && !msg.anexoExcluido && (
+                                  <button
+                                    className="p-1 bg-red-600 bg-opacity-80 hover:bg-opacity-100 transition-opacity cursor-pointer rounded-tl-lg"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      handleDeleteAttachment(msg);
+                                    }}
+                                    title="Excluir anexo"
+                                  >
+                                    <Delete style={{ fontSize: '16px', color: 'white' }} />
+                                  </button>
+                                )}
+                                <button
+                                  className="p-1 bg-black bg-opacity-50 hover:bg-opacity-70 transition-opacity cursor-pointer rounded-tl-lg"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      const response = await fetch(msg.mediaUrl);
+                                      if (!response.ok) throw new Error(`Erro: ${response.status}`);
+                                      const blob = await response.blob();
+                                      const blobUrl = URL.createObjectURL(blob);
+                                      const link = document.createElement('a');
+                                      link.href = blobUrl;
+                                      link.download = fileName || 'video.mp4';
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      document.body.removeChild(link);
+                                      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+                                    } catch (error) {
+                                      console.error('Erro ao baixar vídeo:', error);
+                                      setError(`Erro ao baixar vídeo: ${error.message}`);
+                                    }
+                                  }}
+                                  title="Baixar vídeo"
+                                >
+                                  <Download style={{ fontSize: '16px', color: 'white' }} />
+                                </button>
+                              </div>
                             </div>
                           )}
                           {(msg.mediaType === 'file' || !msg.mediaType) && (
@@ -4342,31 +4565,45 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                                   </div>
                                 </div>
                               </div>
-                              <button
-                                className="hover:opacity-70 transition-opacity cursor-pointer"
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  try {
-                                    const response = await fetch(msg.mediaUrl);
-                                    if (!response.ok) throw new Error(`Erro: ${response.status}`);
-                                    const blob = await response.blob();
-                                    const blobUrl = URL.createObjectURL(blob);
-                                    const link = document.createElement('a');
-                                    link.href = blobUrl;
-                                    link.download = fileName || 'arquivo';
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    document.body.removeChild(link);
-                                    setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-                                  } catch (error) {
-                                    console.error('Erro ao baixar arquivo:', error);
-                                    setError(`Erro ao baixar arquivo: ${error.message}`);
-                                  }
-                                }}
-                                title="Baixar arquivo"
-                              >
-                                <Download style={{ fontSize: '18px', color: 'var(--blue-dark)' }} />
-                              </button>
+                              <div className="flex items-center gap-1">
+                                {isCurrentUser && !msg.anexoExcluido && (
+                                  <button
+                                    className="hover:opacity-70 transition-opacity cursor-pointer"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      handleDeleteAttachment(msg);
+                                    }}
+                                    title="Excluir anexo"
+                                  >
+                                    <Delete style={{ fontSize: '18px', color: '#DC2626' }} />
+                                  </button>
+                                )}
+                                <button
+                                  className="hover:opacity-70 transition-opacity cursor-pointer"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      const response = await fetch(msg.mediaUrl);
+                                      if (!response.ok) throw new Error(`Erro: ${response.status}`);
+                                      const blob = await response.blob();
+                                      const blobUrl = URL.createObjectURL(blob);
+                                      const link = document.createElement('a');
+                                      link.href = blobUrl;
+                                      link.download = fileName || 'arquivo';
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      document.body.removeChild(link);
+                                      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+                                    } catch (error) {
+                                      console.error('Erro ao baixar arquivo:', error);
+                                      setError(`Erro ao baixar arquivo: ${error.message}`);
+                                    }
+                                  }}
+                                  title="Baixar arquivo"
+                                >
+                                  <Download style={{ fontSize: '18px', color: 'var(--blue-dark)' }} />
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>

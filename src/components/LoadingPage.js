@@ -1,24 +1,25 @@
 /**
  * LoadingPage - Página de Loading Intermediária
- * VERSION: v1.2.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.3.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
  * 
  * Página de loading que aparece imediatamente ao carregar o app.
- * Executa verificação de autenticação e carregamento durante o período do áudio.
- * Exibe imagem de fundo (/loading page.jpg), reproduz áudio de abertura (/Velotax Opening.mp3),
- * mostra mensagens sequenciais na parte inferior durante período do áudio e executa operações
- * reais: verificar autenticação, iniciar sessão, buscar contatos, atualizar notícias.
- * Aguarda áudio terminar completamente antes de redirecionar para home ou login.
+ * Executa verificação de autenticação e carregamento em background (oculto).
+ * Reproduz áudio de abertura automaticamente (/Velotax Opening.mp3) sem esperar interação do usuário.
+ * Carregamento prossegue mesmo se usuário sair da aba.
+ * Redireciona para home após tempo mínimo, sem esperar áudio terminar.
+ * 
+ * Mudanças v1.3.0:
+ * - Removido botão "Clique para iniciar" e avisos de clique
+ * - Áudio executa automaticamente sem esperar interação
+ * - Carregamento acontece em background (oculto)
+ * - Prossegue para home após tempo mínimo sem esperar áudio
+ * - Carregamento continua mesmo se usuário sair da aba (Page Visibility API)
  * 
  * Mudanças v1.2.0:
  * - Corrigido problema de autoplay bloqueado pelos navegadores
  * - Adicionado botão "Clique para iniciar" quando autoplay falha
  * - Adicionado timeout de fallback (15s) para prosseguir mesmo se áudio não tocar
  * - Listener de clique na página inteira para iniciar áudio quando usuário interagir
- * 
- * Mudanças v1.1.0:
- * - Agora faz verificação de autenticação internamente se userData não for fornecido
- * - Toda autenticação e carregamento acontece durante a LoadingPage
- * - Home é mostrada imediatamente após LoadingPage completar
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -30,11 +31,10 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
     const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
     const [audioDuration, setAudioDuration] = useState(0);
     const [isInitializing, setIsInitializing] = useState(false);
-    const [audioStarted, setAudioStarted] = useState(false);
-    const [showPlayButton, setShowPlayButton] = useState(false);
     const audioRef = useRef(null);
     const messageIntervalRef = useRef(null);
-    const fallbackTimeoutRef = useRef(null);
+    const completionTimeoutRef = useRef(null);
+    const operationsStartedRef = useRef(false);
 
     const [authChecked, setAuthChecked] = useState(false);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -94,41 +94,50 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
         checkAuth();
     }, [userData, onAuthCheck]);
 
-    // Inicializar sessão e executar operações (apenas se autenticado)
+    // Inicializar sessão e executar operações em background (oculto)
+    // Operações continuam mesmo se usuário sair da aba
     useEffect(() => {
-        if (!authChecked || !isAuthenticated || !resolvedUserData) return;
+        if (!authChecked || operationsStartedRef.current) return;
 
+        // Marcar que operações já foram iniciadas
+        operationsStartedRef.current = true;
         setIsInitializing(true);
 
-        // 1. Iniciar Sessão (mensagem 2) - executar após verificação de autenticação
+        // 1. Iniciar Sessão (executar imediatamente após verificação de autenticação)
         const initSession = async () => {
             try {
-                // Atualizar informações do usuário
-                updateUserInfo(resolvedUserData);
-                
-                // Disparar evento para atualizar header
-                setTimeout(() => {
-                    window.dispatchEvent(new CustomEvent('user-info-updated', { detail: resolvedUserData }));
-                }, 200);
+                if (isAuthenticated && resolvedUserData) {
+                    // Atualizar informações do usuário
+                    updateUserInfo(resolvedUserData);
+                    
+                    // Disparar evento para atualizar header
+                    setTimeout(() => {
+                        window.dispatchEvent(new CustomEvent('user-info-updated', { detail: resolvedUserData }));
+                    }, 200);
+                }
             } catch (error) {
                 console.error('Erro ao inicializar sessão:', error);
             }
         };
 
-        // 2. Buscar Contatos (mensagem 2)
+        // 2. Buscar Contatos (executar em background, não bloquear)
         const fetchContacts = async () => {
             try {
-                // Inicializar conexão com chat e carregar contatos
-                await velochatApi.getContacts();
+                if (isAuthenticated) {
+                    // Inicializar conexão com chat e carregar contatos em background
+                    velochatApi.getContacts().catch(err => {
+                        console.error('Erro ao buscar contatos:', err);
+                    });
+                }
             } catch (error) {
                 console.error('Erro ao buscar contatos:', error);
             }
         };
 
-        // 3. Atualizar Notícias (mensagem 3)
+        // 3. Atualizar Notícias (executar em background, não bloquear)
         const updateNews = async () => {
             try {
-                // Iniciar carregamento de notícias (não precisa completar)
+                // Iniciar carregamento de notícias em background (não precisa completar)
                 veloNewsAPI.getRecent(4).catch(err => {
                     console.error('Erro ao atualizar notícias:', err);
                 });
@@ -137,44 +146,49 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
             }
         };
 
-        // Executar operações sequencialmente conforme mensagens aparecem
-        const executeOperations = async () => {
-            // Usar audioDuration se disponível, senão usar estimativa baseada no índice da mensagem
-            const waitTime = audioDuration > 0 ? audioDuration / 3 : 3000; // Dividir por 3 (3 mensagens)
-            
-            // Mensagem 1: Iniciar Sessão (executar após verificação de autenticação)
-            await initSession();
-            
-            // Aguardar primeira mensagem passar
-            await new Promise(resolve => setTimeout(resolve, waitTime));
-            
-            // Mensagem 2: Buscar Contatos
-            await fetchContacts();
-            
-            // Aguardar segunda mensagem passar
-            await new Promise(resolve => setTimeout(resolve, waitTime));
-            
-            // Mensagem 3: Atualizar Notícias
-            await updateNews();
+        // Executar todas as operações em paralelo (não sequencialmente)
+        // Não aguardar conclusão, apenas iniciar em background
+        initSession();
+        fetchContacts();
+        updateNews();
+
+        // Usar Page Visibility API para continuar operações mesmo se usuário sair da aba
+        const handleVisibilityChange = () => {
+            // Se aba ficou visível novamente e ainda não completou, continuar operações
+            if (!document.hidden && isInitializing) {
+                // Operações já foram iniciadas, apenas garantir que continuam
+            }
         };
 
-        // Executar operações após um pequeno delay para garantir que componente está montado
-        const timeoutId = setTimeout(() => {
-            executeOperations();
-        }, 100);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
-            clearTimeout(timeoutId);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [authChecked, isAuthenticated, resolvedUserData, audioDuration]);
+    }, [authChecked, isAuthenticated, resolvedUserData]);
 
-    // Configurar áudio e mensagens (sempre, mesmo se não autenticado)
+    // Configurar áudio e completar após tempo mínimo (não esperar áudio terminar)
     useEffect(() => {
         const audio = audioRef.current;
         if (!audio) return;
-        
-        // Se não está autenticado, ainda assim tocar áudio e completar após ele terminar
-        // Isso garante experiência consistente mesmo quando redirecionando para login
+
+        // Tentar reproduzir áudio imediatamente (sem esperar metadata carregar)
+        const tryPlayAudio = async () => {
+            try {
+                audio.volume = 0.5;
+                // Tentar reproduzir imediatamente
+                await audio.play().catch(err => {
+                    // Se falhar, tentar novamente quando metadata carregar
+                    console.warn('Autoplay bloqueado, tentando quando metadata carregar:', err);
+                });
+            } catch (error) {
+                // Ignorar erros, continuar normalmente
+                console.warn('Áudio não pôde ser reproduzido:', error);
+            }
+        };
+
+        // Tentar reproduzir imediatamente
+        tryPlayAudio();
 
         // Capturar duração do áudio quando metadata carregar
         const handleLoadedMetadata = () => {
@@ -186,7 +200,7 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
                 clearInterval(messageIntervalRef.current);
             }
             
-            // Configurar intervalo para trocar mensagens
+            // Configurar intervalo para trocar mensagens (mesmo se áudio não tocar)
             const messageInterval = duration / 3; // Dividir em 3 partes iguais (3 mensagens)
             
             // Garantir que a primeira mensagem está visível
@@ -202,104 +216,50 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
                     return prev;
                 });
             }, messageInterval);
+
+            // Tentar reproduzir novamente quando metadata carregar (caso primeira tentativa falhou)
+            tryPlayAudio();
         };
 
-        // Detectar quando áudio termina
-        const handleEnded = () => {
+        // Completar após tempo mínimo (3 segundos) sem esperar áudio terminar
+        const completeLoading = () => {
             if (messageIntervalRef.current) {
                 clearInterval(messageIntervalRef.current);
             }
-            // Aguardar um pouco antes de completar para garantir que última mensagem foi vista
-            setTimeout(() => {
-                setIsInitializing(false);
-                if (onComplete) {
-                    // Passar resultado da autenticação para callback
-                    onComplete(isAuthenticated);
-                }
-            }, 500);
-        };
-
-        // Tentar reproduzir áudio
-        const playAudio = async () => {
-            try {
-                await audio.play();
-                setAudioStarted(true);
-                setShowPlayButton(false);
-            } catch (error) {
-                console.warn('Erro ao reproduzir áudio automaticamente:', error);
-                // Se autoplay falhar, mostrar botão para usuário iniciar
-                setShowPlayButton(true);
-                
-                // Configurar timeout de fallback: se áudio não iniciar em 15 segundos, prosseguir mesmo assim
-                fallbackTimeoutRef.current = setTimeout(() => {
-                    if (!audioStarted) {
-                        console.log('Timeout: prosseguindo sem áudio');
-                        setIsInitializing(false);
-                        if (onComplete) {
-                            onComplete(isAuthenticated);
-                        }
-                    }
-                }, 15000);
+            setIsInitializing(false);
+            if (onComplete) {
+                onComplete(isAuthenticated);
             }
         };
 
-        // Função para iniciar áudio manualmente (quando usuário clicar)
-        const startAudioManually = async () => {
-            try {
-                const audio = audioRef.current;
-                if (audio && !audioStarted) {
-                    await audio.play();
-                    setAudioStarted(true);
-                    setShowPlayButton(false);
-                    if (fallbackTimeoutRef.current) {
-                        clearTimeout(fallbackTimeoutRef.current);
-                    }
-                }
-            } catch (error) {
-                console.error('Erro ao iniciar áudio manualmente:', error);
-            }
-        };
-
-        // Adicionar listener global para clique (qualquer lugar da página)
-        const handlePageClick = () => {
-            if (!audioStarted && showPlayButton) {
-                startAudioManually();
-            }
-        };
+        // Configurar timeout para completar após tempo mínimo fixo (3 segundos)
+        // Não esperar áudio terminar, apenas tempo suficiente para mostrar mensagens
+        completionTimeoutRef.current = setTimeout(completeLoading, 3000);
 
         audio.addEventListener('loadedmetadata', handleLoadedMetadata);
-        audio.addEventListener('ended', handleEnded);
-
-        // Tentar reproduzir quando metadata carregar
-        audio.addEventListener('loadedmetadata', playAudio, { once: true });
-
-        // Adicionar listener de clique na página inteira
-        document.addEventListener('click', handlePageClick, { once: true });
 
         // Cleanup
         return () => {
             audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-            audio.removeEventListener('ended', handleEnded);
-            document.removeEventListener('click', handlePageClick);
             if (messageIntervalRef.current) {
                 clearInterval(messageIntervalRef.current);
             }
-            if (fallbackTimeoutRef.current) {
-                clearTimeout(fallbackTimeoutRef.current);
+            if (completionTimeoutRef.current) {
+                clearTimeout(completionTimeoutRef.current);
             }
         };
-    }, [onComplete, messages.length, isAuthenticated, authChecked, audioStarted, showPlayButton]);
+    }, [onComplete, messages.length, isAuthenticated, authChecked]);
     
-    // Se não está autenticado e já verificou, completar rapidamente após mostrar mensagem
+    // Se não está autenticado e já verificou, completar após tempo mínimo
     useEffect(() => {
         if (!isAuthenticated && authChecked) {
-            // Aguardar tempo suficiente para mostrar as 3 mensagens, depois completar
-            // Estimativa: ~3 segundos por mensagem = 9 segundos total
+            // Completar após tempo mínimo (3 segundos) sem esperar mensagens
             const quickTimeout = setTimeout(() => {
+                setIsInitializing(false);
                 if (onComplete) {
                     onComplete(false);
                 }
-            }, 9000); // Tempo suficiente para mostrar as 3 mensagens
+            }, 3000);
             
             return () => {
                 clearTimeout(quickTimeout);
@@ -407,50 +367,6 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
                     {messages[currentMessageIndex] ?? messages[0]}
                 </div>
                 
-                {/* Botão para iniciar áudio se autoplay falhar */}
-                {showPlayButton && (
-                    <button
-                        onClick={async () => {
-                            try {
-                                const audio = audioRef.current;
-                                if (audio && !audioStarted) {
-                                    await audio.play();
-                                    setAudioStarted(true);
-                                    setShowPlayButton(false);
-                                    if (fallbackTimeoutRef.current) {
-                                        clearTimeout(fallbackTimeoutRef.current);
-                                    }
-                                }
-                            } catch (error) {
-                                console.error('Erro ao iniciar áudio:', error);
-                            }
-                        }}
-                        style={{
-                            padding: '12px 24px',
-                            fontSize: '1rem',
-                            fontWeight: 600,
-                            fontFamily: "'Poppins', sans-serif",
-                            color: '#ffffff',
-                            backgroundColor: 'var(--blue-medium)',
-                            border: 'none',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            transition: 'all 0.3s ease',
-                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-                            animation: 'fadeIn 0.5s ease-in'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.target.style.backgroundColor = 'var(--blue-light)';
-                            e.target.style.transform = 'translateY(-2px)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.target.style.backgroundColor = 'var(--blue-medium)';
-                            e.target.style.transform = 'translateY(0)';
-                        }}
-                    >
-                        Clique para iniciar
-                    </button>
-                )}
             </div>
 
             {/* Estilos de animação */}

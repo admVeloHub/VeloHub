@@ -1,6 +1,10 @@
 /**
  * Hook useWebSocket - VeloChat Frontend
- * VERSION: v3.2.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.3.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v3.3.0:
+ * - Adicionado suporte a eventos de edição de mensagens (p2p_message_edited e sala_message_edited)
+ * - Adicionado callback onMessageEdited para sincronização em tempo real de mensagens editadas
  * 
  * Mudanças v3.2.0:
  * - Adicionado suporte a mediaUrl e mediaType em p2p_message_received e sala_message_received
@@ -34,7 +38,7 @@ const VELOCHAT_WS_URL = getVeloChatWsUrl();
 /**
  * Hook para gerenciar conexão WebSocket
  */
-export const useWebSocket = (onMessage, onTyping, onRead, onContactStatusChange, onConversationUpdate) => {
+export const useWebSocket = (onMessage, onTyping, onRead, onContactStatusChange, onConversationUpdate, onMessageEdited) => {
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef(null);
   const isConnectingRef = useRef(false);
@@ -43,7 +47,8 @@ export const useWebSocket = (onMessage, onTyping, onRead, onContactStatusChange,
     onTyping, 
     onRead, 
     onContactStatusChange, 
-    onConversationUpdate 
+    onConversationUpdate,
+    onMessageEdited
   });
 
   // Atualizar callbacks sem recriar conexão
@@ -53,9 +58,10 @@ export const useWebSocket = (onMessage, onTyping, onRead, onContactStatusChange,
       onTyping, 
       onRead, 
       onContactStatusChange, 
-      onConversationUpdate 
+      onConversationUpdate,
+      onMessageEdited
     };
-  }, [onMessage, onTyping, onRead, onContactStatusChange, onConversationUpdate]);
+  }, [onMessage, onTyping, onRead, onContactStatusChange, onConversationUpdate, onMessageEdited]);
 
   useEffect(() => {
     // Evitar múltiplas conexões simultâneas
@@ -164,6 +170,33 @@ export const useWebSocket = (onMessage, onTyping, onRead, onContactStatusChange,
           mediaUrl: data.message.mediaUrl || null,        // NOVO: URL da mídia
           mediaType: data.message.mediaType || null,      // NOVO: Tipo da mídia
           attachments: data.message.attachments || [],     // Manter compatibilidade
+          type: 'sala'
+        });
+      }
+    });
+
+    // Event: p2p_message_edited - Mensagem P2P foi editada
+    socket.on('p2p_message_edited', (data) => {
+      if (callbacksRef.current.onMessageEdited) {
+        callbacksRef.current.onMessageEdited({
+          conversationId: data.conversationId,
+          userName: data.userName,
+          timestamp: data.timestamp,
+          message: data.message,
+          type: 'p2p'
+        });
+      }
+    });
+
+    // Event: sala_message_edited - Mensagem de sala foi editada
+    socket.on('sala_message_edited', (data) => {
+      if (callbacksRef.current.onMessageEdited) {
+        callbacksRef.current.onMessageEdited({
+          conversationId: data.salaId,
+          salaId: data.salaId,
+          userName: data.userName,
+          timestamp: data.timestamp,
+          message: data.message,
           type: 'sala'
         });
       }
