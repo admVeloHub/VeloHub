@@ -788,19 +788,43 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
       
       // Atualizar última mensagem e reordenar conversas
       setConversations(prev => {
-        const updated = prev.map(conv => {
+        // Verificar se conversa existe na lista
+        const existingConv = prev.find(conv => {
           const convId = conv.conversationId || conv.Id || conv.salaId;
-          const isTargetConversation = convId === messageConversationId;
-          
-          if (isTargetConversation) {
-            return {
-              ...conv,
-              lastMessage: data.lastMessage,
-              lastMessageAt: data.timestamp
-            };
-          }
-          return conv;
+          return convId === messageConversationId;
         });
+        
+        let updated;
+        if (!existingConv) {
+          // Conversa não existe na lista - adicionar (pode ser conversa recém-criada)
+          // Criar objeto básico da conversa se não existir
+          // Isso garante que conversas recém-criadas apareçam na lista quando recebem primeira mensagem
+          const newConversation = {
+            conversationId: messageConversationId,
+            Id: messageConversationId,
+            type: data.type === 'sala' ? 'sala' : 'p2p',
+            lastMessage: data.lastMessage,
+            lastMessageAt: data.timestamp,
+            createdAt: data.timestamp,
+            updatedAt: data.timestamp
+          };
+          updated = [newConversation, ...prev];
+        } else {
+          // Conversa existe - atualizar
+          updated = prev.map(conv => {
+            const convId = conv.conversationId || conv.Id || conv.salaId;
+            const isTargetConversation = convId === messageConversationId;
+            
+            if (isTargetConversation) {
+              return {
+                ...conv,
+                lastMessage: data.lastMessage,
+                lastMessageAt: data.timestamp
+              };
+            }
+            return conv;
+          });
+        }
         
         // Reordenar por última mensagem (mais recente primeiro)
         const sorted = updated.sort((a, b) => {
@@ -938,13 +962,31 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
 
   /**
    * Carregar conversas do usuário
+   * CRÍTICO: Faz merge com conversas locais para preservar conversas recém-criadas
    */
   const loadConversations = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const data = await velochatApi.getConversations();
-      setConversations(data.conversations || []);
+      const backendConversations = data.conversations || [];
+      
+      // Fazer merge: preservar conversas locais que não estão no backend ainda
+      // Isso garante que conversas recém-criadas não desapareçam antes de serem retornadas pelo backend
+      setConversations(prev => {
+        const backendIds = new Set(backendConversations.map(c => c.conversationId || c.Id));
+        
+        // Manter conversas locais que não estão no backend (recém-criadas)
+        const localOnly = prev.filter(conv => {
+          const convId = conv.conversationId || conv.Id;
+          return !backendIds.has(convId);
+        });
+        
+        // Combinar: backend primeiro (fonte de verdade), depois locais não presentes no backend
+        const merged = [...backendConversations, ...localOnly];
+        
+        return merged;
+      });
     } catch (err) {
       console.error('Erro ao carregar conversas:', err);
       setError(err.message);
@@ -2125,13 +2167,38 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
           updatedAt: conversation.updatedAt
         };
         
-        // Substituir conversa temporária na lista
+        // Substituir conversa temporária na lista ou adicionar se não existir
         setConversations(prev => {
-          const filtered = prev.filter(conv => 
-            !(conv.isTemporary && conv.p2p?.colaboradorNome1 === currentUserName && 
-              conv.p2p?.colaboradorNome2 === contactName)
-          );
-          return [formattedConversation, ...filtered];
+          const convId = formattedConversation.conversationId || formattedConversation.Id;
+          
+          // Remover conversa temporária se existir
+          const filtered = prev.filter(conv => {
+            const existingId = conv.conversationId || conv.Id;
+            // Não remover se for a mesma conversa (apenas atualizar)
+            if (existingId === convId) {
+              return false; // Será substituída abaixo
+            }
+            // Remover temporárias antigas
+            return !(conv.isTemporary && conv.p2p?.colaboradorNome1 === currentUserName && 
+                    conv.p2p?.colaboradorNome2 === contactName);
+          });
+          
+          // Verificar se conversa já existe na lista
+          const exists = prev.some(conv => {
+            const existingId = conv.conversationId || conv.Id;
+            return existingId === convId;
+          });
+          
+          // Se não existe, adicionar no início; se existe, substituir mantendo posição
+          if (!exists) {
+            return [formattedConversation, ...filtered];
+          } else {
+            // Substituir mantendo ordem (conversa mais recente primeiro)
+            return filtered.map(conv => {
+              const existingId = conv.conversationId || conv.Id;
+              return existingId === convId ? formattedConversation : conv;
+            });
+          }
         });
         
         // Atualizar conversa selecionada
@@ -2414,7 +2481,6 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
       const dateA = timeA instanceof Date ? timeA : new Date(timeA);
       const dateB = timeB instanceof Date ? timeB : new Date(timeB);
       return dateB.getTime() - dateA.getTime();
-      return bCreated - aCreated;
     });
 
     return (
