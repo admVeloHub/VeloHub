@@ -1,6 +1,9 @@
 # cloudbuild.yaml - CI/CD para Google Cloud Build
-# VERSION: v1.2.1 | DATE: 2025-01-31 | AUTHOR: Lucas Gravina - VeloHub Development Team
+# VERSION: v1.2.2 | DATE: 2025-01-31 | AUTHOR: Lucas Gravina - VeloHub Development Team
 # Configuração para deploy automático do VeloHub V3 - Variáveis de ambiente corrigidas
+# 
+# Mudanças v1.2.2:
+# - Adicionadas variáveis REACT_APP_VELOCHAT_API_URL e REACT_APP_VELOCHAT_WS_URL ao build
 #
 # IMPORTANTE - Variáveis de Ambiente do Cloud Run (configurar via Console do GCP):
 # As seguintes variáveis devem estar configuradas no serviço Cloud Run:
@@ -42,6 +45,10 @@ steps:
       - 'REACT_APP_AUTHORIZED_DOMAIN=velotax.com.br'
       - '--build-arg'
       - 'REACT_APP_API_URL=https://velohub-278491073220.us-east1.run.app/api'
+      - '--build-arg'
+      - 'REACT_APP_VELOCHAT_API_URL=https://velochat-server-278491073220.us-east1.run.app'
+      - '--build-arg'
+      - 'REACT_APP_VELOCHAT_WS_URL=https://velochat-server-278491073220.us-east1.run.app'
       - '.'
     dir: '.'
 
