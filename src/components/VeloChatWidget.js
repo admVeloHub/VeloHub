@@ -701,11 +701,13 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
       // Scroll apenas se for uma nova mensagem (não temporária) e usuário estiver próximo do final
       scrollToBottom(false); // Não forçar, verificar se usuário está próximo do final
     } else {
-      // Mensagem de outra conversa - atualizar contador de não lidas
+      // Mensagem de outra conversa - atualizar contador de não lidas APENAS se não for do próprio usuário
+      if (!isFromCurrentUser) {
       setUnreadCounts(prev => ({
         ...prev,
         [messageConversationId]: (prev[messageConversationId] || 0) + 1
       }));
+      }
     }
   }, [selectedConversation, playNotificationSound, playCallerSignSound]);
 
@@ -768,26 +770,59 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
       // Adicionar nova conversa à lista
       setConversations(prev => [data.conversation, ...prev]);
     } else if (data.type === 'last_message_updated') {
+      const currentConversationId = selectedConversation?.conversationId || selectedConversation?.Id;
+      const messageConversationId = data.conversationId;
+      
+      // Verificar se a mensagem é do próprio usuário
+      const currentUserName = getCurrentUserName();
+      const messageUserName = data.lastMessage?.userName || '';
+      const normalizedCurrentUserName = String(currentUserName || '').trim().toLowerCase();
+      const normalizedMessageUserName = String(messageUserName || '').trim().toLowerCase();
+      const isFromCurrentUser = normalizedCurrentUserName && normalizedMessageUserName && 
+                                normalizedCurrentUserName === normalizedMessageUserName;
+      
+      // Verificar se a conversa está selecionada
+      const normalizedCurrent = String(currentConversationId || '').trim();
+      const normalizedMessage = String(messageConversationId || '').trim();
+      const isCurrentConversation = normalizedCurrent === normalizedMessage;
+      
       // Atualizar última mensagem e reordenar conversas
       setConversations(prev => {
-        const updated = prev.map(conv => 
-          conv.conversationId === data.conversationId || conv.salaId === data.conversationId
-            ? {
-                ...conv,
-                lastMessage: data.lastMessage,
-                lastMessageAt: data.timestamp
-              }
-            : conv
-        );
-        // Reordenar por última mensagem (mais recente primeiro)
-        return updated.sort((a, b) => {
-          const timeA = a.lastMessageAt || a.updatedAt || a.createdAt || 0;
-          const timeB = b.lastMessageAt || b.updatedAt || b.createdAt || 0;
-          return new Date(timeB) - new Date(timeA);
+        const updated = prev.map(conv => {
+          const convId = conv.conversationId || conv.Id || conv.salaId;
+          const isTargetConversation = convId === messageConversationId;
+          
+          if (isTargetConversation) {
+            return {
+              ...conv,
+              lastMessage: data.lastMessage,
+              lastMessageAt: data.timestamp
+            };
+          }
+          return conv;
         });
+        
+        // Reordenar por última mensagem (mais recente primeiro)
+        const sorted = updated.sort((a, b) => {
+          const timeA = a.lastMessageAt || a.lastMessage?.timestamp || a.updatedAt || a.createdAt || 0;
+          const timeB = b.lastMessageAt || b.lastMessage?.timestamp || b.updatedAt || b.createdAt || 0;
+          const dateA = timeA instanceof Date ? timeA : new Date(timeA);
+          const dateB = timeB instanceof Date ? timeB : new Date(timeB);
+          return dateB.getTime() - dateA.getTime();
+        });
+        
+        return sorted;
       });
+      
+      // Incrementar contador de não lidas se mensagem não é do próprio usuário e conversa não está selecionada
+      if (!isFromCurrentUser && !isCurrentConversation) {
+        setUnreadCounts(prev => ({
+          ...prev,
+          [messageConversationId]: (prev[messageConversationId] || 0) + 1
+        }));
+      }
     }
-  }, []);
+  }, [selectedConversation]);
 
   // Handler para mensagens editadas via WebSocket (sincronização em tempo real)
   const handleMessageEdited = useCallback((data) => {
@@ -881,6 +916,19 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
     // Verificar última visualização
     const lastViewed = localStorage.getItem(`chat-viewed-${conversationId}`);
     if (!lastViewed || !conv.lastMessage) return 0;
+    
+    // CRÍTICO: Não contar como não lida se a última mensagem for do próprio usuário
+    const currentUserName = getCurrentUserName();
+    const lastMessageUserName = conv.lastMessage?.userName || '';
+    const normalizedCurrentUserName = String(currentUserName || '').trim().toLowerCase();
+    const normalizedLastMessageUserName = String(lastMessageUserName || '').trim().toLowerCase();
+    const isLastMessageFromCurrentUser = normalizedCurrentUserName && normalizedLastMessageUserName && 
+                                         normalizedCurrentUserName === normalizedLastMessageUserName;
+    
+    // Se a última mensagem é do próprio usuário, não há mensagens não lidas
+    if (isLastMessageFromCurrentUser) {
+      return 0;
+    }
     
     const lastMessageTime = new Date(conv.lastMessage.timestamp || conv.lastMessageAt);
     const viewedTime = new Date(lastViewed);
@@ -1453,9 +1501,13 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
       
       // Converter mensagens do novo formato para formato esperado pelo componente
       const formattedMessages = (data.messages || []).map((msg, index) => {
+        // CRÍTICO: Verificar se anexo foi excluído (soft delete)
+        const anexoExcluido = msg.anexoExcluido === true;
+        
         // Validar e processar mediaUrl se presente
-        let mediaUrl = msg.mediaUrl || null;
-        let mediaType = msg.mediaType || null;
+        // Se anexo foi excluído, forçar mediaUrl para null mesmo que venha do backend
+        let mediaUrl = anexoExcluido ? null : (msg.mediaUrl || null);
+        let mediaType = anexoExcluido ? null : (msg.mediaType || null);
         
         // Validar URL se presente
         if (mediaUrl) {
@@ -1493,11 +1545,13 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
           originalContent: isCallerSign ? '[att-caller-sign]' : msg.mensagem, // Manter original para referência
           timestamp: msg.timestamp,
           createdAt: msg.timestamp,
-          mediaUrl: mediaUrl,                          // URL validada da mídia (ou será atualizada com signed URL)
-          mediaType: mediaType,                        // Tipo da mídia
+          mediaUrl: mediaUrl,                          // URL validada da mídia (null se anexoExcluido)
+          mediaType: mediaType,                        // Tipo da mídia (null se anexoExcluido)
           name: fileName,                              // Nome do arquivo extraído
           attachments: msg.attachments || [],          // Manter compatibilidade
-          isCallerSign: isCallerSign                   // Flag para identificar mensagem especial
+          isCallerSign: isCallerSign,                  // Flag para identificar mensagem especial
+          anexoExcluido: anexoExcluido,                // CRÍTICO: Flag de soft delete do anexo
+          mediaUrlOriginal: msg.mediaUrlOriginal || null // URL original preservada para auditoria
         };
       });
       
@@ -2353,16 +2407,13 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
 
     // Ordenar por última mensagem (mais recente primeiro)
     const sortedConversations = [...filteredConversations].sort((a, b) => {
-      // Se tem lastMessage, ordenar por timestamp
-      if (a.lastMessage && b.lastMessage) {
-        return new Date(b.lastMessage.timestamp) - new Date(a.lastMessage.timestamp);
-      }
-      // Se só um tem lastMessage, ele vem primeiro
-      if (a.lastMessage && !b.lastMessage) return -1;
-      if (!a.lastMessage && b.lastMessage) return 1;
-      // Se nenhum tem lastMessage, ordenar por createdAt
-      const aCreated = a.createdAt ? new Date(a.createdAt) : new Date(0);
-      const bCreated = b.createdAt ? new Date(b.createdAt) : new Date(0);
+      // Ordenar por última mensagem (mais recente primeiro)
+      // Usar lastMessageAt primeiro, depois lastMessage.timestamp, depois updatedAt/createdAt
+      const timeA = a.lastMessageAt || a.lastMessage?.timestamp || a.updatedAt || a.createdAt || 0;
+      const timeB = b.lastMessageAt || b.lastMessage?.timestamp || b.updatedAt || b.createdAt || 0;
+      const dateA = timeA instanceof Date ? timeA : new Date(timeA);
+      const dateB = timeB instanceof Date ? timeB : new Date(timeB);
+      return dateB.getTime() - dateA.getTime();
       return bCreated - aCreated;
     });
 
@@ -3946,7 +3997,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
               )}
           
           {/* Badge - mesma estrutura do P2P, sem avatar para salas */}
-          <div
+              <div
             className="px-4 py-2 rounded-full flex items-center gap-2"
                 style={{
               position: 'absolute',
