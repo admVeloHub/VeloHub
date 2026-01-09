@@ -798,6 +798,13 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
     const normalizedCurrent = String(currentConversationId || '').trim();
     const normalizedMessage = String(messageConversationId || '').trim();
     
+    // Normalizar timestamp da edição para usar tanto no map quanto na verificação de editingMessage
+    const editTimestamp = data.timestamp instanceof Date 
+      ? data.timestamp.getTime() 
+      : typeof data.timestamp === 'number' 
+        ? data.timestamp 
+        : new Date(data.timestamp).getTime();
+    
     // Só atualizar se for a conversa atual
     if (normalizedMessage === normalizedCurrent) {
       setMessages(prevMessages => 
@@ -808,12 +815,6 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
             : typeof msg.timestamp === 'number' 
               ? msg.timestamp 
               : new Date(msg.timestamp).getTime();
-          
-          const editTimestamp = data.timestamp instanceof Date 
-            ? data.timestamp.getTime() 
-            : typeof data.timestamp === 'number' 
-              ? data.timestamp 
-              : new Date(data.timestamp).getTime();
           
           // Comparar userName e timestamp (com tolerância de 1 segundo)
           const userNameMatch = (msg.userName || msg.senderName || msg.autorNome) === data.userName;
@@ -833,10 +834,17 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
       
       // Se estava editando esta mensagem, cancelar edição
       if (editingMessage && 
-          editingMessage.userName === data.userName && 
-          Math.abs((editingMessage.timestamp instanceof Date ? editingMessage.timestamp.getTime() : editingMessage.timestamp) - editTimestamp) < 1000) {
-        setEditingMessage(null);
-        setEditMessageText('');
+          editingMessage.userName === data.userName) {
+        const editingTimestamp = editingMessage.timestamp instanceof Date 
+          ? editingMessage.timestamp.getTime() 
+          : typeof editingMessage.timestamp === 'number' 
+            ? editingMessage.timestamp 
+            : new Date(editingMessage.timestamp).getTime();
+        
+        if (Math.abs(editingTimestamp - editTimestamp) < 1000) {
+          setEditingMessage(null);
+          setEditMessageText('');
+        }
       }
     }
   }, [selectedConversation, editingMessage]);
@@ -2623,39 +2631,39 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                       />
                     )}
                     {/* Botão de remover conversa com expansão vermelha (P2P e Salas) */}
-                    <div className="delete-zone absolute top-0 right-0 h-full" style={{ zIndex: 20 }}>
-                      <button
+                      <div className="delete-zone absolute top-0 right-0 h-full" style={{ zIndex: 20 }}>
+                        <button
                         onClick={(e) => handleCloseConversation(conversationId, e, conv.type)}
-                        className="h-full flex items-center justify-center cursor-pointer absolute top-0 right-0"
-                        style={{
-                          backgroundColor: '#ef4444',
-                          color: '#ffffff',
-                          fontSize: '24px',
-                          fontWeight: 'bold',
-                          borderTopRightRadius: '8px',
-                          borderBottomRightRadius: '8px',
-                          transition: 'width 0.3s ease-out, background-color 0.2s',
-                          width: '0',
-                          overflow: 'hidden',
-                          minWidth: '0',
-                          whiteSpace: 'nowrap',
-                          lineHeight: '1',
-                          letterSpacing: '-2px',
-                          transform: 'scaleY(1.3)'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = '#dc2626';
-                          e.currentTarget.style.width = '60px';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = '#ef4444';
-                          e.currentTarget.style.width = '0';
-                        }}
-                        title="Remover conversa"
-                      >
-                        ×
-                      </button>
-                    </div>
+                          className="h-full flex items-center justify-center cursor-pointer absolute top-0 right-0"
+                          style={{
+                            backgroundColor: '#ef4444',
+                            color: '#ffffff',
+                            fontSize: '24px',
+                            fontWeight: 'bold',
+                            borderTopRightRadius: '8px',
+                            borderBottomRightRadius: '8px',
+                            transition: 'width 0.3s ease-out, background-color 0.2s',
+                            width: '0',
+                            overflow: 'hidden',
+                            minWidth: '0',
+                            whiteSpace: 'nowrap',
+                            lineHeight: '1',
+                            letterSpacing: '-2px',
+                            transform: 'scaleY(1.3)'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#dc2626';
+                            e.currentTarget.style.width = '60px';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = '#ef4444';
+                            e.currentTarget.style.width = '0';
+                          }}
+                          title="Remover conversa"
+                        >
+                          ×
+                        </button>
+                      </div>
                   </div>
                 );
               })}
@@ -3888,40 +3896,40 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
         {/* Header */}
         <div className="flex items-center p-3 border-b" style={{ borderColor: 'var(--blue-opaque)', width: '100%', position: 'relative', height: '48px' }}>
           {/* Chevron - posição absoluta à esquerda */}
-          <button
-            onClick={handleBackToContacts}
+            <button
+              onClick={handleBackToContacts}
             className="flex items-center justify-center transition-colors"
-            style={{ 
+              style={{ 
               position: 'absolute',
               left: '-8px', // movido mais para a esquerda, ultrapassando borda
               top: '50%',
               transform: 'translateY(-50%)',
               color: isDarkMode() ? 'var(--blue-light)' : 'var(--blue-opaque)',
-              border: 'none',
-              background: 'transparent',
-              cursor: 'pointer',
+                border: 'none',
+                background: 'transparent',
+                cursor: 'pointer',
               width: '20px',
               height: '20px',
               padding: '0'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'var(--blue-medium)';
-            }}
-            onMouseLeave={(e) => {
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = 'var(--blue-medium)';
+              }}
+              onMouseLeave={(e) => {
               e.currentTarget.style.color = isDarkMode() ? 'var(--blue-light)' : 'var(--blue-opaque)';
-            }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 18l-6-6 6-6"/>
-            </svg>
-          </button>
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 18l-6-6 6-6"/>
+              </svg>
+            </button>
           
           {/* Avatar do contato - apenas para P2P/Direct/Privada, posicionado antes do badge */}
-          {contactAvatar && (selectedConversation.type === 'p2p' || selectedConversation.type === 'direct' || selectedConversation.type === 'privada') && (
-            <img
-              src={contactAvatar}
-              alt={conversationName}
-              className="rounded-full flex-shrink-0"
+              {contactAvatar && (selectedConversation.type === 'p2p' || selectedConversation.type === 'direct' || selectedConversation.type === 'privada') && (
+                <img
+                  src={contactAvatar}
+                  alt={conversationName}
+                  className="rounded-full flex-shrink-0"
               style={{
                 position: 'absolute',
                 left: '8px', // movido mais para a esquerda
@@ -3931,16 +3939,16 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                 height: '32px',
                 objectFit: 'cover'
               }}
-              onError={(e) => {
-                e.target.src = '/mascote avatar.png';
-              }}
-            />
-          )}
+                  onError={(e) => {
+                    e.target.src = '/mascote avatar.png';
+                  }}
+                />
+              )}
           
           {/* Badge - mesma estrutura do P2P, sem avatar para salas */}
           <div
             className="px-4 py-2 rounded-full flex items-center gap-2"
-            style={{
+                style={{
               position: 'absolute',
               left: contactAvatar && (selectedConversation.type === 'p2p' || selectedConversation.type === 'direct' || selectedConversation.type === 'privada')
                 ? '44px' // ajustado para manter distância do avatar
@@ -3948,42 +3956,42 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
               right: '44px', // sino (20px) + largura sino (20px) + 4px (espaço)
               top: '50%',
               transform: 'translateY(-50%)',
-              border: selectedConversation.type === 'sala' 
+                  border: selectedConversation.type === 'sala' 
                 ? isDarkMode() ? '1px solid var(--blue-light)' : '1px solid var(--blue-dark)' 
-                : `1px solid ${colors.border}`,
-              backgroundColor: selectedConversation.type === 'sala'
-                ? 'rgba(22, 148, 255, 0.15)'
-                : colors.bg,
-              borderRadius: '16px',
-              cursor: selectedConversation.type === 'sala' ? 'pointer' : 'default',
-              overflow: 'hidden',
+                    : `1px solid ${colors.border}`,
+                  backgroundColor: selectedConversation.type === 'sala'
+                    ? 'rgba(22, 148, 255, 0.15)'
+                    : colors.bg,
+                  borderRadius: '16px',
+                  cursor: selectedConversation.type === 'sala' ? 'pointer' : 'default',
+                  overflow: 'hidden',
               minWidth: 0,
               maxWidth: '100%',
               width: 'auto'
-            }}
-            onClick={selectedConversation.type === 'sala' ? () => setShowManageParticipantsModal(true) : undefined}
-          >
-            <h4 
+                }}
+                onClick={selectedConversation.type === 'sala' ? () => setShowManageParticipantsModal(true) : undefined}
+              >
+                <h4 
               className="font-semibold" 
-              style={{ 
+                  style={{ 
                 color: selectedConversation.type === 'sala' 
                   ? (isDarkMode() ? 'var(--blue-opaque)' : 'var(--blue-dark)')
                   : 'var(--blue-dark)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                fontSize: '12px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    fontSize: '12px',
                 lineHeight: '1.3',
                 flexShrink: 1,
                 minWidth: 0
-              }}
-            >
-              {conversationName}
-            </h4>
+                  }}
+                >
+                  {conversationName}
+                </h4>
             {/* Cascata de avatares de participantes para salas - calcular quantos cabem */}
-            {selectedConversation.type === 'sala' && salaParticipants.length > 0 && (
+                {selectedConversation.type === 'sala' && salaParticipants.length > 0 && (
               <div className="flex items-center" style={{ marginLeft: '8px', overflow: 'hidden', flexShrink: 1, minWidth: 0 }}>
-                {(() => {
+                    {(() => {
                   // Calcular espaço disponível do badge baseado no tamanho da tela
                   const badgeLeft = 12;
                   const badgeRight = 44;
@@ -4000,130 +4008,130 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                   // Cada avatar ocupa ~16px considerando overlap (24px - 8px de overlap)
                   // Ser mais conservador no cálculo
                   const maxAvatares = Math.max(0, Math.min(6, Math.floor(espacoDisponivel / 18))); // usar 18px para ser mais conservador
-                  const avataresToShow = salaParticipants.slice(0, maxAvatares);
+                      const avataresToShow = salaParticipants.slice(0, maxAvatares);
                   
-                  return (
-                    <>
-                      {avataresToShow.map((participant, index) => {
-                        const avatarUrl = participant.profile_pic || participant.fotoPerfil || '/mascote avatar.png';
-                        return (
-                          <img
-                            key={participant.userName || participant.colaboradorNome || index}
-                            src={avatarUrl}
-                            alt={participant.userName || participant.colaboradorNome || 'Participante'}
-                            className="rounded-full border-2 border-white flex-shrink-0"
-                            style={{
-                              width: '24px',
-                              height: '24px',
-                              objectFit: 'cover',
-                              marginLeft: index > 0 ? '-8px' : '0',
-                              zIndex: 10 - index,
-                              position: 'relative'
-                            }}
-                            onError={(e) => {
-                              e.target.src = '/mascote avatar.png';
-                            }}
-                            title={participant.userName || participant.colaboradorNome || participant.userEmail}
-                          />
-                        );
-                      })}
-                      {salaParticipants.length > maxAvatares && (
-                        <div
-                          className="rounded-full border-2 border-white flex items-center justify-center text-xs font-semibold flex-shrink-0"
-                          style={{
-                            width: '24px',
-                            height: '24px',
-                            marginLeft: '-8px',
-                            backgroundColor: 'var(--blue-medium)',
-                            color: 'white',
-                            zIndex: 4,
-                            position: 'relative'
-                          }}
-                          title={`+${salaParticipants.length - maxAvatares} mais`}
-                        >
-                          +{salaParticipants.length - maxAvatares}
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-            )}
+                      return (
+                        <>
+                          {avataresToShow.map((participant, index) => {
+                            const avatarUrl = participant.profile_pic || participant.fotoPerfil || '/mascote avatar.png';
+                            return (
+                              <img
+                                key={participant.userName || participant.colaboradorNome || index}
+                                src={avatarUrl}
+                                alt={participant.userName || participant.colaboradorNome || 'Participante'}
+                                className="rounded-full border-2 border-white flex-shrink-0"
+                                style={{
+                                  width: '24px',
+                                  height: '24px',
+                                  objectFit: 'cover',
+                                  marginLeft: index > 0 ? '-8px' : '0',
+                                  zIndex: 10 - index,
+                                  position: 'relative'
+                                }}
+                                onError={(e) => {
+                                  e.target.src = '/mascote avatar.png';
+                                }}
+                                title={participant.userName || participant.colaboradorNome || participant.userEmail}
+                              />
+                            );
+                          })}
+                          {salaParticipants.length > maxAvatares && (
+                            <div
+                              className="rounded-full border-2 border-white flex items-center justify-center text-xs font-semibold flex-shrink-0"
+                              style={{
+                                width: '24px',
+                                height: '24px',
+                                marginLeft: '-8px',
+                                backgroundColor: 'var(--blue-medium)',
+                                color: 'white',
+                                zIndex: 4,
+                                position: 'relative'
+                              }}
+                              title={`+${salaParticipants.length - maxAvatares} mais`}
+                            >
+                              +{salaParticipants.length - maxAvatares}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
           </div>
           
           {/* Sino - posição absoluta à direita */}
-          <button
-            onClick={handleCallAttention}
+            <button
+              onClick={handleCallAttention}
             className="flex items-center justify-center transition-colors"
-            style={{
+              style={{
               position: 'absolute',
               right: '20px', // movido mais para a direita, mantendo distância do anexo
               top: '50%',
               transform: 'translateY(-50%)',
               color: isDarkMode() ? 'var(--blue-opaque)' : 'var(--blue-medium)',
-              border: 'none',
-              background: 'transparent',
-              cursor: 'pointer',
+                border: 'none',
+                background: 'transparent',
+                cursor: 'pointer',
               width: '20px',
               height: '20px',
               padding: '0'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(22, 148, 255, 0.1)';
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(22, 148, 255, 0.1)';
               e.currentTarget.style.borderRadius = '50%';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-            }}
-            title="Chamar atenção"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
-              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-            </svg>
-          </button>
-          
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+              title="Chamar atenção"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+            </button>
+            
           {/* Anexo - posição absoluta à direita */}
-          <button
-            type="button"
-            onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
+            <button
+              type="button"
+              onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
             className="rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            style={{
+              style={{
               position: 'absolute',
               right: '-8px', // movido mais para a direita, ultrapassando borda
               top: '50%',
               transform: 'translateY(-50%)',
-              borderRadius: '8px',
-              minWidth: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+                borderRadius: '8px',
+                minWidth: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               color: isDarkMode() ? 'var(--blue-opaque)' : 'var(--blue-dark)',
               border: 'none',
               background: 'transparent',
               cursor: 'pointer',
               padding: '0'
-            }}
-            title="Anexar arquivo"
-          >
-            <AttachFile style={{ fontSize: '18px' }} />
-          </button>
+              }}
+              title="Anexar arquivo"
+            >
+              <AttachFile style={{ fontSize: '18px' }} />
+            </button>
 
-          {/* Menu de seleção de tipo de anexo */}
-          {showAttachmentMenu && (
-            <div
-              ref={attachmentMenuRef}
+            {/* Menu de seleção de tipo de anexo */}
+            {showAttachmentMenu && (
+              <div
+                ref={attachmentMenuRef}
               className="absolute bg-white dark:bg-gray-800 rounded-lg shadow-lg p-2 z-50"
-              style={{
+                style={{
                 position: 'absolute',
                 right: '-8px',
                 top: 'calc(50% + 20px)',
-                minWidth: '150px',
-                borderRadius: '8px',
-                border: '1px solid var(--blue-dark)'
-              }}
-            >
+                  minWidth: '150px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--blue-dark)'
+                }}
+              >
                 <button
                   type="button"
                   onClick={() => {
@@ -4436,7 +4444,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                               />
                               <div className="absolute bottom-0 right-0 flex gap-1 z-10">
                                 {isCurrentUser && !msg.anexoExcluido && (
-                                  <button
+                              <button
                                     className="p-1 bg-red-600 bg-opacity-80 hover:bg-opacity-100 transition-opacity cursor-pointer rounded-tl-lg"
                                     onClick={async (e) => {
                                       e.stopPropagation();
@@ -4449,29 +4457,29 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                                 )}
                                 <button
                                   className="p-1 bg-black bg-opacity-50 hover:bg-opacity-70 transition-opacity cursor-pointer rounded-tl-lg"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    try {
-                                      const response = await fetch(msg.mediaUrl);
-                                      if (!response.ok) throw new Error(`Erro: ${response.status}`);
-                                      const blob = await response.blob();
-                                      const blobUrl = URL.createObjectURL(blob);
-                                      const link = document.createElement('a');
-                                      link.href = blobUrl;
-                                      link.download = fileName || 'imagem.jpg';
-                                      document.body.appendChild(link);
-                                      link.click();
-                                      document.body.removeChild(link);
-                                      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-                                    } catch (error) {
-                                      console.error('Erro ao baixar imagem:', error);
-                                      setError(`Erro ao baixar imagem: ${error.message}`);
-                                    }
-                                  }}
-                                  title="Baixar imagem"
-                                >
-                                  <Download style={{ fontSize: '16px', color: 'white' }} />
-                                </button>
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    const response = await fetch(msg.mediaUrl);
+                                    if (!response.ok) throw new Error(`Erro: ${response.status}`);
+                                    const blob = await response.blob();
+                                    const blobUrl = URL.createObjectURL(blob);
+                                    const link = document.createElement('a');
+                                    link.href = blobUrl;
+                                    link.download = fileName || 'imagem.jpg';
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                    setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+                                  } catch (error) {
+                                    console.error('Erro ao baixar imagem:', error);
+                                    setError(`Erro ao baixar imagem: ${error.message}`);
+                                  }
+                                }}
+                                title="Baixar imagem"
+                              >
+                                <Download style={{ fontSize: '16px', color: 'white' }} />
+                              </button>
                               </div>
                             </div>
                           )}
@@ -4499,7 +4507,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                               </div>
                               <div className="absolute bottom-0 right-0 flex gap-1 z-10">
                                 {isCurrentUser && !msg.anexoExcluido && (
-                                  <button
+                              <button
                                     className="p-1 bg-red-600 bg-opacity-80 hover:bg-opacity-100 transition-opacity cursor-pointer rounded-tl-lg"
                                     onClick={async (e) => {
                                       e.stopPropagation();
@@ -4512,29 +4520,29 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                                 )}
                                 <button
                                   className="p-1 bg-black bg-opacity-50 hover:bg-opacity-70 transition-opacity cursor-pointer rounded-tl-lg"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    try {
-                                      const response = await fetch(msg.mediaUrl);
-                                      if (!response.ok) throw new Error(`Erro: ${response.status}`);
-                                      const blob = await response.blob();
-                                      const blobUrl = URL.createObjectURL(blob);
-                                      const link = document.createElement('a');
-                                      link.href = blobUrl;
-                                      link.download = fileName || 'video.mp4';
-                                      document.body.appendChild(link);
-                                      link.click();
-                                      document.body.removeChild(link);
-                                      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-                                    } catch (error) {
-                                      console.error('Erro ao baixar vídeo:', error);
-                                      setError(`Erro ao baixar vídeo: ${error.message}`);
-                                    }
-                                  }}
-                                  title="Baixar vídeo"
-                                >
-                                  <Download style={{ fontSize: '16px', color: 'white' }} />
-                                </button>
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    const response = await fetch(msg.mediaUrl);
+                                    if (!response.ok) throw new Error(`Erro: ${response.status}`);
+                                    const blob = await response.blob();
+                                    const blobUrl = URL.createObjectURL(blob);
+                                    const link = document.createElement('a');
+                                    link.href = blobUrl;
+                                    link.download = fileName || 'video.mp4';
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                    setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+                                  } catch (error) {
+                                    console.error('Erro ao baixar vídeo:', error);
+                                    setError(`Erro ao baixar vídeo: ${error.message}`);
+                                  }
+                                }}
+                                title="Baixar vídeo"
+                              >
+                                <Download style={{ fontSize: '16px', color: 'white' }} />
+                              </button>
                               </div>
                             </div>
                           )}
@@ -4578,31 +4586,31 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                                     <Delete style={{ fontSize: '18px', color: '#DC2626' }} />
                                   </button>
                                 )}
-                                <button
-                                  className="hover:opacity-70 transition-opacity cursor-pointer"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    try {
-                                      const response = await fetch(msg.mediaUrl);
-                                      if (!response.ok) throw new Error(`Erro: ${response.status}`);
-                                      const blob = await response.blob();
-                                      const blobUrl = URL.createObjectURL(blob);
-                                      const link = document.createElement('a');
-                                      link.href = blobUrl;
-                                      link.download = fileName || 'arquivo';
-                                      document.body.appendChild(link);
-                                      link.click();
-                                      document.body.removeChild(link);
-                                      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-                                    } catch (error) {
-                                      console.error('Erro ao baixar arquivo:', error);
-                                      setError(`Erro ao baixar arquivo: ${error.message}`);
-                                    }
-                                  }}
-                                  title="Baixar arquivo"
-                                >
-                                  <Download style={{ fontSize: '18px', color: 'var(--blue-dark)' }} />
-                                </button>
+                              <button
+                                className="hover:opacity-70 transition-opacity cursor-pointer"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    const response = await fetch(msg.mediaUrl);
+                                    if (!response.ok) throw new Error(`Erro: ${response.status}`);
+                                    const blob = await response.blob();
+                                    const blobUrl = URL.createObjectURL(blob);
+                                    const link = document.createElement('a');
+                                    link.href = blobUrl;
+                                    link.download = fileName || 'arquivo';
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                    setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+                                  } catch (error) {
+                                    console.error('Erro ao baixar arquivo:', error);
+                                    setError(`Erro ao baixar arquivo: ${error.message}`);
+                                  }
+                                }}
+                                title="Baixar arquivo"
+                              >
+                                <Download style={{ fontSize: '18px', color: 'var(--blue-dark)' }} />
+                              </button>
                               </div>
                             </div>
                           )}
@@ -4677,19 +4685,19 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                         className="text-xs opacity-70"
                         style={isCurrentUser && isDarkMode() ? { color: '#4B5563' } : {}}
                       >
-                        {timestamp ? (() => {
-                          const date = new Date(timestamp);
-                          if (isNaN(date.getTime())) return '';
-                          // Formatar data e hora: "DD/MM/AAAA HH:MM"
-                          return date.toLocaleString('pt-BR', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          });
-                        })() : ''}
-                      </div>
+                      {timestamp ? (() => {
+                        const date = new Date(timestamp);
+                        if (isNaN(date.getTime())) return '';
+                        // Formatar data e hora: "DD/MM/AAAA HH:MM"
+                        return date.toLocaleString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        });
+                      })() : ''}
+                    </div>
                       {/* Ícones de editar e excluir apenas para mensagens do usuário atual e não excluídas */}
                       {isCurrentUser && !isDeleted && !isEditing && (
                         <div className="flex items-center gap-1">
