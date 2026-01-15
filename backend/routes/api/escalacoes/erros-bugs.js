@@ -1,7 +1,11 @@
 /**
  * VeloHub V3 - Escalações API Routes - Erros/Bugs
- * VERSION: v1.6.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.6.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
  * Branch: main (recuperado de escalacoes)
+ * 
+ * Mudanças v1.6.1:
+ * - Adicionados headers CORS manualmente em todos os endpoints para garantir funcionamento correto
+ * - Criada função auxiliar setCorsHeaders para padronizar headers CORS
  * 
  * Mudanças v1.6.0:
  * - Corrigido import do whatsappService para ser direto (igual à rota de solicitações)
@@ -55,10 +59,42 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
   const { userActivityLogger } = services;
 
   /**
+   * Função auxiliar para adicionar headers CORS
+   */
+  const setCorsHeaders = (req, res) => {
+    const origin = req.headers.origin;
+    const allowedOrigins = [
+      'https://app.velohub.velotax.com.br',
+      'https://velohub-278491073220.us-east1.run.app',
+      'http://localhost:8080',
+      'http://localhost:3000',
+      'http://localhost:5000'
+    ];
+    
+    if (origin && allowedOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-session-id, X-Session-Id');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+  };
+
+  /**
+   * OPTIONS handler para requisições preflight CORS
+   */
+  router.options('*', (req, res) => {
+    setCorsHeaders(req, res);
+    res.setHeader('Access-Control-Max-Age', '86400');
+    res.status(200).end();
+  });
+
+  /**
    * GET /api/escalacoes/erros-bugs
    * Buscar todos os erros/bugs ou filtrar por query params
    */
   router.get('/', async (req, res) => {
+    // Adicionar headers CORS antes de processar a requisição
+    setCorsHeaders(req, res);
     // #region agent log
     fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:54',message:'router.get(/) HANDLER CALLED',data:{path:req.path,method:req.method,url:req.url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
     // #endregion
@@ -135,6 +171,8 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
    * Buscar erro/bug por ID
    */
   router.get('/:id', async (req, res) => {
+    // Adicionar headers CORS antes de processar a requisição
+    setCorsHeaders(req, res);
     try {
       if (!client) {
         return res.status(503).json({
@@ -180,6 +218,8 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
    * Criar novo erro/bug
    */
   router.post('/', async (req, res) => {
+    // Adicionar headers CORS antes de processar a requisição
+    setCorsHeaders(req, res);
     // #region agent log
     fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:172',message:'router.post(/) HANDLER CALLED',data:{path:req.path,method:req.method,url:req.url,bodyKeys:Object.keys(req.body||{})},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
     // #endregion
@@ -418,6 +458,8 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
    * Atualizar erro/bug
    */
   router.put('/:id', async (req, res) => {
+    // Adicionar headers CORS antes de processar a requisição
+    setCorsHeaders(req, res);
     try {
       if (!client) {
         return res.status(503).json({
@@ -480,6 +522,8 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
    * Deletar erro/bug
    */
   router.delete('/:id', async (req, res) => {
+    // Adicionar headers CORS antes de processar a requisição
+    setCorsHeaders(req, res);
     try {
       if (!client) {
         return res.status(503).json({
@@ -529,6 +573,8 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
    * Atualizar status automaticamente via reação do WhatsApp
    */
   router.post('/auto-status', async (req, res) => {
+    // Adicionar headers CORS antes de processar a requisição
+    setCorsHeaders(req, res);
     try {
       if (!client) {
         return res.status(503).json({

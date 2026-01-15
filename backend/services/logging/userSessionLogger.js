@@ -1,5 +1,10 @@
 // User Session Logger - Log de sessões de login/logout dos usuários
-// VERSION: v1.4.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+// VERSION: v1.4.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+// 
+// Mudanças v1.4.1:
+// - CRÍTICO: Corrigido bug onde chatStatus permanecia 'offline' mesmo com isActive=true
+// - Heartbeat agora reseta chatStatus para 'online' quando sessão é reativada após estar offline
+// - Preserva chatStatus válido (online/ausente) apenas quando já está válido
 // 
 // Mudanças v1.4.0:
 // - CRÍTICO: Corrigido problema de chatStatus sendo perdido no heartbeat
@@ -312,6 +317,7 @@ class UserSessionLogger {
       }
 
       // Atualizar sessão mantendo isActive=true E preservando chatStatus existente
+      // Se chatStatus é 'offline' e estamos reativando sessão, resetar para 'online'
       // Se chatStatus não existe ou é inválido, usar 'online' como padrão
       // Se chatStatus existe e é válido (online/ausente), preservar
       const updateData = {
@@ -319,17 +325,15 @@ class UserSessionLogger {
         updatedAt: now
       };
       
-      // Preservar chatStatus se existir e for válido, senão usar 'online' como padrão
+      // Preservar chatStatus se existir e for válido (online/ausente)
+      // Se chatStatus é 'offline' ou não existe, resetar para 'online' (sessão está sendo reativada)
       if (session.chatStatus && ['online', 'ausente'].includes(session.chatStatus)) {
-        // Manter chatStatus existente - não incluir no $set para preservar
-        // Mas precisamos garantir que não seja sobrescrito, então incluímos explicitamente
+        // Manter chatStatus existente válido
         updateData.chatStatus = session.chatStatus;
       } else {
-        // Se não tem chatStatus válido, usar 'online' como padrão apenas se não existir
-        // Não sobrescrever se já existe (mesmo que seja 'offline')
-        if (!session.chatStatus) {
-          updateData.chatStatus = 'online';
-        }
+        // Se chatStatus é 'offline' ou não existe, usar 'online' como padrão
+        // Isso garante que sessões reativadas sempre voltem para 'online'
+        updateData.chatStatus = 'online';
       }
       
       const result = await this.collection.updateOne(
