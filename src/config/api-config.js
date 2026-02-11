@@ -1,7 +1,22 @@
 /**
  * VeloHub V3 - API Configuration
- * VERSION: v1.0.12 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
- * REGRA: Frontend porta 8080 | Backend porta 8090 na rede local
+ * VERSION: v1.0.16 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * REGRA: Frontend porta 8080 | Backend porta 8090 | VeloChat Server porta 3002 na rede local
+ * 
+ * Mudanças v1.0.16:
+ * - Alterada porta do VeloChat Server de 3001 para 3002 em desenvolvimento local
+ * 
+ * Mudanças v1.0.15:
+ * - Atualizada URL da API WhatsApp para usar nova API no backend GCP
+ *   - Local: http://localhost:3001/api/whatsapp/send
+ *   - Produção: https://backend-gcp-278491073220.us-east1.run.app/api/whatsapp/send
+ * 
+ * Mudanças v1.0.14:
+ * - Corrigida URL da API WhatsApp para usar whatsapp-api-new-54aw.onrender.com (mesma do UPDATE PAINEL que funciona)
+ * 
+ * Mudanças v1.0.13:
+ * - Mantida porta 8090 para desenvolvimento local (backend local)
+ * - Porta 8080 é apenas para Cloud Run em produção
  * 
  * Mudanças v1.0.12:
  * - Removidos logs de debug que tentavam conectar em 127.0.0.1:7244 (causavam ERR_CONNECTION_REFUSED)
@@ -55,8 +70,12 @@ export const getApiBaseUrl = () => {
 
 /**
  * Obtém a URL da API do WhatsApp baseada no ambiente
- * VERSION: v1.0.10 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
- * @returns {string} URL base da API do WhatsApp (sem /send no final)
+ * VERSION: v1.0.15 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * @returns {string} URL base da API do WhatsApp (sem /api/whatsapp/send no final)
+ * 
+ * Nova API WhatsApp no backend GCP:
+ * - Local: http://localhost:3001
+ * - Produção: https://backend-gcp-278491073220.us-east1.run.app
  */
 export const getWhatsAppApiUrl = () => {
   // Prioridade 1: Variável de ambiente específica para WhatsApp
@@ -68,19 +87,19 @@ export const getWhatsAppApiUrl = () => {
   if (typeof window !== 'undefined') {
     const currentHost = window.location.hostname;
     
-    // Em produção (domínio velotax.com.br ou velohub), usar API do Render
-    if (currentHost.includes('velotax.com.br') || currentHost.includes('velohub')) {
-      return 'https://whatsapp-api-y40p.onrender.com';
+    // Em desenvolvimento (localhost), usar backend local na porta 3001
+    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
+      return 'http://localhost:3001';
     }
     
-    // Em desenvolvimento (localhost), usar Render também
-    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
-      return 'https://whatsapp-api-y40p.onrender.com';
+    // Em produção (domínio velotax.com.br ou velohub), usar backend GCP
+    if (currentHost.includes('velotax.com.br') || currentHost.includes('velohub') || currentHost.includes('run.app')) {
+      return 'https://backend-gcp-278491073220.us-east1.run.app';
     }
   }
   
-  // Fallback: sempre usar Render
-  return 'https://whatsapp-api-y40p.onrender.com';
+  // Fallback: sempre usar backend GCP em produção
+  return 'https://backend-gcp-278491073220.us-east1.run.app';
 };
 
 /**
@@ -120,7 +139,7 @@ export const WHATSAPP_DEFAULT_JID = getWhatsAppDefaultJid();
  * IMPORTANTE: VeloChat Server é um projeto separado com deploy próprio
  * - Produção: https://velochat-server-278491073220.us-east1.run.app
  * - Staging: https://velochat-server-278491073220.us-east1.run.app (mesmo servidor)
- * - Local: http://localhost:3001 (porta padrão do VeloChat Server)
+ * - Local: http://localhost:3002 (porta padrão do VeloChat Server em desenvolvimento)
  * 
  * @returns {string} URL base da API do VeloChat Server (sem /api no final)
  */
@@ -135,9 +154,9 @@ export const getVeloChatApiUrl = () => {
   if (typeof window !== 'undefined') {
     const currentHost = window.location.hostname;
     
-    // Se estamos em localhost, usar o VeloChat Server local na porta 3001
+    // Se estamos em localhost, usar o VeloChat Server local na porta 3002
     if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
-      return 'http://localhost:3001';
+      return 'http://localhost:3002';
     }
     
     // Se estamos em staging ou produção do VeloHub, usar o VeloChat Server de produção
@@ -188,11 +207,14 @@ if (process.env.NODE_ENV === 'development') {
 // Log sempre (para debug do problema)
 console.log('🔧 API Config (SEMPRE):', {
   baseUrl: API_BASE_URL,
+  whatsappApiUrl: WHATSAPP_API_URL,
+  whatsappEndpoint: `${WHATSAPP_API_URL}/api/whatsapp/send`,
   velochatApiUrl: getVeloChatApiUrl(),
   velochatWsUrl: getVeloChatWsUrl(),
   environment: process.env.NODE_ENV,
   hostname: typeof window !== 'undefined' ? window.location.hostname : 'server-side',
   reactAppApiUrl: process.env.REACT_APP_API_URL,
+  reactAppWhatsappApiUrl: process.env.REACT_APP_WHATSAPP_API_URL,
   reactAppVeloChatApiUrl: process.env.REACT_APP_VELOCHAT_API_URL,
   detectedEnv: typeof window !== 'undefined' 
     ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 

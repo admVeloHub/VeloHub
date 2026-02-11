@@ -1,9 +1,15 @@
 /**
  * VeloHub V3 - ErrosBugsTab Component
- * VERSION: v1.10.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.11.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
  * 
  * Componente para reportar erros e bugs com anexos de imagem/vídeo
+ * 
+ * Mudanças v1.11.0:
+ * - Atualizado endpoint WhatsApp para usar nova API do backend GCP: /api/whatsapp/send
+ *   - Local: http://localhost:3001/api/whatsapp/send
+ *   - Produção: https://backend-gcp-278491073220.us-east1.run.app/api/whatsapp/send
+ * - Melhorado tratamento de erros e logs de debug
  * 
  * Mudanças v1.10.0:
  * - Corrigido envio de WhatsApp: agora usa WHATSAPP_API_URL e WHATSAPP_DEFAULT_JID de api-config.js
@@ -630,7 +636,11 @@ const ErrosBugsTab = () => {
           const imagensFormatadas = imagens?.map(({ data, type }) => ({ data, type })).filter(img => img.data && img.type) || [];
           const videosFormatados = videos?.map(({ data, type }) => ({ data, type })).filter(vid => vid.data && vid.type) || [];
           
-          const resp = await fetch(`${apiUrl}/send`, {
+          // Nova API WhatsApp: /api/whatsapp/send
+          const whatsappEndpoint = `${apiUrl}/api/whatsapp/send`;
+          console.log('📤 [ErrosBugsTab] Enviando para WhatsApp API:', whatsappEndpoint);
+          
+          const resp = await fetch(whatsappEndpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -640,9 +650,22 @@ const ErrosBugsTab = () => {
               videos: videosFormatados
             })
           });
-          const d = await resp.json().catch(() => ({}));
-          waMessageId = d?.messageId || d?.key?.id || null;
-          if (Array.isArray(d?.messageIds)) messageIdsArr = d.messageIds;
+          
+          if (resp && resp.ok) {
+            const d = await resp.json().catch(() => ({}));
+            console.log('✅ [ErrosBugsTab] Resposta do WhatsApp:', d);
+            // Nova API retorna messageId diretamente
+            waMessageId = d?.messageId || d?.messageIds?.[0] || null;
+            if (Array.isArray(d?.messageIds)) messageIdsArr = d.messageIds;
+          } else {
+            // Tentar ler mensagem de erro
+            try {
+              const errorData = await resp.json();
+              console.error('❌ [ErrosBugsTab] Erro da API WhatsApp:', errorData);
+            } catch (e) {
+              console.error('❌ [ErrosBugsTab] Erro HTTP:', resp.status, resp.statusText);
+            }
+          }
         } catch (err) {
           console.error('Erro ao enviar via WhatsApp:', err);
         }
