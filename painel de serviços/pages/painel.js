@@ -1,29 +1,43 @@
 // pages/painel.js
 // pages/painel.js - Painel de Solicitações (migrado da home antiga)
-import { useEffect, useRef, useState } from "react";
+// VERSION: v2.0.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+import { useEffect, useMemo, useRef, useState } from "react";
+import toast from "react-hot-toast";
 import FormSolicitacao from "@/components/FormSolicitacao";
 import Head from "next/head";
+import { normStatus, normCpf } from "@/lib/utils";
+import { getApiUrl } from "@/lib/apiConfig";
+import { fetchWithTimeout } from "@/lib/fetchUtils";
 
 export default function Painel() {
   const [logs, setLogs] = useState([]);
   const [searchCpf, setSearchCpf] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
+  const [expandedSearchKeys, setExpandedSearchKeys] = useState(new Set());
   const [searchCpfError, setSearchCpfError] = useState('');
   const [stats, setStats] = useState({ today: 0, pending: 0, done: 0 });
   const [statsLoading, setStatsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [requestsRaw, setRequestsRaw] = useState([]);
   const [selectedAgent, setSelectedAgent] = useState("");
-  const [agentHistory, setAgentHistory] = useState([]);
-  const [agentHistoryLoading, setAgentHistoryLoading] = useState(false);
   const [agentHistoryLimit, setAgentHistoryLimit] = useState(50);
   const prevRequestsRef = useRef([]);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [backendUrl, setBackendUrl] = useState('https://whatsapp-api-y40p.onrender.com');
+  const [expandedAgentCards, setExpandedAgentCards] = useState(new Set());
+  const [backendUrl, setBackendUrl] = useState(getApiUrl());
   const [replies, setReplies] = useState([]);
   const [myAgent, setMyAgent] = useState('');
-  const norm = (s='') => String(s).toLowerCase().trim().replace(/\s+/g,' ');
+  // Função auxiliar para normalização (mantida para compatibilidade)
+  const norm = (s='') => normStatus(s);
+
+  // Histórico do agente derivado de requestsRaw (atualiza junto com loadStats)
+  const agentHistory = useMemo(() => {
+    const arr = Array.isArray(requestsRaw) ? requestsRaw : [];
+    const base = selectedAgent ? arr.filter((r) => normStatus(r?.agente||'') === normStatus(selectedAgent)) : arr;
+    return base.slice().sort((a, b) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0));
+  }, [requestsRaw, selectedAgent]);
+  const agentHistoryLoading = statsLoading;
 
   const registrarLog = (msg) => {
     setLogs((prev) => [{ msg, time: new Date().toLocaleString("pt-BR") }, ...prev]);
@@ -62,7 +76,7 @@ export default function Painel() {
 
   useEffect(() => {
     try {
-      setBackendUrl((v) => (v ? v.replace(/\/$/, '') : 'https://whatsapp-api-y40p.onrender.com'));
+      setBackendUrl(getApiUrl());
     } catch {}
   }, []);
 
@@ -109,10 +123,10 @@ export default function Painel() {
 
   useEffect(() => {
     const arr = Array.isArray(requestsRaw) ? requestsRaw : [];
-    const base = selectedAgent ? arr.filter((r) => norm(r?.agente||'') === norm(selectedAgent)) : arr;
+    const base = selectedAgent ? arr.filter((r) => normStatus(r?.agente||'') === normStatus(selectedAgent)) : arr;
     const todayStr = new Date().toDateString();
     const today = base.filter((r) => new Date(r?.createdAt || 0).toDateString() === todayStr).length;
-    const done = base.filter((r) => String(r?.status || '').toLowerCase() === 'feito').length;
+    const done = base.filter((r) => normStatus(r?.status || '') === 'feito').length;
     const pending = base.length - done;
     setStats({ today, pending, done });
 
@@ -121,9 +135,9 @@ export default function Painel() {
       const mapPrev = new Map(prev.map((r) => [r.id, String(r.status || '')]));
       const changed = base.filter((r) => {
         const prevSt = mapPrev.get(r.id);
-        const curSt = String(r.status || '').toLowerCase();
+        const curSt = normStatus(r.status || '');
         if (!prevSt) return false;
-        return prevSt.toLowerCase() !== curSt && (curSt === 'feito' || curSt === 'não feito');
+        return normStatus(prevSt) !== curSt && (curSt === 'feito' || curSt === 'não feito');
       });
       if (changed.length) {
         const play = async () => {
@@ -147,8 +161,12 @@ export default function Painel() {
           } catch {}
         };
         changed.forEach((r) => {
-          const st = String(r.status || '').toLowerCase();
+          const st = normStatus(r.status || '');
           notify(st === 'feito' ? 'Solicitação concluída' : 'Solicitação marcada como não feita', `${r.tipo} — ${r.cpf}`);
+          toast(st === 'feito' ? 'Solicitação concluída' : 'Solicitação marcada como não feita', {
+            icon: st === 'feito' ? '✅' : '❌',
+            duration: 5000,
+          });
         });
         play();
       }
@@ -156,29 +174,8 @@ export default function Painel() {
     } catch {}
   }, [requestsRaw, selectedAgent]);
 
-  useEffect(() => {
-    const load = async () => {
-      if (!selectedAgent) { setAgentHistory([]); return; }
-      setAgentHistoryLoading(true);
-      try {
-        const res = await fetch('/api/requests');
-        if (!res.ok) throw new Error('fail');
-        const list = await res.json();
-        const arr = Array.isArray(list) ? list : [];
-        const filtered = arr.filter((r) => norm(r?.agente||'') === norm(selectedAgent))
-          .sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
-        setAgentHistory(filtered);
-      } catch {
-        setAgentHistory([]);
-      }
-      setAgentHistoryLoading(false);
-    };
-    load();
-    setAgentHistoryLimit(100);
-  }, [selectedAgent]);
-
   const buscarCpf = async () => {
-    const digits = String(searchCpf || "").replace(/\D/g, "");
+    const digits = normCpf(searchCpf);
     if (!digits) {
       setSearchResults([]);
       setSearchCpfError('CPF inválido. Digite os 11 dígitos.');
@@ -196,11 +193,43 @@ export default function Painel() {
       if (!res.ok) return;
       const list = await res.json();
       const filtered = Array.isArray(list)
-        ? list.filter((r) => String(r?.cpf || '').replace(/\D/g, '').includes(digits))
+        ? list.filter((r) => normCpf(r?.cpf || '').includes(digits))
         : [];
       setSearchResults(filtered);
     } catch {}
     setSearchLoading(false);
+  };
+
+  // Função para confirmar visualização de resposta
+  const confirmarResposta = async (requestId, replyMessageId, confirmedBy = null) => {
+    try {
+      const res = await fetchWithTimeout('/api/requests/reply-confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId, replyMessageId, confirmedBy })
+      }, 15000);
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || 'Erro ao confirmar resposta');
+      }
+
+      toast.success('Confirmado! Reação ✓ enviada no WhatsApp.');
+      
+      // Recarregar dados após confirmação
+      await loadStats();
+      
+      return { ok: true, confirmedAt: data.confirmedAt };
+    } catch (error) {
+      console.error('[painel confirmarResposta] Erro:', error);
+      if (error.name === 'AbortError') {
+        toast.error('Confirmação demorou muito. Tente novamente.');
+      } else {
+        toast.error(error.message || 'Erro ao confirmar resposta');
+      }
+      throw error;
+    }
   };
 
   return (
@@ -316,26 +345,52 @@ export default function Painel() {
                       const imgCount = Array.isArray(r?.payload?.previews) ? r.payload.previews.length : (Array.isArray(r?.payload?.imagens) ? r.payload.imagens.length : 0);
                       const videoCount = Array.isArray(r?.payload?.videos) ? r.payload.videos.length : 0;
                       const total = imgCount + videoCount;
+                      const repliesList = Array.isArray(r.replies) ? r.replies : [];
+                      const isExpanded = expandedSearchKeys.has(r.id);
+                      const toggleSearch = (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setExpandedSearchKeys((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(r.id)) next.delete(r.id);
+                          else next.add(r.id);
+                          return next;
+                        });
+                      };
                       return (
-                        <div key={r.id} className="p-3 bg-white rounded border border-black/10">
+                        <div
+                          key={r.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={toggleSearch}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSearch(e); } }}
+                          className="p-3 bg-white rounded border border-black/10 cursor-pointer hover:border-black/20 hover:bg-black/[0.02] transition-colors select-none"
+                          aria-expanded={isExpanded}
+                        >
                           <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="font-medium flex items-center gap-2">
-                                <span>{r.tipo} — {r.cpf}</span>
-                                {total > 0 && (
-                                  <span className="px-2 py-0.5 rounded-full bg-fuchsia-100 text-fuchsia-800 text-xs">
-                                    Anexos: {imgCount > 0 ? `${imgCount} img` : ''}{imgCount > 0 && videoCount > 0 ? ' + ' : ''}{videoCount > 0 ? `${videoCount} vid` : ''}
-                                  </span>
-                                )}
+                            <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+                              <div>
+                                <div className="font-medium flex items-center gap-2 flex-wrap">
+                                  <span>{r.tipo} — {r.cpf}</span>
+                                  {total > 0 && (
+                                    <span className="px-2 py-0.5 rounded-full bg-fuchsia-100 text-fuchsia-800 text-xs">
+                                      Anexos: {imgCount > 0 ? `${imgCount} img` : ''}{imgCount > 0 && videoCount > 0 ? ' + ' : ''}{videoCount > 0 ? `${videoCount} vid` : ''}
+                                    </span>
+                                  )}
+                                  {repliesList.length > 0 && (
+                                    <span className="text-[11px] text-black/50">{isExpanded ? '▼' : '▶'} {repliesList.length} resposta{repliesList.length !== 1 ? 's' : ''}</span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-black/60">Agente: {r.agente || '—'} • Status: {r.status || '—'}</div>
                               </div>
-                              <div className="text-xs text-black/60">Agente: {r.agente || '—'} • Status: {r.status || '—'}</div>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                               <div className="text-xs text-black/60">{new Date(r.createdAt).toLocaleString()}</div>
                               {total > 0 && (
                                 <button
                                   type="button"
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     // Criar modal similar ao da página de erros/bugs
                                     const modal = document.createElement('div');
                                     modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50';
@@ -406,6 +461,44 @@ export default function Painel() {
                               )}
                             </div>
                           </div>
+                          {isExpanded && repliesList.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-black/10">
+                              <div className="text-[11px] font-medium text-black/70 mb-1.5">Menções / Respostas no grupo ({repliesList.length})</div>
+                              <div className="space-y-1.5 max-h-48 overflow-auto">
+                                {[...repliesList].reverse().map((rep, i) => (
+                                  <div key={i} className="text-[11px] text-black/70 bg-black/5 rounded px-2 py-1.5">
+                                    <div className="font-medium text-black/80">{rep.reactor || '—'}</div>
+                                    <div className="mt-0.5 text-black/80 whitespace-pre-wrap break-words">{(rep.text || '—').trim() || '—'}</div>
+                                    <div className="mt-1 flex items-center justify-between gap-2 flex-wrap">
+                                      {rep.at && <span className="opacity-60">{new Date(rep.at).toLocaleString('pt-BR')}</span>}
+                                      <span className="text-[10px]">
+                                        {rep.replyMessageId ? (
+                                          rep.confirmedAt ? (
+                                            <span className="text-emerald-600">✓ Confirmado{rep.confirmedBy ? ` por ${rep.confirmedBy}` : ''}</span>
+                                          ) : (
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                confirmarResposta(r.id, rep.replyMessageId, myAgent).then(() => {
+                                                  loadStats();
+                                                }).catch(() => toast.error('Falha ao confirmar'));
+                                              }}
+                                              className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                                            >
+                                              Confirmar visto (✓ no WhatsApp)
+                                            </button>
+                                          )
+                                        ) : (
+                                          <span className="opacity-60">Check no WhatsApp disponível só para respostas novas</span>
+                                        )}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -446,24 +539,92 @@ export default function Painel() {
                   )}
                   <div className="space-y-2 max-h-72 overflow-auto pr-1 mt-2">
                     {agentHistory.slice(0, agentHistoryLimit).map((r) => {
-                      const s = String(r.status || '').toLowerCase();
+                      const s = normStatus(r.status || '');
                       const badge = s === 'feito' ? 'bg-emerald-100 text-emerald-700' : ((s === 'não feito' || s === 'nao feito') ? 'bg-red-100 text-red-700' : (s === 'enviado' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'));
                       const created = r.createdAt ? new Date(r.createdAt).toLocaleString() : '—';
                       const concluded = (s === 'feito' || s === 'não feito' || s === 'nao feito') && r.updatedAt ? new Date(r.updatedAt).toLocaleString() : null;
+                      const repliesList = Array.isArray(r.replies) ? r.replies : [];
+                      const cardId = r.id || r.waMessageId || created;
+                      const isExpanded = expandedAgentCards.has(cardId);
+                      const toggleExpand = (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setExpandedAgentCards((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(cardId)) next.delete(cardId);
+                          else next.add(cardId);
+                          return next;
+                        });
+                      };
                       return (
-                        <div key={r.id} className="p-3 bg-white rounded border border-black/10 flex items-center justify-between">
-                          <div>
-                            <div className="font-medium">{r.tipo} — {r.cpf}</div>
-                            <div className="text-xs text-black/60 flex items-center gap-2">
-                              <span>Status:</span>
-                              <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${badge}`}>{s || '—'}</span>
+                        <div
+                          key={r.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={toggleExpand}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpand(e); } }}
+                          className="p-3 bg-white rounded border border-black/10 cursor-pointer hover:border-black/20 hover:bg-black/[0.02] transition-colors select-none"
+                          aria-expanded={isExpanded}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium flex items-center gap-2 flex-wrap">
+                                <span>{r.tipo} — {r.cpf}</span>
+                                {repliesList.length > 0 && (
+                                  <span className="text-[11px] text-black/50">
+                                    {isExpanded ? '▼' : '▶'} {repliesList.length} resposta{repliesList.length !== 1 ? 's' : ''}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs text-black/60 flex items-center gap-2 mt-0.5">
+                                <span>Status:</span>
+                                <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${badge}`}>{s || '—'}</span>
+                              </div>
+                              <div className="text-[11px] text-black/60 mt-1">
+                                <span>Aberto em: {created}</span>
+                                {concluded && <span className="ml-2">• Concluído em: {concluded}</span>}
+                              </div>
+                              {isExpanded && repliesList.length > 0 && (
+                                <div className="mt-2 pt-2 border-t border-black/10">
+                                  <div className="text-[11px] font-medium text-black/70 mb-1.5">Menções / Respostas no grupo ({repliesList.length})</div>
+                                  <div className="space-y-1.5 max-h-48 overflow-auto">
+                                    {[...repliesList].reverse().map((rep, i) => (
+                                      <div key={i} className="text-[11px] text-black/70 bg-black/5 rounded px-2 py-1.5">
+                                        <div className="font-medium text-black/80">{rep.reactor || '—'}</div>
+                                        <div className="mt-0.5 text-black/80 whitespace-pre-wrap break-words">{(rep.text || '—').trim() || '—'}</div>
+                                        <div className="mt-1 flex items-center justify-between gap-2 flex-wrap">
+                                          {rep.at && <span className="opacity-60">{new Date(rep.at).toLocaleString('pt-BR')}</span>}
+                                          <span className="text-[10px]">
+                                            {rep.replyMessageId ? (
+                                              rep.confirmedAt ? (
+                                                <span className="text-emerald-600">✓ Confirmado{rep.confirmedBy ? ` por ${rep.confirmedBy}` : ''}</span>
+                                              ) : (
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    confirmarResposta(r.id, rep.replyMessageId, myAgent).then(() => {
+                                                      loadStats();
+                                                    }).catch(() => toast.error('Falha ao confirmar'));
+                                                  }}
+                                                  className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                                                >
+                                                  Confirmar visto (✓ no WhatsApp)
+                                                </button>
+                                              )
+                                            ) : (
+                                              <span className="opacity-60">Check no WhatsApp disponível só para respostas novas</span>
+                                            )}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                            <div className="text-[11px] text-black/60 mt-1">
-                              <span>Aberto em: {created}</span>
-                              {concluded && <span className="ml-2">• Concluído em: {concluded}</span>}
-                            </div>
+                            <div className="text-xs text-black/60 shrink-0">{created}</div>
                           </div>
-                          <div className="text-xs text-black/60">{created}</div>
                         </div>
                       );
                     })}

@@ -3187,7 +3187,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                                             )}
                                             {isCritical && !isSolved && !shouldRemoveHighlight && (
                                                 <span className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 px-2 py-1 rounded-full text-xs font-medium">
-                                                    Cr├¡tica
+                                                    Crítica
                                                 </span>
                                             )}
                                         </div>

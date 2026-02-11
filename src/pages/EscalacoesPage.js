@@ -1,6 +1,11 @@
 /**
  * VeloHub V3 - EscalacoesPage (Escalações Module)
- * VERSION: v1.4.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.4.2 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.4.2:
+ * - Corrigido container de consulta de CPF para conter resultados e permitir scroll quando necessário
+ * - Adicionado overflow-hidden no container pai e estrutura flex para garantir contenção
+ * - Removido limite de 8 resultados, agora mostra todos com scroll
  * 
  * Mudanças v1.4.1:
  * - Removido bypass de Lucas Gravina - todos os usuários têm acesso ao chat
@@ -864,15 +869,15 @@ const EscalacoesPage = () => {
           {/* Container de Sidebars */}
           <div className="flex flex-col gap-4 w-[400px] flex-shrink-0">
             {/* Sidebar Superior - Consulta de CPF */}
-            <div className="w-[400px] h-[400px] flex-shrink-0 bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 hover:-translate-y-0.5 transition-transform">
-              <div className="flex items-center gap-2 mb-3">
+            <div className="w-[400px] h-[400px] flex-shrink-0 bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 hover:-translate-y-0.5 transition-transform flex flex-col overflow-hidden">
+              <div className="flex items-center gap-2 mb-3 flex-shrink-0">
                 <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-sky-500 to-emerald-500" />
                 <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
                   Consulta de CPF
                 </h2>
               </div>
               <div
-                className="flex flex-col gap-2"
+                className="flex flex-col gap-2 flex-shrink-0"
                 aria-busy={searchLoading}
                 aria-live="polite"
               >
@@ -938,11 +943,11 @@ const EscalacoesPage = () => {
                 </div>
               </div>
               {searchCpf && (
-                <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mt-2 flex-shrink-0">
                   {searchResults.length} registro(s) encontrado(s)
                 </div>
               )}
-              <div className="mt-3 flex-1 overflow-auto pr-1">
+              <div className="mt-3 flex-1 overflow-y-auto overflow-x-hidden pr-1 min-h-0">
                 {searchLoading && (
                   <div className="space-y-2">
                     {[...Array(4)].map((_, i) => (
@@ -961,7 +966,7 @@ const EscalacoesPage = () => {
                 )}
                 {searchResults && searchResults.length > 0 && !searchLoading && (
                   <div className="space-y-2">
-                    {searchResults.slice(0, 8).map((r) => {
+                    {searchResults.map((r) => {
                       const imgCount = Array.isArray(r?.payload?.previews)
                         ? r.payload.previews.length
                         : Array.isArray(r?.payload?.imagens)

@@ -1,7 +1,31 @@
 /**
  * VeloHub V3 - FormSolicitacao Component (Escalações Module)
- * VERSION: v1.5.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.9.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
+ * 
+ * Mudanças v1.9.0:
+ * - Adicionada formatação reativa de moeda brasileira no campo Valor (Aumento de Limite Pix e Cancelamento)
+ * - Formatação preenche do centavo para dezena de centavo, depois unidade, dezena, centena, etc.
+ * - Adiciona pontuações de milhar automaticamente (R$ 1.234,56)
+ * - Placeholder atualizado para R$0,00
+ * 
+ * Mudanças v1.8.0:
+ * - Corrigido formato de telefone celular para padrão brasileiro: (XX)91234-5678 (11 dígitos)
+ * - Atualizada validação para aceitar 11 dígitos ao invés de 10
+ * - Corrigido placeholder para mostrar formato correto
+ * 
+ * Mudanças v1.7.0:
+ * - Atualizado endpoint WhatsApp para usar nova API do backend GCP: /api/whatsapp/send
+ *   - Local: http://localhost:3001/api/whatsapp/send
+ *   - Produção: https://backend-gcp-278491073220.us-east1.run.app/api/whatsapp/send
+ * - Melhorado tratamento de erros e logs de debug
+ * 
+ * Mudanças v1.6.0:
+ * - Adicionados campos para "Exclusão de Chave PIX" (semDebitoAberto, n2Ouvidora, procon, reclameAqui, processo)
+ * - Adicionado campo "Aumento de Limite Pix" com campo valor
+ * - Adicionados novos tipos no select: "Aumento de Limite Pix" e "Reset de Senha"
+ * - Adicionada validação para Exclusão de Chave PIX (pelo menos uma opção deve ser selecionada)
+ * - Atualizada função montarMensagem() para incluir novos tipos e campos
  * 
  * Componente de formulário para criação de solicitações técnicas
  * 
@@ -40,7 +64,7 @@
  * - Adicionada formatação e máscara de email (email@dominio.com.br) nos campos dadoAntigo e dadoNovo
  * - Adicionada validação visual (borda verde) no campo "Dado novo" quando:
  *   - Tipo é "E-mail" e formato válido (parte@dominio.extensão)
- *   - Tipo é "Telefone" e telefone completo (10 dígitos)
+ *   - Tipo é "Telefone" e telefone completo (11 dígitos para celular)
  * - Telefone definido como valor padrão do campo "Tipo de informação"
  * 
  * Mudanças v1.2.0:
@@ -48,7 +72,7 @@
  * - Melhorada lógica de atualização do select de tipo de informação
  * 
  * Mudanças v1.1.0:
- * - Adicionada formatação automática de telefone (XX) XXXX-XXXX nos campos dadoAntigo e dadoNovo
+ * - Adicionada formatação automática de telefone (XX)91234-5678 nos campos dadoAntigo e dadoNovo
  */
 
 import React, { useEffect, useState } from 'react';
@@ -75,7 +99,17 @@ const FormSolicitacao = ({ registrarLog }) => {
     portabilidadePendente: false,
     dividaIrpfQuitada: false,
     observacoes: '',
-    // Campos para Cancelamento
+    // Campos para Exclusão de Chave PIX
+    semDebitoAberto: false,
+    n2Ouvidora: false,
+    procon: false,
+    reclameAqui: false,
+    processo: false,
+    // Campos para Aumento de Limite Pix e Cancelamento
+    valor: '',
+    nomeCliente: '',
+    dataContratacao: '',
+    // Campos para Cancelamento (existente)
     seguroPrestamista: false,
     seguroSaude: false,
     seguroCelular: false,
@@ -208,7 +242,7 @@ const FormSolicitacao = ({ registrarLog }) => {
   };
 
   /**
-   * Formatar telefone no formato (XX) XXXX-XXXX
+   * Formatar telefone no formato (XX)91234-5678 (celular brasileiro - 11 dígitos)
    * @param {string} valor - Valor a formatar
    * @returns {string} Telefone formatado
    */
@@ -216,23 +250,23 @@ const FormSolicitacao = ({ registrarLog }) => {
     // Remove tudo que não é dígito
     const digits = String(valor || '').replace(/\D/g, '');
     
-    // Limita a 10 dígitos (XX) XXXX-XXXX
-    const limited = digits.slice(0, 10);
+    // Limita a 11 dígitos (XX)91234-5678
+    const limited = digits.slice(0, 11);
     
     if (limited.length === 0) return '';
     if (limited.length <= 2) return `(${limited}`;
-    if (limited.length <= 6) return `(${limited.slice(0, 2)}) ${limited.slice(2)}`;
-    return `(${limited.slice(0, 2)}) ${limited.slice(2, 6)}-${limited.slice(6)}`;
+    if (limited.length <= 7) return `(${limited.slice(0, 2)})${limited.slice(2)}`;
+    return `(${limited.slice(0, 2)})${limited.slice(2, 7)}-${limited.slice(7)}`;
   };
 
   /**
-   * Validar telefone completo (10 dígitos)
+   * Validar telefone completo (11 dígitos para celular brasileiro)
    * @param {string} valor - Valor a validar
    * @returns {boolean} True se válido
    */
   const validarTelefone = (valor) => {
     const digits = String(valor || '').replace(/\D/g, '');
-    return digits.length === 10;
+    return digits.length === 11;
   };
 
   /**
@@ -271,6 +305,32 @@ const FormSolicitacao = ({ registrarLog }) => {
    */
   const formatarEmail = (valor) => {
     return String(valor || '').toLowerCase().trim().replace(/\s+/g, '');
+  };
+
+  /**
+   * Formatar valor monetário no formato brasileiro R$ 1.234,56
+   * Formatação reativa: digitação preenche do centavo para a dezena de centavo, depois unidade, dezena, centena, etc.
+   * @param {string} valor - Valor a formatar (pode conter R$, pontos, vírgulas, etc.)
+   * @returns {string} Valor formatado no padrão R$ X.XXX,XX
+   */
+  const formatarMoeda = (valor) => {
+    // Remove tudo que não é dígito
+    const digits = String(valor || '').replace(/\D/g, '');
+    
+    // Se não há dígitos, retorna vazio
+    if (digits.length === 0) return '';
+    
+    // Converte para número e divide por 100 para obter centavos
+    const valorNumerico = parseInt(digits, 10) / 100;
+    
+    // Formata com separador de milhar (.) e decimal (,)
+    const valorFormatado = valorNumerico.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    
+    // Adiciona prefixo R$
+    return `R$ ${valorFormatado}`;
   };
 
   /**
@@ -394,6 +454,11 @@ const FormSolicitacao = ({ registrarLog }) => {
         }
       }
       
+      // Aplicar formatação de moeda se necessário - SEMPRE quando tipo é Aumento de Limite Pix ou Cancelamento e campo é valor
+      if ((prev.tipo === 'Aumento de Limite Pix' || prev.tipo === 'Cancelamento') && campo === 'valor') {
+        valorFinal = formatarMoeda(valor);
+      }
+      
       const novoForm = { ...prev, [campo]: valorFinal };
       
       // Processar campos específicos
@@ -425,6 +490,8 @@ const FormSolicitacao = ({ registrarLog }) => {
       'Alteração de Dados Cadastrais': 'Alteração de Dados Cadastrais',
       'Reativação de Conta': 'Reativação de Conta',
       'Cancelamento': 'Cancelamento',
+      'Reset de Senha': 'Reset de Senha',
+      'Aumento de Limite Pix': 'Aumento de Limite Pix',
     };
     const tipoCanon = typeMap[form.tipo] || toTitleCase(String(form.tipo || ''));
     const cpfNorm = String(form.cpf || '').replace(/\s+/g, ' ').trim();
@@ -444,36 +511,20 @@ const FormSolicitacao = ({ registrarLog }) => {
       msg += `Dado novo: ${form.dadoNovo}\n`;
       msg += `Fotos verificadas: ${simNao(form.fotosVerificadas)}\n`;
       msg += `Observações: ${form.observacoes || '—'}\n`;
+    } else if (form.tipo === 'Exclusão de Chave PIX') {
+      msg += `Sem Débito em aberto: ${simNao(form.semDebitoAberto)}\n`;
+      msg += `N2 - Ouvidora: ${simNao(form.n2Ouvidora)}\n`;
+      msg += `Procon: ${simNao(form.procon)}\n`;
+      msg += `Reclame Aqui: ${simNao(form.reclameAqui)}\n`;
+      msg += `Processo: ${simNao(form.processo)}\n`;
+      msg += `Observações: ${form.observacoes || '—'}\n`;
+    } else if (form.tipo === 'Aumento de Limite Pix') {
+      msg += `Valor: ${form.valor || '—'}\n`;
+      msg += `Observações: ${form.observacoes || '—'}\n`;
     } else if (form.tipo === 'Cancelamento') {
-      // Listar apenas produtos selecionados
-      const produtosSelecionados = [];
-      if (form.seguroPrestamista) produtosSelecionados.push('Seguro Prestamista');
-      if (form.seguroSaude) produtosSelecionados.push('Seguro Saude');
-      if (form.seguroCelular) produtosSelecionados.push('Seguro Celular');
-      if (form.seguroDividaZero) produtosSelecionados.push('Seguro Divida Zero');
-      if (form.clubeVelotax) produtosSelecionados.push('Clube Velotax');
-      
-      if (produtosSelecionados.length > 0) {
-        msg += `*Produtos:*\n`;
-        produtosSelecionados.forEach(produto => {
-          msg += `✅ ${produto}\n`;
-        });
-        msg += `\n`;
-      }
-      
-      // Listar apenas prazos selecionados
-      const prazosSelecionados = [];
-      if (form.dentroDos7Dias) prazosSelecionados.push('Dentro dos 7 dias');
-      if (form.depoisDos7Dias) prazosSelecionados.push('Depois dos 7 dias');
-      
-      if (prazosSelecionados.length > 0) {
-        msg += `*Prazo:*\n`;
-        prazosSelecionados.forEach(prazo => {
-          msg += `✅ ${prazo}\n`;
-        });
-        msg += `\n`;
-      }
-      
+      msg += `Nome do Cliente: ${form.nomeCliente || '—'}\n`;
+      msg += `Data da Contratação: ${form.dataContratacao || '—'}\n`;
+      msg += `Valor: ${form.valor || '—'}\n`;
       msg += `Observações: ${form.observacoes || '—'}\n`;
     } else {
       msg += `Observações: ${form.observacoes || '—'}\n`;
@@ -491,6 +542,10 @@ const FormSolicitacao = ({ registrarLog }) => {
     if (digits.length !== 11) {
       setCpfError('CPF inválido. Digite os 11 dígitos.');
       showNotification('CPF inválido. Digite os 11 dígitos.', 'error');
+      return;
+    }
+    if (form.tipo === 'Exclusão de Chave PIX' && !form.semDebitoAberto && !form.n2Ouvidora && !form.procon && !form.reclameAqui && !form.processo) {
+      showNotification('Para Exclusão de Chave PIX, selecione pelo menos uma opção: Sem Débito em aberto, N2 - Ouvidora, Procon, Reclame Aqui ou Processo.', 'error');
       return;
     }
     setLoading(true);
@@ -540,10 +595,14 @@ const FormSolicitacao = ({ registrarLog }) => {
     // Obter configurações do WhatsApp
     const apiUrl = WHATSAPP_API_URL;
     const defaultJid = WHATSAPP_DEFAULT_JID;
+    
+    // CPF apenas com números (sem formatação) para a API
+    const cpfApenasNumeros = String(form.cpf || '').replace(/\D/g, '');
+    
     const payload = { 
       jid: defaultJid, 
       mensagem: mensagemTexto, 
-      cpf: form.cpf, 
+      cpf: cpfApenasNumeros, 
       solicitacao: form.tipo, 
       agente: agenteNorm || form.agente 
     };
@@ -555,7 +614,12 @@ const FormSolicitacao = ({ registrarLog }) => {
       
       if (apiUrl && defaultJid) {
         try {
-          res = await fetch(`${apiUrl}/send`, {
+          // Nova API WhatsApp: /api/whatsapp/send
+          const whatsappEndpoint = `${apiUrl}/api/whatsapp/send`;
+          console.log('📤 [FormSolicitacao] Enviando para WhatsApp API:', whatsappEndpoint);
+          console.log('📤 [FormSolicitacao] Payload:', payload);
+          
+          res = await fetch(whatsappEndpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -564,13 +628,23 @@ const FormSolicitacao = ({ registrarLog }) => {
           if (res && res.ok) {
             try {
               const data = await res.json();
-              waMessageId = data?.messageId || data?.key?.id || null;
+              console.log('✅ [FormSolicitacao] Resposta do WhatsApp:', data);
+              // Nova API retorna messageId diretamente
+              waMessageId = data?.messageId || data?.messageIds?.[0] || null;
             } catch (err) {
-              console.error('Erro ao parsear resposta do WhatsApp:', err);
+              console.error('❌ [FormSolicitacao] Erro ao parsear resposta do WhatsApp:', err);
+            }
+          } else {
+            // Tentar ler mensagem de erro
+            try {
+              const errorData = await res.json();
+              console.error('❌ [FormSolicitacao] Erro da API WhatsApp:', errorData);
+            } catch (e) {
+              console.error('❌ [FormSolicitacao] Erro HTTP:', res.status, res.statusText);
             }
           }
         } catch (err) {
-          console.error('Erro ao enviar via WhatsApp:', err);
+          console.error('❌ [FormSolicitacao] Erro ao enviar via WhatsApp:', err);
         }
       }
 
@@ -585,7 +659,21 @@ const FormSolicitacao = ({ registrarLog }) => {
         waMessageId: waMessageId || null,
       };
 
-      const result = await solicitacoesAPI.create(solicitacaoData);
+      console.log('📤 [FormSolicitacao] Enviando solicitação:', {
+        tipo: solicitacaoData.tipo,
+        cpf: solicitacaoData.cpf,
+        agente: solicitacaoData.agente,
+        payloadKeys: Object.keys(solicitacaoData.payload),
+      });
+
+      let result;
+      try {
+        result = await solicitacoesAPI.create(solicitacaoData);
+        console.log('✅ [FormSolicitacao] Solicitação criada no backend:', result);
+      } catch (apiErr) {
+        console.error('❌ [FormSolicitacao] Erro ao criar solicitação no backend:', apiErr);
+        throw apiErr; // Re-throw para ser capturado pelo catch externo
+      }
 
       // Criar log
       try {
@@ -655,6 +743,17 @@ const FormSolicitacao = ({ registrarLog }) => {
         portabilidadePendente: false,
         dividaIrpfQuitada: false,
         observacoes: '',
+        // Campos para Exclusão de Chave PIX
+        semDebitoAberto: false,
+        n2Ouvidora: false,
+        procon: false,
+        reclameAqui: false,
+        processo: false,
+        // Campos para Aumento de Limite Pix e Cancelamento
+        valor: '',
+        nomeCliente: '',
+        dataContratacao: '',
+        // Campos para Cancelamento (existente)
         seguroPrestamista: false,
         seguroSaude: false,
         seguroCelular: false,
@@ -664,10 +763,16 @@ const FormSolicitacao = ({ registrarLog }) => {
         depoisDos7Dias: false,
       });
     } catch (err) {
-      console.error('Erro ao enviar solicitação:', err);
-      if (registrarLog) registrarLog('❌ Falha de conexão com a API.');
-      showNotification('Falha de conexão. A API está no ar?', 'error');
-      notifyError('Falha de conexão', 'Não foi possível contactar a API');
+      console.error('❌ [FormSolicitacao] Erro ao enviar solicitação:', err);
+      console.error('❌ [FormSolicitacao] Detalhes do erro:', {
+        message: err.message,
+        stack: err.stack,
+        tipo: form.tipo,
+        cpf: form.cpf,
+      });
+      if (registrarLog) registrarLog(`❌ Falha de conexão com a API: ${err.message || 'Erro desconhecido'}`);
+      showNotification(`Falha de conexão: ${err.message || 'Erro desconhecido'}`, 'error');
+      notifyError('Falha de conexão', err.message || 'Não foi possível contactar a API');
     } finally {
       setLoading(false);
     }
@@ -739,9 +844,11 @@ const FormSolicitacao = ({ registrarLog }) => {
               onChange={(e) => atualizar('tipo', e.target.value)}
             >
               <option>Alteração de Dados Cadastrais</option>
+              <option>Aumento de Limite Pix</option>
               <option>Exclusão de Chave PIX</option>
               <option>Exclusão de Conta</option>
               <option>Reativação de Conta</option>
+              <option>Reset de Senha</option>
               <option value="Cancelamento">Cancelamento</option>
             </select>
           </div>
@@ -842,7 +949,7 @@ const FormSolicitacao = ({ registrarLog }) => {
                   className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
                   type={form.infoTipo === 'Telefone' ? 'tel' : form.infoTipo === 'E-mail' ? 'email' : 'text'}
                   placeholder={
-                    form.infoTipo === 'Telefone' ? '(XX) XXXX-XXXX' :
+                    form.infoTipo === 'Telefone' ? '(XX)XXXXX-XXXX' :
                     form.infoTipo === 'E-mail' ? 'email@dominio.com.br' :
                     ''
                   }
@@ -867,7 +974,7 @@ const FormSolicitacao = ({ registrarLog }) => {
                   }`}
                   type={form.infoTipo === 'Telefone' ? 'tel' : form.infoTipo === 'E-mail' ? 'email' : 'text'}
                   placeholder={
-                    form.infoTipo === 'Telefone' ? '(XX) XXXX-XXXX' :
+                    form.infoTipo === 'Telefone' ? '(XX)XXXXX-XXXX' :
                     form.infoTipo === 'E-mail' ? 'email@dominio.com.br' :
                     ''
                   }
@@ -884,79 +991,107 @@ const FormSolicitacao = ({ registrarLog }) => {
           </div>
         )}
 
+        {form.tipo === 'Exclusão de Chave PIX' && (
+          <div className="p-4 rounded-lg mt-2" style={{ background: 'transparent', border: '1.5px solid #000058', borderRadius: '8px' }}>
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">* Selecione pelo menos uma opção:</p>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="w-4 h-4"
+                checked={form.semDebitoAberto || false}
+                onChange={(e) => atualizar('semDebitoAberto', e.target.checked)}
+              />
+              <span>Sem Débito em aberto</span>
+            </label>
+            <label className="flex items-center gap-2 mt-2">
+              <input
+                type="checkbox"
+                className="w-4 h-4"
+                checked={form.n2Ouvidora || false}
+                onChange={(e) => atualizar('n2Ouvidora', e.target.checked)}
+              />
+              <span>N2 - Ouvidora</span>
+            </label>
+            <label className="flex items-center gap-2 mt-2">
+              <input
+                type="checkbox"
+                className="w-4 h-4"
+                checked={form.procon || false}
+                onChange={(e) => atualizar('procon', e.target.checked)}
+              />
+              <span>Procon</span>
+            </label>
+            <label className="flex items-center gap-2 mt-2">
+              <input
+                type="checkbox"
+                className="w-4 h-4"
+                checked={form.reclameAqui || false}
+                onChange={(e) => atualizar('reclameAqui', e.target.checked)}
+              />
+              <span>Reclame Aqui</span>
+            </label>
+            <label className="flex items-center gap-2 mt-2">
+              <input
+                type="checkbox"
+                className="w-4 h-4"
+                checked={form.processo || false}
+                onChange={(e) => atualizar('processo', e.target.checked)}
+              />
+              <span>Processo</span>
+            </label>
+          </div>
+        )}
+
+        {form.tipo === 'Aumento de Limite Pix' && (
+          <div className="p-4 rounded-lg mt-2" style={{ background: 'transparent', border: '1.5px solid #000058', borderRadius: '8px' }}>
+            <div>
+              <label className="text-sm text-gray-700 dark:text-gray-300">Valor</label>
+              <input
+                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                type="text"
+                placeholder="R$0,00"
+                value={formatarMoeda(form.valor)}
+                onChange={(e) => atualizar('valor', e.target.value)}
+                required
+              />
+            </div>
+          </div>
+        )}
+
         {form.tipo === 'Cancelamento' && (
           <div className="p-4 rounded-lg mt-2" style={{ background: 'transparent', border: '1.5px solid #000058', borderRadius: '8px' }}>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Produtos:</label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4"
-                    checked={form.seguroPrestamista}
-                    onChange={(e) => atualizar('seguroPrestamista', e.target.checked)}
-                  />
-                  Seguro Prestamista
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4"
-                    checked={form.seguroSaude}
-                    onChange={(e) => atualizar('seguroSaude', e.target.checked)}
-                  />
-                  Seguro Saude
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4"
-                    checked={form.seguroCelular}
-                    onChange={(e) => atualizar('seguroCelular', e.target.checked)}
-                  />
-                  Seguro Celular
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4"
-                    checked={form.seguroDividaZero}
-                    onChange={(e) => atualizar('seguroDividaZero', e.target.checked)}
-                  />
-                  Seguro Divida Zero
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4"
-                    checked={form.clubeVelotax}
-                    onChange={(e) => atualizar('clubeVelotax', e.target.checked)}
-                  />
-                  Clube Velotax
-                </label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="text-sm text-gray-700 dark:text-gray-300">Nome do Cliente</label>
+                <input
+                  className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                  type="text"
+                  placeholder="Nome completo do cliente"
+                  value={form.nomeCliente || ''}
+                  onChange={(e) => atualizar('nomeCliente', e.target.value)}
+                  required
+                />
               </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Prazo:</label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4"
-                    checked={form.dentroDos7Dias}
-                    onChange={(e) => atualizar('dentroDos7Dias', e.target.checked)}
-                  />
-                  Dentro dos 7 dias
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4"
-                    checked={form.depoisDos7Dias}
-                    onChange={(e) => atualizar('depoisDos7Dias', e.target.checked)}
-                  />
-                  Depois dos 7 dias
-                </label>
+              <div>
+                <label className="text-sm text-gray-700 dark:text-gray-300">Data da Contratação</label>
+                <input
+                  className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                  type="date"
+                  value={form.dataContratacao || ''}
+                  onChange={(e) => atualizar('dataContratacao', e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-700 dark:text-gray-300">Valor</label>
+                <input
+                  className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                  type="text"
+                  placeholder="R$0,00"
+                  value={formatarMoeda(form.valor)}
+                  onChange={(e) => atualizar('valor', e.target.value)}
+                  required
+                />
               </div>
             </div>
           </div>
@@ -1002,8 +1137,8 @@ const FormSolicitacao = ({ registrarLog }) => {
                 Histórico recente para {String(buscaCpf || form.cpf)}
               </h2>
             </div>
-            <div className="space-y-2">
-              {buscaResultados.slice(0, 5).map((r) => (
+            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+              {buscaResultados.map((r) => (
                 <div
                   key={r._id || r.id}
                   className="p-3 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 flex items-center justify-between"

@@ -40,6 +40,29 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Atualizações Módulo Escalações e Painel de Serviços**
+- **Data/Hora**: 2025-02-11 [HORA_AQUI]
+- **Tipo**: GitHub Push
+- **Commit**: [Pendente]
+- **Versão**: Múltiplas atualizações
+- **Arquivos Modificados**:
+  - `backend/server.js` (v2.44.0 - melhorias busca usuário e validação de acesso)
+  - `painel de serviços/components/FormSolicitacao.jsx` (atualizações formulário)
+  - `painel de serviços/pages/painel.js` (melhorias interface)
+  - `src/App_v2-1.js` (v2.10.1 - correção LoadingPage após logout)
+  - `src/components/Escalacoes/ErrosBugsTab.js` (v1.11.0 - atualização endpoint WhatsApp)
+  - `src/components/Escalacoes/FormSolicitacao.js` (v1.9.0 - formatação moeda brasileira)
+  - `src/config/api-config.js` (v1.0.16 - alteração porta VeloChat Server)
+  - `src/pages/EscalacoesPage.js` (melhorias interface)
+- **Arquivos Novos**:
+  - `painel de serviços/lib/apiConfig.js` (nova configuração API)
+  - `painel de serviços/lib/fetchUtils.js` (utilitários fetch)
+  - `painel de serviços/lib/mongodb.js` (configuração MongoDB)
+  - `painel de serviços/lib/utils.js` (utilitários gerais)
+  - `painel de serviços/pages/api/requests/reply-confirm.js` (endpoint confirmação resposta)
+- **Descrição**: Atualizações no módulo de Escalações e Painel de Serviços. Melhorias na busca de usuário no backend com múltiplas variações case-insensitive. Formatação reativa de moeda brasileira no FormSolicitacao. Atualização de endpoints WhatsApp para usar nova API do backend GCP. Correção da LoadingPage que não aparecia após logout. Alteração da porta do VeloChat Server de 3001 para 3002 em desenvolvimento local. Adicionados novos arquivos de configuração e utilitários para o painel de serviços.
+- **Status**: ✅ Pronto para commit e push
+
 ### **GitHub Push - Correção URL VeloChat Server: Adicionadas Variáveis de Ambiente para Produção**
 - **Data/Hora**: 2025-01-31 20:05:00
 - **Tipo**: GitHub Push

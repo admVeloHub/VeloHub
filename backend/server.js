@@ -4639,7 +4639,7 @@ app.put('/api/auth/session/chat-status', async (req, res) => {
       // Notificar VeloChat Server sobre mudança de status (para emitir evento WebSocket)
       // NOTA: O VeloChat Server deve ter um endpoint POST /api/notify-status-change
       // que recebe { userEmail, status, timestamp } e emite evento WebSocket
-      const velochatServerUrl = process.env.VELOCHAT_SERVER_URL || 'http://localhost:3001';
+      const velochatServerUrl = process.env.VELOCHAT_SERVER_URL || 'http://localhost:3002';
       
       // Log no console do backend para debug
       console.log(`📡 [STATUS CHANGE] Tentando notificar VeloChat Server: ${velochatServerUrl}/api/notify-status-change`);
