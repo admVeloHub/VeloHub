@@ -43,7 +43,7 @@
 ### **GitHub Push - Reversão API WhatsApp para Render.com**
 - **Data/Hora**: 2026-02-12 15:49:53
 - **Tipo**: GitHub Push
-- **Commit**: 821204f
+- **Commit**: 71c2526
 - **Versão**: Múltiplas atualizações
 - **Arquivos Modificados**:
   - `src/components/Escalacoes/ErrosBugsTab.js` (v1.12.0 - revertida API WhatsApp)
