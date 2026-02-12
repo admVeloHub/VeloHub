@@ -1,7 +1,10 @@
 /**
  * VeloHub V3 - API Configuration
- * VERSION: v1.0.16 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.17 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
  * REGRA: Frontend porta 8080 | Backend porta 8090 | VeloChat Server porta 3002 na rede local
+ * 
+ * Mudanças v1.0.17:
+ * - Revertida URL da API WhatsApp para usar whatsapp-api-new-54aw.onrender.com/send
  * 
  * Mudanças v1.0.16:
  * - Alterada porta do VeloChat Server de 3001 para 3002 em desenvolvimento local
@@ -70,12 +73,11 @@ export const getApiBaseUrl = () => {
 
 /**
  * Obtém a URL da API do WhatsApp baseada no ambiente
- * VERSION: v1.0.15 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
- * @returns {string} URL base da API do WhatsApp (sem /api/whatsapp/send no final)
+ * VERSION: v1.0.17 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * @returns {string} URL base da API do WhatsApp (sem /send no final)
  * 
- * Nova API WhatsApp no backend GCP:
- * - Local: http://localhost:3001
- * - Produção: https://backend-gcp-278491073220.us-east1.run.app
+ * API WhatsApp Render:
+ * - URL: https://whatsapp-api-new-54aw.onrender.com
  */
 export const getWhatsAppApiUrl = () => {
   // Prioridade 1: Variável de ambiente específica para WhatsApp
@@ -87,19 +89,19 @@ export const getWhatsAppApiUrl = () => {
   if (typeof window !== 'undefined') {
     const currentHost = window.location.hostname;
     
-    // Em desenvolvimento (localhost), usar backend local na porta 3001
-    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
-      return 'http://localhost:3001';
+    // Em produção (domínio velotax.com.br ou velohub), usar API do Render
+    if (currentHost.includes('velotax.com.br') || currentHost.includes('velohub')) {
+      return 'https://whatsapp-api-new-54aw.onrender.com';
     }
     
-    // Em produção (domínio velotax.com.br ou velohub), usar backend GCP
-    if (currentHost.includes('velotax.com.br') || currentHost.includes('velohub') || currentHost.includes('run.app')) {
-      return 'https://backend-gcp-278491073220.us-east1.run.app';
+    // Em desenvolvimento (localhost), usar Render também
+    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
+      return 'https://whatsapp-api-new-54aw.onrender.com';
     }
   }
   
-  // Fallback: sempre usar backend GCP em produção
-  return 'https://backend-gcp-278491073220.us-east1.run.app';
+  // Fallback: sempre usar Render (mesma URL do UPDATE PAINEL que funciona)
+  return 'https://whatsapp-api-new-54aw.onrender.com';
 };
 
 /**
@@ -208,7 +210,7 @@ if (process.env.NODE_ENV === 'development') {
 console.log('🔧 API Config (SEMPRE):', {
   baseUrl: API_BASE_URL,
   whatsappApiUrl: WHATSAPP_API_URL,
-  whatsappEndpoint: `${WHATSAPP_API_URL}/api/whatsapp/send`,
+  whatsappEndpoint: `${WHATSAPP_API_URL}/send`,
   velochatApiUrl: getVeloChatApiUrl(),
   velochatWsUrl: getVeloChatWsUrl(),
   environment: process.env.NODE_ENV,

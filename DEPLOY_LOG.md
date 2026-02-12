@@ -40,10 +40,23 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
-### **GitHub Push - Atualizações Módulo Escalações e Painel de Serviços**
-- **Data/Hora**: 2025-02-11 [HORA_AQUI]
+### **GitHub Push - Reversão API WhatsApp para Render.com**
+- **Data/Hora**: 2026-02-12 15:49:53
 - **Tipo**: GitHub Push
-- **Commit**: [Pendente]
+- **Commit**: 821204f
+- **Versão**: Múltiplas atualizações
+- **Arquivos Modificados**:
+  - `src/components/Escalacoes/ErrosBugsTab.js` (v1.12.0 - revertida API WhatsApp)
+  - `src/components/Escalacoes/FormSolicitacao.js` (v1.10.0 - revertida API WhatsApp)
+  - `src/config/api-config.js` (v1.0.17 - revertida URL da API WhatsApp)
+  - `DEPLOY_LOG.md` (atualização log de deploy)
+- **Descrição**: Reversão da API WhatsApp para usar whatsapp-api-new-54aw.onrender.com/send ao invés da API do backend GCP. Esta reversão foi necessária para garantir compatibilidade e funcionamento correto do envio de mensagens WhatsApp no módulo de Escalações. Atualizado DEPLOY_LOG.md com registro do push anterior.
+- **Status**: ✅ Pronto para commit e push
+
+### **GitHub Push - Atualizações Módulo Escalações e Painel de Serviços**
+- **Data/Hora**: 2026-02-11 18:22:02
+- **Tipo**: GitHub Push
+- **Commit**: 72e46d5
 - **Versão**: Múltiplas atualizações
 - **Arquivos Modificados**:
   - `backend/server.js` (v2.44.0 - melhorias busca usuário e validação de acesso)
