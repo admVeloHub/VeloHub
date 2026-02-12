@@ -1,7 +1,10 @@
 /**
  * VeloHub V3 - FormSolicitacao Component (Escalações Module)
- * VERSION: v1.9.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.10.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
+ * 
+ * Mudanças v1.10.0:
+ * - Revertida API WhatsApp para usar whatsapp-api-new-54aw.onrender.com/send
  * 
  * Mudanças v1.9.0:
  * - Adicionada formatação reativa de moeda brasileira no campo Valor (Aumento de Limite Pix e Cancelamento)
@@ -614,8 +617,7 @@ const FormSolicitacao = ({ registrarLog }) => {
       
       if (apiUrl && defaultJid) {
         try {
-          // Nova API WhatsApp: /api/whatsapp/send
-          const whatsappEndpoint = `${apiUrl}/api/whatsapp/send`;
+          const whatsappEndpoint = `${apiUrl}/send`;
           console.log('📤 [FormSolicitacao] Enviando para WhatsApp API:', whatsappEndpoint);
           console.log('📤 [FormSolicitacao] Payload:', payload);
           
@@ -629,8 +631,7 @@ const FormSolicitacao = ({ registrarLog }) => {
             try {
               const data = await res.json();
               console.log('✅ [FormSolicitacao] Resposta do WhatsApp:', data);
-              // Nova API retorna messageId diretamente
-              waMessageId = data?.messageId || data?.messageIds?.[0] || null;
+              waMessageId = data?.messageId || data?.key?.id || null;
             } catch (err) {
               console.error('❌ [FormSolicitacao] Erro ao parsear resposta do WhatsApp:', err);
             }

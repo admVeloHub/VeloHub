@@ -1,9 +1,12 @@
 /**
  * VeloHub V3 - ErrosBugsTab Component
- * VERSION: v1.11.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.12.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
  * 
  * Componente para reportar erros e bugs com anexos de imagem/vídeo
+ * 
+ * Mudanças v1.12.0:
+ * - Revertida API WhatsApp para usar whatsapp-api-new-54aw.onrender.com/send
  * 
  * Mudanças v1.11.0:
  * - Atualizado endpoint WhatsApp para usar nova API do backend GCP: /api/whatsapp/send
@@ -636,8 +639,7 @@ const ErrosBugsTab = () => {
           const imagensFormatadas = imagens?.map(({ data, type }) => ({ data, type })).filter(img => img.data && img.type) || [];
           const videosFormatados = videos?.map(({ data, type }) => ({ data, type })).filter(vid => vid.data && vid.type) || [];
           
-          // Nova API WhatsApp: /api/whatsapp/send
-          const whatsappEndpoint = `${apiUrl}/api/whatsapp/send`;
+          const whatsappEndpoint = `${apiUrl}/send`;
           console.log('📤 [ErrosBugsTab] Enviando para WhatsApp API:', whatsappEndpoint);
           
           const resp = await fetch(whatsappEndpoint, {
@@ -654,8 +656,7 @@ const ErrosBugsTab = () => {
           if (resp && resp.ok) {
             const d = await resp.json().catch(() => ({}));
             console.log('✅ [ErrosBugsTab] Resposta do WhatsApp:', d);
-            // Nova API retorna messageId diretamente
-            waMessageId = d?.messageId || d?.messageIds?.[0] || null;
+            waMessageId = d?.messageId || d?.key?.id || null;
             if (Array.isArray(d?.messageIds)) messageIdsArr = d.messageIds;
           } else {
             // Tentar ler mensagem de erro
