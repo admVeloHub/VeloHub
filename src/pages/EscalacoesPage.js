@@ -1,6 +1,42 @@
 /**
  * VeloHub V3 - EscalacoesPage (Escalações Module)
- * VERSION: v1.4.2 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.11.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.11.0:
+ * - Adicionados logs de debug no modal para rastrear replies recebidas
+ * - Normalização do campo replies no modal para garantir exibição correta
+ * - Verificação melhorada de replies antes de exibir no modal
+ * 
+ * Mudanças v1.10.0:
+ * - TODOS os cards são SEMPRE clicáveis e SEMPRE abrem modal quando clicados
+ * - Modal mostra todas as informações: básicas, anexos (se houver) e respostas (se houver)
+ * - Removida lógica condicional - cards sempre têm cursor-pointer e hover
+ * - Modal unificado mostra tudo em um único lugar
+ * 
+ * Mudanças v1.8.0:
+ * - Corrigido modal de respostas não abrindo quando há respostas e anexos
+ * - Ajustado stopPropagation para não bloquear clique do card quando há respostas
+ * - Adicionado z-index explícito (9999) no modal para garantir visibilidade
+ * - Adicionados logs de debug para rastrear cliques e abertura do modal
+ * - Priorização de respostas sobre anexos quando ambos existem
+ * 
+ * Mudanças v1.7.0:
+ * - Cards agora são clicáveis para abrir modal de respostas diretamente quando há respostas
+ * - Removido botão "Ver em modal" - card inteiro abre o modal
+ * - Aplicado tanto em resultados de busca quanto no histórico do agente
+ * 
+ * Mudanças v1.6.0:
+ * - Adicionado modal para visualização de respostas (replies)
+ * - Botão "Ver em modal" em cada card expandido com respostas
+ * - Modal exibe todas as respostas com melhor formatação e espaço
+ * - Possibilidade de confirmar visualização diretamente do modal
+ * 
+ * Mudanças v1.5.0:
+ * - Implementada visualização de respostas (replies) do WhatsApp nos resultados de busca
+ * - Implementada visualização de respostas no histórico do agente
+ * - Adicionado botão para confirmar visualização de respostas (envia reação ✓ no WhatsApp)
+ * - Adicionados estados expandedSearchKeys e expandedAgentCards para controlar expansão de cards
+ * - Adicionada função confirmarResposta que chama API para confirmar visualização
  * 
  * Mudanças v1.4.2:
  * - Corrigido container de consulta de CPF para conter resultados e permitir scroll quando necessário
@@ -48,6 +84,7 @@ import VeloChatWidget from '../components/VeloChatWidget';
 import ChatStatusSelector from '../components/ChatStatusSelector';
 import { solicitacoesAPI } from '../services/escalacoesApi';
 import { API_BASE_URL } from '../config/api-config';
+import toast from 'react-hot-toast';
 
 /**
  * Componente Calculadora de Restituição
@@ -184,6 +221,16 @@ const EscalacoesPage = () => {
   const [backendUrl, setBackendUrl] = useState('');
   const [replies, setReplies] = useState([]);
   const [myAgent, setMyAgent] = useState('');
+  // Estados para controlar expansão de cards com replies
+  const [expandedSearchKeys, setExpandedSearchKeys] = useState(new Set());
+  const [expandedAgentCards, setExpandedAgentCards] = useState(new Set());
+  // Estado para modal de respostas
+  const [selectedRepliesRequest, setSelectedRepliesRequest] = useState(null);
+  
+  // Debug: monitorar mudanças no estado do modal
+  useEffect(() => {
+    console.log('[EscalacoesPage] selectedRepliesRequest mudou:', selectedRepliesRequest);
+  }, [selectedRepliesRequest]);
   
   // Estados do sidebar direito com chat
   const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(true); // Recolhido por padrão
@@ -205,6 +252,33 @@ const EscalacoesPage = () => {
       localStorage.setItem('velochat_sound_enabled', newState.toString());
     } catch (error) {
       console.error('Erro ao salvar preferência de som:', error);
+    }
+  };
+
+  // Função para confirmar visualização de resposta
+  const confirmarResposta = async (requestId, replyMessageId, confirmedBy = null) => {
+    try {
+      const result = await solicitacoesAPI.confirmarResposta(requestId, replyMessageId, confirmedBy);
+      if (result && result.ok) {
+        toast.success('Confirmado! Reação ✓ enviada no WhatsApp.');
+        // Recarregar dados após confirmação
+        await loadStats();
+        // Recarregar busca se houver CPF pesquisado
+        if (searchCpf) {
+          buscarCpf();
+        }
+        // Recarregar histórico do agente se houver agente selecionado
+        if (selectedAgent) {
+          carregarHistoricoAgente(selectedAgent);
+        }
+      } else {
+        throw new Error(result?.error || 'Erro ao confirmar resposta');
+      }
+      return result;
+    } catch (error) {
+      console.error('[EscalacoesPage confirmarResposta] Erro:', error);
+      toast.error(error.message || 'Erro ao confirmar resposta');
+      throw error;
     }
   };
   
@@ -683,6 +757,29 @@ const EscalacoesPage = () => {
   }, [selectedAgent]);
 
   /**
+   * Carregar histórico do agente
+   */
+  const carregarHistoricoAgente = async (agenteNome) => {
+    if (!agenteNome) {
+      setAgentHistory([]);
+      return;
+    }
+    setAgentHistoryLoading(true);
+    try {
+      const result = await solicitacoesAPI.getByAgente(agenteNome);
+      const list = Array.isArray(result.data) ? result.data : [];
+      const filtered = list
+        .filter((r) => norm(r?.colaboradorNome || r?.agente || '') === norm(agenteNome))
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setAgentHistory(filtered);
+    } catch (err) {
+      console.error('Erro ao carregar histórico:', err);
+      setAgentHistory([]);
+    }
+    setAgentHistoryLoading(false);
+  };
+
+  /**
    * Buscar solicitações por CPF
    */
   const buscarCpf = async () => {
@@ -976,31 +1073,60 @@ const EscalacoesPage = () => {
                         ? r.payload.videos.length
                         : 0;
                       const total = imgCount + videoCount;
+                      const repliesList = Array.isArray(r.replies) ? r.replies : [];
+                      const requestId = r._id || r.id;
+                      const handleCardClick = (e) => {
+                        // Se o clique foi em um botão ou link, não fazer nada
+                        if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                          return;
+                        }
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('[EscalacoesPage] Card clicado - SEMPRE abrir modal:', r);
+                        // SEMPRE abrir modal quando card é clicado
+                        setSelectedRepliesRequest(r);
+                      };
                       return (
                         <div
-                          key={r._id || r.id}
-                          className="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600"
+                          key={requestId}
+                          role="button"
+                          tabIndex={0}
+                          onClick={handleCardClick}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCardClick(e); } }}
+                          className="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
                         >
                           <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="font-medium flex items-center gap-2 text-gray-800 dark:text-gray-200 text-sm">
-                                <span>
-                                  {r.tipo} — {r.cpf}
-                                </span>
-                                {total > 0 && (
-                                  <span className="px-2 py-0.5 rounded-full bg-fuchsia-100 dark:bg-fuchsia-900 text-fuchsia-800 dark:text-fuchsia-200 text-xs">
-                                    Anexos:{' '}
-                                    {imgCount > 0 ? `${imgCount} img` : ''}
-                                    {imgCount > 0 && videoCount > 0 ? ' + ' : ''}
-                                    {videoCount > 0 ? `${videoCount} vid` : ''}
+                            <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+                              <div>
+                                <div className="font-medium flex items-center gap-2 flex-wrap text-gray-800 dark:text-gray-200 text-sm">
+                                  <span>
+                                    {r.tipo} — {r.cpf}
                                   </span>
-                                )}
-                              </div>
-                              <div className="text-xs text-gray-600 dark:text-gray-400">
-                                Agente: {r.colaboradorNome || r.agente || '—'} • Status: {r.status || '—'}
+                                  {total > 0 && (
+                                    <span className="px-2 py-0.5 rounded-full bg-fuchsia-100 dark:bg-fuchsia-900 text-fuchsia-800 dark:text-fuchsia-200 text-xs">
+                                      Anexos:{' '}
+                                      {imgCount > 0 ? `${imgCount} img` : ''}
+                                      {imgCount > 0 && videoCount > 0 ? ' + ' : ''}
+                                      {videoCount > 0 ? `${videoCount} vid` : ''}
+                                    </span>
+                                  )}
+                                  {repliesList.length > 0 && (
+                                    <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                                      {repliesList.length} resposta{repliesList.length !== 1 ? 's' : ''}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-gray-600 dark:text-gray-400">
+                                  Agente: {r.colaboradorNome || r.agente || '—'} • Status: {r.status || '—'}
+                                </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2" onClick={(e) => {
+                              // Permitir clique apenas se não houver respostas (para não interferir com o modal de respostas)
+                              if (repliesList.length === 0) {
+                                e.stopPropagation();
+                              }
+                            }}>
                               <div className="text-xs text-gray-600 dark:text-gray-400">
                                 {new Date(r.createdAt).toLocaleString()}
                               </div>
@@ -1065,13 +1191,36 @@ const EscalacoesPage = () => {
                     (s === 'feito' || s === 'não feito' || s === 'nao feito') && r.updatedAt
                       ? new Date(r.updatedAt).toLocaleString()
                       : null;
+                  const repliesList = Array.isArray(r.replies) ? r.replies : [];
+                  const handleCardClick = (e) => {
+                    // Se o clique foi em um botão ou link, não fazer nada
+                    if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                      return;
+                    }
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('[EscalacoesPage Histórico] Card clicado - SEMPRE abrir modal:', r);
+                    // SEMPRE abrir modal quando card é clicado
+                    setSelectedRepliesRequest(r);
+                  };
                   return (
                     <div
                       key={r._id || r.id}
-                      className="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600"
+                      role="button"
+                      tabIndex={0}
+                      onClick={handleCardClick}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCardClick(e); } }}
+                      className="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
                     >
-                      <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">
-                        {r.tipo} — {r.cpf}
+                      <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1 flex items-center gap-2 flex-wrap">
+                        <span>
+                          {r.tipo} — {r.cpf}
+                        </span>
+                        {repliesList.length > 0 && (
+                          <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                            {repliesList.length} resposta{repliesList.length !== 1 ? 's' : ''}
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2 mb-1">
                         <span>Status:</span>
@@ -1119,6 +1268,219 @@ const EscalacoesPage = () => {
           {/* Sidebar direito com chat */}
           {renderRightSidebarChat()}
         </div>
+
+        {/* Modal de Visualização de Respostas */}
+        {selectedRepliesRequest && (
+          <div 
+            className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4"
+            style={{ zIndex: 9999 }}
+            onClick={() => {
+              console.log('[EscalacoesPage] Fechando modal de respostas');
+              setSelectedRepliesRequest(null);
+            }}
+          >
+            <div 
+              className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl max-h-[90vh] w-full overflow-hidden shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-4 border-b border-gray-200 dark:border-gray-600 flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                  Respostas - {selectedRepliesRequest.tipo || '—'} - {selectedRepliesRequest.cpf || '—'}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRepliesRequest(null)}
+                  className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 text-2xl leading-none transition-colors"
+                  aria-label="Fechar"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="p-4 overflow-auto max-h-[calc(90vh-80px)]">
+                <div className="space-y-4">
+                  {/* Informações básicas */}
+                  <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                    <div className="text-sm space-y-1 text-gray-800 dark:text-gray-200">
+                      <div><strong>CPF:</strong> {selectedRepliesRequest.cpf || '—'}</div>
+                      <div><strong>Agente:</strong> {selectedRepliesRequest.colaboradorNome || selectedRepliesRequest.agente || '—'}</div>
+                      <div><strong>Status:</strong> {selectedRepliesRequest.status || '—'}</div>
+                      <div><strong>Tipo:</strong> {selectedRepliesRequest.tipo || '—'}</div>
+                      <div><strong>Data:</strong> {selectedRepliesRequest.createdAt ? new Date(selectedRepliesRequest.createdAt).toLocaleString('pt-BR') : '—'}</div>
+                    </div>
+                  </div>
+
+                  {/* Anexos */}
+                  {(() => {
+                    const imgCount = Array.isArray(selectedRepliesRequest?.payload?.previews) 
+                      ? selectedRepliesRequest.payload.previews.length 
+                      : Array.isArray(selectedRepliesRequest?.payload?.imagens) 
+                      ? selectedRepliesRequest.payload.imagens.length 
+                      : 0;
+                    const videoCount = Array.isArray(selectedRepliesRequest?.payload?.videos) 
+                      ? selectedRepliesRequest.payload.videos.length 
+                      : 0;
+                    const totalAnexos = imgCount + videoCount;
+                    
+                    if (totalAnexos > 0) {
+                      return (
+                        <div>
+                          <h4 className="font-medium mb-3 text-gray-800 dark:text-gray-200">
+                            Anexos ({totalAnexos})
+                          </h4>
+                          {imgCount > 0 && (
+                            <div className="mb-3">
+                              <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">Imagens ({imgCount}):</div>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                {(selectedRepliesRequest.payload.previews || selectedRepliesRequest.payload.imagens || []).map((preview, idx) => (
+                                  <div key={idx} className="relative group">
+                                    <img
+                                      src={preview}
+                                      alt={`anexo-${idx}`}
+                                      className="w-full h-32 object-cover rounded-lg border border-gray-200 dark:border-gray-600 cursor-pointer hover:opacity-80 transition-opacity"
+                                      onClick={() => window.open(preview, '_blank')}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => window.open(preview, '_blank')}
+                                      className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                      Abrir
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {videoCount > 0 && (
+                            <div>
+                              <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">Vídeos ({videoCount}):</div>
+                              <div className="space-y-2">
+                                {(selectedRepliesRequest.payload.videos || []).map((video, idx) => (
+                                  <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                    <div className="relative">
+                                      {selectedRepliesRequest.payload.videoThumbnails?.[idx] && (
+                                        <img
+                                          src={selectedRepliesRequest.payload.videoThumbnails[idx]}
+                                          alt={`video-thumb-${idx}`}
+                                          className="w-20 h-14 object-cover rounded border"
+                                        />
+                                      )}
+                                      <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded">
+                                        <span className="text-white text-xs">▶</span>
+                                      </div>
+                                    </div>
+                                    <div className="flex-1">
+                                      <div className="text-sm font-medium text-gray-800 dark:text-gray-200">{video.name || `Vídeo ${idx + 1}`}</div>
+                                      <div className="text-xs text-gray-500 dark:text-gray-400">{video.type || 'video/mp4'}</div>
+                                    </div>
+                                    <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900 px-2 py-1 rounded">
+                                      Vídeo não disponível
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                  
+                  {/* Lista de respostas */}
+                  {(() => {
+                    const replies = Array.isArray(selectedRepliesRequest.replies) ? selectedRepliesRequest.replies : [];
+                    console.log('[Modal] Replies encontradas:', {
+                      requestId: selectedRepliesRequest._id || selectedRepliesRequest.id,
+                      repliesCount: replies.length,
+                      replies: replies
+                    });
+                    return replies.length > 0 ? (
+                      <div>
+                        <h4 className="font-medium mb-3 text-gray-800 dark:text-gray-200">
+                          Menções / Respostas no grupo ({replies.length})
+                        </h4>
+                        <div className="space-y-3">
+                          {[...replies].reverse().map((rep, i) => (
+                            <div key={i} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
+                            <div className="flex items-start justify-between gap-3 mb-2">
+                              <div className="font-semibold text-gray-800 dark:text-gray-200">
+                                {rep.reactor || '—'}
+                              </div>
+                              {rep.at && (
+                                <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                  {new Date(rep.at).toLocaleString('pt-BR')}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words mb-3">
+                              {(rep.text || '—').trim() || '—'}
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                {rep.replyMessageId ? (
+                                  rep.confirmedAt ? (
+                                    <span className="text-emerald-600 dark:text-emerald-400">
+                                      ✓ Confirmado{rep.confirmedBy ? ` por ${rep.confirmedBy}` : ''}
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-500 dark:text-gray-400">
+                                      Aguardando confirmação
+                                    </span>
+                                  )
+                                ) : (
+                                  <span className="text-gray-500 dark:text-gray-400">
+                                    Check no WhatsApp disponível só para respostas novas
+                                  </span>
+                                )}
+                              </span>
+                              {rep.replyMessageId && !rep.confirmedAt && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    confirmarResposta(
+                                      selectedRepliesRequest._id || selectedRepliesRequest.id,
+                                      rep.replyMessageId,
+                                      myAgent
+                                    ).then(() => {
+                                      // Atualizar o request no modal
+                                      const updatedReplies = replies.map(r => 
+                                        r.replyMessageId === rep.replyMessageId 
+                                          ? { ...r, confirmedAt: new Date(), confirmedBy: myAgent }
+                                          : r
+                                      );
+                                      setSelectedRepliesRequest({
+                                        ...selectedRepliesRequest,
+                                        replies: updatedReplies
+                                      });
+                                      // Recarregar dados
+                                      buscarCpf();
+                                      carregarHistoricoAgente(selectedAgent);
+                                    }).catch(() => {
+                                      toast.error('Falha ao confirmar');
+                                    });
+                                  }}
+                                  className="px-3 py-1.5 rounded bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-200 dark:hover:bg-emerald-800 transition-colors text-sm"
+                                >
+                                  Confirmar visto (✓ no WhatsApp)
+                                </button>
+                              )}
+                            </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+                        Nenhuma resposta disponível para esta solicitação.
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 };

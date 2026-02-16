@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Escalações API Service
- * VERSION: v1.1.1 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.2.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.2.0:
+ * - Adicionado método confirmarResposta para confirmar visualização de respostas do WhatsApp
  * Branch: main (recuperado de escalacoes)
  * 
  * Serviço de API para o módulo de Escalações (Painel de Serviços)
@@ -113,6 +116,18 @@ export const solicitacoesAPI = {
    * @deprecated Use getByColaborador ao invés disso
    */
   getByAgente: (agente) => apiRequest(`/escalacoes/solicitacoes?colaboradorNome=${encodeURIComponent(agente)}`),
+
+  /**
+   * Confirmar visualização de resposta do WhatsApp
+   * @param {string} requestId - ID da solicitação
+   * @param {string} replyMessageId - ID da mensagem de resposta
+   * @param {string} confirmedBy - Nome de quem confirmou
+   * @returns {Promise<Object>} Resultado da confirmação
+   */
+  confirmarResposta: (requestId, replyMessageId, confirmedBy) => apiRequest(`/escalacoes/solicitacoes/${requestId}/reply-confirm`, {
+    method: 'POST',
+    body: JSON.stringify({ replyMessageId, confirmedBy }),
+  }),
 };
 
 /**

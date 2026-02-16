@@ -1,9 +1,67 @@
 /**
  * VeloHub V3 - ErrosBugsTab Component
- * VERSION: v1.12.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.23.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.23.0:
+ * - Adicionados campos cpf, solicitacao e agente no payload do WhatsApp API
+ * - Payload agora inclui metadados necessários para correlacionar replies automaticamente
+ * - API WhatsApp agora consegue salvar replies no MongoDB quando detecta menções
+ * - Alinhado com padrão do FormSolicitacao que funciona corretamente
+ * 
+ * Mudanças v1.22.0:
+ * - Adicionados campos "Marca" e "Modelo" após campo "Descrição"
+ * - Campos Marca e Modelo na mesma linha do grid (grid-cols-2)
+ * - Campos incluídos na mensagem WhatsApp quando preenchidos
+ * - Campos incluídos no payload enviado ao backend
+ * - Campos limpos após envio do formulário
+ * 
+ * Mudanças v1.21.0:
+ * - Adicionados logs de debug no modal para rastrear replies recebidas
+ * - Normalização do campo replies no modal para garantir exibição correta
+ * - Verificação melhorada de replies antes de exibir no modal
+ * 
+ * Mudanças v1.20.0:
+ * - CPF sempre enviado apenas com números (sem pontos ou traços) em todas as operações
+ * - Normalização aplicada ao salvar no backend, logs e cache local
+ * - Máscara visual mantida na interface, mas dados sempre normalizados antes do envio
+ * 
+ * Mudanças v1.19.0:
+ * - TODOS os cards são SEMPRE clicáveis e SEMPRE abrem modal quando clicados
+ * - Modal mostra todas as informações: básicas, anexos (se houver) e respostas (se houver)
+ * - Removida lógica condicional - cards sempre têm cursor-pointer e hover
+ * - Modal unificado mostra tudo em um único lugar
+ * 
+ * Mudanças v1.17.0:
+ * - Corrigido modal de respostas não abrindo quando há respostas e anexos
+ * - Ajustado stopPropagation para não bloquear clique do card quando há respostas
+ * - Adicionado z-index explícito (9999) no modal para garantir visibilidade
+ * - Adicionados logs de debug para rastrear cliques e abertura do modal
+ * - Priorização de respostas sobre anexos quando ambos existem
+ * - Botão "Ver anexos" desabilitado quando há respostas (prioridade)
+ * 
+ * Mudanças v1.16.0:
+ * - Cards de resultados de busca agora são clicáveis para abrir modal de respostas quando há respostas
+ * - Adicionado modal para visualização de respostas (replies) do WhatsApp
+ * - Adicionada função confirmarResposta para confirmar visualização de respostas
+ * - Indicador visual de quantidade de respostas no card
+ * 
+ * Mudanças v1.15.0:
+ * - Corrigido container de consulta de CPF para conter resultados e permitir scroll quando necessário
+ * - Adicionado overflow-hidden no container pai e estrutura flex para garantir contenção
+ * - Removido limite de 8 resultados, agora mostra todos com scroll
+ * - Aplicada mesma solução usada na aba Solicitações
  * Branch: escalacoes
  * 
  * Componente para reportar erros e bugs com anexos de imagem/vídeo
+ * 
+ * Mudanças v1.14.0:
+ * - Adicionado bloco condicional com checkboxes para "Exclusão de Conta"
+ * - Campos: excluirVelotax, excluirCelcoin, saldoZerado, portabilidadePendente, dividaIrpfQuitada
+ * - Atualizada função montarLegenda para incluir campos de exclusão de conta
+ * - Campos incluídos no payload ao criar registro
+ * 
+ * Mudanças v1.13.0:
+ * - Adicionada opção "Exclusão de Conta" no select de tipos (movida da aba Solicitações)
  * 
  * Mudanças v1.12.0:
  * - Revertida API WhatsApp para usar whatsapp-api-new-54aw.onrender.com/send
@@ -82,8 +140,9 @@
  */
 
 import React, { useEffect, useState, useRef } from 'react';
-import { errosBugsAPI, logsAPI } from '../../services/escalacoesApi';
+import { errosBugsAPI, logsAPI, solicitacoesAPI } from '../../services/escalacoesApi';
 import { API_BASE_URL, WHATSAPP_API_URL, WHATSAPP_DEFAULT_JID } from '../../config/api-config';
+import toast from 'react-hot-toast';
 
 /**
  * Componente de aba para Erros/Bugs
@@ -94,8 +153,16 @@ const ErrosBugsTab = () => {
   const [cpf, setCpf] = useState('');
   const [tipo, setTipo] = useState('App');
   const [descricao, setDescricao] = useState('');
+  const [marca, setMarca] = useState('');
+  const [modelo, setModelo] = useState('');
   const [imagens, setImagens] = useState([]); // [{ name, type, data, preview }]
   const [videos, setVideos] = useState([]); // [{ name, type, data, thumbnail }]
+  // Campos para Exclusão de Conta
+  const [excluirVelotax, setExcluirVelotax] = useState(false);
+  const [excluirCelcoin, setExcluirCelcoin] = useState(false);
+  const [saldoZerado, setSaldoZerado] = useState(false);
+  const [portabilidadePendente, setPortabilidadePendente] = useState(false);
+  const [dividaIrpfQuitada, setDividaIrpfQuitada] = useState(false);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -103,10 +170,45 @@ const ErrosBugsTab = () => {
   const [selectedImage, setSelectedImage] = useState(null); // URL da imagem selecionada para visualização
   const [selectedVideo, setSelectedVideo] = useState(null); // { data, type, name } do vídeo selecionado para visualização
   const [localLogs, setLocalLogs] = useState([]); // {cpf, tipo, waMessageId, status, createdAt}
+  const [selectedRepliesRequest, setSelectedRepliesRequest] = useState(null); // Request selecionado para visualizar respostas no modal
+  
+  // Debug: monitorar mudanças no estado do modal (apenas quando há mudança significativa)
+  useEffect(() => {
+    if (selectedRepliesRequest) {
+      const repliesCount = Array.isArray(selectedRepliesRequest.replies) ? selectedRepliesRequest.replies.length : 0;
+      console.log('[ErrosBugsTab] Modal aberto:', {
+        id: selectedRepliesRequest._id || selectedRepliesRequest.id,
+        tipo: selectedRepliesRequest.tipo,
+        repliesCount
+      });
+    }
+  }, [selectedRepliesRequest?._id, selectedRepliesRequest?.tipo]);
+  
   const [searchCpf, setSearchCpf] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [stats, setStats] = useState({ today: 0, pending: 0, done: 0 });
+  
+  // Função para confirmar visualização de resposta
+  const confirmarResposta = async (requestId, replyMessageId, confirmedBy = null) => {
+    try {
+      const result = await solicitacoesAPI.confirmarResposta(requestId, replyMessageId, confirmedBy);
+      if (result && result.ok) {
+        toast.success('Confirmado! Reação ✓ enviada no WhatsApp.');
+        // Recarregar busca se houver CPF pesquisado
+        if (searchCpf) {
+          buscarCpf();
+        }
+      } else {
+        throw new Error(result?.error || 'Erro ao confirmar resposta');
+      }
+      return result;
+    } catch (error) {
+      console.error('[ErrosBugsTab confirmarResposta] Erro:', error);
+      toast.error(error.message || 'Erro ao confirmar resposta');
+      throw error;
+    }
+  };
   const [statsLoading, setStatsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [errosBugsRaw, setErrosBugsRaw] = useState([]);
@@ -230,6 +332,36 @@ const ErrosBugsTab = () => {
       
       const list = Array.isArray(data) ? data : [];
       console.log('[ErrosBugsTab] Lista processada:', list.length, 'itens');
+      
+      // Log detalhado de replies para debug (sempre, para identificar problemas)
+      if (list.length > 0) {
+        list.forEach(item => {
+          if (item.waMessageId) {
+            console.log(`🔍 [ErrosBugsTab] Item recebido da API ${item._id}:`, {
+              waMessageId: item.waMessageId,
+              hasRepliesField: 'replies' in item,
+              repliesType: typeof item.replies,
+              repliesValue: item.replies,
+              repliesIsArray: Array.isArray(item.replies),
+              repliesLength: Array.isArray(item.replies) ? item.replies.length : 'N/A',
+              allKeys: Object.keys(item)
+            });
+          }
+        });
+        
+        const itemsWithReplies = list.filter(item => {
+          const replies = Array.isArray(item.replies) ? item.replies : [];
+          return replies.length > 0;
+        });
+        console.log(`[ErrosBugsTab] Itens com replies: ${itemsWithReplies.length}/${list.length}`);
+        if (itemsWithReplies.length > 0) {
+          itemsWithReplies.forEach(item => {
+            const replies = Array.isArray(item.replies) ? item.replies : [];
+            console.log(`  - ${item._id}: ${replies.length} replies`, replies);
+          });
+        }
+      }
+      
       setErrosBugsRaw(list);
       setLastUpdated(new Date());
 
@@ -272,11 +404,25 @@ const ErrosBugsTab = () => {
       }
       
       console.error('Erro ao carregar estatísticas:', err);
-      const errorMessage = err?.message || 'Erro ao conectar com o servidor';
+      
+      // Verificar se é erro de conexão (503) ou timeout
+      const isConnectionError = err?.message?.includes('conexão') || 
+                                err?.message?.includes('timeout') ||
+                                err?.message?.includes('503') ||
+                                err?.message?.includes('Service Unavailable');
+      
+      const errorMessage = isConnectionError 
+        ? 'Erro de conexão com o banco de dados. Verifique sua conexão e tente novamente.'
+        : (err?.message || 'Erro ao conectar com o servidor');
+      
       setLoadError(errorMessage);
-      // Manter valores padrão em caso de erro
-      setStats({ today: 0, pending: 0, done: 0 });
-      setErrosBugsRaw([]);
+      
+      // Manter valores anteriores em caso de erro de conexão (não limpar dados)
+      // Apenas limpar se for erro diferente de conexão
+      if (!isConnectionError) {
+        setStats({ today: 0, pending: 0, done: 0 });
+        setErrosBugsRaw([]);
+      }
     } finally {
       isLoadingRef.current = false;
       if (isMountedRef.current) {
@@ -291,27 +437,54 @@ const ErrosBugsTab = () => {
     isMountedRef.current = true;
     isLoadingRef.current = false;
     
+    // Contador de erros consecutivos para backoff
+    let consecutiveErrors = 0;
+    const MAX_CONSECUTIVE_ERRORS = 3;
+    
     console.log('[ErrosBugsTab] Componente montado, carregando estatísticas...');
-    loadStats().catch(err => {
-      console.error('[ErrosBugsTab] Erro crítico ao carregar no mount:', err);
-    });
+    
+    const loadStatsWithRetry = async () => {
+      try {
+        await loadStats();
+        // Resetar contador de erros em caso de sucesso
+        consecutiveErrors = 0;
+      } catch (err) {
+        consecutiveErrors++;
+        console.error(`[ErrosBugsTab] Erro ao carregar (tentativa ${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}):`, err);
+        
+        // Se muitos erros consecutivos, aumentar intervalo de retry
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+          console.warn('[ErrosBugsTab] Muitos erros consecutivos, aumentando intervalo de retry...');
+        }
+      }
+    };
+    
+    loadStatsWithRetry();
     
     // Atualização automática a cada 3 minutos (padrão VeloHub - intelligent refresh)
-    const refreshInterval = setInterval(() => {
-      // Verificar se componente ainda está montado antes de atualizar
-      if (isMountedRef.current && !isLoadingRef.current) {
-        loadStats().catch(err => {
-          console.error('[ErrosBugsTab] Erro ao atualizar automaticamente:', err);
-        });
-      }
-    }, 3 * 60 * 1000);
+    // Se houver muitos erros, aumentar intervalo para 5 minutos
+    let refreshInterval = null;
+    const setupRefreshInterval = () => {
+      if (refreshInterval) clearInterval(refreshInterval);
+      
+      const interval = consecutiveErrors >= MAX_CONSECUTIVE_ERRORS ? 5 * 60 * 1000 : 3 * 60 * 1000;
+      
+      refreshInterval = setInterval(() => {
+        // Verificar se componente ainda está montado antes de atualizar
+        if (isMountedRef.current && !isLoadingRef.current) {
+          loadStatsWithRetry();
+        }
+      }, interval);
+    };
+    
+    setupRefreshInterval();
     
     return () => {
       console.log('[ErrosBugsTab] Componente desmontado, limpando intervalos...');
       // Marcar componente como desmontado
       isMountedRef.current = false;
       isLoadingRef.current = false;
-      clearInterval(refreshInterval);
+      if (refreshInterval) clearInterval(refreshInterval);
     };
   }, []);
 
@@ -600,10 +773,27 @@ const ErrosBugsTab = () => {
    */
   const montarLegenda = () => {
     const agentName = selectedAgent || agente || '';
+    const simNao = v => (v ? '✅ Sim' : '❌ Não');
     let m = `*Novo Erro/Bug - ${tipo}*\n\n`;
     m += `Agente: ${agentName}\n`;
     if (cpf) m += `CPF: ${cpf}\n`;
-    m += `\nDescrição:\n${descricao || '—'}\n`;
+    
+    if (tipo === 'Exclusão de Conta') {
+      m += `\nExcluir conta Velotax: ${simNao(excluirVelotax)}\n`;
+      m += `Excluir conta Celcoin: ${simNao(excluirCelcoin)}\n`;
+      m += `Conta zerada: ${simNao(saldoZerado)}\n`;
+      m += `Portabilidade pendente: ${simNao(portabilidadePendente)}\n`;
+      m += `Dívida IRPF quitada: ${simNao(dividaIrpfQuitada)}\n`;
+      m += `\nDescrição:\n${descricao || '—'}\n`;
+    } else {
+      m += `\nDescrição:\n${descricao || '—'}\n`;
+    }
+    
+    if (marca || modelo) {
+      if (marca) m += `Marca: ${marca}\n`;
+      if (modelo) m += `Modelo: ${modelo}\n`;
+    }
+    
     if (imagens?.length || videos?.length) {
       const totalAnexos = (imagens?.length || 0) + (videos?.length || 0);
       const tipos = [];
@@ -628,6 +818,9 @@ const ErrosBugsTab = () => {
     const defaultJid = WHATSAPP_DEFAULT_JID;
 
     const legenda = montarLegenda();
+    
+    // Definir agentName antes de usar (mesmo padrão do FormSolicitacao)
+    const agentName = selectedAgent || agente || '';
 
     try {
       // 1) Enviar via WhatsApp se configurado
@@ -642,15 +835,33 @@ const ErrosBugsTab = () => {
           const whatsappEndpoint = `${apiUrl}/send`;
           console.log('📤 [ErrosBugsTab] Enviando para WhatsApp API:', whatsappEndpoint);
           
+          // CPF apenas números para API WhatsApp (mesmo padrão do FormSolicitacao)
+          const cpfApenasNumeros = String(cpf || '').replace(/\D/g, '');
+          
+          // Payload incluindo cpf e solicitacao para correlacionar replies
+          const whatsappPayload = {
+            jid: defaultJid,
+            mensagem: legenda,
+            cpf: cpfApenasNumeros,
+            solicitacao: `Erro/Bug - ${tipo}`,
+            agente: agentName,
+            imagens: imagensFormatadas,
+            videos: videosFormatados
+          };
+          
+          console.log('📤 [ErrosBugsTab] Payload WhatsApp:', {
+            jid: whatsappPayload.jid,
+            cpf: whatsappPayload.cpf,
+            solicitacao: whatsappPayload.solicitacao,
+            agente: whatsappPayload.agente,
+            imagensCount: whatsappPayload.imagens?.length || 0,
+            videosCount: whatsappPayload.videos?.length || 0
+          });
+          
           const resp = await fetch(whatsappEndpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              jid: defaultJid,
-              mensagem: legenda,
-              imagens: imagensFormatadas,
-              videos: videosFormatados
-            })
+            body: JSON.stringify(whatsappPayload)
           });
           
           if (resp && resp.ok) {
@@ -673,16 +884,20 @@ const ErrosBugsTab = () => {
       }
 
       // 2) Criar registro no backend
-      const agentName = selectedAgent || agente || '';
+      // CPF sempre apenas números (sem formatação) para o backend e WhatsApp
+      const cpfApenasNumeros = String(cpf || '').replace(/\D/g, '');
+      
       const erroBugData = {
         agente: agentName,
-        cpf: cpf || '',
+        cpf: cpfApenasNumeros, // CPF normalizado (apenas números)
         tipo,
         payload: {
           agente: agentName,
-          cpf,
+          cpf: cpfApenasNumeros, // CPF normalizado no payload também
           tipo,
           descricao,
+          marca: marca || '',
+          modelo: modelo || '',
           imagens: imagens?.map(({ name, type, data, preview }) => ({
             name,
             type,
@@ -699,7 +914,15 @@ const ErrosBugsTab = () => {
           videoThumbnails: videos?.map(({ thumbnail }) => thumbnail).filter(Boolean),
           // Incluir dados completos dos vídeos para envio via WhatsApp
           videoData: videos?.map(({ data, type }) => ({ data, type })).filter(vid => vid.data && vid.type) || [],
-          messageIds: messageIdsArr
+          messageIds: messageIdsArr,
+          // Campos para Exclusão de Conta
+          exclusao: tipo === 'Exclusão de Conta' ? {
+            excluirVelotax: !!excluirVelotax,
+            excluirCelcoin: !!excluirCelcoin,
+            saldoZerado: !!saldoZerado,
+            portabilidadePendente: !!portabilidadePendente,
+            dividaIrpfQuitada: !!dividaIrpfQuitada,
+          } : undefined
         },
         agentContact: defaultJid || null,
         waMessageId
@@ -713,7 +936,7 @@ const ErrosBugsTab = () => {
           action: 'send_request',
           detail: {
             tipo: `Erro/Bug - ${tipo}`,
-            cpf,
+            cpf: cpfApenasNumeros, // CPF normalizado no log também
             waMessageId,
             whatsappSent: !!(apiUrl && defaultJid)
           }
@@ -724,7 +947,7 @@ const ErrosBugsTab = () => {
 
       // 4) Adicionar ao cache local
       const newItem = {
-        cpf,
+        cpf: cpfApenasNumeros, // CPF normalizado no cache também
         tipo: `Erro/Bug - ${tipo}`,
         waMessageId,
         status: 'em aberto',
@@ -736,8 +959,16 @@ const ErrosBugsTab = () => {
       // Não limpar agente, pois é automático
       setCpf('');
       setDescricao('');
+      setMarca('');
+      setModelo('');
       setImagens([]);
       setVideos([]);
+      // Limpar campos de Exclusão de Conta
+      setExcluirVelotax(false);
+      setExcluirCelcoin(false);
+      setSaldoZerado(false);
+      setPortabilidadePendente(false);
+      setDividaIrpfQuitada(false);
       // Recarregar estatísticas após envio
       await loadStats();
     } catch (err) {
@@ -896,6 +1127,7 @@ const ErrosBugsTab = () => {
               <option>Crédito Pessoal</option>
               <option>Crédito do Trabalhador</option>
               <option>Antecipação</option>
+              <option>Exclusão de Conta</option>
             </select>
           </div>
           <div>
@@ -908,6 +1140,56 @@ const ErrosBugsTab = () => {
             />
           </div>
         </div>
+
+        {tipo === 'Exclusão de Conta' && (
+          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={excluirVelotax}
+                onChange={(e) => setExcluirVelotax(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">Excluir conta Velotax</span>
+            </label>
+            <label className="flex items-center gap-2 mt-2">
+              <input
+                type="checkbox"
+                checked={excluirCelcoin}
+                onChange={(e) => setExcluirCelcoin(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">Excluir conta Celcoin</span>
+            </label>
+            <label className="flex items-center gap-2 mt-2">
+              <input
+                type="checkbox"
+                checked={saldoZerado}
+                onChange={(e) => setSaldoZerado(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">Conta zerada</span>
+            </label>
+            <label className="flex items-center gap-2 mt-2">
+              <input
+                type="checkbox"
+                checked={portabilidadePendente}
+                onChange={(e) => setPortabilidadePendente(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">Portabilidade pendente</span>
+            </label>
+            <label className="flex items-center gap-2 mt-2">
+              <input
+                type="checkbox"
+                checked={dividaIrpfQuitada}
+                onChange={(e) => setDividaIrpfQuitada(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">Dívida IRPF quitada</span>
+            </label>
+          </div>
+        )}
 
         <div>
           <label className="text-sm text-gray-700 dark:text-gray-300 mb-1 block">Descrição</label>
@@ -947,6 +1229,30 @@ const ErrosBugsTab = () => {
               setImagens(arr);
             }}
           />
+        </div>
+
+        {/* Campos Marca e Modelo - mesma linha do grid */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm text-gray-700 dark:text-gray-300 mb-1 block">Marca</label>
+            <input
+              type="text"
+              className="w-full px-3 py-2 border border-gray-400 dark:border-gray-500 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500"
+              value={marca}
+              onChange={(e) => setMarca(e.target.value)}
+              placeholder="Ex: Samsung, Apple, etc."
+            />
+          </div>
+          <div>
+            <label className="text-sm text-gray-700 dark:text-gray-300 mb-1 block">Modelo</label>
+            <input
+              type="text"
+              className="w-full px-3 py-2 border border-gray-400 dark:border-gray-500 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500"
+              value={modelo}
+              onChange={(e) => setModelo(e.target.value)}
+              placeholder="Ex: Galaxy S21, iPhone 13, etc."
+            />
+          </div>
         </div>
 
         <div>
@@ -1117,15 +1423,15 @@ const ErrosBugsTab = () => {
       {/* Container de Sidebars */}
       <div className="flex flex-col gap-4 w-[400px] flex-shrink-0" style={{ minHeight: 'calc(100vh - 200px)' }}>
         {/* Sidebar Superior - Consulta de CPF */}
-        <div className="w-[400px] h-[400px] flex-shrink-0 bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 hover:-translate-y-0.5 transition-transform">
-          <div className="flex items-center gap-2 mb-3">
+        <div className="w-[400px] h-[400px] flex-shrink-0 bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 hover:-translate-y-0.5 transition-transform flex flex-col overflow-hidden">
+          <div className="flex items-center gap-2 mb-3 flex-shrink-0">
             <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-sky-500 to-emerald-500" />
             <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
               Consulta de CPF
             </h2>
           </div>
           <div
-            className="flex flex-col gap-2"
+            className="flex flex-col gap-2 flex-shrink-0"
             aria-busy={searchLoading}
             aria-live="polite"
           >
@@ -1185,11 +1491,11 @@ const ErrosBugsTab = () => {
             </div>
           </div>
           {searchCpf && (
-            <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+            <div className="text-sm text-gray-600 dark:text-gray-400 mt-2 flex-shrink-0">
               {searchResults.length} registro(s) encontrado(s)
             </div>
           )}
-          <div className="mt-3 flex-1 overflow-auto pr-1">
+          <div className="mt-3 flex-1 overflow-y-auto overflow-x-hidden pr-1 min-h-0">
             {searchLoading && (
               <div className="space-y-2">
                 {[...Array(4)].map((_, i) => (
@@ -1208,7 +1514,7 @@ const ErrosBugsTab = () => {
             )}
             {searchResults && searchResults.length > 0 && !searchLoading && (
               <div className="space-y-2">
-                {searchResults.slice(0, 8).map((r) => {
+                {searchResults.map((r) => {
                   const imgCount = Array.isArray(r?.payload?.previews)
                     ? r.payload.previews.length
                     : Array.isArray(r?.payload?.imagens)
@@ -1218,16 +1524,42 @@ const ErrosBugsTab = () => {
                     ? r.payload.videos.length
                     : 0;
                   const total = imgCount + videoCount;
+                  const repliesList = Array.isArray(r.replies) ? r.replies : [];
                   // Remover prefixo "Erro/Bug - " do tipo
                   const tipoLimpo = String(r.tipo || '').replace(/^Erro\/Bug\s*-\s*/i, '').trim() || r.tipo || '—';
                   // Formatar data e hora separadamente
                   const dataHora = r.createdAt ? new Date(r.createdAt) : null;
                   const dataFormatada = dataHora ? dataHora.toLocaleDateString('pt-BR') : '—';
                   const horaFormatada = dataHora ? dataHora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—';
+                  const handleCardClick = (e) => {
+                    // Se o clique foi em um botão ou link, não fazer nada
+                    if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                      return;
+                    }
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('[ErrosBugsTab] Card clicado - SEMPRE abrir modal:', {
+                      id: r._id || r.id,
+                      tipo: r.tipo,
+                      cpf: r.cpf,
+                      waMessageId: r.waMessageId,
+                      payloadMessageIds: r.payload?.messageIds,
+                      hasReplies: Array.isArray(r.replies),
+                      repliesCount: Array.isArray(r.replies) ? r.replies.length : 0,
+                      replies: r.replies,
+                      allKeys: Object.keys(r)
+                    });
+                    // SEMPRE abrir modal quando card é clicado
+                    setSelectedRepliesRequest(r);
+                  };
                   return (
                     <div
                       key={r._id || r.id}
-                      className="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600"
+                      role="button"
+                      tabIndex={0}
+                      onClick={handleCardClick}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCardClick(e); } }}
+                      className="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
                     >
                       {/* Primeira linha: [Tipo] [CPF] */}
                       <div className="flex items-center gap-2 mb-2">
@@ -1237,6 +1569,11 @@ const ErrosBugsTab = () => {
                         <span className="font-bold text-gray-800 dark:text-gray-200 text-sm">
                           {r.cpf || '—'}
                         </span>
+                        {repliesList.length > 0 && (
+                          <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                            {repliesList.length} resposta{repliesList.length !== 1 ? 's' : ''}
+                          </span>
+                        )}
                       </div>
                       {/* Segunda linha: [agente] [data] [hora] [Status] */}
                       <div className="flex items-center gap-2 flex-wrap mb-2">
@@ -1255,7 +1592,12 @@ const ErrosBugsTab = () => {
                       </div>
                       {/* Terceira linha: [Anexos] [ver anexos] */}
                       {total > 0 && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2" onClick={(e) => {
+                          // Se há respostas, não bloquear o clique do card (permitir abrir modal de respostas)
+                          if (repliesList.length === 0) {
+                            e.stopPropagation();
+                          }
+                        }}>
                           <span className="text-xs text-gray-600 dark:text-gray-400">
                             Anexos: {imgCount > 0 ? `${imgCount} img` : ''}
                             {imgCount > 0 && videoCount > 0 ? ' + ' : ''}
@@ -1263,8 +1605,20 @@ const ErrosBugsTab = () => {
                           </span>
                           <button
                             type="button"
-                            onClick={() => openAttachmentsModal(r)}
-                            className="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Se há respostas, não abrir modal de anexos (priorizar respostas)
+                              if (repliesList.length === 0) {
+                                openAttachmentsModal(r);
+                              }
+                            }}
+                            className={`text-xs px-2 py-1 rounded transition-colors ${
+                              repliesList.length > 0 
+                                ? 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' 
+                                : 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800'
+                            }`}
+                            disabled={repliesList.length > 0}
+                            title={repliesList.length > 0 ? 'Clique no card para ver respostas' : 'Ver anexos'}
                           >
                             Ver anexos
                           </button>
@@ -1613,6 +1967,220 @@ const ErrosBugsTab = () => {
               >
                 Download
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Visualização de Respostas */}
+      {selectedRepliesRequest && (
+        <div 
+          className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4"
+          style={{ zIndex: 9999 }}
+          onClick={() => {
+            console.log('[ErrosBugsTab] Fechando modal de respostas');
+            setSelectedRepliesRequest(null);
+          }}
+        >
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl max-h-[90vh] w-full overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-gray-200 dark:border-gray-600 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                Respostas - {selectedRepliesRequest.tipo} - {selectedRepliesRequest.cpf}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setSelectedRepliesRequest(null)}
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 text-2xl leading-none transition-colors"
+                aria-label="Fechar"
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-4 overflow-auto max-h-[calc(90vh-80px)]">
+              <div className="space-y-4">
+                {/* Informações básicas */}
+                <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                  <div className="text-sm space-y-1 text-gray-800 dark:text-gray-200">
+                    <div><strong>CPF:</strong> {selectedRepliesRequest.cpf || '—'}</div>
+                    <div><strong>Agente:</strong> {selectedRepliesRequest.colaboradorNome || selectedRepliesRequest.agente || '—'}</div>
+                    <div><strong>Status:</strong> {selectedRepliesRequest.status || '—'}</div>
+                    <div><strong>Tipo:</strong> {selectedRepliesRequest.tipo || '—'}</div>
+                    <div><strong>Data:</strong> {selectedRepliesRequest.createdAt ? new Date(selectedRepliesRequest.createdAt).toLocaleString('pt-BR') : '—'}</div>
+                  </div>
+                </div>
+
+                {/* Anexos */}
+                {(() => {
+                  const imgCount = Array.isArray(selectedRepliesRequest?.payload?.previews) 
+                    ? selectedRepliesRequest.payload.previews.length 
+                    : Array.isArray(selectedRepliesRequest?.payload?.imagens) 
+                    ? selectedRepliesRequest.payload.imagens.length 
+                    : 0;
+                  const videoCount = Array.isArray(selectedRepliesRequest?.payload?.videos) 
+                    ? selectedRepliesRequest.payload.videos.length 
+                    : 0;
+                  const totalAnexos = imgCount + videoCount;
+                  
+                  if (totalAnexos > 0) {
+                    return (
+                      <div>
+                        <h4 className="font-medium mb-3 text-gray-800 dark:text-gray-200">
+                          Anexos ({totalAnexos})
+                        </h4>
+                        {imgCount > 0 && (
+                          <div className="mb-3">
+                            <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">Imagens ({imgCount}):</div>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                              {(selectedRepliesRequest.payload.previews || selectedRepliesRequest.payload.imagens || []).map((preview, idx) => (
+                                <div key={idx} className="relative group">
+                                  <img
+                                    src={preview}
+                                    alt={`anexo-${idx}`}
+                                    className="w-full h-32 object-cover rounded-lg border border-gray-200 dark:border-gray-600 cursor-pointer hover:opacity-80 transition-opacity"
+                                    onClick={() => window.open(preview, '_blank')}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => window.open(preview, '_blank')}
+                                    className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    Abrir
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {videoCount > 0 && (
+                          <div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">Vídeos ({videoCount}):</div>
+                            <div className="space-y-2">
+                              {(selectedRepliesRequest.payload.videos || []).map((video, idx) => (
+                                <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                  <div className="relative">
+                                    {selectedRepliesRequest.payload.videoThumbnails?.[idx] && (
+                                      <img
+                                        src={selectedRepliesRequest.payload.videoThumbnails[idx]}
+                                        alt={`video-thumb-${idx}`}
+                                        className="w-20 h-14 object-cover rounded border"
+                                      />
+                                    )}
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded">
+                                      <span className="text-white text-xs">▶</span>
+                                    </div>
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="text-sm font-medium text-gray-800 dark:text-gray-200">{video.name || `Vídeo ${idx + 1}`}</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">{video.type || 'video/mp4'}</div>
+                                  </div>
+                                  <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900 px-2 py-1 rounded">
+                                    Vídeo não disponível
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+                
+                {/* Lista de respostas */}
+                {(() => {
+                  const replies = Array.isArray(selectedRepliesRequest.replies) ? selectedRepliesRequest.replies : [];
+                  // Log apenas quando há replies (para debug)
+                  if (replies.length > 0 && process.env.NODE_ENV === 'development') {
+                    console.log('[ErrosBugsTab Modal] Replies encontradas:', {
+                      requestId: selectedRepliesRequest._id || selectedRepliesRequest.id,
+                      repliesCount: replies.length
+                    });
+                  }
+                  return replies.length > 0 ? (
+                    <div>
+                      <h4 className="font-medium mb-3 text-gray-800 dark:text-gray-200">
+                        Menções / Respostas no grupo ({replies.length})
+                      </h4>
+                      <div className="space-y-3">
+                        {[...replies].reverse().map((rep, i) => (
+                        <div key={i} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <div className="font-semibold text-gray-800 dark:text-gray-200">
+                              {rep.reactor || '—'}
+                            </div>
+                            {rep.at && (
+                              <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                {new Date(rep.at).toLocaleString('pt-BR')}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words mb-3">
+                            {(rep.text || '—').trim() || '—'}
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              {rep.replyMessageId ? (
+                                rep.confirmedAt ? (
+                                  <span className="text-emerald-600 dark:text-emerald-400">
+                                    ✓ Confirmado{rep.confirmedBy ? ` por ${rep.confirmedBy}` : ''}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-500 dark:text-gray-400">
+                                    Aguardando confirmação
+                                  </span>
+                                )
+                              ) : (
+                                <span className="text-gray-500 dark:text-gray-400">
+                                  Check no WhatsApp disponível só para respostas novas
+                                </span>
+                              )}
+                            </span>
+                            {rep.replyMessageId && !rep.confirmedAt && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  confirmarResposta(
+                                    selectedRepliesRequest._id || selectedRepliesRequest.id,
+                                    rep.replyMessageId,
+                                    agente
+                                  ).then(() => {
+                                    // Atualizar o request no modal
+                                    const updatedReplies = selectedRepliesRequest.replies.map(r => 
+                                      r.replyMessageId === rep.replyMessageId 
+                                        ? { ...r, confirmedAt: new Date(), confirmedBy: agente }
+                                        : r
+                                    );
+                                    setSelectedRepliesRequest({
+                                      ...selectedRepliesRequest,
+                                      replies: updatedReplies
+                                    });
+                                    // Recarregar busca
+                                    buscarCpf();
+                                  }).catch(() => {
+                                    toast.error('Falha ao confirmar');
+                                  });
+                                }}
+                                className="px-3 py-1.5 rounded bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-200 dark:hover:bg-emerald-800 transition-colors text-sm"
+                              >
+                                Confirmar visto (✓ no WhatsApp)
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+                      Nenhuma resposta disponível para esta solicitação.
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
           </div>
         </div>

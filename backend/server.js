@@ -5934,6 +5934,164 @@ try {
   // Registrar rotas ANTES de qualquer middleware estático
   app.use('/api/escalacoes/solicitacoes', solicitacoesRouter);
   
+  // Endpoint de compatibilidade para WhatsApp API (UPDATE PAINEL)
+  // /api/requests/reply → chama a mesma lógica de /api/escalacoes/solicitacoes/reply
+  app.post('/api/requests/reply', async (req, res) => {
+    try {
+      if (!client) {
+        return res.status(503).json({
+          ok: false,
+          error: 'MongoDB não configurado'
+        });
+      }
+
+      await connectToMongo();
+      const db = client.db('hub_escalacoes');
+      const collection = db.collection('solicitacoes_tecnicas');
+
+      const { waMessageId, reactor, text, replyMessageId, replyMessageJid, replyMessageParticipant } = req.body || {};
+
+      // Validação
+      if (!waMessageId) {
+        return res.status(400).json({
+          ok: false,
+          error: 'waMessageId é obrigatório'
+        });
+      }
+
+      if (!text && !replyMessageId) {
+        return res.status(400).json({
+          ok: false,
+          error: 'text ou replyMessageId é obrigatório'
+        });
+      }
+
+      console.log('[requests/reply] Recebendo reply (compatibilidade):', {
+        waMessageId,
+        reactor,
+        textLength: text?.length,
+        replyMessageId,
+        replyMessageJid
+      });
+
+      // Buscar primeiro em solicitacoes_tecnicas
+      let solicitacao = await collection.findOne({ waMessageId });
+      console.log(`[requests/reply] Busca em solicitacoes_tecnicas por waMessageId "${waMessageId}":`, solicitacao ? `✅ Encontrado (${solicitacao._id})` : '❌ Não encontrado');
+
+      // Se não encontrou, buscar em payload.messageIds (array)
+      if (!solicitacao) {
+        console.log('[requests/reply] Não encontrado em waMessageId, buscando em payload.messageIds');
+        solicitacao = await collection.findOne({
+          'payload.messageIds': waMessageId
+        });
+        console.log(`[requests/reply] Busca em solicitacoes_tecnicas por payload.messageIds "${waMessageId}":`, solicitacao ? `✅ Encontrado (${solicitacao._id})` : '❌ Não encontrado');
+      }
+
+      // Se não encontrou em solicitacoes_tecnicas, buscar em erros_bugs
+      let erroBug = null;
+      let isErroBug = false;
+      if (!solicitacao) {
+        console.log('[requests/reply] Não encontrado em solicitacoes_tecnicas, buscando em erros_bugs');
+        const errosBugsCollection = db.collection('erros_bugs');
+        erroBug = await errosBugsCollection.findOne({ waMessageId });
+        console.log(`[requests/reply] Busca em erros_bugs por waMessageId "${waMessageId}":`, erroBug ? `✅ Encontrado (${erroBug._id})` : '❌ Não encontrado');
+        
+        if (!erroBug) {
+          erroBug = await errosBugsCollection.findOne({
+            'payload.messageIds': waMessageId
+          });
+          console.log(`[requests/reply] Busca em erros_bugs por payload.messageIds "${waMessageId}":`, erroBug ? `✅ Encontrado (${erroBug._id})` : '❌ Não encontrado');
+        }
+        
+        if (erroBug) {
+          isErroBug = true;
+          console.log('[requests/reply] ✅ Erro/Bug encontrado:', erroBug._id, {
+            waMessageId: erroBug.waMessageId,
+            payloadMessageIds: erroBug.payload?.messageIds,
+            hasReplies: 'replies' in erroBug,
+            repliesCount: Array.isArray(erroBug.replies) ? erroBug.replies.length : 'N/A'
+          });
+        }
+      } else {
+        console.log('[requests/reply] ✅ Solicitação encontrada:', solicitacao._id, {
+          waMessageId: solicitacao.waMessageId,
+          payloadMessageIds: solicitacao.payload?.messageIds,
+          hasReplies: 'replies' in solicitacao,
+          repliesCount: Array.isArray(solicitacao.replies) ? solicitacao.replies.length : 'N/A'
+        });
+      }
+
+      if (!solicitacao && !erroBug) {
+        console.log('[requests/reply] ❌ Solicitação/Erro não encontrado para waMessageId:', waMessageId);
+        return res.status(404).json({
+          ok: false,
+          error: 'Solicitação/Erro não encontrado'
+        });
+      }
+
+      const targetDoc = isErroBug ? erroBug : solicitacao;
+      const targetCollection = isErroBug ? db.collection('erros_bugs') : collection;
+      console.log(`[requests/reply] ✅ ${isErroBug ? 'Erro/Bug' : 'Solicitação'} encontrada:`, targetDoc._id);
+
+      // Normalizar replies para array
+      const replies = Array.isArray(targetDoc.replies) ? targetDoc.replies : [];
+
+      // Verificar se já existe reply com mesmo replyMessageId (evitar duplicatas)
+      if (replyMessageId) {
+        const existingReply = replies.find(r => String(r.replyMessageId) === String(replyMessageId));
+        if (existingReply) {
+          console.log('[requests/reply] Reply já existe, ignorando duplicata:', replyMessageId);
+          return res.json({
+            ok: true,
+            message: 'Reply já existe',
+            replyId: replyMessageId
+          });
+        }
+      }
+
+      // Criar novo reply
+      const newReply = {
+        reactor: reactor || 'Desconhecido',
+        text: text || '',
+        at: new Date(),
+        replyMessageId: replyMessageId || null,
+        replyMessageJid: replyMessageJid || null,
+        replyMessageParticipant: replyMessageParticipant || null,
+        confirmedAt: null,
+        confirmedBy: null
+      };
+
+      // Adicionar ao array de replies
+      replies.push(newReply);
+
+      // Atualizar documento no MongoDB
+      await targetCollection.updateOne(
+        { _id: targetDoc._id },
+        {
+          $set: {
+            replies,
+            updatedAt: new Date()
+          }
+        }
+      );
+
+      console.log(`[requests/reply] ✅ Reply adicionado com sucesso em ${isErroBug ? 'erro/bug' : 'solicitação'}. Total de replies:`, replies.length);
+
+      return res.json({
+        ok: true,
+        [isErroBug ? 'erroBugId' : 'solicitacaoId']: targetDoc._id.toString(),
+        repliesCount: replies.length,
+        type: isErroBug ? 'erro_bug' : 'solicitacao'
+      });
+    } catch (error) {
+      console.error('[requests/reply] Erro:', error);
+      return res.status(500).json({
+        ok: false,
+        error: error.message || 'Erro ao processar reply'
+      });
+    }
+  });
+  
   // Registrar router de erros/bugs com validação adicional
   if (!errosBugsRouter || typeof errosBugsRouter !== 'function') {
     console.error('❌ [ERRO CRÍTICO] errosBugsRouter inválido!');

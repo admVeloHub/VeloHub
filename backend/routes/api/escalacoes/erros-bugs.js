@@ -1,7 +1,20 @@
 /**
  * VeloHub V3 - Escalações API Routes - Erros/Bugs
- * VERSION: v1.6.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.8.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
  * Branch: main (recuperado de escalacoes)
+ * 
+ * Mudanças v1.8.0:
+ * - Adicionada normalização do campo replies em GET / e GET /:id para garantir que sempre seja array
+ * - Campo replies agora é sempre inicializado como array vazio se não existir
+ * - Adicionados logs de debug para rastrear replies nos erros/bugs
+ * - Compatibilidade com funcionalidade de visualização de respostas do WhatsApp
+ * 
+ * Mudanças v1.7.0:
+ * - Adicionado localhost:8090 à lista de origens CORS permitidas
+ * - Melhorado tratamento de erros de conexão MongoDB (timeout, network errors)
+ * - Criadas funções auxiliares isConnectionError() e handleError() para padronizar tratamento
+ * - Erros de conexão agora retornam status 503 (Service Unavailable) ao invés de 500
+ * - Mensagens de erro mais claras para problemas de conexão com o banco de dados
  * 
  * Mudanças v1.6.1:
  * - Adicionados headers CORS manualmente em todos os endpoints para garantir funcionamento correto
@@ -68,7 +81,8 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
       'https://velohub-278491073220.us-east1.run.app',
       'http://localhost:8080',
       'http://localhost:3000',
-      'http://localhost:5000'
+      'http://localhost:5000',
+      'http://localhost:8090'
     ];
     
     if (origin && allowedOrigins.includes(origin)) {
@@ -77,6 +91,54 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-session-id, X-Session-Id');
       res.setHeader('Access-Control-Allow-Credentials', 'true');
     }
+  };
+
+  /**
+   * Função auxiliar para detectar erros de conexão do MongoDB
+   */
+  const isConnectionError = (error) => {
+    return (
+      error.name === 'MongoNetworkTimeoutError' ||
+      error.name === 'MongoServerSelectionError' ||
+      error.name === 'MongoNetworkError' ||
+      error.message?.includes('timed out') ||
+      error.message?.includes('connection')
+    );
+  };
+
+  /**
+   * Função auxiliar para tratar erros e retornar resposta apropriada
+   */
+  const handleError = (req, res, error, defaultMessage) => {
+    console.error(`❌ Erro: ${defaultMessage}`, error);
+    console.error('❌ Stack trace:', error.stack);
+    console.error('❌ Error details:', {
+      message: error.message,
+      name: error.name,
+      code: error.code
+    });
+    
+    // Adicionar headers CORS mesmo em caso de erro
+    setCorsHeaders(req, res);
+    
+    // Detectar erros de conexão/timeout do MongoDB
+    const isConnError = isConnectionError(error);
+    
+    // Status 503 (Service Unavailable) para erros de conexão
+    // Status 500 (Internal Server Error) para outros erros
+    const statusCode = isConnError ? 503 : 500;
+    const errorMessage = isConnError 
+      ? 'Erro de conexão com o banco de dados. Tente novamente em alguns instantes.'
+      : defaultMessage;
+    
+    res.status(statusCode).json({
+      success: false,
+      message: errorMessage,
+      error: error.message,
+      errorType: error.name,
+      isConnectionError: isConnError,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   };
 
   /**
@@ -144,25 +206,56 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
         .toArray();
 
       console.log(`✅ [GET /erros-bugs] Erros/Bugs encontrados: ${errosBugs.length}`);
+      
+      // Log ANTES da normalização para verificar o que vem do MongoDB
+      errosBugs.forEach(eb => {
+        if (eb.waMessageId) {
+          console.log(`🔍 [GET /erros-bugs] Documento ${eb._id}:`, {
+            waMessageId: eb.waMessageId,
+            hasRepliesField: 'replies' in eb,
+            repliesType: typeof eb.replies,
+            repliesValue: eb.replies,
+            repliesIsArray: Array.isArray(eb.replies),
+            repliesLength: Array.isArray(eb.replies) ? eb.replies.length : 'N/A'
+          });
+        }
+      });
+      
+      // Normalizar campo replies para garantir que sempre seja array
+      errosBugs.forEach(eb => {
+        if (!Array.isArray(eb.replies)) {
+          eb.replies = [];
+        }
+      });
+      
+      // Log de replies para debug (sempre, para identificar problemas)
+      if (errosBugs.length > 0) {
+        const repliesCount = errosBugs.filter(eb => Array.isArray(eb.replies) && eb.replies.length > 0).length;
+        console.log(`📊 [GET /erros-bugs] Erros/Bugs com replies: ${repliesCount}/${errosBugs.length}`);
+        errosBugs.forEach(eb => {
+          const replies = Array.isArray(eb.replies) ? eb.replies : [];
+          if (replies.length > 0) {
+            console.log(`  - ${eb._id} (${eb.cpf || 'sem CPF'}): ${replies.length} replies`, {
+              waMessageId: eb.waMessageId,
+              replies: replies.map(r => ({ reactor: r.reactor, text: r.text?.substring(0, 50) }))
+            });
+          } else if (eb.waMessageId) {
+            // Log também itens que têm waMessageId mas não têm replies (pode indicar problema)
+            console.log(`  - ${eb._id} (${eb.cpf || 'sem CPF'}): tem waMessageId mas sem replies`, {
+              waMessageId: eb.waMessageId,
+              hasRepliesField: 'replies' in eb,
+              repliesType: typeof eb.replies
+            });
+          }
+        });
+      }
 
       res.json({
         success: true,
         data: errosBugs
       });
     } catch (error) {
-      console.error('❌ [GET /erros-bugs] Erro ao buscar erros/bugs:', error);
-      console.error('❌ [GET /erros-bugs] Stack trace:', error.stack);
-      console.error('❌ [GET /erros-bugs] Error details:', {
-        message: error.message,
-        name: error.name,
-        code: error.code
-      });
-      res.status(500).json({
-        success: false,
-        message: 'Erro ao buscar erros/bugs',
-        error: error.message,
-        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      });
+      handleError(req, res, error, 'Erro ao buscar erros/bugs');
     }
   });
 
@@ -199,17 +292,17 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
         });
       }
 
+      // Normalizar campo replies para garantir que sempre seja array
+      if (!Array.isArray(erroBug.replies)) {
+        erroBug.replies = [];
+      }
+
       res.json({
         success: true,
         data: erroBug
       });
     } catch (error) {
-      console.error('❌ Erro ao buscar erro/bug:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Erro ao buscar erro/bug',
-        error: error.message
-      });
+      handleError(req, res, error, 'Erro ao buscar erro/bug');
     }
   });
 
@@ -444,12 +537,7 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
         data: responseData
       });
     } catch (error) {
-      console.error('❌ Erro ao criar erro/bug:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Erro ao criar erro/bug',
-        error: error.message
-      });
+      handleError(req, res, error, 'Erro ao criar erro/bug');
     }
   });
 
@@ -508,12 +596,7 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
         data: erroBug
       });
     } catch (error) {
-      console.error('❌ Erro ao atualizar erro/bug:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Erro ao atualizar erro/bug',
-        error: error.message
-      });
+      handleError(req, res, error, 'Erro ao atualizar erro/bug');
     }
   });
 
@@ -559,12 +642,7 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
         message: 'Erro/Bug deletado com sucesso'
       });
     } catch (error) {
-      console.error('❌ Erro ao deletar erro/bug:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Erro ao deletar erro/bug',
-        error: error.message
-      });
+      handleError(req, res, error, 'Erro ao deletar erro/bug');
     }
   });
 
@@ -682,11 +760,7 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
         data: atualizado
       });
     } catch (error) {
-      console.error('❌ Erro ao atualizar status automático (erro/bug):', error);
-      res.status(500).json({
-        success: false,
-        error: error.message
-      });
+      handleError(req, res, error, 'Erro ao atualizar status automático');
     }
   });
 
