@@ -64,12 +64,6 @@ const getSessionId = () => {
 const authenticatedFetch = async (url, options = {}) => {
   const sessionId = getSessionId();
   
-  console.log(`🔐 [authenticatedFetch] Fazendo requisição para ${url}:`, {
-    hasSessionId: !!sessionId,
-    sessionId: sessionId ? `${sessionId.substring(0, 8)}...` : null
-  });
-  
-  
   if (!sessionId) {
     console.error('❌ [authenticatedFetch] SessionId não encontrado no localStorage');
     throw new Error('SessionId não encontrado. Faça login novamente.');
@@ -82,13 +76,6 @@ const authenticatedFetch = async (url, options = {}) => {
   };
 
   const fullUrl = `${VELOCHAT_API_URL}${url}`;
-  
-
-  console.log(`📤 [authenticatedFetch] Enviando requisição:`, {
-    url: fullUrl,
-    method: options.method || 'GET',
-    hasSessionIdHeader: !!headers['X-Session-Id']
-  });
 
   let response;
   try {
@@ -103,26 +90,21 @@ const authenticatedFetch = async (url, options = {}) => {
       url: fullUrl,
       error: fetchError.message,
       name: fetchError.name,
-      stack: fetchError.stack,
       origin: typeof window !== 'undefined' ? window.location.origin : null,
     });
     throw fetchError;
   }
 
-  console.log(`📥 [authenticatedFetch] Resposta recebida:`, {
-    url,
-    status: response.status,
-    statusText: response.statusText,
-    ok: response.ok
-  });
-
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-    console.error(`❌ [authenticatedFetch] Erro na resposta:`, {
-      url,
-      status: response.status,
-      error: error.error || error.message
-    });
+    // Reduzir verbosidade: apenas logar erros que não sejam 401 (sessão inválida)
+    if (response.status !== 401) {
+      console.error(`❌ [authenticatedFetch] Erro na resposta:`, {
+        url,
+        status: response.status,
+        error: error.error || error.message
+      });
+    }
     throw new Error(error.error || `Erro ${response.status}`);
   }
 
@@ -574,7 +556,10 @@ export const getConversations = async () => {
       conversations: allConversations
     };
   } catch (error) {
-    console.error('Erro ao obter conversas:', error);
+    // Reduzir verbosidade: apenas logar erros que não sejam relacionados a sessão inválida
+    if (!error.message || !error.message.includes('Sessão inválida')) {
+      console.error('Erro ao obter conversas:', error);
+    }
     return { conversations: [] };
   }
 };

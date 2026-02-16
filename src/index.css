@@ -640,3 +640,72 @@ code {
 /* == MODAL VELONEWS - Z-INDEX MÁXIMO == */
 /* ============================================= */
 /* Classes removidas - usando apenas estilos inline para evitar conflitos CSS */
+
+/* ============================================= */
+/* == MODAL DE PÍLULAS - ANIMAÇÕES == */
+/* ============================================= */
+.pilulas-modal {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  width: 272px;
+  max-width: calc(100vw - 40px);
+  z-index: 9999;
+  pointer-events: none;
+  transition: transform 0.5s ease-out;
+}
+
+.pilulas-modal-content {
+  background-color: var(--cor-container);
+  border: 1px solid var(--cor-borda);
+  border-radius: 12px;
+  padding: 0.5rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: auto;
+  max-height: calc(100vh - 40px);
+  overflow: hidden;
+}
+
+.pilulas-modal-sliding-up {
+  animation: slideUpFromBottom 0.5s ease-out forwards;
+}
+
+.pilulas-modal-visible {
+  transform: translateY(0);
+}
+
+.pilulas-modal-sliding-down {
+  animation: slideDownToBottom 0.5s ease-out forwards;
+}
+
+@keyframes slideUpFromBottom {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideDownToBottom {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+/* Tema escuro para modal de pílulas */
+.dark .pilulas-modal-content {
+  background-color: var(--cor-container);
+  border-color: var(--cor-borda);
+}

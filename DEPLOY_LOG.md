@@ -40,6 +40,26 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Implementação Modal de Pílulas e Correções**
+- **Data/Hora**: 2026-02-16 15:30:00
+- **Tipo**: GitHub Push
+- **Commit**: (será gerado)
+- **Versão**: v1.0.2 (PilulasModal)
+- **Arquivos Modificados**:
+  - `src/components/PilulasModal.js` (NOVO - v1.0.2 - modal de pílulas com timer de 20 minutos)
+  - `backend/server.js` (endpoint /api/pilulas/list e ajuste endpoint /api/images)
+  - `src/App_v2-1.js` (correção componentes ProcessosPage/ArtigosPage/ApoioPage, integração PilulasModal)
+  - `src/index.css` (estilos do modal de pílulas, posicionamento canto esquerdo)
+  - `src/components/VeloChatWidget.js` (redução verbosidade logs)
+  - `src/services/velochatApi.js` (redução verbosidade logs de erro 401)
+  - `src/hooks/useWebSocket.js` (redução verbosidade logs de erro sessão inválida)
+- **Descrição**: 
+  - Implementado modal de pílulas que exibe imagens aleatórias a cada 20 minutos
+  - Modal posicionado no canto esquerdo inferior, proporção vertical (portrait)
+  - Animação de subida/descida, exibição por 10 segundos
+  - Redução de verbosidade de logs de erro relacionados a sessão inválida
+  - Correção de componentes não definidos (ProcessosPage, ArtigosPage, ApoioPage)
+
 ### **GitHub Push - Melhorias Módulo Escalações: Normalização Replies e Campos Adicionais**
 - **Data/Hora**: 2026-02-16 11:45:02
 - **Tipo**: GitHub Push

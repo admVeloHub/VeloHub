@@ -124,9 +124,12 @@ export const useWebSocket = (onMessage, onTyping, onRead, onContactStatusChange,
 
     // Event: connect_error
     socket.on('connect_error', (error) => {
-      console.error('❌ Erro ao conectar WebSocket:', error.message);
-      console.error('URL tentada:', VELOCHAT_WS_URL);
-      console.error('SessionId:', sessionId ? 'presente' : 'ausente');
+      // Reduzir verbosidade: apenas logar erros que não sejam relacionados a sessão inválida
+      if (!error.message || !error.message.includes('Sessão inválida')) {
+        console.error('❌ Erro ao conectar WebSocket:', error.message);
+        console.error('URL tentada:', VELOCHAT_WS_URL);
+        console.error('SessionId:', sessionId ? 'presente' : 'ausente');
+      }
       setIsConnected(false);
       isConnectingRef.current = false;
     });

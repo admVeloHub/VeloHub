@@ -6265,12 +6265,12 @@ app.use('/api/images', async (req, res, next) => {
       bucketName: process.env.GCS_BUCKET_NAME2
     });
     
-    // Validar caminho (deve começar com img_velonews/ ou img_artigos/)
-    if (!imagePath || (!imagePath.startsWith('img_velonews/') && !imagePath.startsWith('img_artigos/'))) {
+    // Validar caminho (deve começar com img_velonews/, img_artigos/ ou mediabank_velohub/img_pilulas/)
+    if (!imagePath || (!imagePath.startsWith('img_velonews/') && !imagePath.startsWith('img_artigos/') && !imagePath.startsWith('mediabank_velohub/img_pilulas/'))) {
       console.error('❌ BACKEND - Caminho inválido:', imagePath);
       return res.status(400).json({
         success: false,
-        message: 'Caminho de imagem inválido. Deve começar com img_velonews/ ou img_artigos/'
+        message: 'Caminho de imagem inválido. Deve começar com img_velonews/, img_artigos/ ou mediabank_velohub/img_pilulas/'
       });
     }
 
@@ -6286,16 +6286,17 @@ app.use('/api/images', async (req, res, next) => {
     // Construir URL pública do GCS
     // Codificar cada parte do caminho separadamente para lidar com espaços e caracteres especiais
     // Mantém as barras não codificadas, mas codifica o nome do arquivo
-    const pathParts = imagePath.split('/');
+    let finalPath = imagePath;
+    
+    // Se o caminho começa com o nome do bucket, remover (o bucket já está na URL do GCS)
+    if (finalPath.startsWith(`${bucketName}/`)) {
+      finalPath = finalPath.substring(bucketName.length + 1);
+    }
+    
+    const pathParts = finalPath.split('/');
     const encodedParts = pathParts.map(part => encodeURIComponent(part));
     const encodedPath = encodedParts.join('/');
     const publicUrl = `https://storage.googleapis.com/${bucketName}/${encodedPath}`;
-    
-    console.log(`🖼️ BACKEND - Fazendo proxy da imagem:`, {
-      original: imagePath,
-      encoded: encodedPath,
-      finalUrl: publicUrl
-    });
     
     // Fazer proxy: baixar imagem do GCS e servir diretamente
     // Isso resolve ERR_BLOCKED_BY_ORB (Opaque Response Blocking)
@@ -6369,6 +6370,166 @@ app.use('/api/images', async (req, res, next) => {
   next();
 });
 console.log('✅ Endpoint GET /api/images/* registrado com sucesso (proxy direto)');
+
+// ===== API DE PÍLULAS =====
+console.log('💊 Registrando endpoint de pílulas...');
+// GET /api/pilulas/list - Listar imagens disponíveis em mediabank_velohub/img_pilulas/
+app.get('/api/pilulas/list', async (req, res) => {
+  try {
+    const bucketName = process.env.GCS_BUCKET_NAME2 || 'mediabank_velohub';
+    
+    if (!bucketName) {
+      console.error('❌ GCS_BUCKET_NAME2 não configurado');
+      return res.status(503).json({
+        success: false,
+        message: 'GCS_BUCKET_NAME2 não configurado'
+      });
+    }
+
+    // Inicializar Google Cloud Storage
+    let storage;
+    try {
+      const googleCredentials = process.env.GOOGLE_CREDENTIALS;
+      const googleApplicationCredentials = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      const gcpProjectId = process.env.GCP_PROJECT_ID;
+      
+      // Verificar se variáveis necessárias estão definidas
+      if (!gcpProjectId || gcpProjectId === 'your-gcp-project-id') {
+        console.error('❌ [pilulas/list] GCP_PROJECT_ID não está definido ou está com valor placeholder');
+        return res.status(500).json({
+          success: false,
+          error: 'GCP_PROJECT_ID não configurado. Verifique o arquivo backend/env'
+        });
+      }
+      
+      // Prioridade 1: GOOGLE_APPLICATION_CREDENTIALS (caminho para arquivo JSON)
+      if (googleApplicationCredentials) {
+        try {
+          storage = new Storage({
+            projectId: gcpProjectId,
+            keyFilename: googleApplicationCredentials
+          });
+          console.log('✅ [pilulas/list] Storage inicializado com GOOGLE_APPLICATION_CREDENTIALS');
+        } catch (fileError) {
+          console.error('❌ [pilulas/list] Erro ao carregar arquivo de credenciais:', fileError);
+        }
+      }
+      
+      // Prioridade 2: GOOGLE_CREDENTIALS (JSON string ou caminho de arquivo)
+      if (!storage && googleCredentials) {
+        if (googleCredentials.trim().startsWith('{') || googleCredentials.trim().startsWith('[')) {
+          try {
+            const credentials = JSON.parse(googleCredentials);
+            
+            // Verificar se credenciais são placeholders
+            if (credentials.project_id === 'your-project-id' || 
+                credentials.private_key === '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n' ||
+                credentials.private_key?.includes('...')) {
+              console.error('❌ [pilulas/list] GOOGLE_CREDENTIALS contém valores placeholder');
+              return res.status(500).json({
+                success: false,
+                error: 'Credenciais do Google Cloud não configuradas. Verifique o arquivo backend/env'
+              });
+            }
+            
+            // Corrigir chave privada: converter \n literais para quebras de linha reais
+            if (credentials.private_key) {
+              credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+            }
+            
+            storage = new Storage({
+              projectId: gcpProjectId,
+              credentials: credentials
+            });
+            console.log('✅ [pilulas/list] Storage inicializado com GOOGLE_CREDENTIALS (JSON)');
+          } catch (parseError) {
+            console.error('❌ [pilulas/list] Erro ao fazer parse das credenciais JSON:', parseError);
+            try {
+              storage = new Storage({
+                projectId: gcpProjectId,
+                keyFilename: googleCredentials
+              });
+              console.log('✅ [pilulas/list] Storage inicializado com GOOGLE_CREDENTIALS (arquivo)');
+            } catch (fileError) {
+              console.error('❌ [pilulas/list] Erro ao carregar arquivo de credenciais:', fileError);
+            }
+          }
+        } else {
+          try {
+            storage = new Storage({
+              projectId: gcpProjectId,
+              keyFilename: googleCredentials
+            });
+            console.log('✅ [pilulas/list] Storage inicializado com GOOGLE_CREDENTIALS (arquivo)');
+          } catch (fileError) {
+            console.error('❌ [pilulas/list] Erro ao carregar arquivo de credenciais:', fileError);
+          }
+        }
+      }
+      
+      // Se storage ainda não foi inicializado, tentar Application Default Credentials (ADC)
+      if (!storage) {
+        try {
+          storage = new Storage({
+            projectId: gcpProjectId
+          });
+          console.log('✅ [pilulas/list] Storage inicializado com Application Default Credentials (ADC)');
+        } catch (adcError) {
+          console.error('❌ [pilulas/list] Erro ao inicializar Storage com ADC:', adcError);
+          return res.status(500).json({
+            success: false,
+            error: 'Erro ao inicializar Google Cloud Storage',
+            details: process.env.NODE_ENV === 'development' ? adcError.message : undefined
+          });
+        }
+      }
+    } catch (error) {
+      console.error('❌ [pilulas/list] Erro ao inicializar Storage:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao inicializar Google Cloud Storage',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+
+    const bucket = storage.bucket(bucketName);
+    const prefix = 'img_pilulas/';
+    
+    console.log(`💊 [pilulas/list] Listando arquivos em ${bucketName}/${prefix}`);
+    
+    // Listar arquivos com prefix img_pilulas/
+    const [files] = await bucket.getFiles({ prefix });
+    
+    // Filtrar apenas arquivos de imagem
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+    const images = files
+      .filter(file => {
+        const fileName = file.name.toLowerCase();
+        return imageExtensions.some(ext => fileName.endsWith(ext));
+      })
+      .map(file => {
+        // Remover o prefix para retornar apenas o nome do arquivo
+        const fileName = file.name.replace(prefix, '');
+        return fileName;
+      });
+    
+    console.log(`💊 [pilulas/list] Encontradas ${images.length} imagens de pílulas`);
+    
+    return res.json({
+      success: true,
+      images: images
+    });
+    
+  } catch (error) {
+    console.error('❌ [pilulas/list] Erro ao listar imagens de pílulas:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro ao listar imagens de pílulas',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+console.log('✅ Endpoint GET /api/pilulas/list registrado com sucesso');
 
 // Servir arquivos estáticos do frontend (DEPOIS das rotas da API)
 // IMPORTANTE: Não servir arquivos estáticos para rotas da API
