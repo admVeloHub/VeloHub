@@ -226,6 +226,7 @@ import PerfilPage from './pages/PerfilPage';
 import TermosPage from './pages/TermosPage';
 import PrivacidadePage from './pages/PrivacidadePage';
 import VelonewsCommentThread from './components/VelonewsCommentThread';
+import PilulasModal from './components/PilulasModal';
 import { formatArticleContent, formatPreviewText, formatResponseText } from './utils/textFormatter';
 
 // Sistema de gerenciamento de estado para modal cr├¡tico
@@ -577,14 +578,11 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
         // Atualizar lista de conversas do usuário
         userConversationsRef.list = conversations.map(conv => conv.conversationId || conv.Id).filter(Boolean);
         
-        console.log(`🔊 [Global Audio Listener] Entrando em ${conversations.length} conversas para receber mensagens`);
-        
         // Entrar em todas as conversas para receber mensagens
         conversations.forEach(conv => {
           const conversationId = conv.conversationId || conv.Id;
           if (conversationId) {
             socket.emit('join_conversation', { conversationId });
-            console.log(`🔊 [Global Audio Listener] Entrou na conversa: ${conversationId}`);
           }
         });
       } catch (error) {
@@ -593,7 +591,7 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
     };
 
     socket.on('connect', () => {
-      console.log('🔊 [Global Audio Listener] WebSocket conectado para áudios globais');
+      // WebSocket conectado para áudios globais
       
       // CRÍTICO: Limpar refs de mensagens processadas ao reconectar
       // Isso evita que eventos antigos sejam ignorados incorretamente após reconexão
@@ -633,12 +631,15 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
         if (!userConversationsRef.list.includes(conversationId)) {
           userConversationsRef.list.push(conversationId);
         }
-        console.log(`🔊 [Global Audio Listener] Entrou na nova conversa: ${conversationId}`);
+        // Entrou na nova conversa para receber mensagens
       }
     });
 
     socket.on('connect_error', (error) => {
-      console.error('❌ [Global Audio Listener] Erro ao conectar:', error.message);
+      // Reduzir verbosidade: apenas logar erros que não sejam relacionados a sessão inválida
+      if (!error.message || !error.message.includes('Sessão inválida')) {
+        console.error('❌ [Global Audio Listener] Erro ao conectar:', error.message);
+      }
     });
 
     // Refs para rastrear últimas mensagens processadas (evita reprocessar eventos duplicados)
@@ -1633,6 +1634,8 @@ export default function App_v2() {
         }}
       />
       <Footer isDarkMode={isDarkMode} />
+      {/* Modal de Pílulas - Exibição automática a cada 25 minutos */}
+      {isAuthenticated && <PilulasModal />}
       </div>
     );
 }
@@ -4234,7 +4237,7 @@ const TicketsListPage = () => {
 };
 
 // Conte├║do da P├ígina de Apoio
-const ApoioPage = () => {
+function ApoioPage() {
     const [activeModal, setActiveModal] = useState(null);
     const [activeTab, setActiveTab] = useState('solicitar');
     
@@ -4689,7 +4692,7 @@ const ApoioPage = () => {
 };
 
 // P├ígina de Artigos
-const ArtigosPage = () => {
+function ArtigosPage() {
     const [articles, setArticles] = useState([]);
     const [filteredArticles, setFilteredArticles] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -5261,7 +5264,7 @@ const ArtigosPage = () => {
 };
 
 // P├ígina de Processos (Chatbot)
-const ProcessosPage = () => {
+function ProcessosPage() {
     const [promptFromFaq, setPromptFromFaq] = useState(null);
     const [faq, setFaq] = useState([]);
     const [loading, setLoading] = useState(true);

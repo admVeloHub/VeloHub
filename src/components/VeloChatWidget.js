@@ -1,6 +1,12 @@
 /**
  * VeloChatWidget - Componente Principal do Chat
- * VERSION: v3.41.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.42.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v3.42.0:
+ * - Corrigido filtro de contatos: removido filtro por Velotax, adicionado filtro por Velohub
+ * - Filtro agora verifica acessos.Velohub === true explicitamente
+ * - Se backend não retornar campo acessos, confia no filtro do backend
+ * - Aplicado filtro em todas as instâncias: cache, polling e seleção de participantes
  * 
  * Mudanças v3.41.0:
  * - Corrigida exibição de botão de excluir anexo - agora oculta quando anexo já foi excluído (!msg.anexoExcluido)
@@ -1059,11 +1065,16 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
               const cachedContacts = JSON.parse(cachedData);
               console.log(`📦 [loadContacts] Carregando ${cachedContacts.length} contatos do cache (idade: ${Math.round(age / 1000)}s)`);
               
-              // Filtrar contatos do cache omitindo usuários com acessos.Velotax === false
+              // Filtrar contatos do cache por acessos.Velohub === true (se backend retornou acessos)
+              // Se backend não retornou acessos, confiar no filtro do backend
               const filteredCachedContacts = cachedContacts.filter(contact => {
-                const acessos = contact.acessos || {};
-                const velotax = acessos.Velotax ?? acessos.velotax ?? true;
-                return velotax !== false;
+                if (contact.acessos !== undefined) {
+                  const acessos = contact.acessos || {};
+                  const velohub = acessos.Velohub || acessos.velohub || acessos.VeloHub || acessos.VELOHUB;
+                  return velohub === true; // Apenas true explícito passa
+                }
+                // Se backend não retornou acessos, confiar no filtro do backend
+                return true;
               });
               
               setContacts(filteredCachedContacts);
@@ -1084,11 +1095,22 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
       // Sempre buscar dados atualizados do servidor
       const data = await velochatApi.getContacts();
       
-      // Filtrar contatos omitindo usuários com acessos.Velotax === false
+      // Filtrar contatos por acessos.Velohub === true (se backend retornou acessos)
+      // Se backend não retornou acessos, confiar no filtro do backend
       const filteredContacts = (data.contacts || []).filter(contact => {
-        const acessos = contact.acessos || {};
-        const velotax = acessos.Velotax ?? acessos.velotax ?? true;
-        return velotax !== false;
+        if (contact.acessos !== undefined) {
+          const acessos = contact.acessos || {};
+          const velohub = acessos.Velohub || acessos.velohub || acessos.VeloHub || acessos.VELOHUB;
+          const hasAccess = velohub === true; // Apenas true explícito passa
+          
+          if (!hasAccess) {
+            console.log(`🚫 [loadContacts] Contato ${contact.userEmail} excluído: Velohub !== true`);
+          }
+          
+          return hasAccess;
+        }
+        // Se backend não retornou acessos, confiar no filtro do backend
+        return true;
       });
       
       // Se é polling, comparar com cache antes de atualizar
@@ -1098,9 +1120,13 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
           if (cachedData) {
             const cachedContacts = JSON.parse(cachedData);
             const filteredCachedContacts = cachedContacts.filter(contact => {
-              const acessos = contact.acessos || {};
-              const velotax = acessos.Velotax ?? acessos.velotax ?? true;
-              return velotax !== false;
+              if (contact.acessos !== undefined) {
+                const acessos = contact.acessos || {};
+                const velohub = acessos.Velohub || acessos.velohub || acessos.VeloHub || acessos.VELOHUB;
+                return velohub === true; // Apenas true explícito passa
+              }
+              // Se backend não retornou acessos, confiar no filtro do backend
+              return true;
             });
             
             // Verificar se há mudanças
@@ -1140,9 +1166,13 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
           if (cachedData) {
             const cachedContacts = JSON.parse(cachedData);
             const filteredCachedContacts = cachedContacts.filter(contact => {
-              const acessos = contact.acessos || {};
-              const velotax = acessos.Velotax ?? acessos.velotax ?? true;
-              return velotax !== false;
+              if (contact.acessos !== undefined) {
+                const acessos = contact.acessos || {};
+                const velohub = acessos.Velohub || acessos.velohub || acessos.VeloHub || acessos.VELOHUB;
+                return velohub === true; // Apenas true explícito passa
+              }
+              // Se backend não retornou acessos, confiar no filtro do backend
+              return true;
             });
             console.log(`📦 [loadContacts] Usando cache (expirado) devido a erro: ${filteredCachedContacts.length} contatos`);
             setContacts(filteredCachedContacts);
@@ -2350,41 +2380,52 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
       return;
     }
     
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Determinar tipo de conversa
-      const isP2P = conversationType === 'p2p' || conversationType === 'direct' || conversationType === 'privada' || 
-                    (selectedConversation && (selectedConversation.type === 'p2p' || selectedConversation.type === 'direct' || selectedConversation.type === 'privada'));
-      
-      if (isP2P) {
+    setLoading(true);
+    setError(null);
+    
+    // Determinar tipo de conversa
+    const isP2P = conversationType === 'p2p' || conversationType === 'direct' || conversationType === 'privada' || 
+                  (selectedConversation && (selectedConversation.type === 'p2p' || selectedConversation.type === 'direct' || selectedConversation.type === 'privada'));
+    
+    // Tentar chamar API apenas para log/auditoria, mas não bloquear remoção local se falhar
+    // A conversa permanece no MongoDB, apenas é removida da exibição
+    if (isP2P) {
+      try {
         await velochatApi.deleteP2PConversation(conversationId);
-      } else {
-        // Sala
+      } catch (deleteError) {
+        // Ignorar erros da API - apenas registrar no log
+        // Não mostrar erro ao usuário, pois a remoção da exibição sempre funciona
+        if (deleteError.message && (deleteError.message.includes('404') || deleteError.message.includes('não encontrada') || deleteError.message.includes('Not Found'))) {
+          console.warn('⚠️ Rota DELETE para conversa P2P não implementada no servidor. Removendo apenas do estado local.');
+        } else {
+          console.warn('⚠️ Erro ao chamar API de exclusão (conversa será removida apenas da exibição):', deleteError.message);
+        }
+      }
+    } else {
+      // Sala
+      try {
         await velochatApi.deleteSalaConversation(conversationId);
+      } catch (deleteError) {
+        console.warn('⚠️ Erro ao chamar API de exclusão de sala (conversa será removida apenas da exibição):', deleteError.message);
       }
-      
-      // Remover conversa do estado local
-      setConversations(prev => prev.filter(conv => 
-        (conv.conversationId || conv.Id) !== conversationId
-      ));
-      
-      // Se conversa estava selecionada, limpar seleção
-      if (selectedConversation && 
-          (selectedConversation.conversationId || selectedConversation.Id) === conversationId) {
-        setSelectedConversation(null);
-        setView('conversations');
-        setMessages([]);
-      }
-      
-      console.log('✅ Conversa removida com sucesso');
-    } catch (err) {
-      console.error('Erro ao remover conversa:', err);
-      setError('Erro ao remover conversa: ' + err.message);
-    } finally {
-      setLoading(false);
     }
+    
+    // SEMPRE remover conversa do estado local, independente do resultado da API
+    // A conversa permanece no MongoDB, apenas é removida da exibição
+    setConversations(prev => prev.filter(conv => 
+      (conv.conversationId || conv.Id) !== conversationId
+    ));
+    
+    // Se conversa estava selecionada, limpar seleção
+    if (selectedConversation && 
+        (selectedConversation.conversationId || selectedConversation.Id) === conversationId) {
+      setSelectedConversation(null);
+      setView('conversations');
+      setMessages([]);
+    }
+    
+    console.log('✅ Conversa removida da exibição com sucesso');
+    setLoading(false);
   };
 
   /**
@@ -2418,13 +2459,6 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
     const currentUserName = getCurrentUserName();
     const normalizedCurrentName = normalizeName(currentUserName);
     
-    // Debug temporário para diagnóstico
-    if (conversations.length > 0) {
-      console.log('🔍 DEBUG - Nome do usuário atual:', currentUserName);
-      console.log('🔍 DEBUG - Nome normalizado:', normalizedCurrentName);
-      console.log('🔍 DEBUG - Total de conversas recebidas:', conversations.length);
-    }
-    
     const filteredConversations = conversations.filter(conv => {
       if (conv.type === 'p2p') {
         // Verificar se usuário está na conversa P2P (comparação normalizada)
@@ -2441,21 +2475,6 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
             if (isClosedByUser) {
               return false; // Conversa encerrada pelo usuário, não mostrar
             }
-          }
-          
-          // Debug temporário
-          if (conversations.length > 0) {
-            console.log('🔍 DEBUG P2P:', {
-              conversationId: conv.conversationId || conv.Id,
-              nome1: conv.p2p.colaboradorNome1,
-              nome2: conv.p2p.colaboradorNome2,
-              current: currentUserName,
-              normalized1: normalizeName(conv.p2p.colaboradorNome1),
-              normalized2: normalizeName(conv.p2p.colaboradorNome2),
-              match1,
-              match2,
-              result: match1 || match2
-            });
           }
           
           return match1 || match2;
@@ -3535,11 +3554,25 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
     };
     
     const currentUserEmail = getCurrentUserEmail();
-    const availableContacts = contacts.filter(c => 
-      !salaParticipants.some(p => (p.userEmail || p.userName || p.colaboradorNome) === (c.userEmail || c.userName || c.colaboradorNome)) &&
-      c.userEmail !== currentUserEmail &&
-      (c.acessos?.Velotax !== false && c.acessos?.velotax !== false)
-    );
+    const availableContacts = contacts.filter(c => {
+      // Verificar se contato já está na sala
+      const isParticipant = salaParticipants.some(p => 
+        (p.userEmail || p.userName || p.colaboradorNome) === (c.userEmail || c.userName || c.colaboradorNome)
+      );
+      
+      // Verificar se é o usuário atual
+      const isCurrentUser = c.userEmail === currentUserEmail;
+      
+      // Verificar acesso ao VeloHub (se backend retornou acessos)
+      let hasVelohubAccess = true; // Por padrão, confiar no backend
+      if (c.acessos !== undefined) {
+        const acessos = c.acessos || {};
+        const velohub = acessos.Velohub || acessos.velohub || acessos.VeloHub || acessos.VELOHUB;
+        hasVelohubAccess = velohub === true; // Apenas true explícito passa
+      }
+      
+      return !isParticipant && !isCurrentUser && hasVelohubAccess;
+    });
     
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
