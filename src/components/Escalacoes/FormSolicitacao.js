@@ -1,7 +1,25 @@
 /**
  * VeloHub V3 - FormSolicitacao Component (Escalações Module)
- * VERSION: v1.10.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.14.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
+ * 
+ * Mudanças v1.14.0:
+ * - Campo "Prazo Máximo" alterado de texto livre para campo de data objetiva (type="date")
+ * - Data formatada na mensagem WhatsApp como DD/MM/YYYY para melhor legibilidade
+ * 
+ * Mudanças v1.13.0:
+ * - Adicionado checkbox "Bacen" para opção "Exclusão de Chave PIX"
+ * - Adicionado campo "Prazo Máximo" que aparece quando Reclame Aqui, Bacen, Procon, Processo ou N2 estiver marcado
+ * - Campo "Prazo Máximo" incluído na mensagem WhatsApp quando preenchido
+ * - Validação atualizada para incluir Bacen como opção válida
+ * 
+ * Mudanças v1.12.0:
+ * - CPF sempre enviado apenas com números (sem pontos ou traços) em todas as operações
+ * - Normalização aplicada ao enviar para WhatsApp API, salvar no backend, logs e cache local
+ * - Máscara visual mantida na interface, mas dados sempre normalizados antes do envio
+ * 
+ * Mudanças v1.11.0:
+ * - Removida opção "Exclusão de Conta" (movida para aba Erros/Bugs)
  * 
  * Mudanças v1.10.0:
  * - Revertida API WhatsApp para usar whatsapp-api-new-54aw.onrender.com/send
@@ -96,11 +114,6 @@ const FormSolicitacao = ({ registrarLog }) => {
     dadoAntigo: '',
     dadoNovo: '',
     fotosVerificadas: false,
-    excluirVelotax: false,
-    excluirCelcoin: false,
-    saldoZerado: false,
-    portabilidadePendente: false,
-    dividaIrpfQuitada: false,
     observacoes: '',
     // Campos para Exclusão de Chave PIX
     semDebitoAberto: false,
@@ -108,6 +121,8 @@ const FormSolicitacao = ({ registrarLog }) => {
     procon: false,
     reclameAqui: false,
     processo: false,
+    bacen: false,
+    prazoMaximo: '',
     // Campos para Aumento de Limite Pix e Cancelamento
     valor: '',
     nomeCliente: '',
@@ -488,7 +503,6 @@ const FormSolicitacao = ({ registrarLog }) => {
   const montarMensagem = () => {
     const simNao = v => (v ? '✅ Sim' : '❌ Não');
     const typeMap = {
-      'Exclusão de Conta': 'Exclusão de Conta',
       'Exclusão de Chave PIX': 'Exclusão de Chave PIX',
       'Alteração de Dados Cadastrais': 'Alteração de Dados Cadastrais',
       'Reativação de Conta': 'Reativação de Conta',
@@ -501,14 +515,7 @@ const FormSolicitacao = ({ registrarLog }) => {
     let msg = `*Nova Solicitação Técnica - ${tipoCanon}*\n\n`;
     msg += `Agente: ${form.agente}\nCPF: ${cpfNorm}\n\n`;
 
-    if (form.tipo === 'Exclusão de Conta') {
-      msg += `Excluir conta Velotax: ${simNao(form.excluirVelotax)}\n`;
-      msg += `Excluir conta Celcoin: ${simNao(form.excluirCelcoin)}\n`;
-      msg += `Conta zerada: ${simNao(form.saldoZerado)}\n`;
-      msg += `Portabilidade pendente: ${simNao(form.portabilidadePendente)}\n`;
-      msg += `Dívida IRPF quitada: ${simNao(form.dividaIrpfQuitada)}\n`;
-      msg += `Observações: ${form.observacoes || '—'}\n`;
-    } else if (form.tipo === 'Alteração de Dados Cadastrais') {
+    if (form.tipo === 'Alteração de Dados Cadastrais') {
       msg += `Tipo de informação: ${form.infoTipo}\n`;
       msg += `Dado antigo: ${form.dadoAntigo}\n`;
       msg += `Dado novo: ${form.dadoNovo}\n`;
@@ -520,6 +527,12 @@ const FormSolicitacao = ({ registrarLog }) => {
       msg += `Procon: ${simNao(form.procon)}\n`;
       msg += `Reclame Aqui: ${simNao(form.reclameAqui)}\n`;
       msg += `Processo: ${simNao(form.processo)}\n`;
+      msg += `Bacen: ${simNao(form.bacen)}\n`;
+      if (form.prazoMaximo) {
+        // Formatar data de YYYY-MM-DD para DD/MM/YYYY
+        const dataFormatada = form.prazoMaximo.split('-').reverse().join('/');
+        msg += `Prazo Máximo: ${dataFormatada}\n`;
+      }
       msg += `Observações: ${form.observacoes || '—'}\n`;
     } else if (form.tipo === 'Aumento de Limite Pix') {
       msg += `Valor: ${form.valor || '—'}\n`;
@@ -547,8 +560,8 @@ const FormSolicitacao = ({ registrarLog }) => {
       showNotification('CPF inválido. Digite os 11 dígitos.', 'error');
       return;
     }
-    if (form.tipo === 'Exclusão de Chave PIX' && !form.semDebitoAberto && !form.n2Ouvidora && !form.procon && !form.reclameAqui && !form.processo) {
-      showNotification('Para Exclusão de Chave PIX, selecione pelo menos uma opção: Sem Débito em aberto, N2 - Ouvidora, Procon, Reclame Aqui ou Processo.', 'error');
+    if (form.tipo === 'Exclusão de Chave PIX' && !form.semDebitoAberto && !form.n2Ouvidora && !form.procon && !form.reclameAqui && !form.processo && !form.bacen) {
+      showNotification('Para Exclusão de Chave PIX, selecione pelo menos uma opção: Sem Débito em aberto, N2 - Ouvidora, Procon, Reclame Aqui, Processo ou Bacen.', 'error');
       return;
     }
     setLoading(true);
@@ -650,11 +663,12 @@ const FormSolicitacao = ({ registrarLog }) => {
       }
 
       // 2) DEPOIS: Criar solicitação no backend com waMessageId já obtido
+      // CPF sempre apenas números (sem formatação) para o backend também
       const solicitacaoData = {
         agente: agenteNorm || form.agente,
-        cpf: form.cpf,
+        cpf: cpfApenasNumeros, // Usar CPF normalizado (apenas números)
         tipo: form.tipo,
-        payload: { ...form },
+        payload: { ...form, cpf: cpfApenasNumeros }, // Garantir CPF normalizado no payload também
         mensagemTexto,
         agentContact: defaultJid || null,
         waMessageId: waMessageId || null,
@@ -682,16 +696,9 @@ const FormSolicitacao = ({ registrarLog }) => {
           action: 'send_request',
           detail: {
             tipo: form.tipo,
-            cpf: form.cpf,
+            cpf: cpfApenasNumeros, // CPF normalizado no log também
             waMessageId,
             whatsappSent: !!waMessageId,
-            exclusao: form.tipo === 'Exclusão de Conta' ? {
-              excluirVelotax: !!form.excluirVelotax,
-              excluirCelcoin: !!form.excluirCelcoin,
-              saldoZerado: !!form.saldoZerado,
-              portabilidadePendente: !!form.portabilidadePendente,
-              dividaIrpfQuitada: !!form.dividaIrpfQuitada,
-            } : undefined,
             alteracao: form.tipo === 'Alteração de Dados Cadastrais' ? {
               infoTipo: form.infoTipo || '',
               dadoAntigo: form.dadoAntigo || '',
@@ -720,7 +727,7 @@ const FormSolicitacao = ({ registrarLog }) => {
       }
 
       const newItem = {
-        cpf: form.cpf,
+        cpf: cpfApenasNumeros, // CPF normalizado no cache também
         tipo: form.tipo,
         waMessageId,
         status: waMessageId ? 'enviado' : 'em aberto',
@@ -738,11 +745,6 @@ const FormSolicitacao = ({ registrarLog }) => {
         dadoAntigo: '',
         dadoNovo: '',
         fotosVerificadas: false,
-        excluirVelotax: false,
-        excluirCelcoin: false,
-        saldoZerado: false,
-        portabilidadePendente: false,
-        dividaIrpfQuitada: false,
         observacoes: '',
         // Campos para Exclusão de Chave PIX
         semDebitoAberto: false,
@@ -750,6 +752,8 @@ const FormSolicitacao = ({ registrarLog }) => {
         procon: false,
         reclameAqui: false,
         processo: false,
+        bacen: false,
+        prazoMaximo: '',
         // Campos para Aumento de Limite Pix e Cancelamento
         valor: '',
         nomeCliente: '',
@@ -847,63 +851,12 @@ const FormSolicitacao = ({ registrarLog }) => {
               <option>Alteração de Dados Cadastrais</option>
               <option>Aumento de Limite Pix</option>
               <option>Exclusão de Chave PIX</option>
-              <option>Exclusão de Conta</option>
               <option>Reativação de Conta</option>
               <option>Reset de Senha</option>
               <option value="Cancelamento">Cancelamento</option>
             </select>
           </div>
         </div>
-
-        {form.tipo === 'Exclusão de Conta' && (
-          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mt-2 border border-gray-200 dark:border-gray-700">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={form.excluirVelotax}
-                onChange={(e) => atualizar('excluirVelotax', e.target.checked)}
-                className="w-4 h-4"
-              />
-              Excluir conta Velotax
-            </label>
-            <label className="flex items-center gap-2 mt-2">
-              <input
-                type="checkbox"
-                checked={form.excluirCelcoin}
-                onChange={(e) => atualizar('excluirCelcoin', e.target.checked)}
-                className="w-4 h-4"
-              />
-              Excluir conta Celcoin
-            </label>
-            <label className="flex items-center gap-2 mt-2">
-              <input
-                type="checkbox"
-                checked={form.saldoZerado}
-                onChange={(e) => atualizar('saldoZerado', e.target.checked)}
-                className="w-4 h-4"
-              />
-              Conta zerada
-            </label>
-            <label className="flex items-center gap-2 mt-2">
-              <input
-                type="checkbox"
-                checked={form.portabilidadePendente}
-                onChange={(e) => atualizar('portabilidadePendente', e.target.checked)}
-                className="w-4 h-4"
-              />
-              Portabilidade pendente
-            </label>
-            <label className="flex items-center gap-2 mt-2">
-              <input
-                type="checkbox"
-                checked={form.dividaIrpfQuitada}
-                onChange={(e) => atualizar('dividaIrpfQuitada', e.target.checked)}
-                className="w-4 h-4"
-              />
-              Dívida IRPF quitada
-            </label>
-          </div>
-        )}
 
         {form.tipo === 'Alteração de Dados Cadastrais' && (
           <div className="p-4 rounded-lg mt-2" style={{ background: 'transparent', border: '1.5px solid #000058', borderRadius: '8px' }}>
@@ -1040,6 +993,28 @@ const FormSolicitacao = ({ registrarLog }) => {
               />
               <span>Processo</span>
             </label>
+            <label className="flex items-center gap-2 mt-2">
+              <input
+                type="checkbox"
+                className="w-4 h-4"
+                checked={form.bacen || false}
+                onChange={(e) => atualizar('bacen', e.target.checked)}
+              />
+              <span>Bacen</span>
+            </label>
+            
+            {/* Campo Prazo Máximo - aparece quando qualquer checkbox relevante estiver marcado */}
+            {(form.reclameAqui || form.bacen || form.procon || form.processo || form.n2Ouvidora) && (
+              <div className="mt-4">
+                <label className="text-sm text-gray-700 dark:text-gray-300 mb-1 block">Prazo Máximo</label>
+                <input
+                  type="date"
+                  className="w-auto px-3 py-2 border border-gray-400 dark:border-gray-500 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500"
+                  value={form.prazoMaximo || ''}
+                  onChange={(e) => atualizar('prazoMaximo', e.target.value)}
+                />
+              </div>
+            )}
           </div>
         )}
 

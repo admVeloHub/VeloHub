@@ -208,6 +208,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Map, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen, X, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Toaster } from 'react-hot-toast';
 import { mainAPI, veloNewsAPI, articlesAPI, faqAPI } from './services/api';
 import { checkAuthenticationState, updateUserInfo, getUserSession, stopHeartbeat, logout, isSessionValid } from './services/auth';
 import { API_BASE_URL, getVeloChatWsUrl } from './config/api-config';
@@ -1522,6 +1523,29 @@ export default function App_v2() {
   // Mostrar aplicação principal se estiver autenticado
   return (
     <div className="min-h-screen font-sans velohub-bg">
+      <Toaster 
+        position="bottom-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: 'var(--cor-container)',
+            color: 'var(--cor-texto-principal)',
+            border: '1px solid var(--cor-borda)',
+          },
+          success: {
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#fff',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#fff',
+            },
+          },
+        }}
+      />
       <Header activePage={activePage} setActivePage={setActivePage} isDarkMode={isDarkMode} toggleDarkMode={() => setIsDarkMode(!isDarkMode)} />
       <main>
         {renderContent()}

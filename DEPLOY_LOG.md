@@ -40,6 +40,26 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Melhorias Módulo Escalações: Normalização Replies e Campos Adicionais**
+- **Data/Hora**: 2026-02-11 [HORA_AQUI]
+- **Tipo**: GitHub Push
+- **Commit**: [Pendente]
+- **Versão**: Múltiplas atualizações
+- **Arquivos Modificados**:
+  - `backend/routes/api/escalacoes/erros-bugs.js` (v1.8.0 - normalização campo replies)
+  - `backend/routes/api/escalacoes/solicitacoes.js` (v1.6.0 - normalização campo replies)
+  - `backend/server.js` (atualizações backend)
+  - `package.json` (v3.0.3 - dependências atualizadas)
+  - `package-lock.json` (sincronização dependências)
+  - `src/App_v2-1.js` (melhorias interface)
+  - `src/components/Escalacoes/ErrosBugsTab.js` (v1.23.0 - campos cpf, solicitacao, agente no payload)
+  - `src/components/Escalacoes/FormSolicitacao.js` (v1.14.0 - campo data para prazo máximo)
+  - `src/config/api-config.js` (v1.0.17 - reversão URL WhatsApp)
+  - `src/pages/EscalacoesPage.js` (v1.11.0 - logs debug e normalização replies)
+  - `src/services/escalacoesApi.js` (melhorias API)
+- **Descrição**: Melhorias significativas no módulo de Escalações. Normalização do campo replies em todos os endpoints do backend para garantir que sempre seja array. Adicionados campos cpf, solicitacao e agente no payload do WhatsApp API para correlacionar replies automaticamente. Campo "Prazo Máximo" alterado de texto livre para campo de data objetiva no FormSolicitacao. Adicionados logs de debug no EscalacoesPage para rastrear replies recebidas. Normalização do campo replies no modal para garantir exibição correta. Melhorias no tratamento de erros e validações. Atualização de dependências no package.json.
+- **Status**: ✅ Pronto para commit e push
+
 ### **GitHub Push - Reversão API WhatsApp para Render.com**
 - **Data/Hora**: 2026-02-12 15:49:53
 - **Tipo**: GitHub Push

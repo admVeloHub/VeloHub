@@ -1,6 +1,21 @@
 /**
  * VeloHub V3 - Escalações API Routes - Solicitações Técnicas
- * VERSION: v1.3.1 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.6.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.6.0:
+ * - Normalização do campo replies em GET / e GET /:id para garantir que sempre seja array
+ * - Adicionados logs de debug para rastrear replies nas solicitações
+ * - Garantia de que campo replies sempre existe e é array antes de retornar
+ * 
+ * Mudanças v1.5.0:
+ * - Adicionado endpoint POST /reply para receber replies/menções do WhatsApp API
+ * - Armazena replies no campo replies do MongoDB quando WhatsApp detecta menção/resposta
+ * - Busca solicitação por waMessageId ou payload.messageIds
+ * - Evita duplicatas verificando replyMessageId existente
+ * 
+ * Mudanças v1.4.0:
+ * - Adicionado endpoint POST /:id/reply-confirm para confirmar visualização de respostas
+ * - Envia reação ✓ no WhatsApp e atualiza confirmedAt/confirmedBy no reply
  * Branch: main (recuperado de escalacoes)
  * 
  * Rotas para gerenciamento de solicitações técnicas
@@ -78,6 +93,38 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
 
       console.log(`✅ Solicitações encontradas: ${solicitacoes.length}`);
       
+      // Log ANTES da normalização para verificar o que vem do MongoDB
+      solicitacoes.forEach(s => {
+        if (s.waMessageId) {
+          console.log(`🔍 [GET /solicitacoes] Documento ${s._id}:`, {
+            waMessageId: s.waMessageId,
+            hasRepliesField: 'replies' in s,
+            repliesType: typeof s.replies,
+            repliesValue: s.replies,
+            repliesIsArray: Array.isArray(s.replies),
+            repliesLength: Array.isArray(s.replies) ? s.replies.length : 'N/A'
+          });
+        }
+      });
+      
+      // Normalizar campo replies para garantir que sempre seja array
+      solicitacoes.forEach(s => {
+        if (!Array.isArray(s.replies)) {
+          s.replies = [];
+        }
+      });
+      
+      // Log de replies para debug (apenas em desenvolvimento)
+      if (process.env.NODE_ENV === 'development' && solicitacoes.length > 0) {
+        const repliesCount = solicitacoes.filter(s => Array.isArray(s.replies) && s.replies.length > 0).length;
+        console.log(`📊 Solicitações com replies: ${repliesCount}/${solicitacoes.length}`);
+        solicitacoes.forEach(s => {
+          if (Array.isArray(s.replies) && s.replies.length > 0) {
+            console.log(`  - ${s._id}: ${s.replies.length} replies`);
+          }
+        });
+      }
+      
       // Log de status para debug (apenas em desenvolvimento)
       if (process.env.NODE_ENV === 'development' && solicitacoes.length > 0) {
         const statusCount = {};
@@ -131,6 +178,11 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
           message: 'Solicitação não encontrada',
           data: null
         });
+      }
+
+      // Normalizar campo replies para garantir que sempre seja array
+      if (!Array.isArray(solicitacao.replies)) {
+        solicitacao.replies = [];
       }
 
       res.json({
@@ -568,6 +620,249 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
       res.status(500).json({
         success: false,
         error: error.message
+      });
+    }
+  });
+
+  /**
+   * POST /api/escalacoes/solicitacoes/:id/reply-confirm
+   * Confirmar visualização de resposta do WhatsApp
+   * Envia reação ✓ no WhatsApp e atualiza confirmedAt/confirmedBy no reply
+   */
+  router.post('/:id/reply-confirm', async (req, res) => {
+    try {
+      if (!client) {
+        return res.status(503).json({
+          ok: false,
+          error: 'MongoDB não configurado'
+        });
+      }
+
+      await connectToMongo();
+      const db = client.db('hub_escalacoes');
+      const collection = db.collection('solicitacoes_tecnicas');
+
+      const { id } = req.params;
+      const { replyMessageId, confirmedBy } = req.body || {};
+
+      // Validação
+      if (!replyMessageId) {
+        return res.status(400).json({
+          ok: false,
+          error: 'replyMessageId é obrigatório'
+        });
+      }
+
+      // Buscar documento
+      const { ObjectId } = require('mongodb');
+      const doc = await collection.findOne({
+        _id: ObjectId.isValid(id) ? new ObjectId(id) : id
+      });
+
+      if (!doc) {
+        return res.status(404).json({
+          ok: false,
+          error: 'Solicitação não encontrada'
+        });
+      }
+
+      // Normalizar replies para array
+      const replies = Array.isArray(doc.replies) ? doc.replies : [];
+      
+      // Encontrar índice do reply
+      const replyIndex = replies.findIndex(
+        r => String(r.replyMessageId) === String(replyMessageId)
+      );
+
+      if (replyIndex === -1) {
+        return res.status(404).json({
+          ok: false,
+          error: 'Reply não encontrado'
+        });
+      }
+
+      const reply = replies[replyIndex];
+
+      // Validar que reply tem replyMessageJid
+      if (!reply.replyMessageJid) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Reply não tem replyMessageJid'
+        });
+      }
+
+      // Enviar reação ✓ via API WhatsApp
+      const whatsappApiUrl = config.WHATSAPP_API_URL || 'https://whatsapp-api-new-54aw.onrender.com';
+      try {
+        const reactResponse = await fetch(`${whatsappApiUrl}/react`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messageId: replyMessageId,
+            jid: reply.replyMessageJid,
+            participant: reply.replyMessageParticipant || null,
+            reaction: '✅'
+          })
+        });
+
+        if (!reactResponse.ok) {
+          console.warn('[reply-confirm] Reação WhatsApp não enviada, mas continuando atualização');
+        }
+      } catch (whatsappError) {
+        console.error('[reply-confirm] Erro ao enviar reação WhatsApp:', whatsappError);
+        // Continuar mesmo se WhatsApp falhar
+      }
+
+      // Atualizar confirmedAt e confirmedBy
+      const confirmedAt = new Date();
+      replies[replyIndex] = {
+        ...reply,
+        confirmedAt,
+        confirmedBy: confirmedBy || null
+      };
+
+      // Atualizar documento no MongoDB
+      await collection.updateOne(
+        { _id: doc._id },
+        {
+          $set: {
+            replies,
+            updatedAt: new Date()
+          }
+        }
+      );
+
+      return res.json({
+        ok: true,
+        confirmedAt
+      });
+    } catch (error) {
+      console.error('[reply-confirm] Erro:', error);
+      return res.status(500).json({
+        ok: false,
+        error: error.message || 'Erro ao confirmar resposta'
+      });
+    }
+  });
+
+  /**
+   * POST /api/escalacoes/solicitacoes/reply
+   * Receber reply/menção do WhatsApp e armazenar no campo replies
+   * Chamado pelo WhatsApp API quando alguém responde uma mensagem
+   */
+  router.post('/reply', async (req, res) => {
+    try {
+      if (!client) {
+        return res.status(503).json({
+          ok: false,
+          error: 'MongoDB não configurado'
+        });
+      }
+
+      await connectToMongo();
+      const db = client.db('hub_escalacoes');
+      const collection = db.collection('solicitacoes_tecnicas');
+
+      const { waMessageId, reactor, text, replyMessageId, replyMessageJid, replyMessageParticipant } = req.body || {};
+
+      // Validação
+      if (!waMessageId) {
+        return res.status(400).json({
+          ok: false,
+          error: 'waMessageId é obrigatório'
+        });
+      }
+
+      if (!text && !replyMessageId) {
+        return res.status(400).json({
+          ok: false,
+          error: 'text ou replyMessageId é obrigatório'
+        });
+      }
+
+      console.log('[reply] Recebendo reply:', {
+        waMessageId,
+        reactor,
+        textLength: text?.length,
+        replyMessageId,
+        replyMessageJid
+      });
+
+      // Buscar solicitação pelo waMessageId ou payload.messageIds
+      let solicitacao = await collection.findOne({ waMessageId });
+
+      // Se não encontrou, buscar em payload.messageIds (array)
+      if (!solicitacao) {
+        console.log('[reply] Não encontrado em waMessageId, buscando em payload.messageIds');
+        solicitacao = await collection.findOne({
+          'payload.messageIds': waMessageId
+        });
+      }
+
+      if (!solicitacao) {
+        console.log('[reply] ❌ Solicitação não encontrada para waMessageId:', waMessageId);
+        return res.status(404).json({
+          ok: false,
+          error: 'Solicitação não encontrada'
+        });
+      }
+
+      console.log('[reply] ✅ Solicitação encontrada:', solicitacao._id);
+
+      // Normalizar replies para array
+      const replies = Array.isArray(solicitacao.replies) ? solicitacao.replies : [];
+
+      // Verificar se já existe reply com mesmo replyMessageId (evitar duplicatas)
+      if (replyMessageId) {
+        const existingReply = replies.find(r => String(r.replyMessageId) === String(replyMessageId));
+        if (existingReply) {
+          console.log('[reply] Reply já existe, ignorando duplicata:', replyMessageId);
+          return res.json({
+            ok: true,
+            message: 'Reply já existe',
+            replyId: replyMessageId
+          });
+        }
+      }
+
+      // Criar novo reply
+      const newReply = {
+        reactor: reactor || 'Desconhecido',
+        text: text || '',
+        at: new Date(),
+        replyMessageId: replyMessageId || null,
+        replyMessageJid: replyMessageJid || null,
+        replyMessageParticipant: replyMessageParticipant || null,
+        confirmedAt: null,
+        confirmedBy: null
+      };
+
+      // Adicionar ao array de replies
+      replies.push(newReply);
+
+      // Atualizar documento no MongoDB
+      await collection.updateOne(
+        { _id: solicitacao._id },
+        {
+          $set: {
+            replies,
+            updatedAt: new Date()
+          }
+        }
+      );
+
+      console.log('[reply] ✅ Reply adicionado com sucesso. Total de replies:', replies.length);
+
+      return res.json({
+        ok: true,
+        solicitacaoId: solicitacao._id.toString(),
+        repliesCount: replies.length
+      });
+    } catch (error) {
+      console.error('[reply] Erro:', error);
+      return res.status(500).json({
+        ok: false,
+        error: error.message || 'Erro ao processar reply'
       });
     }
   });
