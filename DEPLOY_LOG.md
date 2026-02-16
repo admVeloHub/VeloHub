@@ -41,9 +41,9 @@
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
 ### **GitHub Push - Melhorias Módulo Escalações: Normalização Replies e Campos Adicionais**
-- **Data/Hora**: 2026-02-11 [HORA_AQUI]
+- **Data/Hora**: 2026-02-11 18:25:00
 - **Tipo**: GitHub Push
-- **Commit**: [Pendente]
+- **Commit**: 124fd4e
 - **Versão**: Múltiplas atualizações
 - **Arquivos Modificados**:
   - `backend/routes/api/escalacoes/erros-bugs.js` (v1.8.0 - normalização campo replies)
