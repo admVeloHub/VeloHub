@@ -10,6 +10,8 @@
 # - WHATSAPP_API_URL=https://whatsapp-api-y40p.onrender.com
 # - WHATSAPP_DEFAULT_JID=120363400851545835@g.us
 # - NODE_ENV=production
+# - GCS_BUCKET_NAME2=mediabank_velohub
+# - GCP_PROJECT_ID=velohub-471220
 # - MONGO_ENV (via Secret Manager)
 # - OPENAI_API_KEY (via Secret Manager)
 # - GEMINI_API_KEY (via Secret Manager)
@@ -75,6 +77,8 @@ steps:
       - '--allow-unauthenticated'
       - '--port'
       - '8080'
+      - '--set-env-vars'
+      - 'GCS_BUCKET_NAME2=mediabank_velohub,GCP_PROJECT_ID=velohub-471220'
     dir: '.'
 
 # Configurações do build
