@@ -1,6 +1,13 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.44.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.45.0 | DATE: 2025-02-16 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.45.0:
+ * - Adicionado endpoint GET /api/pilulas/list para listar imagens de pílulas
+ * - Melhorado tratamento de erros no endpoint /api/pilulas/list
+ * - Adicionada verificação de existência do bucket antes de listar arquivos
+ * - Adicionada validação de inicialização do Storage antes de usar
+ * - Melhorados logs de erro para facilitar diagnóstico em produção
  * 
  * Mudanças v2.44.0:
  * - CRÍTICO: Melhorada busca de usuário no endpoint /api/auth/validate-access
@@ -6493,6 +6500,16 @@ REDACTED
           });
         }
       }
+      
+      // Verificar se storage foi inicializado com sucesso
+      if (!storage) {
+        console.error('❌ [pilulas/list] Storage não pôde ser inicializado com nenhum método disponível');
+        return res.status(500).json({
+          success: false,
+          error: 'Erro ao inicializar Google Cloud Storage: nenhum método de autenticação funcionou',
+          details: process.env.NODE_ENV === 'development' ? 'Verifique GOOGLE_CREDENTIALS, GOOGLE_APPLICATION_CREDENTIALS ou Application Default Credentials' : undefined
+        });
+      }
     } catch (error) {
       console.error('❌ [pilulas/list] Erro ao inicializar Storage:', error);
       return res.status(500).json({
@@ -6503,9 +6520,30 @@ REDACTED
     }
 
     const bucket = storage.bucket(bucketName);
+    // Prefixo correto: img_pilulas/ (dentro do bucket mediabank_velohub)
     const prefix = 'img_pilulas/';
     
+    console.log(`💊 [pilulas/list] Bucket: ${bucketName}, Prefix: ${prefix}`);
     console.log(`💊 [pilulas/list] Listando arquivos em ${bucketName}/${prefix}`);
+    
+    // Verificar se o bucket existe e é acessível
+    try {
+      const [exists] = await bucket.exists();
+      if (!exists) {
+        console.error(`❌ [pilulas/list] Bucket ${bucketName} não existe ou não é acessível`);
+        return res.status(500).json({
+          success: false,
+          error: `Bucket ${bucketName} não encontrado ou sem permissão de acesso`
+        });
+      }
+    } catch (bucketError) {
+      console.error(`❌ [pilulas/list] Erro ao verificar bucket ${bucketName}:`, bucketError);
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao acessar bucket do Google Cloud Storage',
+        details: process.env.NODE_ENV === 'development' ? bucketError.message : undefined
+      });
+    }
     
     // Listar arquivos com prefix img_pilulas/
     const [files] = await bucket.getFiles({ prefix });
@@ -6532,10 +6570,12 @@ REDACTED
     
   } catch (error) {
     console.error('❌ [pilulas/list] Erro ao listar imagens de pílulas:', error);
+    console.error('❌ [pilulas/list] Stack trace:', error.stack);
     return res.status(500).json({
       success: false,
       message: 'Erro ao listar imagens de pílulas',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
