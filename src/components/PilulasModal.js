@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - PilulasModal Component
- * VERSION: v1.0.2 | DATE: 2025-02-16 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.3 | DATE: 2025-02-18 | AUTHOR: VeloHub Development Team
  * 
  * Componente que exibe pílulas (imagens) na parte inferior esquerda da tela a cada 20 minutos.
  * - Timer de 20 minutos entre exibições
@@ -27,6 +27,14 @@ const PilulasModal = () => {
   const loadPilulasList = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/pilulas/list`);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error(`❌ PilulasModal: Erro ${response.status} ao carregar lista de imagens:`, errorData.error || errorData.message || 'Erro desconhecido');
+        setImages([]);
+        return;
+      }
+      
       const data = await response.json();
       
       if (data.success && Array.isArray(data.images) && data.images.length > 0) {

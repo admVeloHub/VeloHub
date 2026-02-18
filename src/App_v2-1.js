@@ -2041,7 +2041,10 @@ const renderRightSidebarChat = ({
     searchQuery,
     setSearchQuery,
     soundEnabled,
-    toggleSound
+    toggleSound,
+    chatRefreshTrigger,
+    handleChatRefresh,
+    isRefreshing
 }) => {
     if (isCollapsed) {
         return (
@@ -2211,6 +2214,36 @@ const renderRightSidebarChat = ({
                                 </button>
                             </div>
                             
+                            {/* Botão de Refresh */}
+                            <div style={{ flexShrink: 0 }}>
+                                <button
+                                    onClick={handleChatRefresh}
+                                    className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    style={{ 
+                                        color: document.documentElement.classList.contains('dark') ? '#006AB9' : 'var(--blue-dark)',
+                                        transition: 'all 0.3s ease'
+                                    }}
+                                    title="Atualizar"
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.querySelector('svg').style.transform = 'scale(1.15)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (!isRefreshing) {
+                                            e.currentTarget.querySelector('svg').style.transform = 'scale(1)';
+                                        }
+                                    }}
+                                >
+                                    <RefreshCw 
+                                        size={20} 
+                                        style={{
+                                            transform: isRefreshing ? 'rotate(360deg)' : 'rotate(0deg)',
+                                            transition: 'transform 0.6s ease-in-out, scale 0.3s ease',
+                                            display: 'inline-block'
+                                        }}
+                                    />
+                                </button>
+                            </div>
+                            
                             {/* Botão de busca */}
                             <div style={{ flexShrink: 0 }}>
                                 <button 
@@ -2290,7 +2323,7 @@ const renderRightSidebarChat = ({
                         
                         // Removido bypass - todos os usuários têm acesso ao chat
                         return (
-                            <VeloChatWidget activeTab={activeTab} searchQuery={searchQuery} />
+                            <VeloChatWidget activeTab={activeTab} searchQuery={searchQuery} refreshTrigger={chatRefreshTrigger} />
                         );
                     })()}
                 </div>
@@ -2332,8 +2365,20 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
     const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
     const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(false);
     const [activeTab, setActiveTab] = useState('conversations');
+    const [chatRefreshTrigger, setChatRefreshTrigger] = useState(0);
     const [isSearchExpanded, setIsSearchExpanded] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    
+    // Função para atualizar o chat (refresh)
+    const handleChatRefresh = () => {
+        setIsRefreshing(true);
+        setChatRefreshTrigger(prev => prev + 1);
+        // Resetar animação após 600ms (tempo da rotação)
+        setTimeout(() => {
+            setIsRefreshing(false);
+        }, 600);
+    };
     
     // Estados dos m├│dulos - controlados pelo Console VeloHub
     const [moduleStatus, setModuleStatus] = useState({
@@ -3356,7 +3401,10 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                 searchQuery,
                 setSearchQuery,
                 soundEnabled,
-                toggleSound
+                toggleSound,
+                chatRefreshTrigger,
+                handleChatRefresh,
+                isRefreshing
             })}
             {selectedNews && typeof document !== 'undefined' && createPortal(
                 <div 
@@ -4684,7 +4732,10 @@ function ApoioPage() {
                     searchQuery,
                     setSearchQuery,
                     soundEnabled,
-                    toggleSound
+                    toggleSound,
+                    chatRefreshTrigger,
+                    handleChatRefresh,
+                    isRefreshing
                 })}
             </div>
         </div>
@@ -5085,7 +5136,10 @@ function ArtigosPage() {
                     searchQuery,
                     setSearchQuery,
                     soundEnabled,
-                    toggleSound
+                    toggleSound,
+                    chatRefreshTrigger,
+                    handleChatRefresh,
+                    isRefreshing
                 })}
             </div>
 
@@ -5398,7 +5452,10 @@ function ProcessosPage() {
                     searchQuery,
                     setSearchQuery,
                     soundEnabled,
-                    toggleSound
+                    toggleSound,
+                    chatRefreshTrigger,
+                    handleChatRefresh,
+                    isRefreshing
                 })}
             </div>
         </div>

@@ -1,6 +1,12 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.45.0 | DATE: 2025-02-16 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.45.1 | DATE: 2025-02-18 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.45.1:
+ * - Corrigido tratamento de erros no endpoint /api/pilulas/list
+ * - Adicionado tratamento específico para erro ao listar arquivos do bucket
+ * - Melhorados logs de diagnóstico com informações de variáveis de ambiente
+ * - Adicionada validação de erro na listagem de arquivos antes de processar
  * 
  * Mudanças v2.45.0:
  * - Adicionado endpoint GET /api/pilulas/list para listar imagens de pílulas
@@ -6546,7 +6552,18 @@ REDACTED
     }
     
     // Listar arquivos com prefix img_pilulas/
-    const [files] = await bucket.getFiles({ prefix });
+    let files = [];
+    try {
+      [files] = await bucket.getFiles({ prefix });
+      console.log(`💊 [pilulas/list] Total de arquivos encontrados: ${files.length}`);
+    } catch (listError) {
+      console.error(`❌ [pilulas/list] Erro ao listar arquivos do bucket:`, listError);
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao listar arquivos do bucket',
+        details: process.env.NODE_ENV === 'development' ? listError.message : undefined
+      });
+    }
     
     // Filtrar apenas arquivos de imagem
     const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
@@ -6571,11 +6588,17 @@ REDACTED
   } catch (error) {
     console.error('❌ [pilulas/list] Erro ao listar imagens de pílulas:', error);
     console.error('❌ [pilulas/list] Stack trace:', error.stack);
+    console.error('❌ [pilulas/list] Variáveis de ambiente:', {
+      GCP_PROJECT_ID: process.env.GCP_PROJECT_ID ? 'definido' : 'não definido',
+      GOOGLE_CREDENTIALS: process.env.GOOGLE_CREDENTIALS ? 'definido' : 'não definido',
+      GOOGLE_APPLICATION_CREDENTIALS: process.env.GOOGLE_APPLICATION_CREDENTIALS ? 'definido' : 'não definido',
+      GCS_BUCKET_NAME2: process.env.GCS_BUCKET_NAME2 || 'mediabank_velohub'
+    });
     return res.status(500).json({
       success: false,
       message: 'Erro ao listar imagens de pílulas',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      error: error.message || 'Erro desconhecido',
+      details: process.env.NODE_ENV === 'development' ? error.stack : 'Verifique os logs do servidor para mais detalhes'
     });
   }
 });
