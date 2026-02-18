@@ -43,7 +43,7 @@
 ### **GitHub Push - Correção Endpoint /api/pilulas/list e Melhorias Tratamento de Erros**
 - **Data/Hora**: 2026-02-18
 - **Tipo**: GitHub Push
-- **Commit**: 6a15df8
+- **Commit**: bb1183f
 - **Versão**: backend/server.js v2.45.1, PilulasModal.js v1.0.3
 - **Arquivos Modificados**:
   - `backend/server.js` (v2.45.0 → v2.45.1 - correção tratamento de erros endpoint /api/pilulas/list)
