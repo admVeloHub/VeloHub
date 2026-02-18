@@ -40,6 +40,30 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Correção Endpoint /api/pilulas/list e Melhorias Tratamento de Erros**
+- **Data/Hora**: 2026-02-18
+- **Tipo**: GitHub Push
+- **Commit**: 6a15df8
+- **Versão**: backend/server.js v2.45.1, PilulasModal.js v1.0.3
+- **Arquivos Modificados**:
+  - `backend/server.js` (v2.45.0 → v2.45.1 - correção tratamento de erros endpoint /api/pilulas/list)
+  - `src/components/PilulasModal.js` (v1.0.2 → v1.0.3 - melhor tratamento de erros HTTP)
+  - `src/App_v2-1.js` (atualizações gerais)
+  - `src/components/VeloChatWidget.js` (atualizações gerais)
+- **Descrição**: 
+  - Corrigido tratamento de erros no endpoint `/api/pilulas/list` que estava retornando erro 500
+  - Adicionado tratamento específico para erro ao listar arquivos do bucket do Google Cloud Storage
+  - Melhorados logs de diagnóstico com informações de variáveis de ambiente para facilitar troubleshooting
+  - Adicionada validação de erro na listagem de arquivos antes de processar
+  - Melhorado tratamento de erro no frontend (PilulasModal) para lidar melhor com erros HTTP 500
+  - Endpoint agora retorna mensagens de erro mais claras quando variáveis de ambiente não estão configuradas
+  - Logs agora mostram quais variáveis estão definidas e quais estão faltando
+- **Variáveis Necessárias no Cloud Run**:
+  - `GCP_PROJECT_ID=velohub-471220` (obrigatória)
+  - `GCS_BUCKET_NAME2=mediabank_velohub` (recomendada)
+  - `GOOGLE_CREDENTIALS` (via Secret Manager - obrigatória)
+- **Status**: ✅ Pronto para commit e push
+
 ### **GitHub Push - Correção Variáveis de Ambiente Cloud Run**
 - **Data/Hora**: 2026-02-16 16:00:00
 - **Tipo**: GitHub Push

@@ -1,6 +1,13 @@
 /**
  * VeloChatWidget - Componente Principal do Chat
- * VERSION: v3.42.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.43.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v3.43.0:
+ * - Adicionada prop refreshTrigger para permitir refresh manual via botão no header
+ * - Implementado useEffect que observa refreshTrigger e recarrega conversas/contatos quando muda
+ * - Removido bubble vermelho de notificação de mensagens não lidas dos cards
+ * - Modificado border dos cards para usar cor vermelha (2px solid) quando há mensagens não lidas
+ * - Removido log verboso de exclusão de contatos do console
  * 
  * Mudanças v3.42.0:
  * - Corrigido filtro de contatos: removido filtro por Velotax, adicionado filtro por Velohub
@@ -287,7 +294,7 @@ const isDarkMode = () => {
   return document.documentElement.classList.contains('dark');
 };
 
-const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
+const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refreshTrigger = 0 }) => {
   // Estados principais
   const [view, setView] = useState('contacts'); // 'contacts' | 'conversation'
   const [conversations, setConversations] = useState([]);
@@ -1103,10 +1110,6 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
           const velohub = acessos.Velohub || acessos.velohub || acessos.VeloHub || acessos.VELOHUB;
           const hasAccess = velohub === true; // Apenas true explícito passa
           
-          if (!hasAccess) {
-            console.log(`🚫 [loadContacts] Contato ${contact.userEmail} excluído: Velohub !== true`);
-          }
-          
           return hasAccess;
         }
         // Se backend não retornou acessos, confiar no filtro do backend
@@ -1216,6 +1219,18 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
       loadConversations();
     }
   }, [activeTab, loadConversations]);
+
+  // Recarregar quando refreshTrigger mudar (botão de refresh)
+  useEffect(() => {
+    if (refreshTrigger > 0 && hasSessionId()) {
+      if (activeTab === 'conversations') {
+        loadConversations();
+      }
+      if (activeTab === 'contacts' || activeTab === 'conversations') {
+        loadContacts(false);
+      }
+    }
+  }, [refreshTrigger, activeTab, loadConversations, loadContacts]);
 
   // Ref para armazenar a função loadConversations mais recente (evita recriação do intervalo)
   const loadConversationsRef = useRef(loadConversations);
@@ -2608,7 +2623,9 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                     onClick={() => handleSelectConversation(conv)}
                     className="p-3 rounded-lg mb-2 flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity relative group"
                     style={{
-                      border: `1px solid ${colors.border}`,
+                      border: unreadCount > 0 
+                        ? '2px solid #ef4444' // vermelho para mensagens não lidas
+                        : `1px solid ${colors.border}`, // cor de status normal
                       backgroundColor: salaBackground,
                       borderRadius: '8px',
                       opacity: isP2P && isOffline ? 0.6 : 1,
@@ -2759,13 +2776,6 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                         )}
                       </div>
                     </div>
-                    {/* Bubble vermelho de notificação de mensagens não lidas */}
-                    {unreadCount > 0 && (
-                      <div 
-                        className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full"
-                        style={{ zIndex: 10 }}
-                      />
-                    )}
                     {/* Botão de remover conversa com expansão vermelha (P2P e Salas) */}
                       <div className="delete-zone absolute top-0 right-0 h-full" style={{ zIndex: 20 }}>
                         <button
@@ -2996,7 +3006,9 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                     onClick={() => handleSelectConversation(sala)}
                     className="p-3 rounded-lg mb-2 flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity relative group"
                     style={{
-                      border: '1px solid var(--blue-opaque)',
+                      border: unreadCount > 0 
+                        ? '2px solid #ef4444' // vermelho para mensagens não lidas
+                        : '1px solid var(--blue-opaque)', // cor normal
                       backgroundColor: salaBackground,
                       borderRadius: '8px',
                       overflow: 'hidden',
@@ -3112,13 +3124,6 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '' }) => {
                         )}
                       </div>
                     </div>
-                    {/* Bubble vermelho de notificação de mensagens não lidas */}
-                    {unreadCount > 0 && (
-                      <div 
-                        className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full"
-                        style={{ zIndex: 10 }}
-                      />
-                    )}
                     {/* Botão de remover sala com expansão vermelha */}
                     <div className="delete-zone absolute top-0 right-0 h-full" style={{ zIndex: 20 }}>
                       <button
