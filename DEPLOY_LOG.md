@@ -40,6 +40,19 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Correção Variáveis de Ambiente Cloud Run**
+- **Data/Hora**: 2026-02-16 16:00:00
+- **Tipo**: GitHub Push
+- **Commit**: (será gerado)
+- **Versão**: v1.2.3 (cloudbuild.yaml)
+- **Arquivos Modificados**:
+  - `cloudbuild.yaml` (v1.2.3 - adicionadas variáveis GCS_BUCKET_NAME2 e GCP_PROJECT_ID)
+- **Descrição**: 
+  - Adicionadas variáveis de ambiente GCS_BUCKET_NAME2 e GCP_PROJECT_ID ao cloudbuild.yaml
+  - Essas variáveis serão configuradas automaticamente em futuros deploys
+  - **AÇÃO NECESSÁRIA**: Configurar manualmente no Cloud Run Console para deploy atual
+  - Ver instruções em: `docs/configurar_variaveis_cloud_run.md`
+
 ### **GitHub Push - Implementação Modal de Pílulas e Correções**
 - **Data/Hora**: 2026-02-16 15:30:00
 - **Tipo**: GitHub Push
