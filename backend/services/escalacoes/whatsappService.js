@@ -1,9 +1,13 @@
 /**
  * VeloHub V3 - WhatsApp Service para Módulo Escalações
- * VERSION: v1.4.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.4.2 | DATE: 2025-02-18 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
  * 
  * Serviço para integração com API WhatsApp (SKYNET ou Render)
+ * 
+ * Mudanças v1.4.2:
+ * - Alterado fallback de desenvolvimento para localhost:3001
+ * - Adicionado suporte para detecção de localhost:3001 como SKYNET
  * 
  * Mudanças v1.4.1:
  * - Adicionados logs de instrumentação para debug do fluxo de envio
@@ -17,7 +21,7 @@
  * 
  * Estrutura:
  * - Produção: WHATSAPP_API_URL (Render) → endpoint /send
- * - Desenvolvimento: SKYNET_API_URL (GCP) → endpoint /api/whatsapp/send
+ * - Desenvolvimento: SKYNET_API_URL ou localhost:3001 → endpoint /api/whatsapp/send
  */
 
 const config = require('../../config');
@@ -101,14 +105,14 @@ async function sendMessage(jid, mensagem, imagens = [], videos = [], options = {
   // #endregion
   // Seleção de URL baseada em ambiente
   // Produção: usar Render (WHATSAPP_API_URL)
-  // Desenvolvimento: usar SKYNET (SKYNET_API_URL)
+  // Desenvolvimento: usar SKYNET (SKYNET_API_URL) ou localhost:3001
   const isProduction = config.NODE_ENV === 'production';
   const apiUrl = isProduction
     ? (config.WHATSAPP_API_URL || 'https://whatsapp-api-y40p.onrender.com')
-    : (config.SKYNET_API_URL || 'https://backend-gcp-278491073220.us-east1.run.app');
+    : (config.SKYNET_API_URL || 'http://localhost:3001');
   
   // Detectar endpoint baseado na URL
-  // SKYNET usa /api/whatsapp/send, Render usa /send
+  // SKYNET usa /api/whatsapp/send, Render e localhost:3001 usam /send
   const isSkynet = apiUrl.includes('skynet') || 
                    apiUrl.includes('gcp') || 
                    apiUrl.includes('backend-gcp') ||

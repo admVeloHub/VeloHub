@@ -1,7 +1,10 @@
 /**
  * VeloHub V3 - API Configuration
- * VERSION: v1.0.17 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.18 | DATE: 2025-02-18 | AUTHOR: VeloHub Development Team
  * REGRA: Frontend porta 8080 | Backend porta 8090 | VeloChat Server porta 3002 na rede local
+ * 
+ * Mudanças v1.0.18:
+ * - Alterada URL da API WhatsApp para localhost:3001 em desenvolvimento local
  * 
  * Mudanças v1.0.17:
  * - Revertida URL da API WhatsApp para usar whatsapp-api-new-54aw.onrender.com/send
@@ -73,11 +76,12 @@ export const getApiBaseUrl = () => {
 
 /**
  * Obtém a URL da API do WhatsApp baseada no ambiente
- * VERSION: v1.0.17 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.18 | DATE: 2025-02-18 | AUTHOR: VeloHub Development Team
  * @returns {string} URL base da API do WhatsApp (sem /send no final)
  * 
- * API WhatsApp Render:
- * - URL: https://whatsapp-api-new-54aw.onrender.com
+ * API WhatsApp:
+ * - Local: http://localhost:3001
+ * - Produção: https://whatsapp-api-new-54aw.onrender.com
  */
 export const getWhatsAppApiUrl = () => {
   // Prioridade 1: Variável de ambiente específica para WhatsApp
@@ -94,14 +98,35 @@ export const getWhatsAppApiUrl = () => {
       return 'https://whatsapp-api-new-54aw.onrender.com';
     }
     
-    // Em desenvolvimento (localhost), usar Render também
+    // Em desenvolvimento (localhost), usar localhost:3001
     if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
-      return 'https://whatsapp-api-new-54aw.onrender.com';
+      return 'http://localhost:3001';
     }
   }
   
-  // Fallback: sempre usar Render (mesma URL do UPDATE PAINEL que funciona)
+  // Fallback: usar Render em produção
   return 'https://whatsapp-api-new-54aw.onrender.com';
+};
+
+/**
+ * Obtém o endpoint completo da API do WhatsApp baseado no ambiente
+ * VERSION: v1.0.18 | DATE: 2025-02-18 | AUTHOR: VeloHub Development Team
+ * @returns {string} URL completa do endpoint WhatsApp (incluindo /send ou /api/whatsapp/send)
+ * 
+ * Endpoints:
+ * - Local (localhost:3001): /api/whatsapp/send
+ * - Produção (Render): /send
+ */
+export const getWhatsAppEndpoint = () => {
+  const apiUrl = getWhatsAppApiUrl();
+  
+  // Se for localhost:3001, usar endpoint /api/whatsapp/send
+  if (apiUrl.includes('localhost:3001') || apiUrl.includes('127.0.0.1:3001')) {
+    return `${apiUrl}/api/whatsapp/send`;
+  }
+  
+  // Para Render e outros, usar /send
+  return `${apiUrl}/send`;
 };
 
 /**
@@ -128,6 +153,11 @@ export const API_BASE_URL = getApiBaseUrl();
  * URL da API do WhatsApp (calculada automaticamente)
  */
 export const WHATSAPP_API_URL = getWhatsAppApiUrl();
+
+/**
+ * Endpoint completo da API do WhatsApp (calculado automaticamente)
+ */
+export const WHATSAPP_ENDPOINT = getWhatsAppEndpoint();
 
 /**
  * JID padrão do WhatsApp (calculado automaticamente)
@@ -210,7 +240,7 @@ if (process.env.NODE_ENV === 'development') {
 console.log('🔧 API Config (SEMPRE):', {
   baseUrl: API_BASE_URL,
   whatsappApiUrl: WHATSAPP_API_URL,
-  whatsappEndpoint: `${WHATSAPP_API_URL}/send`,
+  whatsappEndpoint: WHATSAPP_ENDPOINT,
   velochatApiUrl: getVeloChatApiUrl(),
   velochatWsUrl: getVeloChatWsUrl(),
   environment: process.env.NODE_ENV,
