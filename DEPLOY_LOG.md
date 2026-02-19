@@ -40,6 +40,23 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Correção ReferenceError chatRefreshTrigger na página VeloBot**
+- **Data/Hora**: 2026-02-19
+- **Tipo**: GitHub Push
+- **Versão**: App_v2-1.js v2.10.2
+- **Arquivos Modificados**:
+  - `src/App_v2-1.js` (v2.10.1 → v2.10.2 - correção ReferenceError chatRefreshTrigger)
+  - `backend/services/escalacoes/whatsappService.js` (atualizações gerais)
+  - `src/components/Escalacoes/ErrosBugsTab.js` (atualizações gerais)
+  - `src/components/Escalacoes/FormSolicitacao.js` (atualizações gerais)
+  - `src/config/api-config.js` (atualizações gerais)
+- **Descrição**: 
+  - Corrigido erro ReferenceError: chatRefreshTrigger is not defined na página VeloBot
+  - Adicionados estados chatRefreshTrigger e isRefreshing no componente ProcessosPage
+  - Adicionada função handleChatRefresh para atualizar o chat e controlar animação de refresh
+  - Componente ProcessosPage agora possui todos os estados necessários para renderRightSidebarChat funcionar corretamente
+- **Status**: ✅ Pronto para commit e push
+
 ### **GitHub Push - Correção Endpoint /api/pilulas/list e Melhorias Tratamento de Erros**
 - **Data/Hora**: 2026-02-18
 - **Tipo**: GitHub Push

@@ -1,7 +1,15 @@
 /**
  * VeloHub V3 - FormSolicitacao Component (Escalações Module)
- * VERSION: v1.14.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.15.1 | DATE: 2025-02-18 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
+ * 
+ * Mudanças v1.15.1:
+ * - Melhorado tratamento de erro 503 (WhatsApp desconectado) com mensagens mais claras
+ * - Usuário é informado que a solicitação foi registrada mesmo quando WhatsApp falha
+ * 
+ * Mudanças v1.15.0:
+ * - Atualizado para usar WHATSAPP_ENDPOINT que detecta automaticamente o endpoint correto
+ * - Em localhost:3001 usa /api/whatsapp/send, em produção usa /send
  * 
  * Mudanças v1.14.0:
  * - Campo "Prazo Máximo" alterado de texto livre para campo de data objetiva (type="date")
@@ -99,7 +107,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { solicitacoesAPI, logsAPI } from '../../services/escalacoesApi';
-import { WHATSAPP_API_URL, WHATSAPP_DEFAULT_JID } from '../../config/api-config';
+import { WHATSAPP_API_URL, WHATSAPP_DEFAULT_JID, WHATSAPP_ENDPOINT } from '../../config/api-config';
 
 /**
  * Componente de formulário para solicitações técnicas
@@ -630,7 +638,7 @@ const FormSolicitacao = ({ registrarLog }) => {
       
       if (apiUrl && defaultJid) {
         try {
-          const whatsappEndpoint = `${apiUrl}/send`;
+          const whatsappEndpoint = WHATSAPP_ENDPOINT;
           console.log('📤 [FormSolicitacao] Enviando para WhatsApp API:', whatsappEndpoint);
           console.log('📤 [FormSolicitacao] Payload:', payload);
           
@@ -653,8 +661,17 @@ const FormSolicitacao = ({ registrarLog }) => {
             try {
               const errorData = await res.json();
               console.error('❌ [FormSolicitacao] Erro da API WhatsApp:', errorData);
+              
+              // Detectar erro específico de WebSocket desconectado
+              if (res.status === 503 && errorData?.error?.includes('WebSocket')) {
+                console.warn('⚠️ [FormSolicitacao] WhatsApp WebSocket não está conectado');
+                if (registrarLog) registrarLog('⚠️ WhatsApp está desconectado. A solicitação foi registrada no painel.');
+              }
             } catch (e) {
               console.error('❌ [FormSolicitacao] Erro HTTP:', res.status, res.statusText);
+              if (res.status === 503) {
+                if (registrarLog) registrarLog('⚠️ Serviço WhatsApp indisponível. A solicitação foi registrada no painel.');
+              }
             }
           }
         } catch (err) {
@@ -720,10 +737,21 @@ const FormSolicitacao = ({ registrarLog }) => {
         if (registrarLog) registrarLog('✅ Enviado com sucesso');
         showNotification('Solicitação enviada', 'success');
       } else {
-        const errorText = res.status ? `Erro ${res.status}` : 'Erro desconhecido';
-        if (registrarLog) registrarLog(`❌ Erro da API: ${errorText}`);
-        showNotification(`Erro ao enviar: ${errorText}`, 'error');
-        notifyError('Falha ao enviar solicitação', errorText || 'Erro desconhecido da API');
+        // Mensagem mais específica baseada no status
+        let errorMessage = 'Erro desconhecido';
+        let logMessage = `❌ Erro da API: Erro ${res.status || 'desconhecido'}`;
+        
+        if (res.status === 503) {
+          errorMessage = 'WhatsApp está desconectado. A solicitação foi registrada no painel.';
+          logMessage = '⚠️ WhatsApp desconectado. Solicitação registrada no painel.';
+        } else if (res.status) {
+          errorMessage = `Erro ${res.status} ao enviar para WhatsApp. A solicitação foi registrada no painel.`;
+          logMessage = `❌ Erro ${res.status} da API WhatsApp. Solicitação registrada no painel.`;
+        }
+        
+        if (registrarLog) registrarLog(logMessage);
+        showNotification(errorMessage, 'warning');
+        notifyError('Falha ao enviar solicitação', errorMessage);
       }
 
       const newItem = {

@@ -1,6 +1,13 @@
 /**
  * VeloHub V3 - ErrosBugsTab Component
- * VERSION: v1.23.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.24.1 | DATE: 2025-02-18 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.24.1:
+ * - Melhorado tratamento de erro 503 (WhatsApp desconectado) com logs mais informativos
+ * 
+ * Mudanças v1.24.0:
+ * - Atualizado para usar WHATSAPP_ENDPOINT que detecta automaticamente o endpoint correto
+ * - Em localhost:3001 usa /api/whatsapp/send, em produção usa /send
  * 
  * Mudanças v1.23.0:
  * - Adicionados campos cpf, solicitacao e agente no payload do WhatsApp API
@@ -141,7 +148,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { errosBugsAPI, logsAPI, solicitacoesAPI } from '../../services/escalacoesApi';
-import { API_BASE_URL, WHATSAPP_API_URL, WHATSAPP_DEFAULT_JID } from '../../config/api-config';
+import { API_BASE_URL, WHATSAPP_API_URL, WHATSAPP_DEFAULT_JID, WHATSAPP_ENDPOINT } from '../../config/api-config';
 import toast from 'react-hot-toast';
 
 /**
@@ -832,7 +839,7 @@ const ErrosBugsTab = () => {
           const imagensFormatadas = imagens?.map(({ data, type }) => ({ data, type })).filter(img => img.data && img.type) || [];
           const videosFormatados = videos?.map(({ data, type }) => ({ data, type })).filter(vid => vid.data && vid.type) || [];
           
-          const whatsappEndpoint = `${apiUrl}/send`;
+          const whatsappEndpoint = WHATSAPP_ENDPOINT;
           console.log('📤 [ErrosBugsTab] Enviando para WhatsApp API:', whatsappEndpoint);
           
           // CPF apenas números para API WhatsApp (mesmo padrão do FormSolicitacao)
@@ -874,6 +881,11 @@ const ErrosBugsTab = () => {
             try {
               const errorData = await resp.json();
               console.error('❌ [ErrosBugsTab] Erro da API WhatsApp:', errorData);
+              
+              // Detectar erro específico de WebSocket desconectado
+              if (resp.status === 503 && errorData?.error?.includes('WebSocket')) {
+                console.warn('⚠️ [ErrosBugsTab] WhatsApp WebSocket não está conectado');
+              }
             } catch (e) {
               console.error('❌ [ErrosBugsTab] Erro HTTP:', resp.status, resp.statusText);
             }

@@ -1,6 +1,10 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.10.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.10.2 | DATE: 2025-02-19 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.10.2:
+ * - Corrigido: Adicionados estados chatRefreshTrigger, isRefreshing e função handleChatRefresh no componente ProcessosPage
+ * - Resolvido erro ReferenceError: chatRefreshTrigger is not defined na página VeloBot
  * 
  * Mudanças v2.10.1:
  * - Corrigido: LoadingPage não é mais exibida após logout (verifica sessão válida antes de mostrar)
@@ -5344,6 +5348,20 @@ function ProcessosPage() {
         } catch (error) {
             console.error('Erro ao salvar preferência de som:', error);
         }
+    };
+    
+    // Estados para refresh do chat
+    const [chatRefreshTrigger, setChatRefreshTrigger] = useState(0);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    
+    // Função para atualizar o chat (refresh)
+    const handleChatRefresh = () => {
+        setIsRefreshing(true);
+        setChatRefreshTrigger(prev => prev + 1);
+        // Resetar animação após 600ms (tempo da rotação)
+        setTimeout(() => {
+            setIsRefreshing(false);
+        }, 600);
     };
     
     // Função para calcular grid columns
