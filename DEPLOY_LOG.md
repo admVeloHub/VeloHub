@@ -40,6 +40,22 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Correção Caminhos Arquivos Estáticos e Fallback Automático**
+- **Data/Hora**: 2026-02-23
+- **Tipo**: GitHub Push
+- **Versão**: backend/server.js v2.46.1
+- **Arquivos Modificados**:
+  - `backend/server.js` (v2.45.1 → v2.46.1 - correção caminhos arquivos estáticos)
+- **Descrição**: 
+  - Corrigido caminho para arquivos estáticos com fallback automático
+  - No Docker/produção: public está em ./public (mesmo diretório)
+  - No desenvolvimento local: tenta ../public se ./public não existir
+  - Adicionados logs de diagnóstico para verificar existência de arquivos estáticos
+  - Adicionada verificação de existência do index.html antes de servir
+  - Melhorado tratamento de Content-Type para arquivos JavaScript
+  - Adicionados headers CORS para arquivos estáticos
+- **Status**: ✅ Pronto para commit e push
+
 ### **GitHub Push - Correção ReferenceError chatRefreshTrigger na página VeloBot**
 - **Data/Hora**: 2026-02-19
 - **Tipo**: GitHub Push
