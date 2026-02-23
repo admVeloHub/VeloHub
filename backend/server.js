@@ -6308,7 +6308,31 @@ try {
   console.log('✅ Routers inicializados');
   
   console.log('🔗 Registrando rotas no Express com middleware de acesso...');
+  
+  // Validar que todos os routers foram inicializados antes de registrar
+  if (!reclamacoesRouter) {
+    console.error('❌ [ERRO CRÍTICO] reclamacoesRouter é null ou undefined!');
+    throw new Error('reclamacoesRouter não foi inicializado corretamente');
+  }
+  if (!dashboardRouter) {
+    console.error('❌ [ERRO CRÍTICO] dashboardRouter é null ou undefined!');
+    throw new Error('dashboardRouter não foi inicializado corretamente');
+  }
+  if (!clientesRouter) {
+    console.error('❌ [ERRO CRÍTICO] clientesRouter é null ou undefined!');
+    throw new Error('clientesRouter não foi inicializado corretamente');
+  }
+  if (!relatoriosRouter) {
+    console.error('❌ [ERRO CRÍTICO] relatoriosRouter é null ou undefined!');
+    throw new Error('relatoriosRouter não foi inicializado corretamente');
+  }
+  if (!anexosRouter) {
+    console.error('❌ [ERRO CRÍTICO] anexosRouter é null ou undefined!');
+    throw new Error('anexosRouter não foi inicializado corretamente');
+  }
+  
   // Aplicar middleware de acesso em todas as rotas do módulo Ouvidoria
+  console.log('📝 [DEBUG] Registrando rota: /api/ouvidoria/dashboard');
   app.use('/api/ouvidoria/reclamacoes', ouvidoriaAccessMiddleware, reclamacoesRouter);
   app.use('/api/ouvidoria/dashboard', ouvidoriaAccessMiddleware, dashboardRouter);
   app.use('/api/ouvidoria/clientes', ouvidoriaAccessMiddleware, clientesRouter);
@@ -6316,6 +6340,8 @@ try {
   app.use('/api/ouvidoria/anexos', ouvidoriaAccessMiddleware, anexosRouter);
   
   console.log('✅ Rotas registradas no Express');
+  console.log('🔍 [DEBUG] Verificando se rotas foram registradas corretamente...');
+  console.log(`   - app._router.stack.length: ${app._router ? app._router.stack.length : 'N/A'}`);
   console.log('✅ Rotas do módulo Ouvidoria registradas com sucesso!');
   console.log('📋 Rotas disponíveis:');
   console.log('   - GET/POST/PUT/DELETE /api/ouvidoria/reclamacoes');
@@ -6328,6 +6354,9 @@ try {
   console.error('❌ Erro ao registrar rotas de Ouvidoria:', error.message);
   console.error('Stack:', error.stack);
   console.error('Detalhes do erro:', error);
+  // NÃO permitir que o servidor continue sem as rotas de ouvidoria
+  // Isso garante que o problema seja detectado imediatamente
+  throw error;
 }
 
 // ===== API PARA MÓDULO VELOCHAT =====

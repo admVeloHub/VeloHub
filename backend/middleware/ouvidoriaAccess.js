@@ -1,6 +1,10 @@
 /**
  * VeloHub V3 - Middleware de Verificação de Acesso ao Módulo Ouvidoria
- * VERSION: v1.2.0 | DATE: 2025-02-19 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.3.0 | DATE: 2026-02-23 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.3.0:
+ * - Adicionados logs detalhados para diagnóstico de problemas de acesso
+ * - Melhorada verificação de bypass com logs de comparação
  * 
  * Mudanças v1.2.0:
  * - Adicionado bypass para conta do desenvolvedor (Lucas Gravina)
@@ -15,7 +19,9 @@
 // Lista de emails com bypass de acesso (desenvolvedores/admin)
 const BYPASS_EMAILS = [
   'lucas.gravina@velohub.com.br',
-  'lucas.gravina@velotax.com.br'
+  'lucas.gravina@velotax.com.br',
+  'lucas.gravina@velohub.com.br'.toLowerCase().trim(),
+  'lucas.gravina@velotax.com.br'.toLowerCase().trim()
 ].map(email => email.toLowerCase().trim());
 
 /**
@@ -31,10 +37,13 @@ const checkOuvidoriaAccess = (client, connectToMongo) => {
       let email = req.query.email || req.body.email || req.headers['x-user-email'];
       
       // Log para debug
+      console.log(`🔍 [ouvidoriaAccess] ========== MIDDLEWARE CHAMADO ==========`);
+      console.log(`🔍 [ouvidoriaAccess] Rota: ${req.method} ${req.path}`);
       console.log(`🔍 [ouvidoriaAccess] Tentando obter email:`);
       console.log(`   - Query: ${req.query.email || 'não fornecido'}`);
       console.log(`   - Body: ${req.body.email || 'não fornecido'}`);
       console.log(`   - Header x-user-email: ${req.headers['x-user-email'] || 'não fornecido'}`);
+      console.log(`   - Header x-session-id: ${req.headers['x-session-id'] || 'não fornecido'}`);
       console.log(`   - Email encontrado: ${email || 'não encontrado'}`);
       
       // Se não encontrou email direto, tentar buscar da sessão
@@ -77,11 +86,14 @@ const checkOuvidoriaAccess = (client, connectToMongo) => {
       const normalizedEmail = email.toLowerCase().trim();
       console.log(`🔍 [ouvidoriaAccess] Verificando acesso ao módulo Ouvidoria para: ${normalizedEmail}`);
       console.log(`🔍 [ouvidoriaAccess] Lista de bypass:`, BYPASS_EMAILS);
+      console.log(`🔍 [ouvidoriaAccess] Email normalizado: "${normalizedEmail}"`);
       console.log(`🔍 [ouvidoriaAccess] Email normalizado está na lista?`, BYPASS_EMAILS.includes(normalizedEmail));
+      console.log(`🔍 [ouvidoriaAccess] Comparação detalhada:`, BYPASS_EMAILS.map(e => `"${e}" === "${normalizedEmail}"? ${e === normalizedEmail}`));
 
       // Bypass para desenvolvedores/admin
       if (BYPASS_EMAILS.includes(normalizedEmail)) {
         console.log(`✅ [ouvidoriaAccess] Bypass ativado para: ${normalizedEmail}`);
+        console.log(`✅ [ouvidoriaAccess] Continuando para próxima rota sem verificação adicional`);
         req.user = {
           email: normalizedEmail,
           name: 'Desenvolvedor',

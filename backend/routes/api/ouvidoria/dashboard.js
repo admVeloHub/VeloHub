@@ -44,6 +44,11 @@ const initDashboardRoutes = (client, connectToMongo) => {
    */
   router.get('/stats', async (req, res) => {
     console.log('📊 [dashboard.js] Rota /stats chamada');
+    console.log('📊 [dashboard.js] Headers recebidos:', {
+      'x-user-email': req.headers['x-user-email'],
+      'x-session-id': req.headers['x-session-id'],
+      'user': req.user ? req.user.email : 'não definido'
+    });
     try {
       if (!client) {
         return res.status(503).json({
@@ -152,6 +157,11 @@ const initDashboardRoutes = (client, connectToMongo) => {
    */
   router.get('/metricas', async (req, res) => {
     console.log('📈 [dashboard.js] Rota /metricas chamada');
+    console.log('📈 [dashboard.js] Headers recebidos:', {
+      'x-user-email': req.headers['x-user-email'],
+      'x-session-id': req.headers['x-session-id'],
+      'user': req.user ? req.user.email : 'não definido'
+    });
     try {
       if (!client) {
         return res.status(503).json({
