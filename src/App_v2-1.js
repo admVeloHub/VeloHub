@@ -1,6 +1,14 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.10.2 | DATE: 2025-02-19 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.12.0 | DATE: 2025-02-19 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.12.0:
+ * - Adicionado controle de acesso ao módulo Ouvidoria via OuvidoriaAccessGuard
+ * - Verificação de acessos.ouvidoria === true antes de renderizar módulo
+ * 
+ * Mudanças v2.11.0:
+ * - Adicionado módulo Ouvidoria ao header e renderContent
+ * - Integração do módulo BACEN como novo módulo do Velohub
  * 
  * Mudanças v2.10.2:
  * - Corrigido: Adicionados estados chatRefreshTrigger, isRefreshing e função handleChatRefresh no componente ProcessosPage
@@ -226,6 +234,8 @@ import SupportModal from './components/SupportModal';
 import VeloChatWidget from './components/VeloChatWidget';
 import ChatStatusSelector from './components/ChatStatusSelector';
 import EscalacoesPage from './pages/EscalacoesPage';
+import OuvidoriaPage from './pages/OuvidoriaPage';
+import OuvidoriaAccessGuard from './components/Ouvidoria/OuvidoriaAccessGuard';
 import PerfilPage from './pages/PerfilPage';
 import TermosPage from './pages/TermosPage';
 import PrivacidadePage from './pages/PrivacidadePage';
@@ -399,7 +409,7 @@ const Footer = ({ isDarkMode }) => {
 
 // Componente do Cabe├ºalho
 const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
-  const navItems = ['Home', 'VeloBot', 'Artigos', 'Apoio', 'Req_Prod', 'VeloAcademy'];
+  const navItems = ['Home', 'VeloBot', 'Artigos', 'Apoio', 'Req_Prod', 'Ouvidoria', 'VeloAcademy'];
   const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
   const [userName, setUserName] = useState('Usu├írio VeloHub');
   const [userPicture, setUserPicture] = useState(null);
@@ -1490,6 +1500,12 @@ export default function App_v2() {
         return <ApoioPage />;
       case 'Req_Prod':
         return <EscalacoesPage />;
+      case 'Ouvidoria':
+        return (
+          <OuvidoriaAccessGuard>
+            <OuvidoriaPage />
+          </OuvidoriaAccessGuard>
+        );
       case 'Perfil':
         return <PerfilPage />;
       case 'VeloAcademy':
@@ -1527,7 +1543,7 @@ export default function App_v2() {
 
   // Mostrar aplicação principal se estiver autenticado
   return (
-    <div className="min-h-screen font-sans velohub-bg">
+    <div className="min-h-screen font-sans velohub-bg flex flex-col">
       <Toaster 
         position="bottom-right"
         toastOptions={{
@@ -1552,7 +1568,7 @@ export default function App_v2() {
         }}
       />
       <Header activePage={activePage} setActivePage={setActivePage} isDarkMode={isDarkMode} toggleDarkMode={() => setIsDarkMode(!isDarkMode)} />
-      <main>
+      <main className="flex-1">
         {renderContent()}
       </main>
       {criticalNews && (
@@ -4306,6 +4322,10 @@ function ApoioPage() {
         }
     });
     
+    // Estados para refresh do chat
+    const [chatRefreshTrigger, setChatRefreshTrigger] = useState(0);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    
     const toggleSound = () => {
         const newState = !soundEnabled;
         setSoundEnabled(newState);
@@ -4314,6 +4334,16 @@ function ApoioPage() {
         } catch (error) {
             console.error('Erro ao salvar preferência de som:', error);
         }
+    };
+    
+    // Função para refresh do chat
+    const handleChatRefresh = async () => {
+        if (isRefreshing) return;
+        setIsRefreshing(true);
+        setChatRefreshTrigger(prev => prev + 1);
+        setTimeout(() => {
+            setIsRefreshing(false);
+        }, 1000);
     };
     
     // Função para calcular grid columns
@@ -4771,6 +4801,10 @@ function ArtigosPage() {
         }
     });
     
+    // Estados para refresh do chat
+    const [chatRefreshTrigger, setChatRefreshTrigger] = useState(0);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    
     const toggleSound = () => {
         const newState = !soundEnabled;
         setSoundEnabled(newState);
@@ -4779,6 +4813,16 @@ function ArtigosPage() {
         } catch (error) {
             console.error('Erro ao salvar preferência de som:', error);
         }
+    };
+    
+    // Função para refresh do chat
+    const handleChatRefresh = async () => {
+        if (isRefreshing) return;
+        setIsRefreshing(true);
+        setChatRefreshTrigger(prev => prev + 1);
+        setTimeout(() => {
+            setIsRefreshing(false);
+        }, 1000);
     };
     
     // Função para calcular grid columns
