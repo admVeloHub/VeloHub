@@ -6284,6 +6284,19 @@ try {
   const relatoriosRouter = initRelatoriosRoutes(client, connectToMongo);
   const anexosRouter = initAnexosRoutes(client, connectToMongo);
   
+  // Logs de debug para verificar se routers foram inicializados corretamente
+  console.log('🔍 [DEBUG] Verificando routers inicializados:');
+  console.log(`   - reclamacoesRouter: ${typeof reclamacoesRouter} ${reclamacoesRouter ? '(OK)' : '(NULL/UNDEFINED)'}`);
+  console.log(`   - dashboardRouter: ${typeof dashboardRouter} ${dashboardRouter ? '(OK)' : '(NULL/UNDEFINED)'}`);
+  console.log(`   - clientesRouter: ${typeof clientesRouter} ${clientesRouter ? '(OK)' : '(NULL/UNDEFINED)'}`);
+  console.log(`   - relatoriosRouter: ${typeof relatoriosRouter} ${relatoriosRouter ? '(OK)' : '(NULL/UNDEFINED)'}`);
+  console.log(`   - anexosRouter: ${typeof anexosRouter} ${anexosRouter ? '(OK)' : '(NULL/UNDEFINED)'}`);
+  
+  if (dashboardRouter) {
+    console.log(`   - dashboardRouter.get: ${typeof dashboardRouter.get === 'function' ? 'OK' : 'NÃO É FUNÇÃO'}`);
+    console.log(`   - dashboardRouter.stack: ${dashboardRouter.stack ? dashboardRouter.stack.length : 'N/A'} rotas registradas`);
+  }
+  
   console.log('✅ Routers inicializados');
   
   console.log('🔗 Registrando rotas no Express com middleware de acesso...');

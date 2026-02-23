@@ -1,6 +1,10 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Dashboard
- * VERSION: v2.3.0 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.4.0 | DATE: 2026-02-23 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.4.0:
+ * - Adicionados logs de debug para diagnóstico de problemas de roteamento
+ * - Logs adicionados na inicialização e em cada chamada de rota
  * 
  * Mudanças v2.3.0:
  * - Adicionado suporte a filtros de data (dataInicio, dataFim) nas rotas stats e metricas
@@ -30,6 +34,8 @@ const { ObjectId } = require('mongodb');
  * @param {Function} connectToMongo - Função para conectar ao MongoDB
  */
 const initDashboardRoutes = (client, connectToMongo) => {
+  console.log('📋 [dashboard.js] Inicializando rotas de dashboard...');
+  
   /**
    * GET /api/ouvidoria/dashboard/stats
    * Obter estatísticas gerais do dashboard
@@ -37,6 +43,7 @@ const initDashboardRoutes = (client, connectToMongo) => {
    * Query params: dataInicio, dataFim (opcionais, formato YYYY-MM-DD)
    */
   router.get('/stats', async (req, res) => {
+    console.log('📊 [dashboard.js] Rota /stats chamada');
     try {
       if (!client) {
         return res.status(503).json({
@@ -144,6 +151,7 @@ const initDashboardRoutes = (client, connectToMongo) => {
    * Query params: dataInicio, dataFim (opcionais, formato YYYY-MM-DD)
    */
   router.get('/metricas', async (req, res) => {
+    console.log('📈 [dashboard.js] Rota /metricas chamada');
     try {
       if (!client) {
         return res.status(503).json({
@@ -275,6 +283,11 @@ const initDashboardRoutes = (client, connectToMongo) => {
     }
   });
 
+  console.log('✅ [dashboard.js] Rotas de dashboard registradas:');
+  console.log('   - GET /stats');
+  console.log('   - GET /metricas');
+  console.log(`   - Total de rotas no router: ${router.stack ? router.stack.length : 'N/A'}`);
+  
   return router;
 };
 
