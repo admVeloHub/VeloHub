@@ -2832,6 +2832,122 @@ app.post('/api/auth/validate-access', async (req, res) => {
 
 console.log('✅ Endpoint POST /api/auth/validate-access registrado');
 
+// GET /api/auth/check-module-access
+// Verificar acesso a um módulo específico
+console.log('🔧 Registrando endpoint GET /api/auth/check-module-access...');
+app.get('/api/auth/check-module-access', async (req, res) => {
+  try {
+    const { email, module } = req.query;
+
+    // Validação
+    if (!email || !module) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email e módulo são obrigatórios',
+        hasAccess: false
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    console.log(`🔍 [check-module-access] Verificando acesso ao módulo ${module} para: ${normalizedEmail}`);
+
+    // Lista de emails com bypass de acesso (desenvolvedores/admin)
+    const BYPASS_EMAILS = [
+      'lucas.gravina@velohub.com.br',
+      'lucas.gravina@velotax.com.br'
+    ].map(e => e.toLowerCase().trim());
+
+    // Bypass para desenvolvedores/admin
+    if (BYPASS_EMAILS.includes(normalizedEmail) && module === 'ouvidoria') {
+      console.log(`✅ [check-module-access] Bypass ativado para: ${normalizedEmail}`);
+      return res.json({
+        success: true,
+        hasAccess: true,
+        module: module,
+        email: normalizedEmail,
+        bypass: true
+      });
+    }
+
+    // Conectar ao MongoDB
+    await connectToMongo();
+    const db = client.db('console_analises');
+    const funcionariosCollection = db.collection('qualidade_funcionarios');
+
+    // Buscar usuário por email
+    let funcionario = await funcionariosCollection.findOne({
+      userMail: normalizedEmail
+    });
+
+    // Se não encontrou, tentar variações
+    if (!funcionario) {
+      funcionario = await funcionariosCollection.findOne({
+        $or: [
+          { userMail: email },
+          { userMail: normalizedEmail },
+          { userMail: { $regex: new RegExp(`^${normalizedEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } }
+        ]
+      });
+    }
+
+    if (!funcionario) {
+      console.log(`❌ [check-module-access] Usuário não encontrado: ${normalizedEmail}`);
+      return res.json({
+        success: false,
+        hasAccess: false,
+        module: module,
+        error: 'Usuário não encontrado'
+      });
+    }
+
+    // Verificar acesso ao VeloHub primeiro (pré-requisito)
+    const acessos = funcionario.acessos || {};
+    const acessoVelohub = acessos.Velohub || acessos.velohub || acessos.VeloHub || acessos.VELOHUB || false;
+    
+    if (!acessoVelohub) {
+      console.log(`❌ [check-module-access] Acesso negado: usuário não tem acesso ao VeloHub`);
+      return res.json({
+        success: false,
+        hasAccess: false,
+        module: module,
+        error: 'Acesso ao VeloHub não autorizado'
+      });
+    }
+
+    // Verificar acesso ao módulo específico
+    let hasModuleAccess = false;
+    
+    if (module === 'ouvidoria') {
+      hasModuleAccess = acessos.ouvidoria === true;
+    } else {
+      // Para outros módulos, verificar campo correspondente
+      const moduleKey = module.charAt(0).toLowerCase() + module.slice(1);
+      hasModuleAccess = acessos[module] === true || acessos[moduleKey] === true;
+    }
+
+    console.log(`🔍 [check-module-access] Acesso ao módulo ${module}: ${hasModuleAccess}`);
+
+    res.json({
+      success: true,
+      hasAccess: hasModuleAccess,
+      module: module,
+      email: normalizedEmail
+    });
+  } catch (error) {
+    console.error('❌ [check-module-access] Erro:', error.message);
+    console.error('Stack:', error.stack);
+    
+    res.status(500).json({
+      success: false,
+      hasAccess: false,
+      error: 'Erro interno do servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+console.log('✅ Endpoint GET /api/auth/check-module-access registrado');
+
 // POST /api/auth/profile/upload-photo
 console.log('🔧 Registrando endpoint POST /api/auth/profile/upload-photo...');
 app.post('/api/auth/profile/upload-photo', async (req, res) => {
@@ -4153,7 +4269,8 @@ app.get('/api/auth/profile', async (req, res) => {
       colaboradorNome: funcionario.colaboradorNome || '',
       telefone: funcionario.telefone || '',
       userMail: funcionario.userMail || email,
-      profile_pic: funcionario.profile_pic || null
+      profile_pic: funcionario.profile_pic || null,
+      idSecao: funcionario.idSecao || funcionario.secao || funcionario.id_secao || null
     };
 
     console.log(`✅ Perfil encontrado: ${funcionario.colaboradorNome} (${email})`);
@@ -6138,6 +6255,56 @@ try {
   console.log('   - GET/POST /api/escalacoes/logs');
 } catch (error) {
   console.error('❌ Erro ao registrar rotas de Escalações:', error.message);
+  console.error('Stack:', error.stack);
+  console.error('Detalhes do erro:', error);
+}
+
+// ===== API PARA MÓDULO OUVIDORIA =====
+// VERSION: v1.1.0 | DATE: 2025-02-19 | AUTHOR: VeloHub Development Team
+// Mudanças v1.1.0:
+// - Adicionado middleware de verificação de acesso (acessos.ouvidoria === true)
+// - Rotas protegidas com checkOuvidoriaAccess
+console.log('📋 Registrando rotas do módulo Ouvidoria...');
+try {
+  const initReclamacoesRoutes = require('./routes/api/ouvidoria/reclamacoes');
+  const initDashboardRoutes = require('./routes/api/ouvidoria/dashboard');
+  const initClientesRoutes = require('./routes/api/ouvidoria/clientes');
+  const initRelatoriosRoutes = require('./routes/api/ouvidoria/relatorios');
+  const initAnexosRoutes = require('./routes/api/ouvidoria/anexos');
+  const checkOuvidoriaAccess = require('./middleware/ouvidoriaAccess');
+  
+  console.log('📦 Carregando módulos de Ouvidoria...');
+  
+  // Criar middleware de acesso
+  const ouvidoriaAccessMiddleware = checkOuvidoriaAccess(client, connectToMongo);
+  
+  const reclamacoesRouter = initReclamacoesRoutes(client, connectToMongo, { userActivityLogger });
+  const dashboardRouter = initDashboardRoutes(client, connectToMongo);
+  const clientesRouter = initClientesRoutes(client, connectToMongo);
+  const relatoriosRouter = initRelatoriosRoutes(client, connectToMongo);
+  const anexosRouter = initAnexosRoutes(client, connectToMongo);
+  
+  console.log('✅ Routers inicializados');
+  
+  console.log('🔗 Registrando rotas no Express com middleware de acesso...');
+  // Aplicar middleware de acesso em todas as rotas do módulo Ouvidoria
+  app.use('/api/ouvidoria/reclamacoes', ouvidoriaAccessMiddleware, reclamacoesRouter);
+  app.use('/api/ouvidoria/dashboard', ouvidoriaAccessMiddleware, dashboardRouter);
+  app.use('/api/ouvidoria/clientes', ouvidoriaAccessMiddleware, clientesRouter);
+  app.use('/api/ouvidoria/relatorios', ouvidoriaAccessMiddleware, relatoriosRouter);
+  app.use('/api/ouvidoria/anexos', ouvidoriaAccessMiddleware, anexosRouter);
+  
+  console.log('✅ Rotas registradas no Express');
+  console.log('✅ Rotas do módulo Ouvidoria registradas com sucesso!');
+  console.log('📋 Rotas disponíveis:');
+  console.log('   - GET/POST/PUT/DELETE /api/ouvidoria/reclamacoes');
+  console.log('   - GET /api/ouvidoria/dashboard/stats');
+  console.log('   - GET /api/ouvidoria/dashboard/metricas');
+  console.log('   - GET /api/ouvidoria/clientes/:cpf/historico');
+  console.log('   - GET /api/ouvidoria/relatorios');
+  console.log('   - POST /api/ouvidoria/anexos/upload');
+} catch (error) {
+  console.error('❌ Erro ao registrar rotas de Ouvidoria:', error.message);
   console.error('Stack:', error.stack);
   console.error('Detalhes do erro:', error);
 }

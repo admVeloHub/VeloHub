@@ -1,6 +1,13 @@
 /**
  * VeloChatWidget - Componente Principal do Chat
- * VERSION: v3.43.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.44.0 | DATE: 2026-02-23 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v3.44.0:
+ * - Implementada paginação de mensagens: exibe apenas últimas 20 mensagens inicialmente
+ * - Adicionado botão "Ver conversas anteriores" no topo do diálogo para carregar mais mensagens
+ * - Scroll automático ajustado para respeitar paginação (só acontece quando todas as mensagens estão visíveis)
+ * - Paginação resetada automaticamente ao mudar de conversa
+ * - Melhorada performance em conversas com muitas mensagens
  * 
  * Mudanças v3.43.0:
  * - Adicionada prop refreshTrigger para permitir refresh manual via botão no header
@@ -329,7 +336,10 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
   const [showAttachmentModal, setShowAttachmentModal] = useState(false);
   const [editingMessage, setEditingMessage] = useState(null); // { conversationId, userName, timestamp }
   const [editMessageText, setEditMessageText] = useState('');
-  
+  // Estados para paginação de mensagens
+  const [displayedMessagesCount, setDisplayedMessagesCount] = useState(20); // Quantidade de mensagens exibidas
+  const [hasMoreMessages, setHasMoreMessages] = useState(false); // Flag se há mais mensagens para carregar
+  const [isLoadingMore, setIsLoadingMore] = useState(false); // Flag de carregamento de mais mensagens
   
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -712,7 +722,10 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
       });
       
       // Scroll apenas se for uma nova mensagem (não temporária) e usuário estiver próximo do final
-      scrollToBottom(false); // Não forçar, verificar se usuário está próximo do final
+      // E se todas as mensagens estão sendo visualizadas (sem paginação ativa)
+      if (!hasMoreMessages) {
+        scrollToBottom(false); // Não forçar, verificar se usuário está próximo do final
+      }
     } else {
       // Mensagem de outra conversa - atualizar contador de não lidas APENAS se não for do próprio usuário
       if (!isFromCurrentUser) {
@@ -1479,8 +1492,16 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
 
   // Scroll automático para última mensagem - apenas quando necessário
   // Usa scrollTop do container ao invés de scrollIntoView para evitar scroll na página inteira
+  // Considera paginação: só faz scroll se todas as mensagens estão sendo visualizadas
   const scrollToBottom = (force = false) => {
     if (!messagesEndRef.current) return;
+    
+    // Verificar se todas as mensagens estão sendo visualizadas (paginação)
+    // Se há mais mensagens ocultas (hasMoreMessages), não fazer scroll automático
+    if (!force && hasMoreMessages) {
+      // Usuário está visualizando apenas parte das mensagens, não fazer scroll
+      return;
+    }
     
     // Encontrar o container de mensagens (div com overflow-y-auto)
     const messagesContainer = messagesEndRef.current.closest('.overflow-y-auto, .overflow-auto');
@@ -1651,13 +1672,25 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
       
       setMessages(sortedMessages);
       
-      // Scroll para o final APENAS na primeira carga da conversa
-      if (isFirstLoad) {
+      // Inicializar paginação após carregar mensagens
+      const totalMessages = sortedMessages.length;
+      if (totalMessages > 20) {
+        // Há mais de 20 mensagens, mostrar apenas as últimas 20
+        setDisplayedMessagesCount(20);
+        setHasMoreMessages(true);
+      } else {
+        // Menos ou igual a 20 mensagens, mostrar todas
+        setDisplayedMessagesCount(totalMessages);
+        setHasMoreMessages(false);
+      }
+      
+      // Scroll para o final APENAS na primeira carga da conversa E quando visualizando todas as mensagens
+      if (isFirstLoad && totalMessages <= 20) {
         setTimeout(() => {
           scrollToBottom(true);
         }, 100);
       }
-      // Se não é primeira carga, não fazer scroll (usuário pode estar lendo mensagens antigas)
+      // Se não é primeira carga ou há mais mensagens, não fazer scroll (usuário pode estar lendo mensagens antigas)
       
       // Marcar conversa como visualizada ao carregar mensagens
       if (conversationId) {
@@ -1681,6 +1714,28 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
     }
   };
 
+  /**
+   * Carregar mais mensagens (paginação)
+   * Incrementa displayedMessagesCount em 20 ou até o total disponível
+   */
+  const loadMoreMessages = () => {
+    if (isLoadingMore) return; // Evitar múltiplas chamadas simultâneas
+    
+    setIsLoadingMore(true);
+    
+    const totalMessages = messages.length;
+    const newCount = Math.min(displayedMessagesCount + 20, totalMessages);
+    
+    setDisplayedMessagesCount(newCount);
+    
+    // Se chegou ao total, não há mais mensagens para carregar
+    if (newCount >= totalMessages) {
+      setHasMoreMessages(false);
+    }
+    
+    setIsLoadingMore(false);
+  };
+
   // Ref para armazenar a função loadMessages mais recente (evita recriação do useEffect)
   const loadMessagesRef = useRef(loadMessages);
   useEffect(() => {
@@ -1695,6 +1750,18 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
 
   // Ref para rastrear a última conversa carregada (evita recarregar se não mudou)
   const lastLoadedConversationIdRef = useRef(null);
+
+  // Atualizar paginação quando novas mensagens chegam via WebSocket
+  // Se estava visualizando todas as mensagens, incrementar displayedMessagesCount para incluir nova mensagem
+  useEffect(() => {
+    // Só atualizar se há uma conversa selecionada e não há mais mensagens ocultas
+    if (selectedConversation && !hasMoreMessages && messages.length > 0) {
+      // Se estava visualizando todas as mensagens, incrementar contador para incluir nova mensagem
+      if (displayedMessagesCount === messages.length - 1) {
+        setDisplayedMessagesCount(messages.length);
+      }
+    }
+  }, [messages.length, selectedConversation, hasMoreMessages, displayedMessagesCount]);
 
   // Entrar/sair da conversa quando selecionada
   useEffect(() => {
@@ -1742,6 +1809,10 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
     if (currentConversationId !== conversationId) {
       setMessages([]);
       lastLoadedConversationIdRef.current = null; // Forçar reload no useEffect
+      // Resetar paginação ao mudar de conversa
+      setDisplayedMessagesCount(20);
+      setHasMoreMessages(false);
+      setIsLoadingMore(false);
     }
     // Se mesma conversa, manter mensagens visíveis (evita flash de tela vazia)
     
@@ -4415,7 +4486,39 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
               <p className="text-gray-500">Nenhuma mensagem ainda</p>
             </div>
           ) : (
-            messages.map((msg, index) => {
+            <>
+              {/* Botão "Ver conversas anteriores" - aparece apenas se há mais mensagens */}
+              {hasMoreMessages && (
+                <div className="flex justify-center mb-2">
+                  <button
+                    onClick={loadMoreMessages}
+                    disabled={isLoadingMore}
+                    className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                    style={{
+                      backgroundColor: isDarkMode() ? 'rgba(22, 148, 255, 0.15)' : 'rgba(22, 52, 255, 0.1)',
+                      color: isDarkMode() ? 'var(--blue-light)' : 'var(--blue-medium)',
+                      border: `1px solid ${isDarkMode() ? 'var(--blue-light)' : 'var(--blue-medium)'}`,
+                      cursor: isLoadingMore ? 'not-allowed' : 'pointer',
+                      opacity: isLoadingMore ? 0.6 : 1
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isLoadingMore) {
+                        e.currentTarget.style.backgroundColor = isDarkMode() ? 'rgba(22, 148, 255, 0.25)' : 'rgba(22, 52, 255, 0.2)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isLoadingMore) {
+                        e.currentTarget.style.backgroundColor = isDarkMode() ? 'rgba(22, 148, 255, 0.15)' : 'rgba(22, 52, 255, 0.1)';
+                      }
+                    }}
+                  >
+                    {isLoadingMore ? 'Carregando...' : 'Ver conversas anteriores'}
+                  </button>
+                </div>
+              )}
+              
+              {/* Renderizar apenas as últimas N mensagens (onde N = displayedMessagesCount) */}
+              {messages.slice(-displayedMessagesCount).map((msg, index) => {
               // Suportar tanto schema antigo quanto novo
               const userName = msg.userName || msg.senderName || msg.autorNome || 'Usuário';
               const timestamp = msg.timestamp || msg.createdAt;
@@ -4894,7 +4997,8 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
                   </div>
                 </div>
               );
-            })
+            })}
+            </>
           )}
           
           {/* Indicador de digitação */}
