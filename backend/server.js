@@ -1,6 +1,19 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.45.1 | DATE: 2025-02-18 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.46.1 | DATE: 2026-02-23 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.46.1:
+ * - Corrigido caminho para arquivos estáticos com fallback automático
+ * - No Docker/produção: public está em ./public (mesmo diretório)
+ * - No desenvolvimento local: tenta ../public se ./public não existir
+ * - Adicionados logs de diagnóstico para verificar existência de arquivos estáticos
+ * 
+ * Mudanças v2.46.0:
+ * - Corrigido caminho para arquivos estáticos (public está um nível acima do backend)
+ * - Adicionados logs de diagnóstico para verificar existência de arquivos estáticos
+ * - Corrigido caminho do index.html para apontar para ../public/index.html
+ * 
+ * Mudanças v2.45.1:
  * 
  * Mudanças v2.45.1:
  * - Corrigido tratamento de erros no endpoint /api/pilulas/list
@@ -6805,8 +6818,47 @@ console.log('✅ Endpoint GET /api/pilulas/list registrado com sucesso');
 
 // Servir arquivos estáticos do frontend (DEPOIS das rotas da API)
 // IMPORTANTE: Não servir arquivos estáticos para rotas da API
-const staticMiddleware = express.static(path.join(__dirname, 'public'), {
-  index: false // Não servir index.html automaticamente
+// No Docker/produção: public está em ./public (mesmo diretório do server.js)
+// No desenvolvimento local: public pode estar em ../public (um nível acima)
+let publicPath = path.join(__dirname, 'public');
+console.log(`📁 [server.js] Tentando caminho padrão: ${publicPath}`);
+
+// Verificar se a pasta public existe no caminho padrão
+if (!fs.existsSync(publicPath)) {
+  console.warn(`⚠️ [server.js] Pasta public não encontrada em: ${publicPath}`);
+  // Tentar caminho alternativo (desenvolvimento local)
+  const altPath = path.join(__dirname, '..', 'public');
+  console.log(`📁 [server.js] Tentando caminho alternativo: ${altPath}`);
+  if (fs.existsSync(altPath)) {
+    publicPath = altPath;
+    console.log(`✅ [server.js] Pasta public encontrada no caminho alternativo: ${publicPath}`);
+  } else {
+    console.error(`❌ [server.js] Pasta public não encontrada em nenhum dos caminhos:`);
+    console.error(`   - ${path.join(__dirname, 'public')}`);
+    console.error(`   - ${altPath}`);
+    console.error(`   - __dirname atual: ${__dirname}`);
+  }
+} else {
+  console.log(`✅ [server.js] Pasta public encontrada: ${publicPath}`);
+}
+
+const staticMiddleware = express.static(publicPath, {
+  index: false, // Não servir index.html automaticamente
+  setHeaders: (res, filePath, stat) => {
+    // Garantir que arquivos JavaScript sejam servidos com Content-Type correto
+    if (filePath.endsWith('.js')) {
+      // Verificar se é um módulo ES6 (arquivos com export/import)
+      // Arquivos em static/js/ são módulos ES6 e precisam de type="module"
+      const isModule = filePath.includes('/static/js/') || filePath.includes('/static/');
+      if (isModule) {
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      } else {
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      }
+    }
+    // Adicionar headers CORS para arquivos estáticos
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
 });
 app.use((req, res, next) => {
   staticMiddleware(req, res, next);
@@ -6827,7 +6879,20 @@ app.all('*', (req, res, next) => {
   }
   // Apenas GET deve servir o HTML do React
   if (req.method === 'GET') {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    const indexPath = path.join(publicPath, 'index.html');
+    console.log(`📄 [server.js] Servindo index.html de: ${indexPath}`);
+    
+    // Verificar se o arquivo existe antes de servir
+    if (!fs.existsSync(indexPath)) {
+      console.error(`❌ [server.js] Arquivo index.html não encontrado em: ${indexPath}`);
+      return res.status(404).json({
+        success: false,
+        message: 'Arquivo index.html não encontrado',
+        path: indexPath
+      });
+    }
+    
+    res.sendFile(indexPath);
   } else {
     res.status(404).json({
       success: false,
