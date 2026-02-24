@@ -17,12 +17,8 @@
  */
 
 // Lista de emails com bypass de acesso (desenvolvedores/admin)
-const BYPASS_EMAILS = [
-  'lucas.gravina@velohub.com.br',
-  'lucas.gravina@velotax.com.br',
-  'lucas.gravina@velohub.com.br'.toLowerCase().trim(),
-  'lucas.gravina@velotax.com.br'.toLowerCase().trim()
-].map(email => email.toLowerCase().trim());
+// Bypass removido - acesso agora é verificado normalmente através da coleção qualidade_funcionarios
+const BYPASS_EMAILS = [];
 
 /**
  * Middleware para verificar acesso ao módulo Ouvidoria
@@ -229,8 +225,10 @@ const checkOuvidoriaAccess = (client, connectToMongo) => {
         });
       }
 
-      // Verificar acesso ao módulo Ouvidoria
-      const acessoOuvidoria = acessos.ouvidoria === true;
+      // Verificar acesso ao módulo Ouvidoria (verifica variações de case)
+      const acessoOuvidoria = acessos.ouvidoria === true || 
+                               acessos.Ouvidoria === true || 
+                               acessos.OUVIDORIA === true;
 
       if (!acessoOuvidoria) {
         console.log(`❌ [ouvidoriaAccess] Acesso negado ao módulo Ouvidoria para: ${normalizedEmail}`);
