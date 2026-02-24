@@ -2865,22 +2865,20 @@ app.get('/api/auth/check-module-access', async (req, res) => {
     console.log(`🔍 [check-module-access] Verificando acesso ao módulo ${module} para: ${normalizedEmail}`);
 
     // Lista de emails com bypass de acesso (desenvolvedores/admin)
-    const BYPASS_EMAILS = [
-      'lucas.gravina@velohub.com.br',
-      'lucas.gravina@velotax.com.br'
-    ].map(e => e.toLowerCase().trim());
+    // Bypass removido - acesso agora é verificado normalmente através da coleção qualidade_funcionarios
+    const BYPASS_EMAILS = [];
 
-    // Bypass para desenvolvedores/admin
-    if (BYPASS_EMAILS.includes(normalizedEmail) && module === 'ouvidoria') {
-      console.log(`✅ [check-module-access] Bypass ativado para: ${normalizedEmail}`);
-      return res.json({
-        success: true,
-        hasAccess: true,
-        module: module,
-        email: normalizedEmail,
-        bypass: true
-      });
-    }
+    // Bypass para desenvolvedores/admin (desabilitado)
+    // if (BYPASS_EMAILS.includes(normalizedEmail) && module === 'ouvidoria') {
+    //   console.log(`✅ [check-module-access] Bypass ativado para: ${normalizedEmail}`);
+    //   return res.json({
+    //     success: true,
+    //     hasAccess: true,
+    //     module: module,
+    //     email: normalizedEmail,
+    //     bypass: true
+    //   });
+    // }
 
     // Conectar ao MongoDB
     await connectToMongo();
@@ -2931,7 +2929,10 @@ app.get('/api/auth/check-module-access', async (req, res) => {
     let hasModuleAccess = false;
     
     if (module === 'ouvidoria') {
-      hasModuleAccess = acessos.ouvidoria === true;
+      // Verificar acesso ao módulo Ouvidoria (verifica variações de case)
+      hasModuleAccess = acessos.ouvidoria === true || 
+                        acessos.Ouvidoria === true || 
+                        acessos.OUVIDORIA === true;
     } else {
       // Para outros módulos, verificar campo correspondente
       const moduleKey = module.charAt(0).toLowerCase() + module.slice(1);

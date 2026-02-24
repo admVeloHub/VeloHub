@@ -589,9 +589,13 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
       const db = client.db('console_analises');
       const funcionariosCollection = db.collection('qualidade_funcionarios');
 
-      // Buscar funcionários com acesso à ouvidoria
+      // Buscar funcionários com acesso à ouvidoria (verifica variações de case)
       const funcionarios = await funcionariosCollection.find({
-        'acessos.ouvidoria': true
+        $or: [
+          { 'acessos.ouvidoria': true },
+          { 'acessos.Ouvidoria': true },
+          { 'acessos.OUVIDORIA': true }
+        ]
       }).toArray();
 
       // Formatar dados para retorno

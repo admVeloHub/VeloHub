@@ -13,10 +13,8 @@
  */
 
 // Lista de emails com bypass de acesso (desenvolvedores/admin)
-const BYPASS_EMAILS = [
-  'lucas.gravina@velohub.com.br',
-  'lucas.gravina@velotax.com.br'
-].map(email => email.toLowerCase().trim());
+// Bypass removido - acesso agora é verificado normalmente através da coleção qualidade_funcionarios
+const BYPASS_EMAILS = [];
 
 import React, { useEffect, useState } from 'react';
 import { API_BASE_URL } from '../../config/api-config';
