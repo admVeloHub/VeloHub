@@ -6293,6 +6293,7 @@ try {
   const initClientesRoutes = require('./routes/api/ouvidoria/clientes');
   const initRelatoriosRoutes = require('./routes/api/ouvidoria/relatorios');
   const initAnexosRoutes = require('./routes/api/ouvidoria/anexos');
+  const initColaboradoresRoutes = require('./routes/api/ouvidoria/colaboradores');
   const checkOuvidoriaAccess = require('./middleware/ouvidoriaAccess');
   
   console.log('📦 Carregando módulos de Ouvidoria...');
@@ -6305,6 +6306,7 @@ try {
   const clientesRouter = initClientesRoutes(client, connectToMongo);
   const relatoriosRouter = initRelatoriosRoutes(client, connectToMongo);
   const anexosRouter = initAnexosRoutes(client, connectToMongo);
+  const colaboradoresRouter = initColaboradoresRoutes(client, connectToMongo);
   
   // Logs de debug para verificar se routers foram inicializados corretamente
   console.log('🔍 [DEBUG] Verificando routers inicializados:');
@@ -6344,6 +6346,10 @@ try {
     console.error('❌ [ERRO CRÍTICO] anexosRouter é null ou undefined!');
     throw new Error('anexosRouter não foi inicializado corretamente');
   }
+  if (!colaboradoresRouter) {
+    console.error('❌ [ERRO CRÍTICO] colaboradoresRouter é null ou undefined!');
+    throw new Error('colaboradoresRouter não foi inicializado corretamente');
+  }
   
   // Aplicar middleware de acesso em todas as rotas do módulo Ouvidoria
   console.log('📝 [DEBUG] Registrando rota: /api/ouvidoria/dashboard');
@@ -6352,6 +6358,7 @@ try {
   app.use('/api/ouvidoria/clientes', ouvidoriaAccessMiddleware, clientesRouter);
   app.use('/api/ouvidoria/relatorios', ouvidoriaAccessMiddleware, relatoriosRouter);
   app.use('/api/ouvidoria/anexos', ouvidoriaAccessMiddleware, anexosRouter);
+  app.use('/api/ouvidoria/colaboradores', ouvidoriaAccessMiddleware, colaboradoresRouter);
   
   console.log('✅ Rotas registradas no Express');
   console.log('🔍 [DEBUG] Verificando se rotas foram registradas corretamente...');
@@ -6364,6 +6371,7 @@ try {
   console.log('   - GET /api/ouvidoria/clientes/:cpf/historico');
   console.log('   - GET /api/ouvidoria/relatorios');
   console.log('   - POST /api/ouvidoria/anexos/upload');
+  console.log('   - GET /api/ouvidoria/colaboradores');
 } catch (error) {
   console.error('❌ Erro ao registrar rotas de Ouvidoria:', error.message);
   console.error('Stack:', error.stack);
