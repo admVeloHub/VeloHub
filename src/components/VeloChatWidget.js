@@ -1,6 +1,13 @@
 /**
  * VeloChatWidget - Componente Principal do Chat
- * VERSION: v3.44.0 | DATE: 2026-02-23 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.45.0 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v3.45.0:
+ * - Corrigido scroll automático ao abrir conversa: sempre vai para rodapé na primeira carga, independente da quantidade de mensagens
+ * - Corrigido scroll quando novas mensagens chegam: mantém scroll no rodapé apenas se usuário já estava lá
+ * - Função scrollToBottom agora respeita force=true para permitir scroll mesmo com paginação ativa
+ * - Removida verificação de hasMoreMessages que impedia scroll quando novas mensagens chegavam
+ * - Proteção mantida: nunca força scroll quando usuário está lendo mensagens antigas
  * 
  * Mudanças v3.44.0:
  * - Implementada paginação de mensagens: exibe apenas últimas 20 mensagens inicialmente
@@ -721,11 +728,9 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
         return sorted;
       });
       
-      // Scroll apenas se for uma nova mensagem (não temporária) e usuário estiver próximo do final
-      // E se todas as mensagens estão sendo visualizadas (sem paginação ativa)
-      if (!hasMoreMessages) {
-        scrollToBottom(false); // Não forçar, verificar se usuário está próximo do final
-      }
+      // Scroll se usuário estiver no rodapé (independente de paginação)
+      // A função scrollToBottom(false) verifica internamente se usuário está no rodapé
+      scrollToBottom(false);
     } else {
       // Mensagem de outra conversa - atualizar contador de não lidas APENAS se não for do próprio usuário
       if (!isFromCurrentUser) {
@@ -1492,16 +1497,9 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
 
   // Scroll automático para última mensagem - apenas quando necessário
   // Usa scrollTop do container ao invés de scrollIntoView para evitar scroll na página inteira
-  // Considera paginação: só faz scroll se todas as mensagens estão sendo visualizadas
+  // Respeita scroll manual do usuário: não força scroll quando usuário está lendo mensagens antigas
   const scrollToBottom = (force = false) => {
     if (!messagesEndRef.current) return;
-    
-    // Verificar se todas as mensagens estão sendo visualizadas (paginação)
-    // Se há mais mensagens ocultas (hasMoreMessages), não fazer scroll automático
-    if (!force && hasMoreMessages) {
-      // Usuário está visualizando apenas parte das mensagens, não fazer scroll
-      return;
-    }
     
     // Encontrar o container de mensagens (div com overflow-y-auto)
     const messagesContainer = messagesEndRef.current.closest('.overflow-y-auto, .overflow-auto');
@@ -1511,15 +1509,28 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
       return;
     }
     
-    // Se não for forçado, verificar se o usuário está no rodapé antes de fazer scroll
-    if (!force) {
-      if (!isScrolledToBottom()) {
-        // Usuário está visualizando mensagens antigas, não fazer scroll
-        return;
-      }
+    // Se force=true, sempre fazer scroll (ignorar paginação e posição atual)
+    // Usado ao abrir conversa pela primeira vez
+    if (force) {
+      messagesContainer.scrollTo({
+        top: messagesContainer.scrollHeight,
+        behavior: 'smooth'
+      });
+      return;
     }
     
-    // Fazer scroll apenas dentro do container, não na página inteira
+    // Se não for forçado, verificar condições antes de fazer scroll:
+    // 1. Se há paginação ativa e usuário não está no rodapé, não fazer scroll
+    if (hasMoreMessages && !isScrolledToBottom()) {
+      return;
+    }
+    
+    // 2. Se usuário não está no rodapé, não fazer scroll (lendo mensagens antigas)
+    if (!isScrolledToBottom()) {
+      return;
+    }
+    
+    // 3. Fazer scroll apenas se usuário está no rodapé
     messagesContainer.scrollTo({
       top: messagesContainer.scrollHeight,
       behavior: 'smooth'
@@ -1684,13 +1695,12 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
         setHasMoreMessages(false);
       }
       
-      // Scroll para o final APENAS na primeira carga da conversa E quando visualizando todas as mensagens
-      if (isFirstLoad && totalMessages <= 20) {
+      // Scroll para o final SEMPRE na primeira carga da conversa (independente da quantidade de mensagens)
+      if (isFirstLoad) {
         setTimeout(() => {
-          scrollToBottom(true);
-        }, 100);
+          scrollToBottom(true); // Force=true para garantir scroll mesmo com paginação ativa
+        }, 150); // Aumentar timeout para garantir DOM pronto
       }
-      // Se não é primeira carga ou há mais mensagens, não fazer scroll (usuário pode estar lendo mensagens antigas)
       
       // Marcar conversa como visualizada ao carregar mensagens
       if (conversationId) {
