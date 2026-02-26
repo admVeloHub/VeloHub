@@ -1,6 +1,12 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.12.0 | DATE: 2025-02-19 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.12.1 | DATE: 2025-02-25 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.12.1:
+ * - Corrigido dimensionamento dinâmico do container Velonews: removida altura fixa, implementado flexbox com scroll interno
+ * - Botão "Ver Notícias Anteriores" agora sempre visível e posicionado fora da área de scroll
+ * - Adicionada remoção de URLs do endpoint da API no processContentHtml para ocultar URLs de imagens do texto
+ * - URLs de imagens do bucket e endpoint da API agora são removidas de markdown, tags <img>, links <a> e texto solto
  * 
  * Mudanças v2.12.0:
  * - Adicionado controle de acesso ao módulo Ouvidoria via OuvidoriaAccessGuard
@@ -409,7 +415,7 @@ const Footer = ({ isDarkMode }) => {
 
 // Componente do Cabe├ºalho
 const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
-  const navItems = ['Home', 'VeloBot', 'Artigos', 'Apoio', 'Req_Prod', 'Ouvidoria', 'VeloAcademy'];
+  const navItems = ['Home', 'VeloBot', 'Artigos', 'Apoio', 'Req_Prod', 'Bacen & N2', 'VeloAcademy'];
   const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
   const [userName, setUserName] = useState('Usu├írio VeloHub');
   const [userPicture, setUserPicture] = useState(null);
@@ -1500,7 +1506,7 @@ export default function App_v2() {
         return <ApoioPage />;
       case 'Req_Prod':
         return <EscalacoesPage />;
-      case 'Ouvidoria':
+      case 'Bacen & N2':
         return (
           <OuvidoriaAccessGuard>
             <OuvidoriaPage />
@@ -2000,7 +2006,31 @@ const processContentHtml = (htmlContent, mediaImages = []) => {
   // Padr├úo para URLs do bucket GCS
   const bucketUrlPattern = /https:\/\/storage\.googleapis\.com\/[^\/]+\/(img_velonews\/[^"'\s\)]+|img_artigos\/[^"'\s\)]+)/g;
   
-  // 1. Substituir URLs do bucket em markdown por endpoint local
+  // Padr├úo para URLs do endpoint da API (ex: https://velohub-278491073220.us-east1.run.app/api/images/img_velonews/...)
+  const apiImageUrlPattern = /https?:\/\/[^\/]+\/api\/images\/(img_velonews\/[^"'\s\)<>]+|img_artigos\/[^"'\s\)<>]+)/gi;
+  
+  // 1. Remover URLs do endpoint da API em markdown (![text](url))
+  processedHtml = processedHtml.replace(/!\[([^\]]*)\]\((https?:\/\/[^\/]+\/api\/images\/(img_velonews\/[^\)]+|img_artigos\/[^\)]+))\)/gi, (match, altText, apiUrl) => {
+    // Remover markdown completamente - a imagem ser├í renderizada separadamente via getAllImages
+    return '';
+  });
+  
+  // 2. Remover URLs do endpoint da API em tags <img>
+  processedHtml = processedHtml.replace(/<img([^>]*src=["'])(https?:\/\/[^\/]+\/api\/images\/(img_velonews\/[^"']+|img_artigos\/[^"']+))([^>]*)>/gi, (match, beforeSrc, apiUrl, afterAttrs) => {
+    // Remover tag img completamente - a imagem ser├í renderizada separadamente via getAllImages
+    return '';
+  });
+  
+  // 3. Remover URLs do endpoint da API em links <a>
+  processedHtml = processedHtml.replace(/<a([^>]*href=["'])(https?:\/\/[^\/]+\/api\/images\/(img_velonews\/[^"']+|img_artigos\/[^"']+))([^>]*)>([^<]*)<\/a>/gi, (match, beforeHref, apiUrl, afterAttrs, linkText) => {
+    // Remover link completamente se contiver apenas nome de arquivo ou URL
+    return '';
+  });
+  
+  // 4. Remover URLs do endpoint da API soltas no texto (incluindo com ! no início)
+  processedHtml = processedHtml.replace(/!?https?:\/\/[^\/]+\/api\/images\/(img_velonews\/[^\s\)<>"]+|img_artigos\/[^\s\)<>"]+)/gi, '');
+  
+  // 5. Substituir URLs do bucket em markdown por endpoint local
   processedHtml = processedHtml.replace(/!\[([^\]]*)\]\((https:\/\/storage\.googleapis\.com\/[^\)]+)\)/g, (match, altText, bucketUrl) => {
     const pathMatch = bucketUrl.match(/(img_velonews\/[^"'\s\)]+|img_artigos\/[^"'\s\)]+)/);
     if (pathMatch) {
@@ -2013,7 +2043,7 @@ const processContentHtml = (htmlContent, mediaImages = []) => {
     return match;
   });
   
-  // 2. Processar tags <img> existentes que contenham URLs do bucket
+  // 6. Processar tags <img> existentes que contenham URLs do bucket
   processedHtml = processedHtml.replace(/<img([^>]*src=["'])(https:\/\/storage\.googleapis\.com\/[^\/]+\/(img_velonews\/[^"']+|img_artigos\/[^"']+))([^>]*)>/gi, (match, beforeSrc, bucketUrl, afterAttrs) => {
     const pathMatch = bucketUrl.match(/(img_velonews\/[^"'\s\)]+|img_artigos\/[^"'\s\)]+)/);
     if (pathMatch) {
@@ -2036,14 +2066,14 @@ const processContentHtml = (htmlContent, mediaImages = []) => {
     return match;
   });
   
-  // 3. Substituir URLs do bucket em texto simples (caso apare├ºam como links)
+  // 7. Substituir URLs do bucket em texto simples (caso apare├ºam como links)
   processedHtml = processedHtml.replace(bucketUrlPattern, (match, imagePath) => {
     const cleanPath = imagePath;
     const encodedPath = cleanPath.split('/').map(part => encodeURIComponent(part)).join('/');
     return `${API_BASE_URL}/images/${encodedPath}`;
   });
   
-  // 4. Remover texto que contenha apenas URLs do bucket (linhas soltas)
+  // 8. Remover texto que contenha apenas URLs do bucket (linhas soltas)
   processedHtml = processedHtml.replace(/https:\/\/storage\.googleapis\.com\/[^\/]+\/(img_velonews\/[^\s\)]+|img_artigos\/[^\s\)]+)/g, '');
   
   return processedHtml;
@@ -3226,15 +3256,17 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                     padding: '19.2px',
                     height: '700px',
                     maxHeight: '700px',
+                    display: 'flex',
+                    flexDirection: 'column',
                     overflow: 'hidden',
                     transition: 'width 0.3s ease'
                 }}
             >
-                <h2 className="text-center font-bold text-3xl mb-6">
+                <h2 className="text-center font-bold text-3xl mb-6 flex-shrink-0">
                     <span style={{color: 'var(--blue-medium)'}}>velo</span>
                     <span style={{color: 'var(--blue-dark)'}}>news</span>
                 </h2>
-                <div className="space-y-4">
+                <div className="flex-1 overflow-y-auto space-y-4 pr-2" style={{ minHeight: 0 }}>
                     {loading ? (
                         <div className="text-center py-8">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
@@ -3389,24 +3421,24 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                             <p className="text-gray-500 dark:text-gray-400">Nenhuma notícia encontrada</p>
                         </div>
                     )}
-                    
-                    {/* Botão Ver Notícias Anteriores - sempre visível */}
-                    <div className="text-center mt-6">
-                        <button
-                            onClick={() => {
-                                console.log('📜 Abrindo modal de histórico de notícias');
-                                setShowHistoryModal(true);
-                            }}
-                            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
-                            style={{
-                                background: 'linear-gradient(135deg, var(--blue-dark) 0%, var(--blue-medium) 100%)',
-                                border: 'none',
-                                boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)'
-                            }}
-                        >
-                            Ver Notícias Anteriores
-                        </button>
-                    </div>
+                </div>
+                
+                {/* Botão Ver Notícias Anteriores - sempre visível */}
+                <div className="text-center mt-4 flex-shrink-0 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <button
+                        onClick={() => {
+                            console.log('📜 Abrindo modal de histórico de notícias');
+                            setShowHistoryModal(true);
+                        }}
+                        className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                        style={{
+                            background: 'linear-gradient(135deg, var(--blue-dark) 0%, var(--blue-medium) 100%)',
+                            border: 'none',
+                            boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)'
+                        }}
+                    >
+                        Ver Notícias Anteriores
+                    </button>
                 </div>
             </section>
             

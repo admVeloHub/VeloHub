@@ -40,6 +40,22 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Correção Container Velonews: Dimensionamento Dinâmico e Remoção URLs de Imagens**
+- **Data/Hora**: 2026-02-25
+- **Tipo**: GitHub Push
+- **Versão**: App_v2-1.js v2.12.0 → v2.12.1, NewsHistoryModal.js v1.1.0 → v1.1.1
+- **Arquivos Modificados**:
+  - `src/App_v2-1.js` (v2.12.0 → v2.12.1 - correção dimensionamento dinâmico container Velonews e remoção URLs de imagens)
+  - `src/components/NewsHistoryModal.js` (v1.1.0 → v1.1.1 - remoção URLs de imagens do endpoint da API)
+- **Descrição**: 
+  - Corrigido dimensionamento dinâmico do container Velonews: removida altura fixa, implementado flexbox com scroll interno
+  - Botão "Ver Notícias Anteriores" agora sempre visível e posicionado fora da área de scroll (flex-shrink-0)
+  - Adicionada remoção de URLs do endpoint da API no processContentHtml para ocultar URLs de imagens do texto
+  - URLs de imagens do bucket e endpoint da API agora são removidas de markdown (![text](url)), tags <img>, links <a> e texto solto
+  - Container agora possui scroll interno permitindo visualização completa de todas as notícias sem cortes
+  - Botão "Ler mais" agora aparece corretamente em todas as notícias
+- **Status**: ✅ Concluído com sucesso
+
 ### **GitHub Push - Melhorias VeloChatWidget**
 - **Data/Hora**: 2026-02-19
 - **Tipo**: GitHub Push
