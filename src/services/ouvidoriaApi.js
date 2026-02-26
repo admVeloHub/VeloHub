@@ -248,6 +248,16 @@ export const relatoriosAPI = {
     const query = new URLSearchParams(params).toString();
     return apiRequest(`/ouvidoria/relatorios${query ? `?${query}` : ''}`);
   },
+
+  /**
+   * Gerar relatório detalhado com agregações por mês
+   * @param {Object} params - Parâmetros do relatório (dataInicio, dataFim, tipo)
+   * @returns {Promise<Object>} Dados detalhados para gráficos e tabelas
+   */
+  detalhado: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiRequest(`/ouvidoria/relatorios/detalhado${query ? `?${query}` : ''}`);
+  },
 };
 
 /**

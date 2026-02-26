@@ -40,6 +40,37 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Atualizações Dependências, Scripts XLSX e Melhorias Módulos**
+- **Data/Hora**: 2026-02-25
+- **Tipo**: GitHub Push
+- **Arquivos Modificados**:
+  - `backend/package.json` (atualizações dependências)
+  - `backend/package-lock.json` (sincronização dependências)
+  - `package.json` (atualizações dependências)
+  - `package-lock.json` (sincronização dependências)
+  - `backend/routes/api/escalacoes/solicitacoes.js` (melhorias rotas)
+  - `backend/routes/api/ouvidoria/relatorios.js` (atualizações rotas)
+  - `backend/services/escalacoes/whatsappService.js` (melhorias serviço WhatsApp)
+  - `backend/scripts/limpar-collections.js` (NOVO - script limpeza)
+  - `backend/scripts/migrate-bacen-2025-xlsx.js` (NOVO - script migração XLSX)
+  - `backend/scripts/migrate-bacen-2026-xlsx.js` (NOVO - script migração XLSX)
+  - `backend/scripts/migrate-ouvidoria-2025-xlsx.js` (NOVO - script migração XLSX)
+  - `backend/scripts/migrate-ouvidoria-2026-xlsx.js` (NOVO - script migração XLSX)
+  - `backend/scripts/utils/xlsx-parser.js` (NOVO - utilitário parser XLSX)
+  - `painel de serviços/lib/apiConfig.js` (atualizações configuração)
+  - `src/components/Ouvidoria/RelatoriosOuvidoria.js` (atualizações componente)
+  - `src/config/api-config.js` (atualizações configuração)
+  - `src/index.css` (atualizações estilos)
+  - `src/services/ouvidoriaApi.js` (atualizações serviço)
+- **Descrição**: 
+  - Atualizações de dependências nos package.json (backend e raiz)
+  - Adicionados scripts de migração XLSX para BACEN e Ouvidoria (2025 e 2026)
+  - Adicionado script de limpeza de collections
+  - Adicionado utilitário parser XLSX
+  - Melhorias nos módulos Ouvidoria e Escalações
+  - Atualizações em configurações de API e estilos
+- **Status**: ✅ Concluído com sucesso
+
 ### **GitHub Push - Atualizações Módulos Ouvidoria, Escalações e Scripts de Migração**
 - **Data/Hora**: 2026-02-25
 - **Tipo**: GitHub Push

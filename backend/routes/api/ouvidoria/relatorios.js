@@ -1,6 +1,10 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Relatórios
- * VERSION: v2.2.0 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.3.0 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.3.0:
+ * - Adicionada rota GET /api/ouvidoria/relatorios/detalhado com agregações por mês
+ * - Retorna dados detalhados para gráficos e tabelas (Natureza, PIX, Motivos)
  * 
  * Mudanças v2.1.0:
  * - Removido campo status dos filtros (usar Finalizado.Resolvido)
@@ -146,6 +150,240 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
       res.status(500).json({
         success: false,
         message: 'Erro ao gerar relatório',
+        error: error.message,
+        data: {}
+      });
+    }
+  });
+
+  /**
+   * GET /api/ouvidoria/relatorios/detalhado
+   * Gerar relatório detalhado com agregações por mês
+   * Retorna dados para gráficos e tabelas
+   */
+  router.get('/detalhado', async (req, res) => {
+    try {
+      if (!client) {
+        return res.status(503).json({
+          success: false,
+          message: 'MongoDB não configurado',
+          data: {}
+        });
+      }
+
+      await connectToMongo();
+      const db = client.db('hub_ouvidoria');
+
+      const { dataInicio, dataFim, tipo } = req.query;
+
+      // Validar período
+      if (!dataInicio || !dataFim) {
+        return res.status(400).json({
+          success: false,
+          message: 'Período é obrigatório (dataInicio e dataFim)',
+          data: {}
+        });
+      }
+
+      const dataInicioDate = new Date(dataInicio);
+      const dataFimDate = new Date(dataFim + 'T23:59:59.999Z');
+
+      const resultado = {
+        bacen: {},
+        n2: {}
+      };
+
+      // Processar BACEN
+      const bacenCollection = db.collection('reclamacoes_bacen');
+      
+      // Natureza por mês (origem)
+      const naturezaPorMes = await bacenCollection.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: dataInicioDate, $lte: dataFimDate }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              mes: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+              natureza: '$origem'
+            },
+            count: { $sum: 1 }
+          }
+        },
+        {
+          $sort: { '_id.mes': 1, '_id.natureza': 1 }
+        }
+      ]).toArray();
+
+      // PIX Retirado por Natureza e Mês (pixStatus === "Liberado" || "Excluído")
+      const pixRetiradoPorNatureza = await bacenCollection.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: dataInicioDate, $lte: dataFimDate },
+            pixStatus: { $in: ['Liberado', 'Excluído'] }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              mes: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+              natureza: '$origem'
+            },
+            count: { $sum: 1 }
+          }
+        },
+        {
+          $sort: { '_id.mes': 1, '_id.natureza': 1 }
+        }
+      ]).toArray();
+
+      // Motivos por mês
+      const motivosPorMesBacen = await bacenCollection.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: dataInicioDate, $lte: dataFimDate },
+            motivoReduzido: { $exists: true, $ne: '' }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              mes: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+              motivo: '$motivoReduzido'
+            },
+            count: { $sum: 1 }
+          }
+        },
+        {
+          $sort: { '_id.mes': 1, '_id.motivo': 1 }
+        }
+      ]).toArray();
+
+      resultado.bacen = {
+        naturezaPorMes,
+        pixRetiradoPorNatureza,
+        motivosPorMes: motivosPorMesBacen
+      };
+
+      // Processar N2 (OUVIDORIA)
+      const n2Collection = db.collection('reclamacoes_ouvidoria');
+
+      // Casos registrados por mês
+      const casosRegistradosPorMes = await n2Collection.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: dataInicioDate, $lte: dataFimDate }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              mes: { $dateToString: { format: '%Y-%m', date: '$createdAt' } }
+            },
+            count: { $sum: 1 }
+          }
+        },
+        {
+          $sort: { '_id.mes': 1 }
+        }
+      ]).toArray();
+
+      // Casos finalizados por mês (Finalizado.Resolvido === true)
+      // Usar dataResolucao se disponível, senão usar updatedAt quando Resolvido = true
+      const casosFinalizadosPorMes = await n2Collection.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: dataInicioDate, $lte: dataFimDate },
+            'Finalizado.Resolvido': true
+          }
+        },
+        {
+          $group: {
+            _id: {
+              mes: {
+                $dateToString: {
+                  format: '%Y-%m',
+                  date: {
+                    $cond: {
+                      if: { $ne: ['$Finalizado.dataResolucao', null] },
+                      then: '$Finalizado.dataResolucao',
+                      else: '$updatedAt'
+                    }
+                  }
+                }
+              }
+            },
+            count: { $sum: 1 }
+          }
+        },
+        {
+          $sort: { '_id.mes': 1 }
+        }
+      ]).toArray();
+
+      // PIX Liberado por mês (pixStatus === "Liberado")
+      const pixLiberadoPorMes = await n2Collection.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: dataInicioDate, $lte: dataFimDate }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              mes: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+              pixStatus: '$pixStatus'
+            },
+            count: { $sum: 1 }
+          }
+        },
+        {
+          $sort: { '_id.mes': 1, '_id.pixStatus': 1 }
+        }
+      ]).toArray();
+
+      // Motivos por mês
+      const motivosPorMesN2 = await n2Collection.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: dataInicioDate, $lte: dataFimDate },
+            motivoReduzido: { $exists: true, $ne: '' }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              mes: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+              motivo: '$motivoReduzido'
+            },
+            count: { $sum: 1 }
+          }
+        },
+        {
+          $sort: { '_id.mes': 1, '_id.motivo': 1 }
+        }
+      ]).toArray();
+
+      resultado.n2 = {
+        casosRegistradosPorMes,
+        casosFinalizadosPorMes,
+        pixLiberadoPorMes,
+        motivosPorMes: motivosPorMesN2
+      };
+
+      console.log(`✅ Relatório detalhado gerado para período ${dataInicio} a ${dataFim}`);
+
+      res.json({
+        success: true,
+        data: resultado
+      });
+    } catch (error) {
+      console.error('❌ Erro ao gerar relatório detalhado:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erro ao gerar relatório detalhado',
         error: error.message,
         data: {}
       });

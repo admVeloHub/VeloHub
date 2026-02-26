@@ -130,6 +130,20 @@ html {
   background-color: var(--cor-card) !important;
 }
 
+/* Container secundário */
+.container-secondary {
+  background: transparent;
+  border: 1.5px solid var(--blue-dark);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 8px 0;
+  box-shadow: none;
+}
+
+.dark .container-secondary {
+  border-color: var(--blue-opaque);
+}
+
 /* Tema escuro */
 .dark .velohub-container {
   background-color: #323a42;

@@ -1,8 +1,11 @@
 /**
  * VeloHub - API Configuration
- * VERSION: v1.0.1 | DATE: 2025-02-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.2 | DATE: 2025-02-26 | AUTHOR: VeloHub Development Team
  * 
  * Gestão centralizada de URL da API WhatsApp
+ * 
+ * Mudanças v1.0.2:
+ * - Alterada URL padrão para https://carmina-peskier-balletically.ngrok-free.dev
  * 
  * Mudanças v1.0.1:
  * - Alterada URL padrão para https://genes-conservation-perth-beverages.trycloudflare.com
@@ -12,7 +15,7 @@
  * - DEFAULT_API_URL: URL padrão da API WhatsApp
  */
 
-export const DEFAULT_API_URL = 'https://genes-conservation-perth-beverages.trycloudflare.com';
+export const DEFAULT_API_URL = 'https://carmina-peskier-balletically.ngrok-free.dev';
 
 /**
  * Obtém a URL da API WhatsApp
