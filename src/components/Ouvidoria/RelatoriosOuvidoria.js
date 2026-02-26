@@ -1,10 +1,15 @@
 /**
  * VeloHub V3 - RelatoriosOuvidoria Component
- * VERSION: v1.4.0 | DATE: 2025-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.5.0 | DATE: 2025-02-20 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.5.0:
+ * - Removido campo status dos filtros (usar Finalizado.Resolvido)
+ * - Removido campo mes da exportação
+ * - Atualizado status na exportação para usar Finalizado.Resolvido
  * 
  * Mudanças v1.4.0:
  * - Implementada exportação do relatório em formato XLSX
- * - Exportação inclui múltiplas planilhas: Reclamações, Resumo por Tipo, Resumo por Status, Resumo por Mês, Estatísticas
+ * - Exportação inclui múltiplas planilhas: Reclamações, Resumo por Tipo, Resumo por Status, Estatísticas
  * - Formatação adequada de CPF e datas na exportação
  * 
  * Mudanças v1.3.1:
@@ -37,7 +42,6 @@ const RelatoriosOuvidoria = () => {
     dataInicio: '',
     dataFim: '',
     tipo: '',
-    status: '',
   });
   const [loading, setLoading] = useState(false);
   const [relatorio, setRelatorio] = useState(null);
@@ -108,9 +112,8 @@ const RelatoriosOuvidoria = () => {
         'Nome': r.nome || '-',
         'CPF': r.cpf || '-',
         'Tipo': r.tipo || '-',
-        'Status': r.status || '-',
-        'Data Entrada': r.dataEntrada ? formatDate(r.dataEntrada) : (r.createdAt ? formatDate(r.createdAt) : '-'),
-        'Mês': r.mes || '-',
+        'Status': r.Finalizado?.Resolvido === true ? 'Resolvido' : 'Em Andamento',
+        'Data Entrada': r.dataEntrada ? formatDate(r.dataEntrada) : (r.dataEntradaAtendimento ? formatDate(r.dataEntradaAtendimento) : (r.createdAt ? formatDate(r.createdAt) : '-')),
         'Motivo': r.motivoReduzido || '-',
         'Responsável': r.responsavel || '-',
       }));
@@ -128,7 +131,7 @@ const RelatoriosOuvidoria = () => {
         XLSX.utils.book_append_sheet(wb, wsTipo, 'Resumo por Tipo');
       }
 
-      // Planilha 3: Resumo por Status
+      // Planilha 3: Resumo por Status (baseado em Finalizado.Resolvido)
       const resumoStatus = Object.entries(relatorio.porStatus || {}).map(([status, quantidade]) => ({
         'Status': status,
         'Quantidade': quantidade,
@@ -136,16 +139,6 @@ const RelatoriosOuvidoria = () => {
       if (resumoStatus.length > 0) {
         const wsStatus = XLSX.utils.json_to_sheet(resumoStatus);
         XLSX.utils.book_append_sheet(wb, wsStatus, 'Resumo por Status');
-      }
-
-      // Planilha 4: Resumo por Mês
-      const resumoMes = Object.entries(relatorio.porMes || {}).map(([mes, quantidade]) => ({
-        'Mês': mes,
-        'Quantidade': quantidade,
-      }));
-      if (resumoMes.length > 0) {
-        const wsMes = XLSX.utils.json_to_sheet(resumoMes);
-        XLSX.utils.book_append_sheet(wb, wsMes, 'Resumo por Mês');
       }
 
       // Planilha 5: Estatísticas Gerais
@@ -284,21 +277,6 @@ const RelatoriosOuvidoria = () => {
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Status
-            </label>
-            <select
-              value={filtros.status}
-              onChange={(e) => setFiltros(prev => ({ ...prev, status: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="">Todos</option>
-              <option value="nova">Nova</option>
-              <option value="em_tratativa">Em Tratativa</option>
-              <option value="concluida">Concluída</option>
-            </select>
-          </div>
         </div>
       </div>
 

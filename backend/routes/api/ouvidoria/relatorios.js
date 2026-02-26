@@ -1,9 +1,15 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Relatórios
- * VERSION: v2.0.0 | DATE: 2025-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.2.0 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.1.0:
+ * - Removido campo status dos filtros (usar Finalizado.Resolvido)
+ * - Removido campo mes do agrupamento
+ * - Removidos filtros deletada/deletedAt
+ * - Atualizado agrupamento por status para usar Finalizado.Resolvido
  * 
  * Mudanças v2.0.0:
- * - Busca em todas as coleções (reclamacoes_bacen, reclamacoes_ouvidoria, reclamacoes_chatbot)
+ * - Busca em todas as coleções (reclamacoes_bacen, reclamacoes_ouvidoria)
  * 
  * Rotas para geração de relatórios
  */
@@ -36,7 +42,7 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
       await connectToMongo();
       const db = client.db('hub_ouvidoria');
 
-      const { dataInicio, dataFim, tipo, status } = req.query;
+      const { dataInicio, dataFim, tipo } = req.query;
 
       // Validar período
       if (!dataInicio || !dataFim) {
@@ -49,16 +55,11 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
 
       // Construir filtro base
       const filterBase = {
-        deletada: { $ne: true },
         createdAt: {
           $gte: new Date(dataInicio),
           $lte: new Date(dataFim + 'T23:59:59.999Z')
         }
       };
-
-      if (status) {
-        filterBase.status = String(status);
-      }
 
       let reclamacoes = [];
 
@@ -67,7 +68,6 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         const tipoUpper = String(tipo).toUpperCase();
         let collectionName = 'reclamacoes_bacen';
         if (tipoUpper === 'OUVIDORIA') collectionName = 'reclamacoes_ouvidoria';
-        else if (tipoUpper === 'CHATBOT') collectionName = 'reclamacoes_chatbot';
         
         reclamacoes = await db.collection(collectionName)
           .find(filterBase)
@@ -78,24 +78,23 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         reclamacoes = reclamacoes.map(r => ({ ...r, tipo: tipoUpper }));
       } else {
         // Buscar em todas as coleções
-        const [bacen, ouvidoria, chatbot] = await Promise.all([
+        const [bacen, ouvidoria] = await Promise.all([
           db.collection('reclamacoes_bacen').find(filterBase).sort({ createdAt: -1 }).toArray(),
-          db.collection('reclamacoes_ouvidoria').find(filterBase).sort({ createdAt: -1 }).toArray(),
-          db.collection('reclamacoes_chatbot').find(filterBase).sort({ createdAt: -1 }).toArray()
+          db.collection('reclamacoes_ouvidoria').find(filterBase).sort({ createdAt: -1 }).toArray()
         ]);
         
         // Combinar e adicionar tipo
         reclamacoes = [
           ...bacen.map(r => ({ ...r, tipo: 'BACEN' })),
-          ...ouvidoria.map(r => ({ ...r, tipo: 'OUVIDORIA' })),
-          ...chatbot.map(r => ({ ...r, tipo: 'CHATBOT' }))
+          ...ouvidoria.map(r => ({ ...r, tipo: 'OUVIDORIA' }))
         ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       }
 
       // Calcular estatísticas
       const total = reclamacoes.length;
+      // Resolvidas = Finalizado.Resolvido === true
       const concluidas = reclamacoes.filter(r => 
-        r.status === 'concluida' || r.status === 'concluída'
+        r.Finalizado?.Resolvido === true
       ).length;
       const taxaResolucao = total > 0 ? Math.round((concluidas / total) * 100) : 0;
 
@@ -106,19 +105,11 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         porTipo[tipo] = (porTipo[tipo] || 0) + 1;
       });
 
-      // Agrupar por status
+      // Agrupar por status (baseado em Finalizado.Resolvido)
       const porStatus = {};
       reclamacoes.forEach(r => {
-        const status = r.status || 'nova';
+        const status = r.Finalizado?.Resolvido === true ? 'Resolvido' : 'Em Andamento';
         porStatus[status] = (porStatus[status] || 0) + 1;
-      });
-
-      // Agrupar por mês
-      const porMes = {};
-      reclamacoes.forEach(r => {
-        if (r.mes) {
-          porMes[r.mes] = (porMes[r.mes] || 0) + 1;
-        }
       });
 
       const relatorio = {
@@ -131,15 +122,13 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         taxaResolucao,
         porTipo,
         porStatus,
-        porMes,
         reclamacoes: reclamacoes.map(r => ({
           _id: r._id,
           nome: r.nome,
           cpf: r.cpf ? r.cpf.substring(0, 3) + '***' + r.cpf.substring(9) : '', // CPF parcial
           tipo: r.tipo,
-          status: r.status,
-          dataEntrada: r.dataEntrada,
-          mes: r.mes,
+          status: r.Finalizado?.Resolvido === true ? 'Resolvido' : 'Em Andamento',
+          dataEntrada: r.dataEntrada || r.dataEntradaAtendimento,
           motivoReduzido: r.motivoReduzido,
           responsavel: r.responsavel,
           createdAt: r.createdAt,

@@ -1,6 +1,11 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Dashboard
- * VERSION: v2.4.0 | DATE: 2026-02-23 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.5.0 | DATE: 2025-02-20 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.5.0:
+ * - Atualizado para usar Finalizado.Resolvido ao invés de status
+ * - Removidos filtros deletada/deletedAt
+ * - Média de prazo agora usa dataResolucao ao invés de updatedAt
  * 
  * Mudanças v2.4.0:
  * - Adicionados logs de debug para diagnóstico de problemas de roteamento
@@ -82,9 +87,8 @@ const initDashboardRoutes = (client, connectToMongo) => {
         }
       }
 
-      // Combinar filtro de data com filtro de não deletadas
+      // Usar apenas filtro de data (sem filtro deletada)
       const filtroCompleto = {
-        deletada: { $ne: true },
         ...filtroData
       };
 
@@ -103,11 +107,13 @@ const initDashboardRoutes = (client, connectToMongo) => {
       const total = todas.length;
       const totalBacen = bacen.length;
       const totalOuvidoria = ouvidoria.length;
+      // Em andamento = Finalizado.Resolvido não existe ou é false
       const emTratativa = todas.filter(r => 
-        r.status === 'em_tratativa' || r.status === 'em tratativa' || r.status === 'nova'
+        !r.Finalizado || r.Finalizado.Resolvido !== true
       ).length;
+      // Resolvidas = Finalizado.Resolvido === true
       const concluidas = todas.filter(r => 
-        r.status === 'concluida' || r.status === 'concluída'
+        r.Finalizado?.Resolvido === true
       ).length;
       
       // Prazo vencendo (prazoBacen <= hoje + 3 dias)
@@ -196,9 +202,8 @@ const initDashboardRoutes = (client, connectToMongo) => {
         }
       }
 
-      // Combinar filtro de data com filtro de não deletadas
+      // Usar apenas filtro de data (sem filtro deletada)
       const filtroCompleto = {
-        deletada: { $ne: true },
         ...filtroData
       };
 
@@ -211,23 +216,24 @@ const initDashboardRoutes = (client, connectToMongo) => {
       const todas = [...bacen, ...ouvidoria];
       
       const total = todas.length;
+      // Resolvidas = Finalizado.Resolvido === true
       const concluidas = todas.filter(r => 
-        r.status === 'concluida' || r.status === 'concluída'
+        r.Finalizado?.Resolvido === true
       ).length;
       
       // Taxa de resolução
       const taxaResolucao = total > 0 ? Math.round((concluidas / total) * 100) : 0;
 
-      // Média de prazo (dias entre criação e conclusão)
+      // Média de prazo (dias entre criação e dataResolucao)
       const concluidasComData = todas.filter(r => {
-        return (r.status === 'concluida' || r.status === 'concluída') && r.createdAt && r.updatedAt;
+        return r.Finalizado?.Resolvido === true && r.createdAt && r.Finalizado?.dataResolucao;
       });
       
       let mediaPrazo = 0;
       if (concluidasComData.length > 0) {
         const somaDias = concluidasComData.reduce((acc, r) => {
           const inicio = new Date(r.createdAt);
-          const fim = new Date(r.updatedAt);
+          const fim = new Date(r.Finalizado.dataResolucao);
           const dias = Math.ceil((fim - inicio) / (1000 * 60 * 60 * 24));
           return acc + dias;
         }, 0);

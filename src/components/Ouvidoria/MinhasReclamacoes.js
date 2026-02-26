@@ -1,6 +1,11 @@
 /**
  * VeloHub V3 - MinhasReclamacoes Component
- * VERSION: v1.4.0 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.5.0 | DATE: 2025-02-20 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.5.0:
+ * - Removido campo status (usar Finalizado.Resolvido para determinar se está em andamento ou resolvido)
+ * - Removido campo mes da exibição
+ * - Removido suporte para filtro por idSecao
  * 
  * Mudanças v1.4.0:
  * - Readequado modal de detalhes para seguir o mesmo padrão de ListaReclamacoes
@@ -8,10 +13,6 @@
  * - Campos organizados em cards com fundo cinza (bg-gray-50 dark:bg-gray-700)
  * - Melhor formatação e espaçamento das seções
  * - Removido campo RDR (vestígio do sistema antigo)
- * 
- * Mudanças v1.3.0:
- * - Adicionado suporte para filtro por ID da seção do agente
- * - Prioriza filtro por idSecao quando disponível, caso contrário usa colaboradorNome
  * 
  * Mudanças v1.2.0:
  * - Removido header com gradiente e ícone
@@ -28,7 +29,7 @@ import React, { useState, useEffect } from 'react';
 import { reclamacoesAPI } from '../../services/ouvidoriaApi';
 import toast from 'react-hot-toast';
 
-const MinhasReclamacoes = ({ colaboradorNome, userEmail, idSecao }) => {
+const MinhasReclamacoes = ({ colaboradorNome, userEmail }) => {
   const [reclamacoes, setReclamacoes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedReclamacao, setSelectedReclamacao] = useState(null);
@@ -50,10 +51,7 @@ const MinhasReclamacoes = ({ colaboradorNome, userEmail, idSecao }) => {
 
     setLoading(true);
     try {
-      // Se tiver idSecao, usar para filtrar; caso contrário, usar colaboradorNome
-      const resultado = idSecao 
-        ? await reclamacoesAPI.getByIdSecao(idSecao)
-        : await reclamacoesAPI.getByColaborador(colaboradorNome);
+      const resultado = await reclamacoesAPI.getByColaborador(colaboradorNome);
       const dados = resultado.data || resultado || [];
       setReclamacoes(dados);
     } catch (error) {
@@ -87,21 +85,19 @@ const MinhasReclamacoes = ({ colaboradorNome, userEmail, idSecao }) => {
   };
 
   /**
-   * Obter cor do status
+   * Obter status baseado em Finalizado.Resolvido
    */
-  const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'concluida':
-      case 'concluída':
-        return 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-200';
-      case 'em_tratativa':
-      case 'em tratativa':
-        return 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200';
-      case 'nova':
-        return 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200';
-      default:
-        return 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200';
+  const getStatusInfo = (reclamacao) => {
+    if (reclamacao.Finalizado?.Resolvido === true) {
+      return {
+        texto: 'Resolvido',
+        cor: 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-200'
+      };
     }
+    return {
+      texto: 'Em Andamento',
+      cor: 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200'
+    };
   };
 
   if (loading) {
@@ -133,16 +129,20 @@ const MinhasReclamacoes = ({ colaboradorNome, userEmail, idSecao }) => {
                 <span>
                   {reclamacao.nome || 'Sem nome'} — {formatCPF(reclamacao.cpf)}
                 </span>
-                    <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${getStatusColor(reclamacao.status)}`}>
-                      {reclamacao.status || 'N/A'}
-                    </span>
+                    {(() => {
+                      const statusInfo = getStatusInfo(reclamacao);
+                      return (
+                        <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${statusInfo.cor}`}>
+                          {statusInfo.texto}
+                        </span>
+                      );
+                    })()}
                 <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200">
                   {reclamacao.tipo || 'BACEN'}
                 </span>
               </div>
               <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2 mb-1">
-                <span>Data: {formatDate(reclamacao.dataEntrada || reclamacao.createdAt)}</span>
-                {reclamacao.mes && <span>• Mês: {reclamacao.mes}</span>}
+                <span>Data: {formatDate(reclamacao.dataEntrada || reclamacao.dataEntradaAtendimento || reclamacao.createdAt)}</span>
                 {reclamacao.motivoReduzido && <span>• {reclamacao.motivoReduzido}</span>}
               </div>
             </div>
@@ -209,7 +209,7 @@ const MinhasReclamacoes = ({ colaboradorNome, userEmail, idSecao }) => {
                     <div className="grid grid-cols-3 gap-4 text-base text-gray-800 dark:text-gray-200">
                       <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                         <strong className="text-sm text-gray-600 dark:text-gray-400 block mb-1">Data Entrada:</strong>
-                        <span style={{ color: 'var(--cor-texto-principal)' }}>{formatDate(selectedReclamacao.dataEntrada || selectedReclamacao.createdAt)}</span>
+                        <span style={{ color: 'var(--cor-texto-principal)' }}>{formatDate(selectedReclamacao.dataEntrada || selectedReclamacao.dataEntradaAtendimento || selectedReclamacao.createdAt)}</span>
                       </div>
                       <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                         <strong className="text-sm text-gray-600 dark:text-gray-400 block mb-1">Tipo:</strong>
@@ -217,9 +217,14 @@ const MinhasReclamacoes = ({ colaboradorNome, userEmail, idSecao }) => {
                       </div>
                       <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                         <strong className="text-sm text-gray-600 dark:text-gray-400 block mb-1">Status:</strong>
-                        <span className={`px-2 py-1 rounded text-xs font-medium inline-block ${getStatusColor(selectedReclamacao.status)}`}>
-                          {selectedReclamacao.status || '-'}
-                        </span>
+                        {(() => {
+                          const statusInfo = getStatusInfo(selectedReclamacao);
+                          return (
+                            <span className={`px-2 py-1 rounded text-xs font-medium inline-block ${statusInfo.cor}`}>
+                              {statusInfo.texto}
+                            </span>
+                          );
+                        })()}
                       </div>
                     </div>
 
@@ -241,15 +246,6 @@ const MinhasReclamacoes = ({ colaboradorNome, userEmail, idSecao }) => {
                       </div>
                     )}
 
-                    {/* Linha 4: Mês (se houver) */}
-                    {selectedReclamacao.mes && (
-                      <div className="grid grid-cols-1 gap-4 text-base text-gray-800 dark:text-gray-200">
-                        <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                          <strong className="text-sm text-gray-600 dark:text-gray-400 block mb-1">Mês:</strong>
-                          <span style={{ color: 'var(--cor-texto-principal)' }}>{selectedReclamacao.mes}</span>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
 

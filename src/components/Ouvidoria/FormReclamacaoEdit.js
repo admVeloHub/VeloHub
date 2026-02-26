@@ -1,6 +1,13 @@
 /**
  * VeloHub V3 - FormReclamacaoEdit Component
- * VERSION: v1.0.0 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.2.0 | DATE: 2025-02-20 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.2.0:
+ * - Removido campo casosCriticos (não conectado ao formulário principal)
+ * 
+ * Mudanças v1.1.0:
+ * - Removido campo status (usar Finalizado.Resolvido para determinar se está em andamento ou resolvido)
+ * - Removido campo mes do formulário OUVIDORIA
  * 
  * Componente de formulário para edição de reclamações BACEN e Ouvidoria
  * Baseado no FormReclamacao.js mas adaptado para edição
@@ -103,7 +110,6 @@ const converterParaFormData = (reclamacao) => {
       : { lista: [''] },
     email: reclamacao.email || '',
     observacoes: reclamacao.observacoes || '',
-    status: reclamacao.status || 'nao-iniciado',
     tipo: reclamacao.tipo || 'BACEN',
     
     // Campos BACEN
@@ -117,8 +123,6 @@ const converterParaFormData = (reclamacao) => {
     
     // Campos OUVIDORIA
     dataEntradaAtendimento: formatarDataInput(reclamacao.dataEntradaAtendimento),
-    dataEntradaN2: formatarDataInput(reclamacao.dataEntradaN2),
-    mes: reclamacao.mes || '',
     prazoOuvidoria: formatarDataInput(reclamacao.prazoOuvidoria),
     
     // Campos compartilhados
@@ -144,7 +148,6 @@ const converterParaFormData = (reclamacao) => {
     pixStatus: reclamacao.pixStatus || '',
     statusContratoQuitado: reclamacao.statusContratoQuitado || false,
     statusContratoAberto: reclamacao.statusContratoAberto || false,
-    casosCriticos: reclamacao.casosCriticos || false,
   };
 };
 
@@ -176,7 +179,6 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
     telefones: { lista: [''] },
     email: '',
     observacoes: '',
-    status: 'nao-iniciado',
     tipo: 'BACEN',
     dataEntrada: new Date().toISOString().split('T')[0],
     origem: '',
@@ -186,8 +188,6 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
     motivoReduzido: '',
     motivoDetalhado: '',
     dataEntradaAtendimento: '',
-    dataEntradaN2: '',
-    mes: '',
     prazoOuvidoria: '',
     tentativasContato: { lista: [{ data: '', meio: '', resultado: '' }] },
     acionouCentral: false,
@@ -201,7 +201,6 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
     pixStatus: '',
     statusContratoQuitado: false,
     statusContratoAberto: false,
-    casosCriticos: false,
   });
 
   const [loading, setLoading] = useState(false);
@@ -286,12 +285,6 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
       if (!formData.dataEntradaAtendimento) {
         novosErros.dataEntradaAtendimento = 'Data de entrada é obrigatória';
       }
-      if (!formData.dataEntradaN2) {
-        novosErros.dataEntradaN2 = 'Data entrada N2 é obrigatória';
-      }
-      if (!formData.mes) {
-        novosErros.mes = 'Mês é obrigatório';
-      }
       if (!formData.origem) {
         novosErros.origem = 'Origem é obrigatória';
       }
@@ -333,7 +326,6 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
         telefones: { lista: formData.telefones.lista.filter(t => t.trim() !== '') },
         email: formData.email || '',
         observacoes: formData.observacoes,
-        status: formData.status,
         responsavel: responsavel,
         userEmail: userEmail,
         updatedAt: new Date(),
@@ -370,14 +362,11 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           pixStatus: formData.pixStatus,
           statusContratoQuitado: formData.statusContratoQuitado,
           statusContratoAberto: formData.statusContratoAberto,
-          casosCriticos: formData.casosCriticos,
         };
       } else if (formData.tipo === 'OUVIDORIA') {
         payload = {
           ...payload,
           dataEntradaAtendimento: formData.dataEntradaAtendimento,
-          dataEntradaN2: formData.dataEntradaN2,
-          mes: formData.mes || '',
           origem: formData.origem || '',
           produto: formData.produto || '',
           prazoOuvidoria: formData.prazoOuvidoria || '',
@@ -396,7 +385,6 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           pixStatus: formData.pixStatus,
           statusContratoQuitado: formData.statusContratoQuitado,
           statusContratoAberto: formData.statusContratoAberto,
-          casosCriticos: formData.casosCriticos,
         };
       }
 
@@ -652,7 +640,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
       <div className="velohub-card">
         <h3 className="text-xl font-semibold mb-4 velohub-title">Reclamação</h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
               Produto
@@ -680,6 +668,24 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
 
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              Origem *
+            </label>
+            <select
+              value={formData.origem}
+              onChange={(e) => setFormData(prev => ({ ...prev, origem: e.target.value }))}
+              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              required
+            >
+              <option value="">Selecione...</option>
+              <option value="Telefone">Telefone</option>
+              <option value="Ticket">Ticket</option>
+              <option value="Chatbot">Chatbot</option>
+            </select>
+            {errors.origem && <span className="text-red-500 text-xs">{errors.origem}</span>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
               Data de Entrada *
             </label>
             <input
@@ -694,54 +700,18 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
 
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Origem *
-            </label>
-            <select
-              value={formData.origem}
-              onChange={(e) => setFormData(prev => ({ ...prev, origem: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              required
-            >
-              <option value="">Selecione...</option>
-              <option value="Telefone">Telefone</option>
-              <option value="Ticket">Ticket</option>
-            </select>
-            {errors.origem && <span className="text-red-500 text-xs">{errors.origem}</span>}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Data Entrada N2 *
+              Prazo
             </label>
             <input
               type="date"
-              value={formData.dataEntradaN2}
-              onChange={(e) => setFormData(prev => ({ ...prev, dataEntradaN2: e.target.value }))}
+              value={formData.prazoOuvidoria}
+              onChange={(e) => setFormData(prev => ({ ...prev, prazoOuvidoria: e.target.value }))}
               className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              required
             />
-            {errors.dataEntradaN2 && <span className="text-red-500 text-xs">{errors.dataEntradaN2}</span>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Mês *
-            </label>
-            <input
-              type="text"
-              value={formData.mes}
-              onChange={(e) => setFormData(prev => ({ ...prev, mes: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              placeholder="MM/AAAA"
-              required
-            />
-            {errors.mes && <span className="text-red-500 text-xs">{errors.mes}</span>}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
               Motivo *
@@ -758,18 +728,6 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
               ))}
             </select>
             {errors.motivoReduzido && <span className="text-red-500 text-xs">{errors.motivoReduzido}</span>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Prazo
-            </label>
-            <input
-              type="date"
-              value={formData.prazoOuvidoria}
-              onChange={(e) => setFormData(prev => ({ ...prev, prazoOuvidoria: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            />
           </div>
         </div>
 
@@ -1328,23 +1286,8 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           </div>
         </div>
       </div>
-
-      {/* Casos Críticos */}
-      <div className="mb-4">
-        <label className="flex items-center">
-          <input
-            type="checkbox"
-            checked={formData.casosCriticos}
-            onChange={(e) => setFormData(prev => ({ ...prev, casosCriticos: e.target.checked }))}
-            className="mr-2"
-          />
-          <span>Casos Críticos</span>
-        </label>
-      </div>
     </div>
   );
-
-  if (!reclamacao) return null;
 
   return (
     <form onSubmit={(e) => handleSubmit(e)} className="space-y-6">

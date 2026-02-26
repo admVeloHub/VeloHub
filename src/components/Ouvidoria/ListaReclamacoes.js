@@ -1,6 +1,10 @@
 /**
  * VeloHub V3 - ListaReclamacoes Component
- * VERSION: v1.8.0 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.9.0 | DATE: 2025-02-20 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.9.0:
+ * - Removido campo status (usar Finalizado.Resolvido para determinar se está em andamento ou resolvido)
+ * - Removido filtro de status
  * 
  * Mudanças v1.8.0:
  * - Modal de detalhes substituído por formulário de edição completo
@@ -129,13 +133,11 @@ const ListaReclamacoes = () => {
   const [loading, setLoading] = useState(false);
   const [colaboradores, setColaboradores] = useState([]);
   const [filtros, setFiltros] = useState({
-    status: '',
     tipo: '',
     cpf: '',
     colaboradorNome: '',
   });
   const [filtrosAplicados, setFiltrosAplicados] = useState({
-    status: '',
     tipo: '',
     cpf: '',
     colaboradorNome: '',
@@ -182,7 +184,7 @@ const ListaReclamacoes = () => {
    * Limpar filtros
    */
   const limparFiltros = () => {
-    const filtrosLimpos = { status: '', tipo: '', cpf: '', colaboradorNome: '' };
+    const filtrosLimpos = { tipo: '', cpf: '', colaboradorNome: '' };
     setFiltros(filtrosLimpos);
     setFiltrosAplicados(filtrosLimpos);
     setPaginacao(prev => ({ ...prev, page: 1 }));
@@ -201,9 +203,6 @@ const ListaReclamacoes = () => {
         let dados = resultado.data || resultado || [];
         
         // Aplicar filtros adicionais
-        if (filtrosAplicados.status) {
-          dados = dados.filter(r => r.status === filtrosAplicados.status);
-        }
         if (filtrosAplicados.tipo) {
           dados = dados.filter(r => r.tipo === filtrosAplicados.tipo);
         }
@@ -216,9 +215,6 @@ const ListaReclamacoes = () => {
         let dados = resultado.data || resultado || [];
         
         // Aplicar filtros adicionais
-        if (filtrosAplicados.status) {
-          dados = dados.filter(r => r.status === filtrosAplicados.status);
-        }
         if (filtrosAplicados.tipo) {
           dados = dados.filter(r => r.tipo === filtrosAplicados.tipo);
         }
@@ -233,7 +229,6 @@ const ListaReclamacoes = () => {
         };
         
         // Adicionar filtros como query params
-        if (filtrosAplicados.status) params.status = filtrosAplicados.status;
         if (filtrosAplicados.tipo) params.tipo = filtrosAplicados.tipo;
         
         resultado = await reclamacoesAPI.getAll(params);
@@ -293,21 +288,19 @@ const ListaReclamacoes = () => {
   };
 
   /**
-   * Obter cor do status
+   * Obter status baseado em Finalizado.Resolvido
    */
-  const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'concluida':
-      case 'concluída':
-        return 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-200';
-      case 'em_tratativa':
-      case 'em tratativa':
-        return 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200';
-      case 'nova':
-        return 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200';
-      default:
-        return 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200';
+  const getStatusInfo = (reclamacao) => {
+    if (reclamacao.Finalizado?.Resolvido === true) {
+      return {
+        texto: 'Resolvido',
+        cor: 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-200'
+      };
     }
+    return {
+      texto: 'Em Andamento',
+      cor: 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200'
+    };
   };
 
   if (loading) {
@@ -323,23 +316,6 @@ const ListaReclamacoes = () => {
       {/* Filtros */}
       <div className="velohub-card mb-6">
         <div className="flex items-end gap-3 flex-wrap">
-          <div className="flex-1 min-w-[150px]">
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Status
-            </label>
-            <select
-              value={filtros.status}
-              onChange={(e) => {
-                setFiltros(prev => ({ ...prev, status: e.target.value }));
-              }}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="">Todos</option>
-              <option value="nova">Nova</option>
-              <option value="em_tratativa">Em Tratativa</option>
-              <option value="concluida">Concluída</option>
-            </select>
-          </div>
 
           <div className="flex-1 min-w-[150px]">
             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
@@ -461,9 +437,14 @@ const ListaReclamacoes = () => {
                   <span>
                     {reclamacao.nome || 'Sem nome'} — {formatCPF(reclamacao.cpf)}
                   </span>
-                  <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${getStatusColor(reclamacao.status)}`}>
-                    {reclamacao.status || 'N/A'}
-                  </span>
+                  {(() => {
+                    const statusInfo = getStatusInfo(reclamacao);
+                    return (
+                      <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${statusInfo.cor}`}>
+                        {statusInfo.texto}
+                      </span>
+                    );
+                  })()}
                   <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200">
                     {reclamacao.tipo || 'BACEN'}
                   </span>

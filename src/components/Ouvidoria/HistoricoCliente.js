@@ -186,7 +186,7 @@ const HistoricoCliente = ({ searchCpf, setSearchCpf, searchResults, searchLoadin
                   Data: {formatDate(item.dataEntrada || item.createdAt)}
                 </div>
                 <div className="text-xs text-gray-600 dark:text-gray-400">
-                  Status: {item.status || 'N/A'}
+                  Status: {item.Finalizado?.Resolvido === true ? 'Resolvido' : 'Em Andamento'}
                 </div>
                 {item.motivoReduzido && (
                   <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
