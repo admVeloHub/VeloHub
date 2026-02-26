@@ -40,6 +40,51 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Atualizações Módulos Ouvidoria, Escalações e Scripts de Migração**
+- **Data/Hora**: 2026-02-25
+- **Tipo**: GitHub Push
+- **Commit**: d6c19db
+- **Arquivos Modificados**:
+  - `backend/middleware/ouvidoriaAccess.js` (atualizações middleware)
+  - `backend/routes/api/escalacoes/solicitacoes.js` (melhorias rotas)
+  - `backend/routes/api/ouvidoria/colaboradores.js` (atualizações rotas)
+  - `backend/routes/api/ouvidoria/dashboard.js` (atualizações rotas)
+  - `backend/routes/api/ouvidoria/reclamacoes.js` (atualizações rotas)
+  - `backend/routes/api/ouvidoria/relatorios.js` (atualizações rotas)
+  - `backend/services/escalacoes/whatsappService.js` (melhorias serviço WhatsApp)
+  - `painel de serviços/lib/apiConfig.js` (atualizações configuração)
+  - `src/components/Ouvidoria/DashboardOuvidoria.js` (atualizações componente)
+  - `src/components/Ouvidoria/FormReclamacao.js` (atualizações componente)
+  - `src/components/Ouvidoria/FormReclamacaoEdit.js` (atualizações componente)
+  - `src/components/Ouvidoria/HistoricoCliente.js` (atualizações componente)
+  - `src/components/Ouvidoria/ListaReclamacoes.js` (atualizações componente)
+  - `src/components/Ouvidoria/MinhasReclamacoes.js` (atualizações componente)
+  - `src/components/Ouvidoria/RelatoriosOuvidoria.js` (atualizações componente)
+  - `src/config/api-config.js` (atualizações configuração)
+  - `src/pages/OuvidoriaPage.js` (atualizações página)
+  - `src/services/ouvidoriaApi.js` (atualizações serviço)
+  - `backend/scripts/README_MIGRACAO_CSV.md` (NOVO - documentação)
+  - `backend/scripts/README_SYNC_FIREBASE.md` (NOVO - documentação)
+  - `backend/scripts/RELATORIO_FINAL.md` (NOVO - relatório)
+  - `backend/scripts/debug-cabecalho-ouvidoria.js` (NOVO - script debug)
+  - `backend/scripts/debug-parsing-detalhado.js` (NOVO - script debug)
+  - `backend/scripts/migrate-bacen-2025.js` (NOVO - script migração)
+  - `backend/scripts/migrate-bacen-2026.js` (NOVO - script migração)
+  - `backend/scripts/migrate-ouvidoria-2025.js` (NOVO - script migração)
+  - `backend/scripts/migrate-ouvidoria-2026.js` (NOVO - script migração)
+  - `backend/scripts/sync-csv-to-mongodb.js` (NOVO - script sincronização)
+  - `backend/scripts/sync-firebase-to-mongodb.js` (NOVO - script sincronização)
+  - `backend/scripts/test-parse-cabecalho.js` (NOVO - script teste)
+  - `backend/scripts/utils/csv-parser.js` (NOVO - utilitário parser)
+  - `backend/scripts/verificar-todos-registros.js` (NOVO - script verificação)
+- **Descrição**: 
+  - Atualizações no módulo Ouvidoria (componentes e rotas API)
+  - Melhorias no módulo Escalações (solicitações e WhatsApp service)
+  - Adicionados scripts de migração e sincronização (CSV, Firebase, BACEN, Ouvidoria)
+  - Atualizações em configurações de API e painel de serviços
+  - Documentação de migração e relatórios adicionados
+- **Status**: ✅ Concluído com sucesso
+
 ### **GitHub Push - Correção Container Velonews: Dimensionamento Dinâmico e Remoção URLs de Imagens**
 - **Data/Hora**: 2026-02-25
 - **Tipo**: GitHub Push
