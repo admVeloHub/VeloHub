@@ -692,7 +692,7 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
       }
 
       // Enviar reação ✓ via API WhatsApp
-      const whatsappApiUrl = config.WHATSAPP_API_URL || 'https://genes-conservation-perth-beverages.trycloudflare.com';
+      const whatsappApiUrl = config.WHATSAPP_API_URL || 'https://carmina-peskier-balletically.ngrok-free.dev';
       try {
         const reactResponse = await fetch(`${whatsappApiUrl}/react`, {
           method: 'POST',

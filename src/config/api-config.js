@@ -1,7 +1,10 @@
 /**
  * VeloHub V3 - API Configuration
- * VERSION: v1.0.19 | DATE: 2025-02-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.20 | DATE: 2025-02-26 | AUTHOR: VeloHub Development Team
  * REGRA: Frontend porta 8080 | Backend porta 8090 | VeloChat Server porta 3002 na rede local
+ * 
+ * Mudanças v1.0.20:
+ * - Alterada URL da API WhatsApp de produção para https://carmina-peskier-balletically.ngrok-free.dev
  * 
  * Mudanças v1.0.19:
  * - Alterada URL da API WhatsApp de produção para https://genes-conservation-perth-beverages.trycloudflare.com
@@ -79,12 +82,12 @@ export const getApiBaseUrl = () => {
 
 /**
  * Obtém a URL da API do WhatsApp baseada no ambiente
- * VERSION: v1.0.19 | DATE: 2025-02-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.20 | DATE: 2025-02-26 | AUTHOR: VeloHub Development Team
  * @returns {string} URL base da API do WhatsApp (sem /send no final)
  * 
  * API WhatsApp:
  * - Local: http://localhost:3001
- * - Produção: https://genes-conservation-perth-beverages.trycloudflare.com
+ * - Produção: https://carmina-peskier-balletically.ngrok-free.dev
  */
 export const getWhatsAppApiUrl = () => {
   // Prioridade 1: Variável de ambiente específica para WhatsApp
@@ -96,9 +99,9 @@ export const getWhatsAppApiUrl = () => {
   if (typeof window !== 'undefined') {
     const currentHost = window.location.hostname;
     
-    // Em produção (domínio velotax.com.br ou velohub), usar API Cloudflare Tunnel
+    // Em produção (domínio velotax.com.br ou velohub), usar API ngrok
     if (currentHost.includes('velotax.com.br') || currentHost.includes('velohub')) {
-      return 'https://genes-conservation-perth-beverages.trycloudflare.com';
+      return 'https://carmina-peskier-balletically.ngrok-free.dev';
     }
     
     // Em desenvolvimento (localhost), usar localhost:3001
@@ -107,18 +110,18 @@ export const getWhatsAppApiUrl = () => {
     }
   }
   
-  // Fallback: usar Cloudflare Tunnel em produção
-  return 'https://genes-conservation-perth-beverages.trycloudflare.com';
+  // Fallback: usar ngrok em produção
+  return 'https://carmina-peskier-balletically.ngrok-free.dev';
 };
 
 /**
  * Obtém o endpoint completo da API do WhatsApp baseado no ambiente
- * VERSION: v1.0.19 | DATE: 2025-02-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.20 | DATE: 2025-02-26 | AUTHOR: VeloHub Development Team
  * @returns {string} URL completa do endpoint WhatsApp (incluindo /send ou /api/whatsapp/send)
  * 
  * Endpoints:
  * - Local (localhost:3001): /api/whatsapp/send
- * - Produção (Cloudflare Tunnel): /send
+ * - Produção (ngrok): /send
  */
 export const getWhatsAppEndpoint = () => {
   const apiUrl = getWhatsAppApiUrl();
