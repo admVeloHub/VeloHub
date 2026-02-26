@@ -231,7 +231,7 @@ const DashboardOuvidoria = ({ stats, loading, onRefresh }) => {
           className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl text-center border hover:-translate-y-0.5 transition-transform"
           style={{ borderColor: '#000058' }}
         >
-          <div className="text-xs text-gray-600 dark:text-gray-400">Ouvidoria</div>
+          <div className="text-xs text-gray-600 dark:text-gray-400">N2 Pix</div>
           <div className="text-2xl font-semibold text-gray-800 dark:text-gray-200">
             {statsData.totalOuvidoria || 0}
           </div>

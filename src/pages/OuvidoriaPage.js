@@ -74,7 +74,6 @@ const OuvidoriaPage = () => {
   const [userSession, setUserSession] = useState(null);
   const [dashboardStats, setDashboardStats] = useState(null);
   const [dashboardLoading, setDashboardLoading] = useState(false);
-  const [idSecao, setIdSecao] = useState(null);
   
   // Estados do sidebar direito com chat
   const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(true); // Recolhido por padrão
@@ -108,33 +107,11 @@ const OuvidoriaPage = () => {
     }
   };
 
-  // Carregar sessão do usuário e ID da seção
+  // Carregar sessão do usuário
   useEffect(() => {
     const session = getUserSession();
     setUserSession(session);
-    
-    // Buscar ID da seção do usuário
-    if (session?.user?.email) {
-      loadIdSecao(session.user.email);
-    }
   }, []);
-
-  /**
-   * Carregar ID da seção do usuário
-   */
-  const loadIdSecao = async (email) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/profile?email=${encodeURIComponent(email)}`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.profile?.idSecao) {
-          setIdSecao(data.profile.idSecao);
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao carregar ID da seção:', error);
-    }
-  };
 
   // Carregar estatísticas do dashboard
   useEffect(() => {
@@ -480,14 +457,12 @@ const OuvidoriaPage = () => {
           <MinhasReclamacoes 
             colaboradorNome={userSession?.user?.name}
             userEmail={userSession?.user?.email}
-            idSecao={idSecao}
           />
         );
       case 'nova':
         return (
           <FormReclamacao 
             responsavel={userSession?.user?.name}
-            userEmail={userSession?.user?.email}
             onSuccess={() => {
               toast.success('Reclamação criada com sucesso!');
               setActiveTab('minhas');

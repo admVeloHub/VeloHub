@@ -1,6 +1,13 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Reclamações
- * VERSION: v2.3.0 | DATE: 2025-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.5.0 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.4.0:
+ * - Removido campo status (usar Finalizado.Resolvido para determinar se está em andamento ou resolvido)
+ * - Removido filtro idSecao
+ * - Removidos filtros deletada/deletedAt (soft delete não será mais usado)
+ * - Removida rota DELETE (soft delete)
+ * - Removido índice de status
  * 
  * Mudanças v2.3.0:
  * - Removida rota GET /colaboradores (movida para arquivo separado colaboradores.js)
@@ -14,7 +21,6 @@
  * Mudanças v2.1.0:
  * - Removidos vestígios da metodologia anterior
  * - Suporte apenas para criação de reclamações BACEN e OUVIDORIA
- * - Coleção reclamacoes_chatbot mantida apenas para leitura de dados antigos (migração)
  * 
  * Mudanças v2.0.0:
  * - Separação em coleções: reclamacoes_bacen, reclamacoes_ouvidoria
@@ -42,9 +48,6 @@ const getCollectionByType = (db, tipo) => {
       return db.collection('reclamacoes_bacen');
     case 'OUVIDORIA':
       return db.collection('reclamacoes_ouvidoria');
-    case 'CHATBOT':
-      // Suporte apenas para leitura de dados antigos (migração)
-      return db.collection('reclamacoes_chatbot');
     default:
       // Fallback para BACEN se tipo não especificado
       return db.collection('reclamacoes_bacen');
@@ -65,10 +68,6 @@ const createIndexes = async (collection, collectionName) => {
     // Criar índice em telefones.lista para buscas em telefones
     await collection.createIndex({ 'telefones.lista': 1 });
     console.log(`✅ Índice criado em ${collectionName}: telefones.lista`);
-    
-    // Criar índice em status para buscas comuns
-    await collection.createIndex({ status: 1 });
-    console.log(`✅ Índice criado em ${collectionName}: status`);
     
     // Criar índice em createdAt para ordenação
     await collection.createIndex({ createdAt: -1 });
@@ -101,7 +100,6 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         // Criar índices para cada coleção
         await createIndexes(db.collection('reclamacoes_bacen'), 'reclamacoes_bacen');
         await createIndexes(db.collection('reclamacoes_ouvidoria'), 'reclamacoes_ouvidoria');
-        // reclamacoes_chatbot mantida apenas para leitura de dados antigos (migração)
       }
     } catch (error) {
       console.error('❌ Erro ao criar índices MongoDB:', error);
@@ -127,7 +125,7 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
       const db = client.db('hub_ouvidoria');
 
       // Filtros opcionais
-      const { cpf, colaboradorNome, tipo, status, idSecao, page = '1', limit = '20' } = req.query;
+      const { cpf, colaboradorNome, tipo, page = '1', limit = '20' } = req.query;
       const filter = {};
       
       if (cpf) {
@@ -136,13 +134,6 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
       if (colaboradorNome) {
         filter.responsavel = { $regex: String(colaboradorNome), $options: 'i' };
       }
-      if (idSecao) {
-        filter.idSecao = String(idSecao);
-      }
-      if (status) {
-        filter.status = String(status);
-      }
-      filter.deletada = { $ne: true };
 
       // Parâmetros de paginação
       const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -237,18 +228,16 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         reclamacao = await collection.findOne({ _id: new ObjectId(id) });
       } else {
         // Buscar em todas as coleções
-        const [bacen, ouvidoria, chatbot] = await Promise.all([
+        const [bacen, ouvidoria] = await Promise.all([
           db.collection('reclamacoes_bacen').findOne({ _id: new ObjectId(id) }),
-          db.collection('reclamacoes_ouvidoria').findOne({ _id: new ObjectId(id) }),
-          db.collection('reclamacoes_chatbot').findOne({ _id: new ObjectId(id) })
+          db.collection('reclamacoes_ouvidoria').findOne({ _id: new ObjectId(id) })
         ]);
         
-        reclamacao = bacen || ouvidoria || chatbot;
+        reclamacao = bacen || ouvidoria;
         if (reclamacao) {
           // Adicionar tipo ao resultado
           if (bacen) reclamacao.tipo = 'BACEN';
           else if (ouvidoria) reclamacao.tipo = 'OUVIDORIA';
-          else if (chatbot) reclamacao.tipo = 'CHATBOT';
         }
       }
 
@@ -300,13 +289,6 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         });
       }
 
-      // Validar que tipo não é CHATBOT (não permite criação de novas reclamações ChatBot)
-      if (dados.tipo.toUpperCase() === 'CHATBOT') {
-        return res.status(400).json({
-          success: false,
-          message: 'Tipo CHATBOT não é mais suportado para criação de novas reclamações'
-        });
-      }
 
       // Validar campos obrigatórios básicos
       if (!dados.nome || !dados.cpf) {
@@ -357,7 +339,6 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
       const { tipo, ...dadosSemTipo } = dados;
       const documento = {
         ...dadosSemTipo,
-        status: dados.status || 'nova',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -497,77 +478,6 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
     }
   });
 
-  /**
-   * DELETE /api/ouvidoria/reclamacoes/:id
-   * Deletar reclamação (soft delete - marcar como deletada)
-   * Requer tipo como query param
-   */
-  router.delete('/:id', async (req, res) => {
-    try {
-      if (!client) {
-        return res.status(503).json({
-          success: false,
-          message: 'MongoDB não configurado'
-        });
-      }
-
-      await connectToMongo();
-      const db = client.db('hub_ouvidoria');
-
-      const { id } = req.params;
-      const { tipo } = req.query;
-
-      if (!ObjectId.isValid(id)) {
-        return res.status(400).json({
-          success: false,
-          message: 'ID inválido'
-        });
-      }
-
-      if (!tipo) {
-        return res.status(400).json({
-          success: false,
-          message: 'Tipo é obrigatório (query param)'
-        });
-      }
-
-      // Obter coleção correta
-      const collection = getCollectionByType(db, tipo);
-
-      // Soft delete - marcar como deletada ao invés de remover
-      const resultado = await collection.updateOne(
-        { _id: new ObjectId(id) },
-        { 
-          $set: { 
-            deletada: true,
-            deletedAt: new Date(),
-            updatedAt: new Date()
-          } 
-        }
-      );
-
-      if (resultado.matchedCount === 0) {
-        return res.status(404).json({
-          success: false,
-          message: 'Reclamação não encontrada'
-        });
-      }
-
-      console.log(`✅ Reclamação deletada: ${id}`);
-
-      res.json({
-        success: true,
-        message: 'Reclamação deletada com sucesso'
-      });
-    } catch (error) {
-      console.error('❌ Erro ao deletar reclamação:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Erro ao deletar reclamação',
-        error: error.message
-      });
-    }
-  });
 
 
   return router;

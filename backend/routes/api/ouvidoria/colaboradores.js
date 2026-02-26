@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Colaboradores
- * VERSION: v1.0.0 | DATE: 2025-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.1.0 | DATE: 2025-02-20 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.1.0:
+ * - Removido campo idSecao do retorno
  * 
  * Rotas para listagem de colaboradores com acesso à Ouvidoria
  */
@@ -45,7 +48,6 @@ const initColaboradoresRoutes = (client, connectToMongo) => {
       const colaboradores = funcionarios.map(func => ({
         nome: func.colaboradorNome || func.userMail || 'Sem nome',
         email: func.userMail || '',
-        idSecao: func.idSecao || func.secao || func.id_secao || null
       })).sort((a, b) => {
         // Ordenar alfabeticamente por nome
         return (a.nome || '').localeCompare(b.nome || '');

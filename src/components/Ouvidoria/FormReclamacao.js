@@ -1,14 +1,22 @@
 /**
  * VeloHub V3 - FormReclamacao Component
- * VERSION: v3.3.0 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.6.0 | DATE: 2025-02-20 | AUTHOR: VeloHub Development Team
  * 
  * Componente de formulário para criação de reclamações BACEN e Ouvidoria
  * 
+ * Mudanças v3.6.0:
+ * - Removido campo userEmail (nome do usuário obtido da sessão ativa no middleware)
+ * 
+ * Mudanças v3.5.0:
+ * - Removido campo casosCriticos (não conectado ao formulário)
+ * 
+ * Mudanças v3.4.0:
+ * - Removido campo status (usar Finalizado.Resolvido para determinar se está em andamento ou resolvido)
+ * - Removido campo mes do formulário OUVIDORIA
+ * 
  * Mudanças v3.3.0:
  * - Removidos vestígios da metodologia anterior do BACEN/N2 original
- * - Removida opção "Chatbot" do campo Origem (OUVIDORIA)
  * - Renomeado campo origemOuvidoria para origem (conforme schema)
- * - Adicionado campo mes ao formulário OUVIDORIA
  * - Adicionado campo dataEntradaN2 ao formulário OUVIDORIA
  * - Removida função gerarOpcoesMes não utilizada
  * - Simplificados comentários históricos
@@ -124,7 +132,7 @@ const MOTIVOS_REDUZIDOS = [
 ];
 
 
-const FormReclamacao = ({ responsavel, userEmail, onSuccess }) => {
+const FormReclamacao = ({ responsavel, onSuccess }) => {
   const [formData, setFormData] = useState({
     // Campos comuns
     nome: '',
@@ -132,7 +140,6 @@ const FormReclamacao = ({ responsavel, userEmail, onSuccess }) => {
     telefones: { lista: [''] },
     email: '',
     observacoes: '',
-    status: 'nao-iniciado',
     tipo: 'BACEN',
     
     // Campos BACEN
@@ -144,10 +151,8 @@ const FormReclamacao = ({ responsavel, userEmail, onSuccess }) => {
     motivoReduzido: '',
     motivoDetalhado: '',
     
-    // Campos N2/Ouvidoria
+    // Campos Ouvidoria
     dataEntradaAtendimento: '',
-    dataEntradaN2: '',
-    mes: '',
     origem: '',
     produto: '',
     prazoOuvidoria: '',
@@ -166,7 +171,6 @@ const FormReclamacao = ({ responsavel, userEmail, onSuccess }) => {
     pixStatus: '',
     statusContratoQuitado: false,
     statusContratoAberto: false,
-    casosCriticos: false,
   });
 
   const [loading, setLoading] = useState(false);
@@ -315,8 +319,6 @@ const FormReclamacao = ({ responsavel, userEmail, onSuccess }) => {
       }
     } else if (formData.tipo === 'OUVIDORIA') {
       if (!formData.dataEntradaAtendimento) novosErros.dataEntradaAtendimento = 'Data entrada atendimento é obrigatória';
-      if (!formData.dataEntradaN2) novosErros.dataEntradaN2 = 'Data entrada N2 é obrigatória';
-      if (!formData.mes) novosErros.mes = 'Mês é obrigatório';
       if (!formData.motivoReduzido) novosErros.motivoReduzido = 'Motivo é obrigatório';
       if (!formData.origem) novosErros.origem = 'Origem é obrigatória';
     }
@@ -349,7 +351,6 @@ const FormReclamacao = ({ responsavel, userEmail, onSuccess }) => {
       // Log para debug
       console.log(`🔍 [FormReclamacao] Dados antes de enviar:`, {
         responsavel,
-        userEmail,
         tipo: formData.tipo
       });
 
@@ -361,9 +362,7 @@ const FormReclamacao = ({ responsavel, userEmail, onSuccess }) => {
         telefones: { lista: formData.telefones.lista.filter(t => t.trim() !== '') },
         email: formData.email || '',
         observacoes: formData.observacoes,
-        status: formData.status,
         responsavel: responsavel, // Nome do usuário logado obtido da sessão
-        userEmail: userEmail, // Email do usuário logado (para o middleware)
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -400,14 +399,11 @@ const FormReclamacao = ({ responsavel, userEmail, onSuccess }) => {
           pixStatus: formData.pixStatus,
           statusContratoQuitado: formData.statusContratoQuitado,
           statusContratoAberto: formData.statusContratoAberto,
-          casosCriticos: formData.casosCriticos,
         };
       } else if (formData.tipo === 'OUVIDORIA') {
         payload = {
           ...payload,
           dataEntradaAtendimento: formData.dataEntradaAtendimento,
-          dataEntradaN2: formData.dataEntradaN2,
-          mes: formData.mes || '',
           origem: formData.origem || '',
           produto: formData.produto || '',
           prazoOuvidoria: formData.prazoOuvidoria || '',
@@ -426,7 +422,6 @@ const FormReclamacao = ({ responsavel, userEmail, onSuccess }) => {
           pixStatus: formData.pixStatus,
           statusContratoQuitado: formData.statusContratoQuitado,
           statusContratoAberto: formData.statusContratoAberto,
-          casosCriticos: formData.casosCriticos,
         };
       }
 
@@ -463,7 +458,6 @@ const FormReclamacao = ({ responsavel, userEmail, onSuccess }) => {
       telefones: { lista: [''] },
       email: '',
       observacoes: '',
-      status: 'nao-iniciado',
       tipo: formData.tipo, // Manter tipo selecionado
       dataEntrada: hoje,
       origem: '',
@@ -473,8 +467,6 @@ const FormReclamacao = ({ responsavel, userEmail, onSuccess }) => {
       motivoReduzido: '',
       motivoDetalhado: '',
       dataEntradaAtendimento: '',
-      dataEntradaN2: '',
-      mes: '',
       origem: '',
       produto: '',
       prazoOuvidoria: '',
@@ -491,7 +483,6 @@ const FormReclamacao = ({ responsavel, userEmail, onSuccess }) => {
       pixStatus: '',
       statusContratoQuitado: false,
       statusContratoAberto: false,
-      casosCriticos: false,
     });
     setErrors({});
   };
@@ -689,8 +680,8 @@ const FormReclamacao = ({ responsavel, userEmail, onSuccess }) => {
       <div className="velohub-card">
         <h3 className="text-xl font-semibold mb-4 velohub-title">Reclamação</h3>
         
-        {/* Linha 1: Produto | Data de Entrada | Origem */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        {/* Linha 1: Produto | Origem | Data de Entrada | Prazo */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
               Produto
@@ -718,6 +709,26 @@ const FormReclamacao = ({ responsavel, userEmail, onSuccess }) => {
 
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              Origem *
+            </label>
+            <select
+              value={formData.origem}
+              onChange={(e) => setFormData(prev => ({ ...prev, origem: e.target.value }))}
+              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              required
+            >
+              <option value="">Selecione...</option>
+              <option value="Telefone">Telefone</option>
+              <option value="Ticket">Ticket</option>
+              <option value="Chatbot">Chatbot</option>
+            </select>
+            {errors.origem && (
+              <span className="text-red-500 text-xs">{errors.origem}</span>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
               Data de Entrada *
             </label>
             <input
@@ -734,62 +745,19 @@ const FormReclamacao = ({ responsavel, userEmail, onSuccess }) => {
 
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Origem *
-            </label>
-            <select
-              value={formData.origem}
-              onChange={(e) => setFormData(prev => ({ ...prev, origem: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              required
-            >
-              <option value="">Selecione...</option>
-              <option value="Telefone">Telefone</option>
-              <option value="Ticket">Ticket</option>
-            </select>
-            {errors.origem && (
-              <span className="text-red-500 text-xs">{errors.origem}</span>
-            )}
-          </div>
-        </div>
-
-        {/* Linha 2: Data Entrada N2 | Mês */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Data Entrada N2 *
+              Prazo
             </label>
             <input
               type="date"
-              value={formData.dataEntradaN2}
-              onChange={(e) => setFormData(prev => ({ ...prev, dataEntradaN2: e.target.value }))}
+              value={formData.prazoOuvidoria}
+              onChange={(e) => setFormData(prev => ({ ...prev, prazoOuvidoria: e.target.value }))}
               className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              required
             />
-            {errors.dataEntradaN2 && (
-              <span className="text-red-500 text-xs">{errors.dataEntradaN2}</span>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Mês *
-            </label>
-            <input
-              type="text"
-              value={formData.mes}
-              onChange={(e) => setFormData(prev => ({ ...prev, mes: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              placeholder="MM/AAAA"
-              required
-            />
-            {errors.mes && (
-              <span className="text-red-500 text-xs">{errors.mes}</span>
-            )}
           </div>
         </div>
 
-        {/* Linha 3: Motivo | Prazo */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        {/* Linha 2: Motivo */}
+        <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
               Motivo *
@@ -808,18 +776,6 @@ const FormReclamacao = ({ responsavel, userEmail, onSuccess }) => {
             {errors.motivoReduzido && (
               <span className="text-red-500 text-xs">{errors.motivoReduzido}</span>
             )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Prazo
-            </label>
-            <input
-              type="date"
-              value={formData.prazoOuvidoria}
-              onChange={(e) => setFormData(prev => ({ ...prev, prazoOuvidoria: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            />
           </div>
         </div>
 
@@ -1418,8 +1374,6 @@ const FormReclamacao = ({ responsavel, userEmail, onSuccess }) => {
                   motivoReduzido: '',
                   motivoDetalhado: '',
                   dataEntradaAtendimento: '',
-                  dataEntradaN2: '',
-                  mes: '',
                   origem: '',
                   produto: '',
                   prazoOuvidoria: '',
@@ -1431,7 +1385,7 @@ const FormReclamacao = ({ responsavel, userEmail, onSuccess }) => {
               required
             >
               <option value="BACEN">Bacen</option>
-              <option value="OUVIDORIA">Ouvidoria</option>
+              <option value="OUVIDORIA">N2 Pix</option>
             </select>
             {errors.tipo && (
               <span className="text-red-500 text-xs">{errors.tipo}</span>

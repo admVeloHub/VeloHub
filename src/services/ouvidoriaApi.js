@@ -1,22 +1,22 @@
 /**
  * VeloHub V3 - Ouvidoria API Service
- * VERSION: v2.0.0 | DATE: 2025-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.3.0 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.2.0:
+ * - Removido método getByIdSecao (campo idSecao removido)
  * 
  * Mudanças v2.0.0:
- * - Atualizado para suportar coleções separadas (reclamacoes_bacen, reclamacoes_ouvidoria, reclamacoes_chatbot)
+ * - Atualizado para suportar coleções separadas (reclamacoes_bacen, reclamacoes_ouvidoria)
  * - getById e update agora requerem tipo como parâmetro
  * 
  * Mudanças v1.3.0:
  * - Adicionado método uploadAnexo para upload de arquivos para Cloud Storage
  * 
- * Mudanças v1.2.0:
- * - Adicionado método getByIdSecao para filtrar reclamações por ID da seção do agente
- * 
  * Mudanças v1.1.0:
  * - Adicionado envio automático de email e sessionId nos headers das requisições
  * - Headers x-user-email e x-session-id incluídos para middleware de acesso
  * 
- * Serviço de API para o módulo de Ouvidoria (BACEN, Ouvidoria, ChatBot)
+ * Serviço de API para o módulo de Ouvidoria (BACEN, N2 Pix)
  */
 
 import { API_BASE_URL } from '../config/api-config';
@@ -112,14 +112,13 @@ async function apiRequest(endpoint, options = {}) {
 export const reclamacoesAPI = {
   /**
    * Buscar todas as reclamações
-   * @param {Object} params - Parâmetros opcionais (page, limit, status, tipo)
+   * @param {Object} params - Parâmetros opcionais (page, limit, tipo)
    * @returns {Promise<Object>} Objeto com data, count, total, page, limit, totalPages
    */
   getAll: (params = {}) => {
     const query = new URLSearchParams();
     if (params.page) query.append('page', params.page);
     if (params.limit) query.append('limit', params.limit);
-    if (params.status) query.append('status', params.status);
     if (params.tipo) query.append('tipo', params.tipo);
     const queryString = query.toString();
     return apiRequest(`/ouvidoria/reclamacoes${queryString ? `?${queryString}` : ''}`);
@@ -128,7 +127,7 @@ export const reclamacoesAPI = {
   /**
    * Buscar reclamação por ID
    * @param {string} id - ID da reclamação
-   * @param {string} tipo - Tipo da reclamação (BACEN, OUVIDORIA, CHATBOT) - opcional, busca em todas se não informado
+   * @param {string} tipo - Tipo da reclamação (BACEN, OUVIDORIA) - opcional, busca em todas se não informado
    * @returns {Promise<Object>} Reclamação
    */
   getById: (id, tipo = null) => {
@@ -152,7 +151,7 @@ export const reclamacoesAPI = {
    * Atualizar reclamação
    * @param {string} id - ID da reclamação
    * @param {Object} data - Dados atualizados (deve incluir campo 'tipo' ou passar como query param)
-   * @param {string} tipo - Tipo da reclamação (BACEN, OUVIDORIA, CHATBOT) - opcional se estiver em data.tipo
+   * @param {string} tipo - Tipo da reclamação (BACEN, OUVIDORIA) - opcional se estiver em data.tipo
    * @returns {Promise<Object>} Reclamação atualizada
    */
   update: (id, data, tipo = null) => {
@@ -180,12 +179,6 @@ export const reclamacoesAPI = {
    */
   getByColaborador: (colaboradorNome) => apiRequest(`/ouvidoria/reclamacoes?colaboradorNome=${encodeURIComponent(colaboradorNome)}`),
 
-  /**
-   * Buscar reclamações por ID da seção
-   * @param {string} idSecao - ID da seção do agente
-   * @returns {Promise<Array>} Lista de reclamações
-   */
-  getByIdSecao: (idSecao) => apiRequest(`/ouvidoria/reclamacoes?idSecao=${encodeURIComponent(idSecao)}`),
 };
 
 /**
@@ -264,7 +257,7 @@ export const anexosAPI = {
   /**
    * Upload de anexo
    * @param {File} file - Arquivo a ser enviado
-   * @param {string} tipo - Tipo de reclamação (BACEN, OUVIDORIA, CHATBOT)
+   * @param {string} tipo - Tipo de reclamação (BACEN, OUVIDORIA)
    * @returns {Promise<Object>} URL do arquivo enviado
    */
   upload: async (file, tipo = 'BACEN') => {

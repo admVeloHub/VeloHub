@@ -1,7 +1,10 @@
 /**
  * VeloHub V3 - API Configuration
- * VERSION: v1.0.18 | DATE: 2025-02-18 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.19 | DATE: 2025-02-26 | AUTHOR: VeloHub Development Team
  * REGRA: Frontend porta 8080 | Backend porta 8090 | VeloChat Server porta 3002 na rede local
+ * 
+ * Mudanças v1.0.19:
+ * - Alterada URL da API WhatsApp de produção para https://genes-conservation-perth-beverages.trycloudflare.com
  * 
  * Mudanças v1.0.18:
  * - Alterada URL da API WhatsApp para localhost:3001 em desenvolvimento local
@@ -76,12 +79,12 @@ export const getApiBaseUrl = () => {
 
 /**
  * Obtém a URL da API do WhatsApp baseada no ambiente
- * VERSION: v1.0.18 | DATE: 2025-02-18 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.19 | DATE: 2025-02-26 | AUTHOR: VeloHub Development Team
  * @returns {string} URL base da API do WhatsApp (sem /send no final)
  * 
  * API WhatsApp:
  * - Local: http://localhost:3001
- * - Produção: https://whatsapp-api-new-54aw.onrender.com
+ * - Produção: https://genes-conservation-perth-beverages.trycloudflare.com
  */
 export const getWhatsAppApiUrl = () => {
   // Prioridade 1: Variável de ambiente específica para WhatsApp
@@ -93,9 +96,9 @@ export const getWhatsAppApiUrl = () => {
   if (typeof window !== 'undefined') {
     const currentHost = window.location.hostname;
     
-    // Em produção (domínio velotax.com.br ou velohub), usar API do Render
+    // Em produção (domínio velotax.com.br ou velohub), usar API Cloudflare Tunnel
     if (currentHost.includes('velotax.com.br') || currentHost.includes('velohub')) {
-      return 'https://whatsapp-api-new-54aw.onrender.com';
+      return 'https://genes-conservation-perth-beverages.trycloudflare.com';
     }
     
     // Em desenvolvimento (localhost), usar localhost:3001
@@ -104,18 +107,18 @@ export const getWhatsAppApiUrl = () => {
     }
   }
   
-  // Fallback: usar Render em produção
-  return 'https://whatsapp-api-new-54aw.onrender.com';
+  // Fallback: usar Cloudflare Tunnel em produção
+  return 'https://genes-conservation-perth-beverages.trycloudflare.com';
 };
 
 /**
  * Obtém o endpoint completo da API do WhatsApp baseado no ambiente
- * VERSION: v1.0.18 | DATE: 2025-02-18 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.19 | DATE: 2025-02-26 | AUTHOR: VeloHub Development Team
  * @returns {string} URL completa do endpoint WhatsApp (incluindo /send ou /api/whatsapp/send)
  * 
  * Endpoints:
  * - Local (localhost:3001): /api/whatsapp/send
- * - Produção (Render): /send
+ * - Produção (Cloudflare Tunnel): /send
  */
 export const getWhatsAppEndpoint = () => {
   const apiUrl = getWhatsAppApiUrl();
