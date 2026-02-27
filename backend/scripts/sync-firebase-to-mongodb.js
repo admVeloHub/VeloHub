@@ -1,6 +1,6 @@
 /**
  * Script de Sincronização: Firebase → MongoDB (Apenas Novos Casos)
- * VERSION: v1.2.0 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.2.1 | DATE: 2026-02-26 | AUTHOR: VeloHub Development Team
  * 
  * Mudanças v1.1.0:
  * - Removida sincronização de fichas_chatbot → reclamacoes_chatbot
@@ -56,7 +56,7 @@ const TIPOS_FICHAS = {
   },
   'n2': {
     firebasePath: 'fichas_n2',
-    mongoCollection: 'reclamacoes_ouvidoria',
+    mongoCollection: 'reclamacoes_n2Pix',
     converter: null
   }
 };

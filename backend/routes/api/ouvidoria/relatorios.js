@@ -13,7 +13,7 @@
  * - Atualizado agrupamento por status para usar Finalizado.Resolvido
  * 
  * Mudanças v2.0.0:
- * - Busca em todas as coleções (reclamacoes_bacen, reclamacoes_ouvidoria)
+ * - Busca em todas as coleções (reclamacoes_bacen, reclamacoes_n2Pix)
  * 
  * Rotas para geração de relatórios
  */
@@ -71,7 +71,7 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         // Buscar apenas na coleção específica
         const tipoUpper = String(tipo).toUpperCase();
         let collectionName = 'reclamacoes_bacen';
-        if (tipoUpper === 'OUVIDORIA') collectionName = 'reclamacoes_ouvidoria';
+        if (tipoUpper === 'OUVIDORIA') collectionName = 'reclamacoes_n2Pix';
         
         reclamacoes = await db.collection(collectionName)
           .find(filterBase)
@@ -82,15 +82,15 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         reclamacoes = reclamacoes.map(r => ({ ...r, tipo: tipoUpper }));
       } else {
         // Buscar em todas as coleções
-        const [bacen, ouvidoria] = await Promise.all([
+        const [bacen, n2Pix] = await Promise.all([
           db.collection('reclamacoes_bacen').find(filterBase).sort({ createdAt: -1 }).toArray(),
-          db.collection('reclamacoes_ouvidoria').find(filterBase).sort({ createdAt: -1 }).toArray()
+          db.collection('reclamacoes_n2Pix').find(filterBase).sort({ createdAt: -1 }).toArray()
         ]);
         
         // Combinar e adicionar tipo
         reclamacoes = [
           ...bacen.map(r => ({ ...r, tipo: 'BACEN' })),
-          ...ouvidoria.map(r => ({ ...r, tipo: 'OUVIDORIA' }))
+          ...n2Pix.map(r => ({ ...r, tipo: 'OUVIDORIA' }))
         ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       }
 
@@ -268,7 +268,7 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
       };
 
       // Processar N2 (OUVIDORIA)
-      const n2Collection = db.collection('reclamacoes_ouvidoria');
+      const n2Collection = db.collection('reclamacoes_n2Pix');
 
       // Casos registrados por mês
       const casosRegistradosPorMes = await n2Collection.aggregate([

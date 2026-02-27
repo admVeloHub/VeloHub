@@ -7,7 +7,7 @@ Este script sincroniza apenas os **novos casos** do Firebase Realtime Database p
 **Database MongoDB:** `hub_ouvidoria`  
 **Collections:**
 - `reclamacoes_bacen`
-- `reclamacoes_ouvidoria`
+- `reclamacoes_n2Pix`
 
 ## 🚀 Como Usar
 

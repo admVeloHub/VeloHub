@@ -1,11 +1,14 @@
 /**
  * VeloHub V3 - MinhasReclamacoes Component
- * VERSION: v1.5.0 | DATE: 2025-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.6.0 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
  * 
  * Mudanças v1.5.0:
  * - Removido campo status (usar Finalizado.Resolvido para determinar se está em andamento ou resolvido)
  * - Removido campo mes da exibição
  * - Removido suporte para filtro por idSecao
+ * 
+ * Mudanças v1.6.0:
+ * - Removidas todas as referências restantes a idSecao (variável não definida causava erro)
  * 
  * Mudanças v1.4.0:
  * - Readequado modal de detalhes para seguir o mesmo padrão de ListaReclamacoes
@@ -35,17 +38,17 @@ const MinhasReclamacoes = ({ colaboradorNome, userEmail }) => {
   const [selectedReclamacao, setSelectedReclamacao] = useState(null);
 
   useEffect(() => {
-    if (colaboradorNome || idSecao) {
+    if (colaboradorNome) {
       loadMinhasReclamacoes();
     }
-  }, [colaboradorNome, idSecao]);
+  }, [colaboradorNome]);
 
   /**
    * Carregar minhas reclamações
    */
   const loadMinhasReclamacoes = async () => {
-    if (!colaboradorNome && !idSecao) {
-      toast.error('Nome do colaborador ou ID da seção não encontrado');
+    if (!colaboradorNome) {
+      toast.error('Nome do colaborador não encontrado');
       return;
     }
 

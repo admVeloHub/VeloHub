@@ -1,6 +1,6 @@
 /**
  * Script de Sincronização: CSV → MongoDB (Apenas Novos Casos)
- * VERSION: v1.0.0 | DATE: 2026-02-24 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.1 | DATE: 2026-02-26 | AUTHOR: VeloHub Development Team
  * 
  * Sincroniza dados dos arquivos CSV atualizados para MongoDB
  * Compara com casos já existentes no MongoDB e insere apenas os novos
@@ -448,7 +448,7 @@ async function sincronizarCSV(client, tipo, caminhoCSV, converter) {
   console.log(`   ✅ ${dadosCSV.length} registros lidos do CSV`);
   
   const db = client.db(DATABASE_NAME);
-  const collectionName = tipo === 'BACEN' ? 'reclamacoes_bacen' : 'reclamacoes_ouvidoria';
+  const collectionName = tipo === 'BACEN' ? 'reclamacoes_bacen' : 'reclamacoes_n2Pix';
   const collection = db.collection(collectionName);
   
   // Carregar todos os CPFs existentes para comparação rápida
