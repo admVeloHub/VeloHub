@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.12.1 | DATE: 2025-02-25 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.12.2 | DATE: 2026-02-26 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.12.2:
+ * - Renomeado módulo 'Bacen & N2' para 'Reclamações' no cabeçalho e no switch case
  * 
  * Mudanças v2.12.1:
  * - Corrigido dimensionamento dinâmico do container Velonews: removida altura fixa, implementado flexbox com scroll interno
@@ -415,7 +418,7 @@ const Footer = ({ isDarkMode }) => {
 
 // Componente do Cabe├ºalho
 const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
-  const navItems = ['Home', 'VeloBot', 'Artigos', 'Apoio', 'Req_Prod', 'Bacen & N2', 'VeloAcademy'];
+  const navItems = ['Home', 'VeloBot', 'Artigos', 'Apoio', 'Req_Prod', 'Reclamações', 'VeloAcademy'];
   const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
   const [userName, setUserName] = useState('Usu├írio VeloHub');
   const [userPicture, setUserPicture] = useState(null);
@@ -1506,7 +1509,7 @@ export default function App_v2() {
         return <ApoioPage />;
       case 'Req_Prod':
         return <EscalacoesPage />;
-      case 'Bacen & N2':
+      case 'Reclamações':
         return (
           <OuvidoriaAccessGuard>
             <OuvidoriaPage />

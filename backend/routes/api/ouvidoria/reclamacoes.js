@@ -1,6 +1,6 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Reclamações
- * VERSION: v2.5.0 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.5.1 | DATE: 2026-02-26 | AUTHOR: VeloHub Development Team
  * 
  * Mudanças v2.4.0:
  * - Removido campo status (usar Finalizado.Resolvido para determinar se está em andamento ou resolvido)
@@ -23,7 +23,7 @@
  * - Suporte apenas para criação de reclamações BACEN e OUVIDORIA
  * 
  * Mudanças v2.0.0:
- * - Separação em coleções: reclamacoes_bacen, reclamacoes_ouvidoria
+ * - Separação em coleções: reclamacoes_bacen, reclamacoes_n2Pix
  * - Função helper getCollectionByType para obter coleção correta
  * - Índices criados para cada coleção separadamente
  * 
@@ -47,7 +47,7 @@ const getCollectionByType = (db, tipo) => {
     case 'BACEN':
       return db.collection('reclamacoes_bacen');
     case 'OUVIDORIA':
-      return db.collection('reclamacoes_ouvidoria');
+      return db.collection('reclamacoes_n2Pix');
     default:
       // Fallback para BACEN se tipo não especificado
       return db.collection('reclamacoes_bacen');
@@ -99,7 +99,7 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         
         // Criar índices para cada coleção
         await createIndexes(db.collection('reclamacoes_bacen'), 'reclamacoes_bacen');
-        await createIndexes(db.collection('reclamacoes_ouvidoria'), 'reclamacoes_ouvidoria');
+        await createIndexes(db.collection('reclamacoes_n2Pix'), 'reclamacoes_n2Pix');
       }
     } catch (error) {
       console.error('❌ Erro ao criar índices MongoDB:', error);
@@ -157,7 +157,7 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         // Buscar em todas as coleções
         const [bacen, ouvidoria] = await Promise.all([
           db.collection('reclamacoes_bacen').find(filter).toArray(),
-          db.collection('reclamacoes_ouvidoria').find(filter).toArray()
+          db.collection('reclamacoes_n2Pix').find(filter).toArray()
         ]);
         
         // Adicionar tipo aos resultados
@@ -230,7 +230,7 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         // Buscar em todas as coleções
         const [bacen, ouvidoria] = await Promise.all([
           db.collection('reclamacoes_bacen').findOne({ _id: new ObjectId(id) }),
-          db.collection('reclamacoes_ouvidoria').findOne({ _id: new ObjectId(id) })
+          db.collection('reclamacoes_n2Pix').findOne({ _id: new ObjectId(id) })
         ]);
         
         reclamacao = bacen || ouvidoria;

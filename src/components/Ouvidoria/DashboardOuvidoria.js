@@ -1,6 +1,18 @@
 /**
  * VeloHub V3 - Dashboard Ouvidoria Component
- * VERSION: v1.5.0 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.7.0 | DATE: 2026-02-26 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.7.0:
+ * - Adicionados cards "Pix Liberado" e "Para Cobrança" na linha 3 após "Liquidação Antecipada"
+ * - Adicionados campos pixLiberado e paraCobranca ao statsData default
+ * 
+ * Mudanças v1.6.0:
+ * - Grid alterado de 4 colunas para 5 colunas
+ * - Reorganizados cards conforme nova estrutura:
+ *   - Linha 1: Bacen, N2 Pix, Reclame Aqui, Procon, Ação Judicial
+ *   - Linha 2: Em Aberto, Resolvido (renomeado de Concluída), Prazo Vencendo, Total de Reclamações, Taxa de Resolução
+ *   - Linha 3: CA e Protocolos, Prazo Médio (renomeado de Média de Prazo), Liquidação Antecipada (2 células vazias)
+ * - Adicionados campos reclameAqui e acaoJudicial ao statsData default
  * 
  * Mudanças v1.5.0:
  * - Adicionado filtro de data com campos dataInicio e dataFim
@@ -127,8 +139,12 @@ const DashboardOuvidoria = ({ stats, loading, onRefresh }) => {
     taxaResolucao: 0,
     mediaPrazo: 0,
     comProcon: 0,
+    reclameAqui: 0,
+    acaoJudicial: 0,
     liquidacaoAntecipada: 0,
     caEProtocolos: 0,
+    pixLiberado: 0,
+    paraCobranca: 0,
   };
 
   if (loading) {
@@ -204,19 +220,9 @@ const DashboardOuvidoria = ({ stats, loading, onRefresh }) => {
         </div>
       </div>
 
-      {/* Grid 4x3 de Cards (4 colunas, 3 linhas) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Linha 1 */}
-        <div 
-          className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl text-center border hover:-translate-y-0.5 transition-transform"
-          style={{ borderColor: '#000058' }}
-        >
-          <div className="text-xs text-gray-600 dark:text-gray-400">Total de Reclamações</div>
-          <div className="text-2xl font-semibold text-gray-800 dark:text-gray-200">
-            {statsData.total || 0}
-          </div>
-        </div>
-
+      {/* Grid 5x3 de Cards (5 colunas, 3 linhas) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Linha 1: Bacen, N2 Pix, Reclame Aqui, Procon, Ação Judicial */}
         <div 
           className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl text-center border hover:-translate-y-0.5 transition-transform"
           style={{ borderColor: '#000058' }}
@@ -241,13 +247,33 @@ const DashboardOuvidoria = ({ stats, loading, onRefresh }) => {
           className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl text-center border hover:-translate-y-0.5 transition-transform"
           style={{ borderColor: '#000058' }}
         >
-          <div className="text-xs text-gray-600 dark:text-gray-400">Liquidação Antecipada</div>
+          <div className="text-xs text-gray-600 dark:text-gray-400">Reclame Aqui</div>
           <div className="text-2xl font-semibold text-gray-800 dark:text-gray-200">
-            {statsData.liquidacaoAntecipada || 0}
+            {statsData.reclameAqui || 0}
           </div>
         </div>
 
-        {/* Linha 2 */}
+        <div 
+          className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl text-center border hover:-translate-y-0.5 transition-transform"
+          style={{ borderColor: '#000058' }}
+        >
+          <div className="text-xs text-gray-600 dark:text-gray-400">Procon</div>
+          <div className="text-2xl font-semibold text-gray-800 dark:text-gray-200">
+            {statsData.comProcon || 0}
+          </div>
+        </div>
+
+        <div 
+          className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl text-center border hover:-translate-y-0.5 transition-transform"
+          style={{ borderColor: '#000058' }}
+        >
+          <div className="text-xs text-gray-600 dark:text-gray-400">Ação Judicial</div>
+          <div className="text-2xl font-semibold text-gray-800 dark:text-gray-200">
+            {statsData.acaoJudicial || 0}
+          </div>
+        </div>
+
+        {/* Linha 2: Em Aberto, Resolvido, Prazo Vencendo, Total de Reclamações, Taxa de Resolução */}
         <div 
           className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl text-center border hover:-translate-y-0.5 transition-transform"
           style={{ borderColor: '#000058' }}
@@ -262,7 +288,7 @@ const DashboardOuvidoria = ({ stats, loading, onRefresh }) => {
           className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl text-center border hover:-translate-y-0.5 transition-transform"
           style={{ borderColor: '#000058' }}
         >
-          <div className="text-xs text-gray-600 dark:text-gray-400">Concluída</div>
+          <div className="text-xs text-gray-600 dark:text-gray-400">Resolvido</div>
           <div className="text-2xl font-semibold text-gray-800 dark:text-gray-200">
             {statsData.concluidas || 0}
           </div>
@@ -282,13 +308,23 @@ const DashboardOuvidoria = ({ stats, loading, onRefresh }) => {
           className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl text-center border hover:-translate-y-0.5 transition-transform"
           style={{ borderColor: '#000058' }}
         >
+          <div className="text-xs text-gray-600 dark:text-gray-400">Total de Reclamações</div>
+          <div className="text-2xl font-semibold text-gray-800 dark:text-gray-200">
+            {statsData.total || 0}
+          </div>
+        </div>
+
+        <div 
+          className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl text-center border hover:-translate-y-0.5 transition-transform"
+          style={{ borderColor: '#000058' }}
+        >
           <div className="text-xs text-gray-600 dark:text-gray-400">Taxa de Resolução</div>
           <div className="text-2xl font-semibold text-gray-800 dark:text-gray-200">
             {statsData.taxaResolucao || 0}%
           </div>
         </div>
 
-        {/* Linha 3 */}
+        {/* Linha 3: CA e Protocolos, Prazo Médio, Liquidação Antecipada, Pix Liberado, Para Cobrança */}
         <div 
           className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl text-center border hover:-translate-y-0.5 transition-transform"
           style={{ borderColor: '#000058' }}
@@ -303,9 +339,9 @@ const DashboardOuvidoria = ({ stats, loading, onRefresh }) => {
           className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl text-center border hover:-translate-y-0.5 transition-transform"
           style={{ borderColor: '#000058' }}
         >
-          <div className="text-xs text-gray-600 dark:text-gray-400">Com Procon</div>
+          <div className="text-xs text-gray-600 dark:text-gray-400">Prazo Médio</div>
           <div className="text-2xl font-semibold text-gray-800 dark:text-gray-200">
-            {statsData.comProcon || 0}
+            {statsData.mediaPrazo || 0} dias
           </div>
         </div>
 
@@ -313,9 +349,29 @@ const DashboardOuvidoria = ({ stats, loading, onRefresh }) => {
           className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl text-center border hover:-translate-y-0.5 transition-transform"
           style={{ borderColor: '#000058' }}
         >
-          <div className="text-xs text-gray-600 dark:text-gray-400">Média de Prazo</div>
+          <div className="text-xs text-gray-600 dark:text-gray-400">Liquidação Antecipada</div>
           <div className="text-2xl font-semibold text-gray-800 dark:text-gray-200">
-            {statsData.mediaPrazo || 0} dias
+            {statsData.liquidacaoAntecipada || 0}
+          </div>
+        </div>
+
+        <div 
+          className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl text-center border hover:-translate-y-0.5 transition-transform"
+          style={{ borderColor: '#000058' }}
+        >
+          <div className="text-xs text-gray-600 dark:text-gray-400">Pix Liberado</div>
+          <div className="text-2xl font-semibold text-gray-800 dark:text-gray-200">
+            {statsData.pixLiberado || 0}
+          </div>
+        </div>
+
+        <div 
+          className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl text-center border hover:-translate-y-0.5 transition-transform"
+          style={{ borderColor: '#000058' }}
+        >
+          <div className="text-xs text-gray-600 dark:text-gray-400">Para Cobrança</div>
+          <div className="text-2xl font-semibold text-gray-800 dark:text-gray-200">
+            {statsData.paraCobranca || 0}
           </div>
         </div>
       </div>

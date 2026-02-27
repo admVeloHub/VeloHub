@@ -4,10 +4,10 @@
  * 
  * Mudanças v2.1.0:
  * - Removida referência à coleção reclamacoes_chatbot (formulário ChatBot foi removido)
- * - Busca apenas em reclamacoes_bacen e reclamacoes_ouvidoria
+ * - Busca apenas em reclamacoes_bacen e reclamacoes_n2Pix
  * 
  * Mudanças v2.0.0:
- * - Busca em todas as coleções (reclamacoes_bacen, reclamacoes_ouvidoria)
+ * - Busca em todas as coleções (reclamacoes_bacen, reclamacoes_n2Pix)
  * 
  * Rotas para busca de histórico de clientes
  */
@@ -54,15 +54,15 @@ const initClientesRoutes = (client, connectToMongo) => {
       }
 
       // Buscar todas as reclamações do CPF em todas as coleções (incluindo deletadas para histórico completo)
-      const [bacen, ouvidoria] = await Promise.all([
+      const [bacen, n2Pix] = await Promise.all([
         db.collection('reclamacoes_bacen').find({ cpf: cpfLimpo }).sort({ createdAt: -1 }).toArray(),
-        db.collection('reclamacoes_ouvidoria').find({ cpf: cpfLimpo }).sort({ createdAt: -1 }).toArray()
+        db.collection('reclamacoes_n2Pix').find({ cpf: cpfLimpo }).sort({ createdAt: -1 }).toArray()
       ]);
       
       // Combinar resultados e adicionar tipo
       const historico = [
         ...bacen.map(r => ({ ...r, tipo: 'BACEN' })),
-        ...ouvidoria.map(r => ({ ...r, tipo: 'OUVIDORIA' }))
+        ...n2Pix.map(r => ({ ...r, tipo: 'OUVIDORIA' }))
       ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
       console.log(`✅ Histórico encontrado para CPF ${cpfLimpo.substring(0, 3)}***${cpfLimpo.substring(9)}: ${historico.length} registros`);

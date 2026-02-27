@@ -1,12 +1,15 @@
 /**
  * VeloHub V3 - Ouvidoria API Service
- * VERSION: v2.3.0 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.3.1 | DATE: 2026-02-26 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.3.1:
+ * - Atualizado comentário: reclamacoes_ouvidoria → reclamacoes_n2Pix
  * 
  * Mudanças v2.2.0:
  * - Removido método getByIdSecao (campo idSecao removido)
  * 
  * Mudanças v2.0.0:
- * - Atualizado para suportar coleções separadas (reclamacoes_bacen, reclamacoes_ouvidoria)
+ * - Atualizado para suportar coleções separadas (reclamacoes_bacen, reclamacoes_n2Pix)
  * - getById e update agora requerem tipo como parâmetro
  * 
  * Mudanças v1.3.0:
