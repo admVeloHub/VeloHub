@@ -1,4 +1,11 @@
-// VERSION: v2.3.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+// VERSION: v2.5.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+// Mudanças v2.5.0:
+// - ROBUSTEZ: Login por email/senha agora usa sessionId retornado diretamente do endpoint quando disponível
+// - ROBUSTEZ: Adicionado fallback com ensureSessionId() se registro de sessão falhar
+// - MELHORIA: Melhor tratamento de erros com múltiplas tentativas de garantir sessionId
+// Mudanças v2.4.0:
+// - CRÍTICO: Adicionado await na chamada de registerLoginSession() para evitar race condition
+// - Melhorado tratamento de erros ao registrar sessão (não bloqueia login se falhar)
 // Mudanças v2.3.0:
 // - Removida validação de domínio do OAuth Google - qualquer email Google é aceito
 // - Validação de acesso agora é feita apenas no backend (acessos.Velohub === true)
@@ -21,7 +28,9 @@ import {
   isAuthorizedDomain, 
   decodeJWT, 
   initializeGoogleSignIn,
-  registerLoginSession
+  registerLoginSession,
+  startHeartbeat,
+  ensureSessionId
 } from '../services/auth';
 import { getClientId } from '../config/google-config';
 import { API_BASE_URL } from '../config/api-config';
@@ -284,8 +293,24 @@ const LoginPage = ({ onLoginSuccess }) => {
         // Salvar sessão
         saveUserSession(userData);
 
-        // Registrar login no backend para controle de sessões
-        registerLoginSession(userData);
+        // MELHORIA: Registrar login no backend para controle de sessões (com await, retry e fallback)
+        try {
+          await registerLoginSession(userData);
+        } catch (error) {
+          console.error('⚠️ Erro ao registrar sessão no backend, tentando garantir sessionId...', error);
+          // Tentar garantir sessionId mesmo com erro
+          try {
+            const sessionId = await ensureSessionId();
+            if (sessionId) {
+              console.log('✅ sessionId garantido após erro:', sessionId);
+            } else {
+              console.warn('⚠️ Não foi possível garantir sessionId, mas login foi bem-sucedido');
+            }
+          } catch (ensureError) {
+            console.error('❌ Não foi possível garantir sessionId:', ensureError);
+            // Continuar mesmo assim - usuário pode usar o sistema
+          }
+        }
 
         console.log('Login realizado com sucesso');
         onLoginSuccess(userData);
@@ -329,8 +354,30 @@ const LoginPage = ({ onLoginSuccess }) => {
       // Salvar sessão
       saveUserSession(userData);
 
-      // Registrar login no backend para controle de sessões
-      registerLoginSession(userData);
+      // MELHORIA: Usar sessionId retornado pelo endpoint de login se disponível
+      if (result.sessionId && typeof result.sessionId === 'string' && result.sessionId.trim().length > 0) {
+        localStorage.setItem('velohub_session_id', result.sessionId);
+        console.log('✅ sessionId obtido diretamente do endpoint de login:', result.sessionId);
+        // Iniciar heartbeat imediatamente
+        startHeartbeat();
+      } else {
+        // Fallback: Registrar login no backend para controle de sessões (com await e retry)
+        try {
+          await registerLoginSession(userData);
+        } catch (error) {
+          console.error('⚠️ Erro ao registrar sessão no backend, tentando garantir sessionId...', error);
+          // Tentar garantir sessionId mesmo com erro
+          try {
+            const sessionId = await ensureSessionId();
+            if (sessionId) {
+              console.log('✅ sessionId garantido após erro:', sessionId);
+            }
+          } catch (ensureError) {
+            console.error('❌ Não foi possível garantir sessionId:', ensureError);
+            // Continuar mesmo assim - usuário pode usar o sistema
+          }
+        }
+      }
 
       console.log('Login realizado com sucesso');
       onLoginSuccess(userData);

@@ -1,5 +1,14 @@
 // Sistema de Autenticação Centralizado para VeloHub
-// VERSION: v1.3.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+// VERSION: v1.5.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+// Mudanças v1.5.0:
+// - ROBUSTEZ: Adicionado retry automático com backoff exponencial em registerLoginSession()
+// - ROBUSTEZ: Criada função ensureSessionId() para garantir sessionId quando usuário está autenticado
+// - ROBUSTEZ: checkAuthenticationState() agora garante que sessionId existe quando usuário está logado
+// - MELHORIA: registerLoginSession() retorna sessionId criado para facilitar validação
+// Mudanças v1.4.0:
+// - CRÍTICO: Adicionada validação de resposta HTTP antes de fazer parse do JSON
+// - CRÍTICO: Adicionada validação de sessionId antes de salvar no localStorage
+// - Melhorado tratamento de erros com logs detalhados
 // Mudanças v1.3.0:
 // - Heartbeat continua funcionando mesmo quando aba está oculta
 // - Intervalo dinâmico: 30s quando visível, 60s quando oculto
@@ -28,37 +37,131 @@ function saveUserSession(userData) {
 }
 
 /**
- * Registra login no backend para controle de sessões
+ * Registra login no backend para controle de sessões com retry automático
  * @param {object} userData - Objeto com dados do usuário (name, email, picture).
+ * @param {number} maxRetries - Número máximo de tentativas (padrão: 3)
+ * @param {number} retryDelay - Delay entre tentativas em ms (padrão: 1000)
+ * @returns {Promise<string>} sessionId criado
  */
-async function registerLoginSession(userData) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/auth/session/login`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                colaboradorNome: userData.name,
-                userEmail: userData.email
-            })
-        });
+async function registerLoginSession(userData, maxRetries = 3, retryDelay = 1000) {
+    let lastError = null;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/auth/session/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    colaboradorNome: userData.name,
+                    userEmail: userData.email
+                })
+            });
 
-        const result = await response.json();
-        
-        if (result.success) {
-            // Salvar sessionId no localStorage
-            localStorage.setItem('velohub_session_id', result.sessionId);
-            console.log('✅ Login registrado no backend:', result.sessionId);
+            // Verificar se a resposta HTTP foi bem-sucedida antes de fazer parse
+            if (!response.ok) {
+                const errorText = await response.text();
+                const error = new Error(`Erro ${response.status}: ${errorText || 'Erro desconhecido'}`);
+                console.error(`❌ Erro HTTP ao registrar login (tentativa ${attempt}/${maxRetries}):`, response.status, errorText);
+                
+                // Se for erro 5xx, tentar novamente; se for 4xx, não tentar novamente
+                if (response.status >= 500 && attempt < maxRetries) {
+                    lastError = error;
+                    await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+                    continue;
+                }
+                throw error;
+            }
+
+            const result = await response.json();
             
-            // Iniciar heartbeat após login bem-sucedido
-            startHeartbeat();
-        } else {
-            console.error('❌ Erro ao registrar login:', result.error);
+            // Validar se sessionId existe e é válido antes de salvar
+            if (result.success && result.sessionId && typeof result.sessionId === 'string' && result.sessionId.trim().length > 0) {
+                // Salvar sessionId no localStorage
+                localStorage.setItem('velohub_session_id', result.sessionId);
+                console.log(`✅ Login registrado no backend (tentativa ${attempt}):`, result.sessionId);
+                
+                // Iniciar heartbeat após login bem-sucedido
+                startHeartbeat();
+                
+                return result.sessionId;
+            } else {
+                const errorMsg = result.error || 'sessionId não retornado pelo servidor';
+                console.error(`❌ Erro ao registrar login (tentativa ${attempt}/${maxRetries}):`, errorMsg, {
+                    success: result.success,
+                    hasSessionId: !!result.sessionId,
+                    sessionIdType: typeof result.sessionId,
+                    sessionIdValue: result.sessionId
+                });
+                
+                if (attempt < maxRetries) {
+                    lastError = new Error(`Erro ao registrar sessão: ${errorMsg}`);
+                    await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+                    continue;
+                }
+                throw new Error(`Erro ao registrar sessão: ${errorMsg}`);
+            }
+        } catch (error) {
+            lastError = error;
+            if (attempt < maxRetries) {
+                console.warn(`⚠️ Tentativa ${attempt} falhou, tentando novamente em ${retryDelay * attempt}ms...`);
+                await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+            } else {
+                console.error('❌ Erro ao registrar login após todas as tentativas:', error);
+                throw error;
+            }
+        }
+    }
+    
+    throw lastError || new Error('Erro desconhecido ao registrar sessão');
+}
+
+/**
+ * Garante que sessionId existe quando usuário está autenticado
+ * Tenta recuperar/criar sessionId se não existir mas usuário está logado
+ * @returns {Promise<string|null>} sessionId ou null se não conseguir recuperar
+ */
+async function ensureSessionId() {
+    // Verificar se já existe sessionId válido
+    const existingSessionId = localStorage.getItem('velohub_session_id');
+    if (existingSessionId && existingSessionId.trim().length > 0) {
+        return existingSessionId;
+    }
+    
+    // Se não existe sessionId mas usuário está logado, tentar recuperar
+    const session = getUserSession();
+    if (!session || !session.user || !session.user.email) {
+        console.log('⚠️ ensureSessionId: Usuário não está logado, não é possível garantir sessionId');
+        return null;
+    }
+    
+    console.log('⚠️ ensureSessionId: sessionId não encontrado mas usuário está logado, tentando recuperar...');
+    
+    try {
+        // Tentar reativar sessão existente primeiro
+        const reactivated = await reactivateSession();
+        if (reactivated) {
+            const reactivatedSessionId = localStorage.getItem('velohub_session_id');
+            if (reactivatedSessionId) {
+                console.log('✅ ensureSessionId: sessionId recuperado via reactivateSession');
+                return reactivatedSessionId;
+            }
+        }
+        
+        // Se reativação não funcionou, criar nova sessão
+        console.log('⚠️ ensureSessionId: Reativação não retornou sessionId, criando nova sessão...');
+        const newSessionId = await registerLoginSession(session.user, 2, 500);
+        if (newSessionId) {
+            console.log('✅ ensureSessionId: Nova sessão criada com sucesso');
+            return newSessionId;
         }
     } catch (error) {
-        console.error('❌ Erro ao registrar login:', error);
+        console.error('❌ ensureSessionId: Erro ao garantir sessionId:', error);
+        return null;
     }
+    
+    return null;
 }
 
 /**
@@ -365,6 +468,7 @@ function updateUserInfo(userData) {
 
 /**
  * Verifica o estado de autenticação e atualiza a UI.
+ * Garante que sessionId existe quando usuário está autenticado.
  * @returns {Promise<boolean>} - true se usuário está logado, false caso contrário
  */
 async function checkAuthenticationState() {
@@ -380,7 +484,16 @@ async function checkAuthenticationState() {
         const session = getUserSession();
         console.log('Sessão válida encontrada:', session);
         
-        // Tentar reativar sessão se necessário
+        // GARANTIR QUE sessionId EXISTE quando usuário está autenticado
+        const sessionId = await ensureSessionId();
+        if (!sessionId) {
+            console.warn('⚠️ Não foi possível garantir sessionId, mas usuário está autenticado');
+            // Continuar mesmo assim - algumas funcionalidades podem não funcionar
+        } else {
+            console.log('✅ sessionId garantido:', sessionId.substring(0, 8) + '...');
+        }
+        
+        // Tentar reativar sessão se necessário (pode atualizar sessionId)
         const reactivated = await reactivateSession();
         
         if (reactivated) {
@@ -473,7 +586,8 @@ export {
     registerLogoutSession,
     startHeartbeat,
     stopHeartbeat,
-    reactivateSession
+    reactivateSession,
+    ensureSessionId
 };
 
 // Listener para logout automático ao fechar página/navegador
