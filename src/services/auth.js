@@ -1,5 +1,13 @@
 // Sistema de Autenticação Centralizado para VeloHub
-// VERSION: v1.5.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+// VERSION: v1.7.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+// Mudanças v1.7.0:
+// - CORREÇÃO: registerLoginSession() agora verifica se sessionId já existe antes de criar novo
+// - CORREÇÃO: Proteção contra criação duplicada de sessionId (React StrictMode)
+// - Verificação de sessionId existente antes de cada tentativa de criação
+// Mudanças v1.6.0:
+// - CRÍTICO: sessionId agora é OBRIGATÓRIO - checkAuthenticationState() não retorna true sem sessionId válido
+// - Se não conseguir garantir sessionId, autenticação falha e faz logout automático
+// - Removido comportamento de "continuar mesmo assim" quando sessionId não existe
 // Mudanças v1.5.0:
 // - ROBUSTEZ: Adicionado retry automático com backoff exponencial em registerLoginSession()
 // - ROBUSTEZ: Criada função ensureSessionId() para garantir sessionId quando usuário está autenticado
@@ -44,10 +52,24 @@ function saveUserSession(userData) {
  * @returns {Promise<string>} sessionId criado
  */
 async function registerLoginSession(userData, maxRetries = 3, retryDelay = 1000) {
+    // Verificar se já existe sessionId válido antes de criar novo
+    const existingSessionId = localStorage.getItem('velohub_session_id');
+    if (existingSessionId && existingSessionId.trim().length > 0) {
+        console.log('⚠️ registerLoginSession: sessionId já existe, retornando existente:', existingSessionId.substring(0, 8) + '...');
+        return existingSessionId;
+    }
+    
     let lastError = null;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
+            // Verificar novamente antes de cada tentativa (pode ter sido criado por outro processo)
+            const checkSessionId = localStorage.getItem('velohub_session_id');
+            if (checkSessionId && checkSessionId.trim().length > 0) {
+                console.log('⚠️ registerLoginSession: sessionId criado durante tentativa, retornando existente:', checkSessionId.substring(0, 8) + '...');
+                return checkSessionId;
+            }
+            
             const response = await fetch(`${API_BASE_URL}/auth/session/login`, {
                 method: 'POST',
                 headers: {
@@ -484,14 +506,26 @@ async function checkAuthenticationState() {
         const session = getUserSession();
         console.log('Sessão válida encontrada:', session);
         
-        // GARANTIR QUE sessionId EXISTE quando usuário está autenticado
+        // CRÍTICO: sessionId é OBRIGATÓRIO - não retornar true sem ele
         const sessionId = await ensureSessionId();
         if (!sessionId) {
-            console.warn('⚠️ Não foi possível garantir sessionId, mas usuário está autenticado');
-            // Continuar mesmo assim - algumas funcionalidades podem não funcionar
-        } else {
-            console.log('✅ sessionId garantido:', sessionId.substring(0, 8) + '...');
+            console.error('❌ checkAuthenticationState: Não foi possível garantir sessionId obrigatório');
+            console.error('❌ Usuário não pode estar autenticado sem sessionId válido - fazendo logout');
+            
+            // Parar heartbeat se estiver rodando
+            stopHeartbeat();
+            
+            // Limpar dados de sessão já que não há sessionId válido
+            localStorage.removeItem(USER_SESSION_KEY);
+            localStorage.removeItem('velohub_session_id');
+            localStorage.removeItem('userEmail');
+            localStorage.removeItem('userName');
+            localStorage.removeItem('userPicture');
+            
+            return false;
         }
+        
+        console.log('✅ sessionId garantido:', sessionId.substring(0, 8) + '...');
         
         // Tentar reativar sessão se necessário (pode atualizar sessionId)
         const reactivated = await reactivateSession();

@@ -1,7 +1,12 @@
 /**
  * VeloHub V3 - API Configuration
- * VERSION: v1.0.20 | DATE: 2025-02-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.21 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
  * REGRA: Frontend porta 8080 | Backend porta 8090 | VeloChat Server porta 3002 na rede local
+ * 
+ * Mudanças v1.0.21:
+ * - CORREÇÃO CORS: Frontend agora usa proxy do backend (/api/whatsapp/send) ao invés de chamar ngrok diretamente
+ * - getWhatsAppEndpoint() agora retorna endpoint do backend que faz proxy para ngrok
+ * - Resolve problema de CORS ao chamar ngrok diretamente do frontend
  * 
  * Mudanças v1.0.20:
  * - Alterada URL da API WhatsApp de produção para https://carmina-peskier-balletically.ngrok-free.dev
@@ -116,23 +121,22 @@ export const getWhatsAppApiUrl = () => {
 
 /**
  * Obtém o endpoint completo da API do WhatsApp baseado no ambiente
- * VERSION: v1.0.20 | DATE: 2025-02-26 | AUTHOR: VeloHub Development Team
- * @returns {string} URL completa do endpoint WhatsApp (incluindo /send ou /api/whatsapp/send)
+ * VERSION: v1.0.21 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.0.21:
+ * - CORREÇÃO CORS: Frontend agora usa proxy do backend (/api/whatsapp/send) ao invés de chamar ngrok diretamente
+ * - Backend faz proxy para ngrok, resolvendo problemas de CORS
  * 
  * Endpoints:
- * - Local (localhost:3001): /api/whatsapp/send
- * - Produção (ngrok): /send
+ * - Frontend sempre usa: /api/whatsapp/send (proxy do backend)
+ * - Backend faz proxy para:
+ *   - Local (localhost:3001): http://localhost:3001/api/whatsapp/send
+ *   - Produção (ngrok): https://carmina-peskier-balletically.ngrok-free.dev/send
  */
 export const getWhatsAppEndpoint = () => {
-  const apiUrl = getWhatsAppApiUrl();
-  
-  // Se for localhost:3001, usar endpoint /api/whatsapp/send
-  if (apiUrl.includes('localhost:3001') || apiUrl.includes('127.0.0.1:3001')) {
-    return `${apiUrl}/api/whatsapp/send`;
-  }
-  
-  // Para Render e outros, usar /send
-  return `${apiUrl}/send`;
+  // SEMPRE usar proxy do backend para evitar problemas de CORS
+  const backendApiUrl = getApiBaseUrl().replace('/api', ''); // Remover /api para adicionar /api/whatsapp/send
+  return `${backendApiUrl}/api/whatsapp/send`;
 };
 
 /**

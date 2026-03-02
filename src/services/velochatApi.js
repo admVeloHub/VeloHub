@@ -1,6 +1,14 @@
 /**
  * VeloChat API Service - Frontend
- * VERSION: v4.7.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v4.7.2 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v4.7.2:
+ * - OTIMIZAÇÃO: Import estático de ensureSessionId ao invés de import dinâmico (melhor performance e consistência)
+ * 
+ * Mudanças v4.7.1:
+ * - CORREÇÃO: getConversations() agora usa Promise.allSettled() para retornar conversas parciais mesmo se uma chamada falhar
+ * - MELHORIA: getConversations() garante sessionId antes de fazer chamadas usando ensureSessionId()
+ * - MELHORIA: Logs melhorados para diagnóstico quando uma das chamadas falha mas há conversas válidas
  * 
  * Mudanças v4.7.0:
  * - Adicionadas funções editP2PMessage e deleteP2PMessage para editar/excluir mensagens P2P
@@ -42,6 +50,7 @@
  */
 
 import { API_BASE_URL, getVeloChatApiUrl } from '../config/api-config';
+import { ensureSessionId } from './auth';
 
 // Usar detecção automática de ambiente ao invés de fallback hardcoded
 const VELOCHAT_API_URL = getVeloChatApiUrl();
@@ -523,27 +532,47 @@ export const confirmAttachmentUpload = async (filePath) => {
  */
 export const getConversations = async () => {
   try {
-    const [p2pData, salasData] = await Promise.all([
+    // Tentar garantir sessionId antes de fazer as chamadas
+    const sessionId = await ensureSessionId();
+    if (!sessionId) {
+      console.warn('⚠️ [getConversations] sessionId não disponível, tentando mesmo assim...');
+    }
+    
+    // Usar Promise.allSettled para não falhar completamente se uma chamada falhar
+    const [p2pResult, salasResult] = await Promise.allSettled([
       getP2PConversations(),
       getSalas()
     ]);
     
-    // Combinar conversas P2P e salas
-    const p2pConversations = (p2pData.conversations || []).map(conv => ({
-      ...conv,
-      type: 'p2p'
-    }));
+    // Processar resultado P2P
+    let p2pConversations = [];
+    if (p2pResult.status === 'fulfilled') {
+      p2pConversations = (p2pResult.value.conversations || []).map(conv => ({
+        ...conv,
+        type: 'p2p'
+      }));
+    } else {
+      console.error('❌ [getConversations] Erro ao obter conversas P2P:', p2pResult.reason);
+      // Continuar mesmo com erro - pode haver salas válidas
+    }
     
-    const salaConversations = (salasData.salas || []).map(sala => ({
-      conversationId: sala.Id,
-      Id: sala.Id,
-      type: 'sala',
-      salaNome: sala.salaNome,
-      name: sala.salaNome,
-      participantes: sala.participantes || [],
-      createdAt: sala.createdAt,
-      updatedAt: sala.updatedAt
-    }));
+    // Processar resultado Salas
+    let salaConversations = [];
+    if (salasResult.status === 'fulfilled') {
+      salaConversations = (salasResult.value.salas || []).map(sala => ({
+        conversationId: sala.Id,
+        Id: sala.Id,
+        type: 'sala',
+        salaNome: sala.salaNome,
+        name: sala.salaNome,
+        participantes: sala.participantes || [],
+        createdAt: sala.createdAt,
+        updatedAt: sala.updatedAt
+      }));
+    } else {
+      console.error('❌ [getConversations] Erro ao obter salas:', salasResult.reason);
+      // Continuar mesmo com erro - pode haver conversas P2P válidas
+    }
     
     // Combinar e ordenar por updatedAt
     const allConversations = [...p2pConversations, ...salaConversations].sort((a, b) => {
@@ -552,14 +581,16 @@ export const getConversations = async () => {
       return timeB - timeA;
     });
     
+    // Log informativo se alguma chamada falhou mas ainda há conversas
+    if ((p2pResult.status === 'rejected' || salasResult.status === 'rejected') && allConversations.length > 0) {
+      console.warn(`⚠️ [getConversations] Algumas chamadas falharam mas retornando ${allConversations.length} conversas encontradas`);
+    }
+    
     return {
       conversations: allConversations
     };
   } catch (error) {
-    // Reduzir verbosidade: apenas logar erros que não sejam relacionados a sessão inválida
-    if (!error.message || !error.message.includes('Sessão inválida')) {
-      console.error('Erro ao obter conversas:', error);
-    }
+    console.error('❌ [getConversations] Erro geral ao obter conversas:', error);
     return { conversations: [] };
   }
 };
