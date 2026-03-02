@@ -1,6 +1,12 @@
 /**
  * VeloChatWidget - Componente Principal do Chat
- * VERSION: v3.45.0 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.46.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v3.46.0:
+ * - CRÍTICO: sessionId agora é OBRIGATÓRIO antes de inicializar qualquer operação do widget
+ * - Adicionado useEffect inicial que garante sessionId antes de carregar conversas/contatos
+ * - Todos os useEffects agora aguardam sessionId estar garantido antes de executar
+ * - Removido retry simples - agora usa ensureSessionId() para garantir criação se necessário
  * 
  * Mudanças v3.45.0:
  * - Corrigido scroll automático ao abrir conversa: sempre vai para rodapé na primeira carga, independente da quantidade de mensagens
@@ -262,6 +268,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useWebSocket } from '../hooks/useWebSocket';
 import * as velochatApi from '../services/velochatApi';
+import { ensureSessionId } from '../services/auth';
 import { AttachFile, Image, Videocam, InsertDriveFile, Close, GroupAdd, Download, PictureAsPdf, Description, Edit, Delete } from '@mui/icons-material';
 import { API_BASE_URL } from '../config/api-config';
 
@@ -347,6 +354,8 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
   const [displayedMessagesCount, setDisplayedMessagesCount] = useState(20); // Quantidade de mensagens exibidas
   const [hasMoreMessages, setHasMoreMessages] = useState(false); // Flag se há mais mensagens para carregar
   const [isLoadingMore, setIsLoadingMore] = useState(false); // Flag de carregamento de mais mensagens
+  // CRÍTICO: Estado para rastrear se sessionId foi garantido antes de inicializar operações
+  const [sessionIdGuaranteed, setSessionIdGuaranteed] = useState(false);
   
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -1218,6 +1227,30 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
     }
   };
 
+  // CRÍTICO: Garantir sessionId antes de qualquer operação do widget
+  // Este useEffect executa primeiro e garante que sessionId existe antes de inicializar
+  useEffect(() => {
+    const guaranteeSessionId = async () => {
+      try {
+        const sessionId = await ensureSessionId();
+        if (sessionId) {
+          console.log('✅ VeloChatWidget: sessionId garantido:', sessionId.substring(0, 8) + '...');
+          setSessionIdGuaranteed(true);
+        } else {
+          console.error('❌ VeloChatWidget: Não foi possível garantir sessionId obrigatório');
+          // Tentar novamente após delay (usuário pode estar em processo de login)
+          setTimeout(guaranteeSessionId, 2000);
+        }
+      } catch (error) {
+        console.error('❌ VeloChatWidget: Erro ao garantir sessionId:', error);
+        // Tentar novamente após delay
+        setTimeout(guaranteeSessionId, 2000);
+      }
+    };
+    
+    guaranteeSessionId();
+  }, []); // Executar apenas uma vez ao montar
+
   // Fechar diálogo quando a aba mudar (mesmo efeito de clicar no botão voltar)
   const prevActiveTabRef = useRef(activeTab);
   useEffect(() => {
@@ -1231,16 +1264,21 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
   }, [activeTab]);
 
   // Carregar conversas ao montar e sempre que activeTab mudar para 'conversations'
-  // Isso garante que conversas prévias sejam carregadas ao iniciar o VeloHub
+  // CRÍTICO: Aguardar sessionId estar garantido antes de carregar
   useEffect(() => {
-    if (activeTab === 'conversations' && hasSessionId()) {
+    if (!sessionIdGuaranteed) return; // Não fazer nada até sessionId estar garantido
+    
+    if (activeTab === 'conversations') {
       loadConversations();
     }
-  }, [activeTab, loadConversations]);
+  }, [activeTab, sessionIdGuaranteed, loadConversations]);
 
   // Recarregar quando refreshTrigger mudar (botão de refresh)
+  // CRÍTICO: Aguardar sessionId estar garantido antes de recarregar
   useEffect(() => {
-    if (refreshTrigger > 0 && hasSessionId()) {
+    if (!sessionIdGuaranteed) return; // Não fazer nada até sessionId estar garantido
+    
+    if (refreshTrigger > 0) {
       if (activeTab === 'conversations') {
         loadConversations();
       }
@@ -1248,7 +1286,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
         loadContacts(false);
       }
     }
-  }, [refreshTrigger, activeTab, loadConversations, loadContacts]);
+  }, [refreshTrigger, activeTab, sessionIdGuaranteed, loadConversations, loadContacts]);
 
   // Ref para armazenar a função loadConversations mais recente (evita recriação do intervalo)
   const loadConversationsRef = useRef(loadConversations);
@@ -1290,55 +1328,23 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
   }, [activeTab]); // Removido loadConversations das dependências
 
   // Carregar conversas ao montar o componente (independente da aba ativa)
-  // Aguardar sessionId estar disponível com retry mais robusto
+  // CRÍTICO: Aguardar sessionId estar garantido antes de carregar
   useEffect(() => {
-    let retryCount = 0;
-    const MAX_RETRIES = 3;
-    const RETRY_DELAY = 2000; // 2 segundos
-
-    const tryLoadConversations = () => {
-      if (hasSessionId()) {
-        console.log('✅ VeloChatWidget: sessionId disponível, carregando conversas...');
-        loadConversations();
-      } else if (retryCount < MAX_RETRIES) {
-        retryCount++;
-        console.log(`⏳ VeloChatWidget: sessionId não disponível, tentativa ${retryCount}/${MAX_RETRIES}...`);
-        const timeoutId = setTimeout(tryLoadConversations, RETRY_DELAY);
-        return () => clearTimeout(timeoutId);
-      } else {
-        console.warn('⚠️ VeloChatWidget: sessionId não disponível após múltiplas tentativas');
-      }
-    };
-
-    tryLoadConversations();
-  }, [loadConversations]);
+    if (!sessionIdGuaranteed) return; // Não fazer nada até sessionId estar garantido
+    
+    console.log('✅ VeloChatWidget: sessionId garantido, carregando conversas...');
+    loadConversations();
+  }, [sessionIdGuaranteed, loadConversations]);
 
   // Carregar contatos quando aba de contatos ou conversas estiver ativa (para mostrar status)
+  // CRÍTICO: Aguardar sessionId estar garantido antes de carregar
   useEffect(() => {
-    if ((activeTab === 'contacts' || activeTab === 'conversations') && hasSessionId()) {
+    if (!sessionIdGuaranteed) return; // Não fazer nada até sessionId estar garantido
+    
+    if (activeTab === 'contacts' || activeTab === 'conversations') {
       loadContacts();
-    } else if ((activeTab === 'contacts' || activeTab === 'conversations') && !hasSessionId()) {
-      // Tentar novamente após delay com retry
-      let retryCount = 0;
-      const MAX_RETRIES = 3;
-      const RETRY_DELAY = 2000; // 2 segundos
-
-      const tryLoadContacts = () => {
-        if (hasSessionId()) {
-          console.log('✅ VeloChatWidget: sessionId disponível, carregando contatos...');
-          loadContacts();
-        } else if (retryCount < MAX_RETRIES) {
-          retryCount++;
-          console.log(`⏳ VeloChatWidget: sessionId não disponível para contatos, tentativa ${retryCount}/${MAX_RETRIES}...`);
-          const timeoutId = setTimeout(tryLoadContacts, RETRY_DELAY);
-          return () => clearTimeout(timeoutId);
-        }
-      };
-
-      const timeoutId = setTimeout(tryLoadContacts, RETRY_DELAY);
-      return () => clearTimeout(timeoutId);
     }
-  }, [activeTab, loadContacts]);
+  }, [activeTab, sessionIdGuaranteed, loadContacts]);
 
   // Inicializar estados do modal de gerenciamento quando abrir
   useEffect(() => {

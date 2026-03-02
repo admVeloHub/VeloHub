@@ -1,4 +1,9 @@
-// VERSION: v2.5.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+// VERSION: v3.0.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+// Mudanças v3.0.0:
+// - REFATORAÇÃO: Removida TODA lógica de criação de sessionId do LoginPage
+// - LoginPage agora apenas valida credenciais (OAuth ou email/senha) e verifica acesso Velohub
+// - Se credenciais válidas, chama onLoginSuccess(userData) para ir para LoadingPage
+// - Criação de sessionId foi movida para LoadingPage com retry robusto
 // Mudanças v2.5.0:
 // - ROBUSTEZ: Login por email/senha agora usa sessionId retornado diretamente do endpoint quando disponível
 // - ROBUSTEZ: Adicionado fallback com ensureSessionId() se registro de sessão falhar
@@ -27,10 +32,7 @@ import {
   saveUserSession, 
   isAuthorizedDomain, 
   decodeJWT, 
-  initializeGoogleSignIn,
-  registerLoginSession,
-  startHeartbeat,
-  ensureSessionId
+  initializeGoogleSignIn
 } from '../services/auth';
 import { getClientId } from '../config/google-config';
 import { API_BASE_URL } from '../config/api-config';
@@ -293,26 +295,12 @@ const LoginPage = ({ onLoginSuccess }) => {
         // Salvar sessão
         saveUserSession(userData);
 
-        // MELHORIA: Registrar login no backend para controle de sessões (com await, retry e fallback)
-        try {
-          await registerLoginSession(userData);
-        } catch (error) {
-          console.error('⚠️ Erro ao registrar sessão no backend, tentando garantir sessionId...', error);
-          // Tentar garantir sessionId mesmo com erro
-          try {
-            const sessionId = await ensureSessionId();
-            if (sessionId) {
-              console.log('✅ sessionId garantido após erro:', sessionId);
-            } else {
-              console.warn('⚠️ Não foi possível garantir sessionId, mas login foi bem-sucedido');
-            }
-          } catch (ensureError) {
-            console.error('❌ Não foi possível garantir sessionId:', ensureError);
-            // Continuar mesmo assim - usuário pode usar o sistema
-          }
-        }
-
-        console.log('Login realizado com sucesso');
+        // Verificar acesso Velohub (acessos.Velohub === true)
+        // Validação já foi feita no backend através de validate-access
+        // Se chegou aqui, significa que acesso foi validado com sucesso
+        
+        console.log('✅ Login realizado com sucesso - credenciais validadas');
+        // Chamar onLoginSuccess para ir para LoadingPage (que criará sessionId)
         onLoginSuccess(userData);
       } else {
         console.log('Email não encontrado no payload:', payload);
@@ -354,32 +342,12 @@ const LoginPage = ({ onLoginSuccess }) => {
       // Salvar sessão
       saveUserSession(userData);
 
-      // MELHORIA: Usar sessionId retornado pelo endpoint de login se disponível
-      if (result.sessionId && typeof result.sessionId === 'string' && result.sessionId.trim().length > 0) {
-        localStorage.setItem('velohub_session_id', result.sessionId);
-        console.log('✅ sessionId obtido diretamente do endpoint de login:', result.sessionId);
-        // Iniciar heartbeat imediatamente
-        startHeartbeat();
-      } else {
-        // Fallback: Registrar login no backend para controle de sessões (com await e retry)
-        try {
-          await registerLoginSession(userData);
-        } catch (error) {
-          console.error('⚠️ Erro ao registrar sessão no backend, tentando garantir sessionId...', error);
-          // Tentar garantir sessionId mesmo com erro
-          try {
-            const sessionId = await ensureSessionId();
-            if (sessionId) {
-              console.log('✅ sessionId garantido após erro:', sessionId);
-            }
-          } catch (ensureError) {
-            console.error('❌ Não foi possível garantir sessionId:', ensureError);
-            // Continuar mesmo assim - usuário pode usar o sistema
-          }
-        }
-      }
-
-      console.log('Login realizado com sucesso');
+      // Verificar acesso Velohub (acessos.Velohub === true)
+      // Validação já foi feita no backend através de /auth/login
+      // Se chegou aqui, significa que acesso foi validado com sucesso
+      
+      console.log('✅ Login realizado com sucesso - credenciais validadas');
+      // Chamar onLoginSuccess para ir para LoadingPage (que criará sessionId)
       onLoginSuccess(userData);
     } catch (error) {
       console.error('Erro no login:', error);

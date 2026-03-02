@@ -1,6 +1,24 @@
 /**
  * LoadingPage - Página de Loading Intermediária
- * VERSION: v1.4.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.1.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.1.0:
+ * - CORREÇÃO: Adicionada proteção contra criação duplicada de sessionId (React StrictMode)
+ * - CORREÇÃO: Verificação se sessionId já existe antes de criar novo
+ * - CORREÇÃO: Ref para evitar execução dupla do useEffect de criação de sessionId
+ * - registerLoginSession agora verifica sessionId existente antes de criar
+ * 
+ * Mudanças v2.0.0:
+ * - REFATORAÇÃO: Criação de sessionId movida do LoginPage para LoadingPage
+ * - Implementado retry robusto com 5 tentativas para criação de sessionId
+ * - Mensagens dinâmicas baseadas no estado real do processo:
+ *   - "Criando sessionID" (durante criação)
+ *   - "Tentando novamente (X/5)" (em caso de falha)
+ *   - "Iniciando sessão" (após sucesso)
+ *   - "Buscando contatos" (durante busca)
+ *   - "Atualizando notícias" (durante atualização)
+ * - Se todas as 5 tentativas falharem, chama onComplete(false) para retornar ao login
+ * - Removidas mensagens genéricas/forçadas
  * 
  * Página de loading que aparece imediatamente ao carregar o app.
  * Executa verificação de autenticação e carregamento em background (oculto).
@@ -29,12 +47,12 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { updateUserInfo, checkAuthenticationState, getUserSession, ensureSessionId, registerLoginSession } from '../services/auth';
+import { updateUserInfo, checkAuthenticationState, getUserSession, registerLoginSession } from '../services/auth';
 import * as velochatApi from '../services/velochatApi';
 import { veloNewsAPI } from '../services/api';
 
 const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
-    const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
+    const [currentMessage, setCurrentMessage] = useState('Criando sessionID');
     const [audioDuration, setAudioDuration] = useState(0);
     const [isInitializing, setIsInitializing] = useState(false);
     const audioRef = useRef(null);
@@ -45,44 +63,113 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
     const [authChecked, setAuthChecked] = useState(false);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [resolvedUserData, setResolvedUserData] = useState(userData);
+    const [sessionIdCreated, setSessionIdCreated] = useState(false);
+    // Ref para evitar criação duplicada de sessionId (React StrictMode causa renderização dupla)
+    const sessionCreationStartedRef = useRef(false);
 
-    // Sempre mostrar as 3 mensagens originais no rodapé
-    const messages = [
-        "Iniciando Sessão",
-        "Buscando Contatos",
-        "Atualizando Notícias"
-    ];
-
-    // Garantir que a primeira mensagem apareça imediatamente
-    useEffect(() => {
-        setCurrentMessageIndex(0);
-    }, []);
+    // Função para criar sessionId com retry de 5 tentativas
+    const createSessionIdWithRetry = async (userData, maxRetries = 5) => {
+        // Verificar se já existe sessionId válido antes de criar
+        const existingSessionId = localStorage.getItem('velohub_session_id');
+        if (existingSessionId && existingSessionId.trim().length > 0) {
+            console.log('✅ sessionId já existe, usando existente:', existingSessionId.substring(0, 8) + '...');
+            setSessionIdCreated(true);
+            setCurrentMessage('Iniciando sessão');
+            return existingSessionId;
+        }
+        
+        setCurrentMessage('Criando sessionID');
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                // Verificar novamente antes de cada tentativa (pode ter sido criado por outro processo)
+                const checkSessionId = localStorage.getItem('velohub_session_id');
+                if (checkSessionId && checkSessionId.trim().length > 0) {
+                    console.log('✅ sessionId criado por outro processo, usando existente:', checkSessionId.substring(0, 8) + '...');
+                    setSessionIdCreated(true);
+                    setCurrentMessage('Iniciando sessão');
+                    return checkSessionId;
+                }
+                
+                const sessionId = await registerLoginSession(userData, 1, 1000);
+                if (sessionId) {
+                    console.log(`✅ sessionId criado com sucesso na tentativa ${attempt}/${maxRetries}`);
+                    setSessionIdCreated(true);
+                    setCurrentMessage('Iniciando sessão');
+                    return sessionId;
+                }
+            } catch (error) {
+                console.error(`❌ Tentativa ${attempt}/${maxRetries} falhou:`, error);
+                
+                if (attempt < maxRetries) {
+                    setCurrentMessage(`Tentando novamente (${attempt}/${maxRetries})`);
+                    // Aguardar antes da próxima tentativa (backoff exponencial)
+                    await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+                } else {
+                    console.error('❌ Todas as tentativas de criar sessionId falharam');
+                    setCurrentMessage('Erro ao criar sessão');
+                    return null;
+                }
+            }
+        }
+        
+        return null;
+    };
 
     // Verificar autenticação primeiro se userData não foi fornecido
     useEffect(() => {
         if (userData) {
-            // Se userData foi fornecido (login direto), garantir sessionId primeiro
-            const ensureSession = async () => {
+            // Proteção contra execução dupla (React StrictMode)
+            if (sessionCreationStartedRef.current) {
+                console.log('⚠️ LoadingPage: Criação de sessionId já iniciada, ignorando chamada duplicada');
+                return;
+            }
+            sessionCreationStartedRef.current = true;
+            
+            // Se userData foi fornecido (login direto), criar sessionId com retry
+            const createSession = async () => {
                 try {
-                    // Garantir que sessionId existe quando userData é fornecido
-                    const sessionId = await ensureSessionId();
+                    setCurrentMessage('Criando sessionID');
+                    const sessionId = await createSessionIdWithRetry(userData, 5);
+                    
+                    // Se não conseguiu criar sessionId após 5 tentativas, autenticação FALHA
                     if (!sessionId) {
-                        // Se não conseguiu garantir, tentar criar nova sessão
-                        console.log('⚠️ LoadingPage: Tentando criar nova sessão para userData fornecido...');
-                        await registerLoginSession(userData);
+                        console.error('❌ LoadingPage: Não foi possível criar sessionId após 5 tentativas - autenticação falhou');
+                        setIsAuthenticated(false);
+                        setAuthChecked(true);
+                        if (onAuthCheck) {
+                            onAuthCheck(false);
+                        }
+                        // Retornar para login após um breve delay
+                        setTimeout(() => {
+                            if (onComplete) {
+                                onComplete(false);
+                            }
+                        }, 2000);
+                        return;
                     }
+                    
+                    console.log('✅ LoadingPage: sessionId criado com sucesso:', sessionId.substring(0, 8) + '...');
                     setResolvedUserData(userData);
                     setIsAuthenticated(true);
                     setAuthChecked(true);
                 } catch (error) {
-                    console.error('❌ LoadingPage: Erro ao garantir sessionId para userData:', error);
-                    // Continuar mesmo com erro - sessionId pode ser criado depois
-                    setResolvedUserData(userData);
-                    setIsAuthenticated(true);
+                    console.error('❌ LoadingPage: Erro ao criar sessionId para userData:', error);
+                    // Autenticação FALHA se não conseguir criar sessionId
+                    setIsAuthenticated(false);
                     setAuthChecked(true);
+                    if (onAuthCheck) {
+                        onAuthCheck(false);
+                    }
+                    // Retornar para login após um breve delay
+                    setTimeout(() => {
+                        if (onComplete) {
+                            onComplete(false);
+                        }
+                    }, 2000);
                 }
             };
-            ensureSession();
+            createSession();
             return;
         }
 
@@ -96,6 +183,13 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
                     const session = getUserSession();
                     if (session && session.user) {
                         setResolvedUserData(session.user);
+                    }
+                    // Se autenticado, sessionId já foi garantido por checkAuthenticationState
+                    // Verificar se sessionId existe no localStorage
+                    const existingSessionId = localStorage.getItem('velohub_session_id');
+                    if (existingSessionId) {
+                        setSessionIdCreated(true);
+                        setCurrentMessage('Iniciando sessão');
                     }
                 }
                 
@@ -121,7 +215,7 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
     // Inicializar sessão e executar operações em background (oculto)
     // Operações continuam mesmo se usuário sair da aba
     useEffect(() => {
-        if (!authChecked || operationsStartedRef.current) return;
+        if (!authChecked || !isAuthenticated || !sessionIdCreated || operationsStartedRef.current) return;
 
         // Marcar que operações já foram iniciadas
         operationsStartedRef.current = true;
@@ -130,19 +224,8 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
         // 1. Iniciar Sessão (executar imediatamente após verificação de autenticação)
         const initSession = async () => {
             try {
-                if (isAuthenticated && resolvedUserData) {
-                    // GARANTIR QUE sessionId EXISTE antes de continuar
-                    const sessionId = await ensureSessionId();
-                    if (!sessionId) {
-                        console.warn('⚠️ LoadingPage: sessionId não garantido em initSession, tentando criar...');
-                        try {
-                            await registerLoginSession(resolvedUserData);
-                        } catch (error) {
-                            console.error('❌ LoadingPage: Erro ao criar sessionId em initSession:', error);
-                        }
-                    } else {
-                        console.log('✅ LoadingPage: sessionId garantido em initSession:', sessionId.substring(0, 8) + '...');
-                    }
+                if (isAuthenticated && resolvedUserData && sessionIdCreated) {
+                    setCurrentMessage('Iniciando sessão');
                     
                     // Atualizar informações do usuário
                     updateUserInfo(resolvedUserData);
@@ -160,7 +243,8 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
         // 2. Buscar Contatos (executar em background, não bloquear)
         const fetchContacts = async () => {
             try {
-                if (isAuthenticated) {
+                if (isAuthenticated && sessionIdCreated) {
+                    setCurrentMessage('Buscando contatos');
                     // Inicializar conexão com chat e carregar contatos em background
                     velochatApi.getContacts().catch(err => {
                         console.error('Erro ao buscar contatos:', err);
@@ -174,20 +258,28 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
         // 3. Atualizar Notícias (executar em background, não bloquear)
         const updateNews = async () => {
             try {
-                // Iniciar carregamento de notícias em background (não precisa completar)
-                veloNewsAPI.getRecent(4).catch(err => {
-                    console.error('Erro ao atualizar notícias:', err);
-                });
+                if (isAuthenticated && sessionIdCreated) {
+                    setCurrentMessage('Atualizando notícias');
+                    // Iniciar carregamento de notícias em background (não precisa completar)
+                    veloNewsAPI.getRecent(4).catch(err => {
+                        console.error('Erro ao atualizar notícias:', err);
+                    });
+                }
             } catch (error) {
                 console.error('Erro ao atualizar notícias:', error);
             }
         };
 
-        // Executar todas as operações em paralelo (não sequencialmente)
-        // Não aguardar conclusão, apenas iniciar em background
+        // Executar operações sequencialmente
         initSession();
-        fetchContacts();
-        updateNews();
+        // Aguardar um pouco antes de buscar contatos
+        setTimeout(() => {
+            fetchContacts();
+        }, 500);
+        // Aguardar um pouco antes de atualizar notícias
+        setTimeout(() => {
+            updateNews();
+        }, 1000);
 
         // Usar Page Visibility API para continuar operações mesmo se usuário sair da aba
         const handleVisibilityChange = () => {
@@ -202,7 +294,7 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [authChecked, isAuthenticated, resolvedUserData]);
+    }, [authChecked, isAuthenticated, resolvedUserData, sessionIdCreated]);
 
     // Configurar áudio e completar após tempo mínimo (não esperar áudio terminar)
     useEffect(() => {
@@ -231,28 +323,6 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
         const handleLoadedMetadata = () => {
             const duration = audio.duration * 1000; // Converter para milissegundos
             setAudioDuration(duration);
-            
-            // Limpar intervalo anterior se existir
-            if (messageIntervalRef.current) {
-                clearInterval(messageIntervalRef.current);
-            }
-            
-            // Configurar intervalo para trocar mensagens (mesmo se áudio não tocar)
-            const messageInterval = duration / 3; // Dividir em 3 partes iguais (3 mensagens)
-            
-            // Garantir que a primeira mensagem está visível
-            setCurrentMessageIndex(0);
-            
-            // Trocar mensagens em intervalos regulares
-            messageIntervalRef.current = setInterval(() => {
-                setCurrentMessageIndex(prev => {
-                    const nextIndex = prev + 1;
-                    if (nextIndex < messages.length) {
-                        return nextIndex;
-                    }
-                    return prev;
-                });
-            }, messageInterval);
 
             // Tentar reproduzir novamente quando metadata carregar (caso primeira tentativa falhou)
             tryPlayAudio();
@@ -265,13 +335,11 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
             }
             setIsInitializing(false);
             if (onComplete) {
-                onComplete(isAuthenticated);
+                onComplete(isAuthenticated && sessionIdCreated);
             }
         };
 
-        // Configurar timeout para completar após tempo mínimo fixo (3 segundos)
-        // Não esperar áudio terminar, apenas tempo suficiente para mostrar mensagens
-        completionTimeoutRef.current = setTimeout(completeLoading, 3000);
+        // Não configurar timeout aqui - será configurado quando sessionId for criado
 
         audio.addEventListener('loadedmetadata', handleLoadedMetadata);
 
@@ -285,7 +353,31 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
                 clearTimeout(completionTimeoutRef.current);
             }
         };
-    }, [onComplete, messages.length, isAuthenticated, authChecked]);
+    }, [onComplete, isAuthenticated, authChecked]);
+    
+    // Completar loading quando sessionId for criado com sucesso
+    useEffect(() => {
+        if (sessionIdCreated && isAuthenticated && authChecked) {
+            // Limpar timeout anterior se existir
+            if (completionTimeoutRef.current) {
+                clearTimeout(completionTimeoutRef.current);
+            }
+            
+            // Configurar timeout para completar após tempo mínimo fixo (3 segundos)
+            completionTimeoutRef.current = setTimeout(() => {
+                setIsInitializing(false);
+                if (onComplete) {
+                    onComplete(true);
+                }
+            }, 3000);
+            
+            return () => {
+                if (completionTimeoutRef.current) {
+                    clearTimeout(completionTimeoutRef.current);
+                }
+            };
+        }
+    }, [sessionIdCreated, isAuthenticated, authChecked, onComplete]);
     
     // Se não está autenticado e já verificou, completar após tempo mínimo
     useEffect(() => {
@@ -387,7 +479,7 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
                 }}
             >
                 <div 
-                    key={currentMessageIndex}
+                    key={currentMessage}
                     style={{
                         color: '#ffffff',
                         fontSize: '1.5rem',
@@ -401,7 +493,7 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
                         display: 'block'
                     }}
                 >
-                    {messages[currentMessageIndex] ?? messages[0]}
+                    {currentMessage}
                 </div>
                 
             </div>

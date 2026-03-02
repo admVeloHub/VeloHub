@@ -1,6 +1,12 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.46.1 | DATE: 2026-02-23 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.47.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.47.0:
+ * - CORREÇÃO CORS: Adicionado endpoint POST /api/whatsapp/send que faz proxy para ngrok
+ * - Frontend agora chama backend ao invés de ngrok diretamente, resolvendo problemas de CORS
+ * - Backend faz proxy para ngrok com timeout de 30 segundos e tratamento de erros
+ * - Adicionado header ngrok-skip-browser-warning quando necessário
  * 
  * Mudanças v2.46.1:
  * - Corrigido caminho para arquivos estáticos com fallback automático
@@ -6077,6 +6083,93 @@ try {
   
   // Registrar rotas ANTES de qualquer middleware estático
   app.use('/api/escalacoes/solicitacoes', solicitacoesRouter);
+  
+  // Endpoint de proxy para WhatsApp API (resolve CORS)
+  // Frontend chama /api/whatsapp/send → Backend faz proxy para ngrok
+  app.post('/api/whatsapp/send', async (req, res) => {
+    try {
+      const config = require('./config');
+      
+      // Obter URL do WhatsApp (ngrok em produção, localhost em dev)
+      const isProduction = config.NODE_ENV === 'production';
+      const whatsappApiUrl = isProduction
+        ? (config.WHATSAPP_API_URL || 'https://carmina-peskier-balletically.ngrok-free.dev')
+        : (config.SKYNET_API_URL || 'http://localhost:3001');
+      
+      // Detectar endpoint baseado na URL
+      const isSkynet = whatsappApiUrl.includes('skynet') || 
+                       whatsappApiUrl.includes('gcp') || 
+                       whatsappApiUrl.includes('backend-gcp') ||
+                       whatsappApiUrl.includes('us-east1.run.app');
+      const endpoint = isSkynet ? '/api/whatsapp/send' : '/send';
+      const targetUrl = `${whatsappApiUrl}${endpoint}`;
+      
+      console.log(`[WHATSAPP PROXY] Fazendo proxy para: ${targetUrl}`);
+      console.log(`[WHATSAPP PROXY] Payload recebido:`, {
+        jid: req.body?.jid,
+        mensagemLength: req.body?.mensagem?.length || 0,
+        imagensCount: req.body?.imagens?.length || 0
+      });
+      
+      // Fazer requisição para o WhatsApp API com timeout de 30 segundos
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      
+      try {
+        const response = await fetch(targetUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            // Adicionar header ngrok se necessário
+            ...(whatsappApiUrl.includes('ngrok') && { 'ngrok-skip-browser-warning': 'true' })
+          },
+          body: JSON.stringify(req.body),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        // Verificar se resposta foi bem-sucedida
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[WHATSAPP PROXY] Erro do WhatsApp API: ${response.status} - ${errorText}`);
+          return res.status(response.status).json({
+            ok: false,
+            error: errorText || `Erro ${response.status} do WhatsApp API`
+          });
+        }
+        
+        // Retornar resposta do WhatsApp API
+        const data = await response.json();
+        console.log(`[WHATSAPP PROXY] Resposta recebida:`, data);
+        return res.json(data);
+        
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        
+        if (fetchError.name === 'AbortError') {
+          console.error('[WHATSAPP PROXY] Timeout ao fazer proxy para WhatsApp API');
+          return res.status(504).json({
+            ok: false,
+            error: 'Timeout ao conectar com WhatsApp API'
+          });
+        }
+        
+        console.error('[WHATSAPP PROXY] Erro ao fazer proxy:', fetchError);
+        return res.status(503).json({
+          ok: false,
+          error: 'Erro ao conectar com WhatsApp API: ' + fetchError.message
+        });
+      }
+    } catch (error) {
+      console.error('[WHATSAPP PROXY] Erro geral:', error);
+      return res.status(500).json({
+        ok: false,
+        error: 'Erro interno ao processar requisição WhatsApp'
+      });
+    }
+  });
+  console.log('✅ Endpoint POST /api/whatsapp/send (proxy) registrado');
   
   // Endpoint de compatibilidade para WhatsApp API (UPDATE PAINEL)
   // /api/requests/reply → chama a mesma lógica de /api/escalacoes/solicitacoes/reply
