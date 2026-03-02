@@ -1,12 +1,18 @@
 /**
  * LoadingPage - Página de Loading Intermediária
- * VERSION: v1.3.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.4.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
  * 
  * Página de loading que aparece imediatamente ao carregar o app.
  * Executa verificação de autenticação e carregamento em background (oculto).
  * Reproduz áudio de abertura automaticamente (/Velotax Opening.mp3) sem esperar interação do usuário.
  * Carregamento prossegue mesmo se usuário sair da aba.
  * Redireciona para home após tempo mínimo, sem esperar áudio terminar.
+ * 
+ * Mudanças v1.4.0:
+ * - CRÍTICO: Garantir que sessionId sempre existe durante inicialização
+ * - Quando userData é fornecido, garantir sessionId antes de continuar
+ * - initSession() agora garante sessionId antes de atualizar informações do usuário
+ * - Adicionado tratamento de erros robusto para garantir que inicialização não falhe
  * 
  * Mudanças v1.3.0:
  * - Removido botão "Clique para iniciar" e avisos de clique
@@ -23,7 +29,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { updateUserInfo, checkAuthenticationState, getUserSession } from '../services/auth';
+import { updateUserInfo, checkAuthenticationState, getUserSession, ensureSessionId, registerLoginSession } from '../services/auth';
 import * as velochatApi from '../services/velochatApi';
 import { veloNewsAPI } from '../services/api';
 
@@ -55,10 +61,28 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
     // Verificar autenticação primeiro se userData não foi fornecido
     useEffect(() => {
         if (userData) {
-            // Se userData foi fornecido (login direto), usar ele
-            setResolvedUserData(userData);
-            setIsAuthenticated(true);
-            setAuthChecked(true);
+            // Se userData foi fornecido (login direto), garantir sessionId primeiro
+            const ensureSession = async () => {
+                try {
+                    // Garantir que sessionId existe quando userData é fornecido
+                    const sessionId = await ensureSessionId();
+                    if (!sessionId) {
+                        // Se não conseguiu garantir, tentar criar nova sessão
+                        console.log('⚠️ LoadingPage: Tentando criar nova sessão para userData fornecido...');
+                        await registerLoginSession(userData);
+                    }
+                    setResolvedUserData(userData);
+                    setIsAuthenticated(true);
+                    setAuthChecked(true);
+                } catch (error) {
+                    console.error('❌ LoadingPage: Erro ao garantir sessionId para userData:', error);
+                    // Continuar mesmo com erro - sessionId pode ser criado depois
+                    setResolvedUserData(userData);
+                    setIsAuthenticated(true);
+                    setAuthChecked(true);
+                }
+            };
+            ensureSession();
             return;
         }
 
@@ -107,6 +131,19 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
         const initSession = async () => {
             try {
                 if (isAuthenticated && resolvedUserData) {
+                    // GARANTIR QUE sessionId EXISTE antes de continuar
+                    const sessionId = await ensureSessionId();
+                    if (!sessionId) {
+                        console.warn('⚠️ LoadingPage: sessionId não garantido em initSession, tentando criar...');
+                        try {
+                            await registerLoginSession(resolvedUserData);
+                        } catch (error) {
+                            console.error('❌ LoadingPage: Erro ao criar sessionId em initSession:', error);
+                        }
+                    } else {
+                        console.log('✅ LoadingPage: sessionId garantido em initSession:', sessionId.substring(0, 8) + '...');
+                    }
+                    
                     // Atualizar informações do usuário
                     updateUserInfo(resolvedUserData);
                     
