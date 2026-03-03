@@ -1,6 +1,12 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Dashboard
- * VERSION: v2.24.0 | DATE: 2026-02-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.25.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.25.0:
+ * - Corrigido erro ao acessar motivoReduzido.toUpperCase() quando motivoReduzido é array
+ * - Criada função normalizarMotivoParaComparacao() para tratar tanto String quanto Array
+ * - Função converte array em string (juntando com espaço) antes de fazer comparações
+ * - Correção aplicada nos cálculos de "Liquidação Antecipada" nas rotas /stats e /metricas
  * 
  * Mudanças v2.24.0:
  * - Corrigido filtro de "Prazo Médio" para excluir casos com datas inválidas (datas muito antigas ou futuras)
@@ -139,6 +145,27 @@
 const express = require('express');
 const router = express.Router();
 const { ObjectId } = require('mongodb');
+
+/**
+ * Normalizar motivoReduzido para string (trata tanto String quanto Array)
+ * @param {string|Array<string>|undefined} motivoReduzido - Motivo reduzido (pode ser string ou array)
+ * @returns {string} - String normalizada em lowercase para comparação
+ */
+function normalizarMotivoParaComparacao(motivoReduzido) {
+  if (!motivoReduzido) return '';
+  
+  // Se for array, juntar todos os motivos com espaço
+  if (Array.isArray(motivoReduzido)) {
+    return motivoReduzido.join(' ').toLowerCase();
+  }
+  
+  // Se for string, retornar em lowercase
+  if (typeof motivoReduzido === 'string') {
+    return motivoReduzido.toLowerCase();
+  }
+  
+  return '';
+}
 
 /**
  * Inicializar rotas de dashboard
@@ -338,9 +365,10 @@ const initDashboardRoutes = (client, connectToMongo) => {
       // Liquidação Antecipada
       // Dupla verificação: motivo reduzido contém "liquidação antecipada" E status do contrato é quitado
       const liquidacaoAntecipada = todas.filter(r => {
+        const motivoNormalizado = normalizarMotivoParaComparacao(r.motivoReduzido);
         const motivoContemLiquidacao = 
-          r.motivoReduzido?.toLowerCase().includes('liquidação antecipada') ||
-          r.motivoReduzido?.toLowerCase().includes('liquidacao antecipada');
+          motivoNormalizado.includes('liquidação antecipada') ||
+          motivoNormalizado.includes('liquidacao antecipada');
         const contratoQuitado = r.statusContratoQuitado === true;
         return motivoContemLiquidacao && contratoQuitado;
       }).length;
@@ -573,9 +601,10 @@ const initDashboardRoutes = (client, connectToMongo) => {
       // Liquidação Antecipada
       // Dupla verificação: motivo reduzido contém "liquidação antecipada" E status do contrato é quitado
       const liquidacaoAntecipada = todas.filter(r => {
+        const motivoNormalizado = normalizarMotivoParaComparacao(r.motivoReduzido);
         const motivoContemLiquidacao = 
-          r.motivoReduzido?.toLowerCase().includes('liquidação antecipada') ||
-          r.motivoReduzido?.toLowerCase().includes('liquidacao antecipada');
+          motivoNormalizado.includes('liquidação antecipada') ||
+          motivoNormalizado.includes('liquidacao antecipada');
         const contratoQuitado = r.statusContratoQuitado === true;
         return motivoContemLiquidacao && contratoQuitado;
       }).length;

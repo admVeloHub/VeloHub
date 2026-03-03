@@ -1,6 +1,19 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.47.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.47.2 | DATE: 2026-03-03 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.47.2:
+ * - CORREÇÃO CRÍTICA: Corrigida detecção de endpoint em produção
+ * - ngrok sempre usa /send (não é detectado como Skynet)
+ * - Skynet usa /api/whatsapp/send apenas quando realmente for Skynet
+ * - Melhorada lógica de detecção para garantir que produção use ngrok com /send
+ * - Adicionados logs detalhados incluindo detecção de ngrok
+ * 
+ * Mudanças v2.47.1:
+ * - CORREÇÃO: Corrigida detecção de Skynet/GCP que identificava incorretamente o próprio backend
+ * - Adicionada validação para evitar loop quando whatsappApiUrl aponta para o próprio backend
+ * - Melhorada construção de URL para evitar barras duplas
+ * - Adicionados logs detalhados para debug do proxy WhatsApp
  * 
  * Mudanças v2.47.0:
  * - CORREÇÃO CORS: Adicionado endpoint POST /api/whatsapp/send que faz proxy para ngrok
@@ -6100,18 +6113,47 @@ try {
       
       // Obter URL do WhatsApp (ngrok em produção, localhost em dev)
       const isProduction = config.NODE_ENV === 'production';
-      const whatsappApiUrl = isProduction
+      let whatsappApiUrl = isProduction
         ? (config.WHATSAPP_API_URL || 'https://carmina-peskier-balletically.ngrok-free.dev')
         : (config.SKYNET_API_URL || 'http://localhost:3001');
       
-      // Detectar endpoint baseado na URL
-      const isSkynet = whatsappApiUrl.includes('skynet') || 
-                       whatsappApiUrl.includes('gcp') || 
-                       whatsappApiUrl.includes('backend-gcp') ||
-                       whatsappApiUrl.includes('us-east1.run.app');
-      const endpoint = isSkynet ? '/api/whatsapp/send' : '/send';
-      const targetUrl = `${whatsappApiUrl}${endpoint}`;
+      // Garantir que a URL não seja o próprio backend (evitar loop)
+      // Remover barras finais e normalizar URL
+      whatsappApiUrl = whatsappApiUrl.trim().replace(/\/+$/, '');
       
+      // Detectar endpoint baseado na URL
+      // IMPORTANTE: 
+      // - ngrok sempre usa /send
+      // - Skynet sempre usa /api/whatsapp/send
+      // - Não detectar o próprio backend como Skynet
+      const currentHost = req.get('host') || req.hostname || '';
+      const isOwnBackend = whatsappApiUrl.includes(currentHost) || 
+                          whatsappApiUrl.includes('velohub-278491073220.us-east1.run.app') ||
+                          whatsappApiUrl.includes('velohub-main-staging-278491073220.us-east1.run.app');
+      
+      // ngrok sempre usa /send (não é Skynet)
+      const isNgrok = whatsappApiUrl.includes('ngrok') || whatsappApiUrl.includes('trycloudflare');
+      
+      // Skynet usa /api/whatsapp/send (apenas se não for ngrok e não for o próprio backend)
+      const isSkynet = !isOwnBackend && !isNgrok && (
+                       whatsappApiUrl.includes('skynet') || 
+                       whatsappApiUrl.includes('backend-gcp') ||
+                       whatsappApiUrl === 'http://localhost:3001' ||
+                       (whatsappApiUrl.includes('us-east1.run.app') && !whatsappApiUrl.includes('velohub'))
+                       );
+      
+      // ngrok → /send | Skynet/localhost:3001 → /api/whatsapp/send | outros → /send (padrão)
+      const endpoint = isSkynet ? '/api/whatsapp/send' : '/send';
+      
+      // Garantir que não haja barras duplas na construção da URL
+      const targetUrl = `${whatsappApiUrl}${endpoint}`.replace(/([^:]\/)\/+/g, '$1');
+      
+      console.log(`[WHATSAPP PROXY] Ambiente: ${isProduction ? 'PRODUÇÃO' : 'DESENVOLVIMENTO'}`);
+      console.log(`[WHATSAPP PROXY] WhatsApp API URL: ${whatsappApiUrl}`);
+      console.log(`[WHATSAPP PROXY] É próprio backend? ${isOwnBackend}`);
+      console.log(`[WHATSAPP PROXY] É ngrok? ${isNgrok}`);
+      console.log(`[WHATSAPP PROXY] É Skynet? ${isSkynet}`);
+      console.log(`[WHATSAPP PROXY] Endpoint selecionado: ${endpoint}`);
       console.log(`[WHATSAPP PROXY] Fazendo proxy para: ${targetUrl}`);
       console.log(`[WHATSAPP PROXY] Payload recebido:`, {
         jid: req.body?.jid,

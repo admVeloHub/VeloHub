@@ -1,9 +1,21 @@
 /**
  * VeloHub V3 - WhatsApp Service para Módulo Escalações
- * VERSION: v1.4.4 | DATE: 2025-02-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.4.6 | DATE: 2026-03-03 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
  * 
  * Serviço para integração com API WhatsApp (SKYNET ou ngrok)
+ * 
+ * Mudanças v1.4.6:
+ * - CORREÇÃO CRÍTICA: Corrigida detecção de endpoint em produção
+ * - ngrok sempre usa /send (não é detectado como Skynet)
+ * - Skynet usa /api/whatsapp/send apenas quando realmente for Skynet
+ * - Melhorada lógica de detecção para garantir que produção use ngrok com /send
+ * - Adicionados logs detalhados incluindo detecção de ngrok
+ * 
+ * Mudanças v1.4.5:
+ * - CORREÇÃO: Corrigida detecção de Skynet/GCP que identificava incorretamente o próprio backend
+ * - Adicionada validação para evitar loop quando apiUrl aponta para o próprio backend
+ * - Melhorada construção de URL para evitar barras duplas
  * 
  * Mudanças v1.4.4:
  * - Alterada URL de produção para https://carmina-peskier-balletically.ngrok-free.dev
@@ -113,24 +125,47 @@ async function sendMessage(jid, mensagem, imagens = [], videos = [], options = {
   // Produção: usar ngrok (WHATSAPP_API_URL)
   // Desenvolvimento: usar SKYNET (SKYNET_API_URL) ou localhost:3001
   const isProduction = config.NODE_ENV === 'production';
-  const apiUrl = isProduction
+  let apiUrl = isProduction
     ? (config.WHATSAPP_API_URL || 'https://carmina-peskier-balletically.ngrok-free.dev')
     : (config.SKYNET_API_URL || 'http://localhost:3001');
   
+  // Garantir que a URL não seja o próprio backend (evitar loop)
+  // Remover barras finais e normalizar URL
+  apiUrl = apiUrl.trim().replace(/\/+$/, '');
+  
   // Detectar endpoint baseado na URL
-  // SKYNET usa /api/whatsapp/send, ngrok e localhost:3001 usam /send
-  const isSkynet = apiUrl.includes('skynet') || 
-                   apiUrl.includes('gcp') || 
+  // IMPORTANTE: 
+  // - ngrok sempre usa /send
+  // - Skynet sempre usa /api/whatsapp/send
+  // - Não detectar o próprio backend como Skynet
+  const isOwnBackend = apiUrl.includes('velohub-278491073220.us-east1.run.app') ||
+                       apiUrl.includes('velohub-main-staging-278491073220.us-east1.run.app');
+  
+  // ngrok sempre usa /send (não é Skynet)
+  const isNgrok = apiUrl.includes('ngrok') || apiUrl.includes('trycloudflare');
+  
+  // Skynet usa /api/whatsapp/send (apenas se não for ngrok e não for o próprio backend)
+  const isSkynet = !isOwnBackend && !isNgrok && (
+                   apiUrl.includes('skynet') || 
                    apiUrl.includes('backend-gcp') ||
-                   apiUrl.includes('us-east1.run.app');
+                   apiUrl === 'http://localhost:3001' ||
+                   (apiUrl.includes('us-east1.run.app') && !apiUrl.includes('velohub'))
+                   );
+  
+  // ngrok → /send | Skynet/localhost:3001 → /api/whatsapp/send | outros → /send (padrão)
   const endpoint = isSkynet ? '/api/whatsapp/send' : '/send';
-  const fullUrl = `${apiUrl}${endpoint}`;
+  
+  // Garantir que não haja barras duplas na construção da URL
+  const fullUrl = `${apiUrl}${endpoint}`.replace(/([^:]\/)\/+/g, '$1');
   
   // Logs de diagnóstico
   console.log(`[WHATSAPP] ========================================`);
   console.log(`[WHATSAPP] Ambiente: ${isProduction ? 'PRODUÇÃO' : 'DESENVOLVIMENTO'}`);
   console.log(`[WHATSAPP] NODE_ENV: ${config.NODE_ENV || 'development'}`);
-  console.log(`[WHATSAPP] API selecionada: ${isSkynet ? 'SKYNET' : 'NGROK'}`);
+  console.log(`[WHATSAPP] É próprio backend? ${isOwnBackend}`);
+  console.log(`[WHATSAPP] É ngrok? ${isNgrok}`);
+  console.log(`[WHATSAPP] É Skynet? ${isSkynet}`);
+  console.log(`[WHATSAPP] API selecionada: ${isSkynet ? 'SKYNET' : (isNgrok ? 'NGROK' : 'OUTRO')}`);
   console.log(`[WHATSAPP] URL base: ${apiUrl}`);
   console.log(`[WHATSAPP] Endpoint: ${endpoint}`);
   console.log(`[WHATSAPP] URL completa: ${fullUrl}`);

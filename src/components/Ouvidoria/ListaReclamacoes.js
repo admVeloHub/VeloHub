@@ -1,6 +1,20 @@
 /**
  * VeloHub V3 - ListaReclamacoes Component
- * VERSION: v1.9.0 | DATE: 2025-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.11.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.11.0:
+ * - Corrigido filtro de tipo: "Processos" alterado para "PROCESSOS" (value) e "Ação Judicial" (label)
+ * - Adicionada função normalizarTipoExibicao para normalizar exibição de tipos na lista
+ * - Tipo "Processos" agora é exibido como "Ação Judicial" na lista de reclamações
+ * 
+ * Mudanças v1.10.1:
+ * - Removido tipo "Ouvidoria" do dropdown de filtros
+ * 
+ * Mudanças v1.10.0:
+ * - Atualizado filtro de tipo para incluir todos os tipos corretos:
+ *   - BACEN, N2 & Pix, Reclame Aqui, Procon, Ação Judicial
+ * 
+ * Mudanças v1.9.0:
  * 
  * Mudanças v1.9.0:
  * - Removido campo status (usar Finalizado.Resolvido para determinar se está em andamento ou resolvido)
@@ -191,6 +205,32 @@ const ListaReclamacoes = () => {
   };
 
   /**
+   * Normalizar tipo para exibição
+   */
+  const normalizarTipoExibicao = (tipo) => {
+    if (!tipo) return 'BACEN';
+    const tipoUpper = String(tipo).toUpperCase().trim();
+    
+    if (tipoUpper === 'PROCESSOS' || tipoUpper === 'JUDICIAL' || tipoUpper === 'AÇÃO JUDICIAL' || tipoUpper === 'ACAO JUDICIAL') {
+      return 'Ação Judicial';
+    }
+    if (tipoUpper === 'N2' || tipoUpper === 'N2 & PIX' || tipoUpper === 'N2&PIX' || tipoUpper === 'OUVIDORIA') {
+      return 'N2 & Pix';
+    }
+    if (tipoUpper === 'RECLAME_AQUI' || tipoUpper === 'RECLAMEAQUI' || tipoUpper === 'RECLAME AQUI') {
+      return 'Reclame Aqui';
+    }
+    if (tipoUpper === 'PROCON') {
+      return 'Procon';
+    }
+    if (tipoUpper === 'BACEN') {
+      return 'BACEN';
+    }
+    
+    return tipo; // Retornar original se não for nenhum dos casos conhecidos
+  };
+
+  /**
    * Carregar reclamações
    */
   const loadReclamacoes = async () => {
@@ -204,7 +244,11 @@ const ListaReclamacoes = () => {
         
         // Aplicar filtros adicionais
         if (filtrosAplicados.tipo) {
-          dados = dados.filter(r => r.tipo === filtrosAplicados.tipo);
+          dados = dados.filter(r => {
+            const tipoNormalizado = normalizarTipoExibicao(r.tipo);
+            const filtroNormalizado = normalizarTipoExibicao(filtrosAplicados.tipo);
+            return tipoNormalizado === filtroNormalizado;
+          });
         }
 
         setReclamacoes(dados);
@@ -216,7 +260,11 @@ const ListaReclamacoes = () => {
         
         // Aplicar filtros adicionais
         if (filtrosAplicados.tipo) {
-          dados = dados.filter(r => r.tipo === filtrosAplicados.tipo);
+          dados = dados.filter(r => {
+            const tipoNormalizado = normalizarTipoExibicao(r.tipo);
+            const filtroNormalizado = normalizarTipoExibicao(filtrosAplicados.tipo);
+            return tipoNormalizado === filtroNormalizado;
+          });
         }
 
         setReclamacoes(dados);
@@ -287,9 +335,6 @@ const ListaReclamacoes = () => {
     }
   };
 
-  /**
-   * Obter status baseado em Finalizado.Resolvido
-   */
   const getStatusInfo = (reclamacao) => {
     if (reclamacao.Finalizado?.Resolvido === true) {
       return {
@@ -330,8 +375,10 @@ const ListaReclamacoes = () => {
             >
               <option value="">Todos</option>
               <option value="BACEN">BACEN</option>
-              <option value="N2">N2</option>
-              <option value="RA-PROCON">RA-PROCON</option>
+              <option value="N2">N2 & Pix</option>
+              <option value="Reclame Aqui">Reclame Aqui</option>
+              <option value="Procon">Procon</option>
+              <option value="PROCESSOS">Ação Judicial</option>
             </select>
           </div>
 
@@ -446,7 +493,7 @@ const ListaReclamacoes = () => {
                     );
                   })()}
                   <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200">
-                    {reclamacao.tipo || 'BACEN'}
+                    {normalizarTipoExibicao(reclamacao.tipo)}
                   </span>
                 </div>
                 <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2 mb-1">

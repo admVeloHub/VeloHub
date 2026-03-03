@@ -1,6 +1,14 @@
 /**
  * VeloChatWidget - Componente Principal do Chat
- * VERSION: v3.46.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.47.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v3.47.0:
+ * - CORRIGIDO: Scroll automático agora funciona de forma confiável quando novas mensagens chegam
+ * - scrollToBottom agora usa requestAnimationFrame + setTimeout para garantir que DOM está atualizado
+ * - Adicionado useEffect que observa mudanças em messages.length e faz scroll automaticamente
+ * - Scroll ao enviar mensagem agora sempre força scroll (force=true) para garantir que mensagem seja visível
+ * - Scroll quando recebe mensagem agora aguarda DOM ser atualizado (delay 100ms) antes de fazer scroll
+ * - Melhorada detecção de quando usuário está no rodapé antes de novas mensagens chegarem
  * 
  * Mudanças v3.46.0:
  * - CRÍTICO: sessionId agora é OBRIGATÓRIO antes de inicializar qualquer operação do widget
@@ -596,6 +604,10 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
     }
     
     if (normalizedMessage === normalizedCurrent) {
+      // Salvar estado de "estava no rodapé" ANTES de adicionar mensagem
+      // Isso garante que verificamos a posição correta antes do DOM mudar
+      wasAtBottomBeforeNewMessageRef.current = isScrolledToBottom();
+      
       // Verificar se já existe (evitar duplicatas) e substituir temporárias
       setMessages(prev => {
         // CRÍTICO: Se mensagem é do próprio usuário, verificar se já existe temporária antes de processar
@@ -737,9 +749,8 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
         return sorted;
       });
       
-      // Scroll se usuário estiver no rodapé (independente de paginação)
-      // A função scrollToBottom(false) verifica internamente se usuário está no rodapé
-      scrollToBottom(false);
+      // Scroll será feito pelo useEffect que observa mudanças em messages.length
+      // Não fazer scroll aqui para evitar conflito com o useEffect
     } else {
       // Mensagem de outra conversa - atualizar contador de não lidas APENAS se não for do próprio usuário
       if (!isFromCurrentUser) {
@@ -1504,43 +1515,59 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
   // Scroll automático para última mensagem - apenas quando necessário
   // Usa scrollTop do container ao invés de scrollIntoView para evitar scroll na página inteira
   // Respeita scroll manual do usuário: não força scroll quando usuário está lendo mensagens antigas
-  const scrollToBottom = (force = false) => {
-    if (!messagesEndRef.current) return;
-    
-    // Encontrar o container de mensagens (div com overflow-y-auto)
-    const messagesContainer = messagesEndRef.current.closest('.overflow-y-auto, .overflow-auto');
-    
-    if (!messagesContainer) {
-      console.warn('⚠️ [scrollToBottom] Container de mensagens não encontrado');
-      return;
-    }
-    
-    // Se force=true, sempre fazer scroll (ignorar paginação e posição atual)
-    // Usado ao abrir conversa pela primeira vez
-    if (force) {
+  const scrollToBottom = (force = false, delay = 0) => {
+    const performScroll = () => {
+      if (!messagesEndRef.current) return;
+      
+      // Encontrar o container de mensagens (div com overflow-y-auto)
+      const messagesContainer = messagesEndRef.current.closest('.overflow-y-auto, .overflow-auto');
+      
+      if (!messagesContainer) {
+        console.warn('⚠️ [scrollToBottom] Container de mensagens não encontrado');
+        return;
+      }
+      
+      // Se force=true, sempre fazer scroll (ignorar paginação e posição atual)
+      // Usado ao abrir conversa pela primeira vez
+      if (force) {
+        messagesContainer.scrollTo({
+          top: messagesContainer.scrollHeight,
+          behavior: 'smooth'
+        });
+        return;
+      }
+      
+      // Se não for forçado, verificar condições antes de fazer scroll:
+      // 1. Se há paginação ativa e usuário não está no rodapé, não fazer scroll
+      if (hasMoreMessages && !isScrolledToBottom()) {
+        return;
+      }
+      
+      // 2. Se usuário não está no rodapé, não fazer scroll (lendo mensagens antigas)
+      if (!isScrolledToBottom()) {
+        return;
+      }
+      
+      // 3. Fazer scroll apenas se usuário está no rodapé
       messagesContainer.scrollTo({
         top: messagesContainer.scrollHeight,
         behavior: 'smooth'
       });
-      return;
+    };
+
+    // Se delay especificado, aguardar antes de fazer scroll (útil quando DOM ainda não foi atualizado)
+    if (delay > 0) {
+      setTimeout(() => {
+        requestAnimationFrame(() => {
+          performScroll();
+        });
+      }, delay);
+    } else {
+      // Usar requestAnimationFrame para garantir que o scroll aconteça após o DOM ser atualizado
+      requestAnimationFrame(() => {
+        performScroll();
+      });
     }
-    
-    // Se não for forçado, verificar condições antes de fazer scroll:
-    // 1. Se há paginação ativa e usuário não está no rodapé, não fazer scroll
-    if (hasMoreMessages && !isScrolledToBottom()) {
-      return;
-    }
-    
-    // 2. Se usuário não está no rodapé, não fazer scroll (lendo mensagens antigas)
-    if (!isScrolledToBottom()) {
-      return;
-    }
-    
-    // 3. Fazer scroll apenas se usuário está no rodapé
-    messagesContainer.scrollTo({
-      top: messagesContainer.scrollHeight,
-      behavior: 'smooth'
-    });
   };
 
   /**
@@ -1572,6 +1599,36 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
       // Scroll será feito quando mensagens forem carregadas (em loadMessages)
     }
   }, [selectedConversation?.conversationId || selectedConversation?.Id]);
+
+  // Scroll automático quando mensagens mudam (garante scroll após DOM ser atualizado)
+  // Este useEffect garante que o scroll aconteça mesmo quando mensagens são adicionadas de forma assíncrona
+  // Ref para rastrear se usuário estava no rodapé antes de adicionar nova mensagem
+  const wasAtBottomBeforeNewMessageRef = useRef(false);
+  const previousMessagesLengthRef = useRef(0);
+  
+  useEffect(() => {
+    // Só fazer scroll se há mensagens e quantidade aumentou (nova mensagem adicionada)
+    if (messages.length > 0 && messages.length > previousMessagesLengthRef.current) {
+      // Usar o estado salvo antes da mensagem ser adicionada
+      const wasAtBottom = wasAtBottomBeforeNewMessageRef.current;
+      
+      // Aguardar DOM ser atualizado antes de fazer scroll
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          // Se estava no rodapé antes da nova mensagem, fazer scroll para manter no rodapé
+          if (wasAtBottom) {
+            scrollToBottom(false, 0);
+          }
+        }, 50);
+      });
+      
+      // Resetar flag após usar
+      wasAtBottomBeforeNewMessageRef.current = false;
+    }
+    
+    // Atualizar referência do comprimento anterior
+    previousMessagesLengthRef.current = messages.length;
+  }, [messages.length]);
 
 
   // Ref para controlar se já está carregando mensagens (evita múltiplas chamadas simultâneas)
@@ -2389,8 +2446,9 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
           return timeA - timeB; // Ascendente (mais antiga primeiro, mais recente abaixo)
         });
       });
-      // Scroll apenas se já estava no rodapé (usuário visualizando mensagens recentes)
-      scrollToBottom(isScrolledToBottom());
+      // Scroll sempre quando envia mensagem (usuário espera ver sua mensagem)
+      // Aguardar DOM ser atualizado antes de fazer scroll (delay de 100ms)
+      scrollToBottom(true, 100);
       
       // Limpar input e arquivo
       setMessageInput('');
