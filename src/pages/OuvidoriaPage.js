@@ -1,6 +1,16 @@
 /**
  * VeloHub V3 - OuvidoriaPage (Módulo Ouvidoria/BACEN)
- * VERSION: v1.4.2 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.6.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.6.0:
+ * - Adicionado bypass de acesso para aba "Análise Diária"
+ * - Aba "Análise Diária" visível apenas para lucas.gravina@velotax.com.br
+ * - Componente AnaliseDiaria integrado e funcional
+ * - Outros usuários não veem a aba e recebem mensagem de acesso restrito se tentarem acessar diretamente
+ * 
+ * Mudanças v1.5.0:
+ * - Adicionada aba "Análise Diária" com filtros de data e tipo
+ * - Componente AnaliseDiaria integrado
  * 
  * Mudanças v1.4.2:
  * - Removido container "Buscar Cliente" da aba Lista de Reclamações
@@ -38,6 +48,7 @@ import ListaReclamacoes from '../components/Ouvidoria/ListaReclamacoes';
 import MinhasReclamacoes from '../components/Ouvidoria/MinhasReclamacoes';
 import RelatoriosOuvidoria from '../components/Ouvidoria/RelatoriosOuvidoria';
 import HistoricoCliente from '../components/Ouvidoria/HistoricoCliente';
+import AnaliseDiaria from '../components/Ouvidoria/AnaliseDiaria';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import VeloChatWidget from '../components/VeloChatWidget';
 import ChatStatusSelector from '../components/ChatStatusSelector';
@@ -474,6 +485,25 @@ const OuvidoriaPage = () => {
         return <ListaReclamacoes />;
       case 'relatorios':
         return <RelatoriosOuvidoria />;
+      case 'analise-diaria':
+        // Verificar acesso: apenas lucas.gravina@velotax.com.br pode acessar
+        const userEmail = userSession?.user?.email;
+        if (userEmail === 'lucas.gravina@velotax.com.br') {
+          return <AnaliseDiaria />;
+        } else {
+          return (
+            <div className="container-secondary">
+              <div className="text-center p-8">
+                <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--cor-texto-primario)' }}>
+                  Acesso Restrito
+                </h2>
+                <p style={{ color: 'var(--cor-texto-secundario)' }}>
+                  Esta funcionalidade está disponível apenas para usuários autorizados.
+                </p>
+              </div>
+            </div>
+          );
+        }
       default:
         return null;
     }
@@ -530,6 +560,18 @@ const OuvidoriaPage = () => {
             >
               Relatórios
             </button>
+            {/* Aba Análise Diária - apenas visível para lucas.gravina@velotax.com.br */}
+            {userSession?.user?.email === 'lucas.gravina@velotax.com.br' && (
+              <button
+                onClick={() => setActiveTab('analise-diaria')}
+                className={`px-6 py-3 text-2xl font-semibold transition-colors duration-200 ${activeTab === 'analise-diaria' ? '' : 'opacity-50'}`}
+                style={{
+                  color: activeTab === 'analise-diaria' ? 'var(--blue-light)' : 'var(--cor-texto-secundario)'
+                }}
+              >
+                Análise Diária
+              </button>
+            )}
           </div>
           
           {/* Linha divisória */}
@@ -581,7 +623,7 @@ const OuvidoriaPage = () => {
             }}
           >
             {/* Conteúdo Principal */}
-            <div>
+            <div style={{ minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
               {renderTabContent()}
             </div>
 

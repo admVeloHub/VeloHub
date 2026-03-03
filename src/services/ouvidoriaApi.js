@@ -261,6 +261,16 @@ export const relatoriosAPI = {
     const query = new URLSearchParams(params).toString();
     return apiRequest(`/ouvidoria/relatorios/detalhado${query ? `?${query}` : ''}`);
   },
+
+  /**
+   * Gerar relatório diário com agregações por dia
+   * @param {Object} params - Parâmetros do relatório (dataInicio, dataFim, tipo)
+   * @returns {Promise<Object>} Dados diários para tabelas
+   */
+  diario: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiRequest(`/ouvidoria/relatorios/diario${query ? `?${query}` : ''}`);
+  },
 };
 
 /**

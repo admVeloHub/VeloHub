@@ -1,8 +1,47 @@
 /**
  * VeloHub V3 - FormReclamacao Component
- * VERSION: v3.6.0 | DATE: 2025-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.14.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
  * 
- * Componente de formulário para criação de reclamações BACEN e Ouvidoria
+ * Componente de formulário para criação de reclamações BACEN, Ouvidoria, Reclame Aqui, Procon e Processos
+ * 
+ * Mudanças v3.14.0:
+ * - Campo Origem do formulário N2 Pix: removidos valores "Telefone" e "Ticket", adicionado valor "Atendimento"
+ * 
+ * Mudanças v3.11.0:
+ * - Campo Motivo agora usa dropdown que adiciona opções selecionadas ao campo
+ * - Motivos selecionados aparecem como tags removíveis dentro do campo
+ * - Dropdown mostra apenas motivos ainda não selecionados
+ * - Interface mais limpa e compacta
+ * 
+ * Mudanças v3.10.0:
+ * - Campo Motivo agora permite múltipla escolha em TODOS os tipos de reclamação (não apenas Ação Judicial)
+ * - Criada função renderCampoMotivo para padronizar exibição de checkboxes de motivos
+ * - Schema atualizado: motivoReduzido agora é [String] em todos os tipos
+ * - Validação atualizada para verificar se pelo menos um motivo foi selecionado
+ * - handleSubmit atualizado para enviar array de motivos em todos os tipos
+ * 
+ * Mudanças v3.9.0:
+ * - Adicionado tipo de reclamação "Ação Judicial"
+ * - Criado schema reclamacoes_judicial no LISTA_SCHEMAS.rb
+ * - Adicionados campos específicos: Nro do Processo, Empresa Acionada (Velotax/Celcoin), Data de Entrada, Produto, Motivo, Descrição, Audiência (com data e situação), Subsídios
+ * - Criada função de busca automática de Outros Protocolos por CPF em todas as collections do DB hub_ouvidoria
+ * - Criados cards com modal expansível para cada resultado encontrado em Outros Protocolos
+ * - Removidas coordenadas de grid (L1C1, etc.) das etiquetas dos campos conforme solicitado
+ * 
+ * Mudanças v3.8.0:
+ * - Adicionado tipo de reclamação "Procon"
+ * - Criado schema reclamacoes_procon no LISTA_SCHEMAS.rb
+ * - Adicionados campos específicos: Código Procon (16 caracteres), Data Procon, Produto, Motivo, Descrição, Solução Apresentada, Processo Administrativo, Cliente Desistiu, Encaminhado ao Jurídico, Processo Encerrado
+ * - Criada função de busca automática de registros Reclame Aqui por CPF com modal de exibição
+ * - Protocolos e Canais de Atendimento agora aparecem também para Procon
+ * - Tentativas de Contato não aparecem para Procon
+ * 
+ * Mudanças v3.7.0:
+ * - Adicionado tipo de reclamação "Reclame Aqui"
+ * - Criado schema reclamacoes_reclameAqui no LISTA_SCHEMAS.rb
+ * - Adicionados campos específicos: ID Entrada, CPF Repetido, Data Reclam, Passível de nota +, Oportunidade, Solicitado Avaliação, Avaliado
+ * - Protocolos e Canais de Atendimento agora aparecem também para Reclame Aqui (Tratativa N1)
+ * - Tentativas de Contato não aparecem para Reclame Aqui
  * 
  * Mudanças v3.6.0:
  * - Removido campo userEmail (nome do usuário obtido da sessão ativa no middleware)
@@ -100,35 +139,56 @@ const validarCPF = (cpf) => {
 
 /**
  * Opções de motivo reduzido (BACEN/N2)
+ * VERSION: v1.2.0 | DATE: 2026-03-02 | Normalizado para padrão "Aaaaa Aaaaa" (primeira maiúscula apenas)
+ * 
+ * Motivos individuais extraídos e normalizados das abas:
+ * - Base Bacen 2025, Base Bacen 2026 (para formulário BACEN)
+ * - Base ouvidoria 2025, Base Ouvidoria 2026 (para formulário N2Pix)
+ * 
+ * Padrão de normalização: primeira letra maiúscula, resto minúscula (exceto siglas como PIX, EP)
+ * Preposições (do, da, de, ao) não são capitalizadas exceto no início
  */
 const MOTIVOS_REDUZIDOS = [
   'Abatimento Juros',
-  'Abatimento Juros/Chave PIX',
+  'Acesso ao App',
+  'Bloqueio de Conta',
   'Cancelamento Conta',
-  'Chave PIX',
-  'PIX/Abatimento Juros/Encerramento de conta',
-  'Chave PIX/Abatimento Juros/Prob. App',
-  'Chave PIX/Acesso ao App',
-  'Chave PIX/Exclusão de Conta',
+  'Chave Pix',
   'Conta',
   'Contestação de Valores',
-  'Credito do Trabalhador',
+  'Crédito do Trabalhador',
   'Credito Pessoal',
   'Cupons Velotax',
   'Devolução à Celcoin',
+  'Empréstimo',
+  'Empréstimo Pessoal',
+  'Encerramento de Conta',
+  'Exclusão de Conta',
   'Fraude',
+  'Liberação Chave Pix',
   'Liquidação Antecipada',
-  'Liquidação Antecipada/Abatimento Juros',
-  'Não recebeu restituição',
-  'Não recebeu restituição/Abatimento Juros',
-  'Não recebeu restituição/Abatimento Juros/Chave PIX',
-  'Não recebeu restituição/Chave PIX',
-  'Probl. App/Gov',
+  'Não Recebeu Restituição',
+  'Portabilidade',
+  'Probl. App',
+  'Quero Quitar (EP)',
   'Seguro Celular',
   'Seguro Divida Zero',
   'Seguro Prestamista',
   'Seguro Saude',
   'Superendividamento'
+];
+
+/**
+ * Opções de motivo para Ação Judicial (múltipla escolha)
+ */
+const MOTIVOS_ACAO_JUDICIAL = [
+  'Juros',
+  'Chave Pix',
+  'Restituição BB',
+  'Relatório',
+  'Repetição Indébito',
+  'Superendividamento',
+  'Desconhece Contratação'
 ];
 
 
@@ -148,7 +208,7 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
     produto: '',
     anexos: [], // Array de URLs dos anexos
     prazoBacen: '',
-    motivoReduzido: '',
+    motivoReduzido: [], // Array de motivos selecionados
     motivoDetalhado: '',
     
     // Campos Ouvidoria
@@ -157,6 +217,38 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
     produto: '',
     prazoOuvidoria: '',
     motivoDetalhado: '',
+    
+    // Campos Reclame Aqui
+    cpfRepetido: '',
+    idEntrada: '',
+    dataReclam: '',
+    passivelNotaMais: false,
+    oportunidade: '',
+    solicitadoAvaliacao: false,
+    avaliado: false,
+    
+    // Campos Procon
+    codigoProcon: '',
+    dataProcon: '',
+    solucaoApresentada: '',
+    processoAdministrativo: '',
+    clienteDesistiu: false,
+    encaminhadoJuridico: false,
+    processoEncaminhadoResponsavel: '',
+    processoEncaminhadoData: '',
+    processoEncerrado: false,
+    dataProcessoEncerrado: '',
+    registrosReclameAqui: '',
+    
+    // Campos Processos
+    nroProcesso: '',
+    empresaAcionada: '',
+    dataEntradaProcesso: new Date().toISOString().split('T')[0],
+    audiencia: false,
+    dataAudiencia: '',
+    situacaoAudiencia: '',
+    subsidios: '',
+    outrosProtocolos: '',
     
     // Campos compartilhados (condicionais)
     tentativasContato: { lista: [{ data: '', meio: '', resultado: '' }] },
@@ -171,13 +263,137 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
     pixStatus: '',
     statusContratoQuitado: false,
     statusContratoAberto: false,
+    enviarParaCobranca: false,
   });
 
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [showSaveOptions, setShowSaveOptions] = useState(false);
   const [saveMode, setSaveMode] = useState(null); // 'em-andamento' ou 'resolvido'
-  const dropdownRef = useRef(null);
+  const [dropdownMotivoAberto, setDropdownMotivoAberto] = useState(null); // ID único do campo de motivo aberto
+  const dropdownMotivoRefs = useRef({});
+  const dropdownRef = useRef(null); // Ref para o dropdown de opções de salvamento
+
+  // Fechar dropdown de motivo ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownMotivoAberto !== null) {
+        const ref = dropdownMotivoRefs.current[dropdownMotivoAberto];
+        if (ref && !ref.contains(event.target)) {
+          setDropdownMotivoAberto(null);
+        }
+      }
+    };
+
+    if (dropdownMotivoAberto !== null) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [dropdownMotivoAberto]);
+
+  /**
+   * Renderizar campo de motivo com dropdown múltipla escolha
+   */
+  const renderCampoMotivo = (motivosLista, valorAtual, onChange, error, label = 'Motivo *', campoId = 'motivo-default') => {
+    const valoresArray = Array.isArray(valorAtual) ? valorAtual : [];
+    const motivosDisponiveis = motivosLista.filter(m => !valoresArray.includes(m));
+    const isAberto = dropdownMotivoAberto === campoId;
+
+    const adicionarMotivo = (motivo) => {
+      if (!valoresArray.includes(motivo)) {
+        onChange([...valoresArray, motivo]);
+      }
+      setDropdownMotivoAberto(null);
+    };
+
+    const removerMotivo = (motivo) => {
+      onChange(valoresArray.filter(m => m !== motivo));
+    };
+
+    return (
+      <div 
+        className="relative" 
+        ref={(el) => {
+          if (el) {
+            dropdownMotivoRefs.current[campoId] = el;
+          }
+        }}
+      >
+        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+          {label}
+        </label>
+        
+        {/* Campo de exibição dos motivos selecionados */}
+        <div 
+          className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 min-h-[42px] flex flex-wrap gap-2 items-center cursor-pointer bg-white dark:bg-gray-800"
+          onClick={() => setDropdownMotivoAberto(isAberto ? null : campoId)}
+        >
+          {valoresArray.length === 0 ? (
+            <span className="text-gray-400 dark:text-gray-500 text-sm">Selecione os motivos...</span>
+          ) : (
+            valoresArray.map((motivo, index) => (
+              <span
+                key={index}
+                className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded text-sm"
+              >
+                {motivo}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removerMotivo(motivo);
+                  }}
+                  className="ml-1 hover:text-blue-600 dark:hover:text-blue-300"
+                >
+                  ×
+                </button>
+              </span>
+            ))
+          )}
+          <span className="ml-auto text-gray-400">▼</span>
+        </div>
+
+        {/* Dropdown de opções */}
+        {isAberto && (
+          <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-400 dark:border-gray-500 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+            {motivosDisponiveis.length === 0 ? (
+              <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                Todos os motivos já foram selecionados
+              </div>
+            ) : (
+              motivosDisponiveis.map(motivo => (
+                <div
+                  key={motivo}
+                  onClick={() => adicionarMotivo(motivo)}
+                  className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm text-gray-700 dark:text-gray-300"
+                >
+                  {motivo}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {error && (
+          <span className="text-red-500 text-xs mt-1 block">{error}</span>
+        )}
+      </div>
+    );
+  };
+  
+  // Estados para busca de registros Reclame Aqui (Procon)
+  const [reclameAquiRegistros, setReclameAquiRegistros] = useState([]);
+  const [mostrarModalReclameAqui, setMostrarModalReclameAqui] = useState(false);
+  const [buscandoReclameAqui, setBuscandoReclameAqui] = useState(false);
+  
+  // Estados para busca de Outros Protocolos (Processos)
+  const [outrosProtocolosRegistros, setOutrosProtocolosRegistros] = useState([]);
+  const [mostrarModalOutrosProtocolos, setMostrarModalOutrosProtocolos] = useState(false);
+  const [buscandoOutrosProtocolos, setBuscandoOutrosProtocolos] = useState(false);
+  const [protocoloExpandido, setProtocoloExpandido] = useState(null);
 
   // Fechar dropdown ao clicar fora
   useEffect(() => {
@@ -312,15 +528,36 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
     if (formData.tipo === 'BACEN') {
       if (!formData.dataEntrada) novosErros.dataEntrada = 'Data de entrada é obrigatória';
       if (!formData.origem) novosErros.origem = 'Natureza é obrigatória';
-      if (!formData.motivoReduzido) novosErros.motivoReduzido = 'Motivo é obrigatório';
+      if (!formData.motivoReduzido || formData.motivoReduzido.length === 0) novosErros.motivoReduzido = 'Selecione pelo menos um motivo';
       if (!formData.motivoDetalhado) novosErros.motivoDetalhado = 'Descrição é obrigatória';
       if (formData.origem === 'Consumidor.Gov' && !formData.prazoBacen) {
         novosErros.prazoBacen = 'Prazo BACEN é obrigatório quando natureza é Consumidor.Gov';
       }
     } else if (formData.tipo === 'OUVIDORIA') {
       if (!formData.dataEntradaAtendimento) novosErros.dataEntradaAtendimento = 'Data entrada atendimento é obrigatória';
-      if (!formData.motivoReduzido) novosErros.motivoReduzido = 'Motivo é obrigatório';
+      if (!formData.motivoReduzido || formData.motivoReduzido.length === 0) novosErros.motivoReduzido = 'Selecione pelo menos um motivo';
       if (!formData.origem) novosErros.origem = 'Origem é obrigatória';
+    } else if (formData.tipo === 'RECLAME_AQUI') {
+      if (!formData.idEntrada || formData.idEntrada.replace(/\D/g, '').length !== 9) {
+        novosErros.idEntrada = 'ID Entrada deve ter 9 dígitos numéricos';
+      }
+      if (!formData.dataReclam) novosErros.dataReclam = 'Data Reclamação é obrigatória';
+      if (!formData.motivoReduzido || formData.motivoReduzido.length === 0) novosErros.motivoReduzido = 'Selecione pelo menos um motivo';
+    } else if (formData.tipo === 'PROCON') {
+      if (!formData.codigoProcon || formData.codigoProcon.length !== 16) {
+        novosErros.codigoProcon = 'Código Procon deve ter 16 caracteres';
+      }
+      if (!formData.dataProcon) novosErros.dataProcon = 'Data Procon é obrigatória';
+      if (!formData.produto) novosErros.produto = 'Produto é obrigatório';
+      if (!formData.motivoReduzido || formData.motivoReduzido.length === 0) novosErros.motivoReduzido = 'Selecione pelo menos um motivo';
+    } else if (formData.tipo === 'PROCESSOS') {
+      if (!formData.nroProcesso) novosErros.nroProcesso = 'Número do Processo é obrigatório';
+      if (!formData.empresaAcionada) novosErros.empresaAcionada = 'Empresa Acionada é obrigatória';
+      if (!formData.dataEntradaProcesso) novosErros.dataEntradaProcesso = 'Data de Entrada é obrigatória';
+      if (!formData.produto) novosErros.produto = 'Produto é obrigatório';
+      if (!formData.motivoReduzido || formData.motivoReduzido.length === 0) {
+        novosErros.motivoReduzido = 'Selecione pelo menos um motivo';
+      }
     }
 
     setErrors(novosErros);
@@ -423,6 +660,77 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
           statusContratoQuitado: formData.statusContratoQuitado,
           statusContratoAberto: formData.statusContratoAberto,
         };
+      } else if (formData.tipo === 'RECLAME_AQUI') {
+        payload = {
+          ...payload,
+          cpfRepetido: formData.cpfRepetido || '',
+          idEntrada: formData.idEntrada,
+          dataReclam: formData.dataReclam,
+          motivoReduzido: formData.motivoReduzido,
+          motivoDetalhado: formData.motivoDetalhado || '',
+          passivelNotaMais: formData.passivelNotaMais,
+          pixStatus: formData.pixStatus || '',
+          statusContratoQuitado: formData.statusContratoQuitado,
+          statusContratoAberto: formData.statusContratoAberto,
+          enviarParaCobranca: formData.enviarParaCobranca || false,
+          anexos: formData.anexos,
+          oportunidade: formData.oportunidade || '',
+          solicitadoAvaliacao: formData.solicitadoAvaliacao,
+          avaliado: formData.avaliado,
+          // Tratativa N1: Canais de atendimento e protocolos acionados
+          acionouCentral: formData.acionouCentral,
+          protocolosCentral: formData.protocolosCentral.filter(p => p.trim() !== ''),
+          n2SegundoNivel: formData.n2SegundoNivel,
+          protocolosN2: formData.protocolosN2.filter(p => p.trim() !== ''),
+          reclameAqui: formData.reclameAqui,
+          protocolosReclameAqui: formData.protocolosReclameAqui.filter(p => p.trim() !== ''),
+          procon: formData.procon,
+          protocolosProcon: formData.protocolosProcon.filter(p => p.trim() !== ''),
+        };
+      } else if (formData.tipo === 'PROCON') {
+        payload = {
+          ...payload,
+          codigoProcon: formData.codigoProcon,
+          dataProcon: formData.dataProcon,
+          produto: formData.produto,
+          motivoReduzido: formData.motivoReduzido,
+          motivoDetalhado: formData.motivoDetalhado || '',
+          solucaoApresentada: formData.solucaoApresentada || '',
+          processoAdministrativo: formData.processoAdministrativo || '',
+          clienteDesistiu: formData.clienteDesistiu || false,
+          encaminhadoJuridico: formData.encaminhadoJuridico || false,
+          processoEncaminhadoResponsavel: formData.encaminhadoJuridico && formData.processoEncaminhadoResponsavel ? formData.processoEncaminhadoResponsavel : '',
+          processoEncaminhadoData: formData.encaminhadoJuridico && formData.processoEncaminhadoData ? formData.processoEncaminhadoData : '',
+          processoEncerrado: formData.processoEncerrado || false,
+          dataProcessoEncerrado: formData.processoEncerrado && formData.dataProcessoEncerrado ? formData.dataProcessoEncerrado : '',
+          registrosReclameAqui: formData.registrosReclameAqui || '',
+          anexos: formData.anexos,
+          // Tratativa N1: Canais de atendimento e protocolos acionados
+          acionouCentral: formData.acionouCentral,
+          protocolosCentral: formData.protocolosCentral.filter(p => p.trim() !== ''),
+          n2SegundoNivel: formData.n2SegundoNivel,
+          protocolosN2: formData.protocolosN2.filter(p => p.trim() !== ''),
+          reclameAqui: formData.reclameAqui,
+          protocolosReclameAqui: formData.protocolosReclameAqui.filter(p => p.trim() !== ''),
+          procon: formData.procon,
+          protocolosProcon: formData.protocolosProcon.filter(p => p.trim() !== ''),
+        };
+      } else if (formData.tipo === 'PROCESSOS') {
+        payload = {
+          ...payload,
+          nroProcesso: formData.nroProcesso,
+          empresaAcionada: formData.empresaAcionada,
+          dataEntrada: formData.dataEntradaProcesso,
+          produto: formData.produto,
+          motivoReduzido: formData.motivoReduzido, // Array de motivos selecionados
+          motivoDetalhado: formData.motivoDetalhado || '',
+          audiencia: formData.audiencia || false,
+          dataAudiencia: formData.audiencia && formData.dataAudiencia ? formData.dataAudiencia : '',
+          situacaoAudiencia: formData.audiencia && formData.situacaoAudiencia ? formData.situacaoAudiencia : '',
+          subsidios: formData.subsidios || '',
+          outrosProtocolos: formData.outrosProtocolos || '',
+          anexos: formData.anexos,
+        };
       }
 
       const resultado = await reclamacoesAPI.create(payload);
@@ -464,13 +772,40 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
       produto: '',
       anexos: [],
       prazoBacen: '',
-      motivoReduzido: '',
+      motivoReduzido: [],
       motivoDetalhado: '',
       dataEntradaAtendimento: '',
       origem: '',
       produto: '',
       prazoOuvidoria: '',
       motivoDetalhado: '',
+      cpfRepetido: '',
+      idEntrada: '',
+      dataReclam: '',
+      passivelNotaMais: false,
+      oportunidade: '',
+      solicitadoAvaliacao: false,
+      avaliado: false,
+      codigoProcon: '',
+      dataProcon: '',
+      solucaoApresentada: '',
+      processoAdministrativo: '',
+      clienteDesistiu: false,
+      encaminhadoJuridico: false,
+      processoEncaminhadoResponsavel: '',
+      processoEncaminhadoData: '',
+      processoEncerrado: false,
+      dataProcessoEncerrado: '',
+      registrosReclameAqui: '',
+      nroProcesso: '',
+      empresaAcionada: '',
+      dataEntradaProcesso: hoje,
+      motivoReduzido: [],
+      audiencia: false,
+      dataAudiencia: '',
+      situacaoAudiencia: '',
+      subsidios: '',
+      outrosProtocolos: '',
       tentativasContato: { lista: [{ data: '', meio: '', resultado: '' }] },
       acionouCentral: false,
       protocolosCentral: [''],
@@ -483,6 +818,7 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
       pixStatus: '',
       statusContratoQuitado: false,
       statusContratoAberto: false,
+      enviarParaCobranca: false,
     });
     setErrors({});
   };
@@ -554,22 +890,13 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
         {/* Linha 2: Motivo | Prazo (dimensionar) */}
         <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Motivo *
-            </label>
-            <select
-              value={formData.motivoReduzido}
-              onChange={(e) => setFormData(prev => ({ ...prev, motivoReduzido: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              required
-            >
-              <option value="">Selecione...</option>
-              {MOTIVOS_REDUZIDOS.map(motivo => (
-                <option key={motivo} value={motivo}>{motivo}</option>
-              ))}
-            </select>
-            {errors.motivoReduzido && (
-              <span className="text-red-500 text-xs">{errors.motivoReduzido}</span>
+            {renderCampoMotivo(
+              MOTIVOS_REDUZIDOS,
+              formData.motivoReduzido,
+              (novosMotivos) => setFormData(prev => ({ ...prev, motivoReduzido: novosMotivos })),
+              errors.motivoReduzido,
+              'Motivo *',
+              'motivo-bacen'
             )}
           </div>
 
@@ -718,8 +1045,7 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
               required
             >
               <option value="">Selecione...</option>
-              <option value="Telefone">Telefone</option>
-              <option value="Ticket">Ticket</option>
+              <option value="Atendimento">Atendimento</option>
               <option value="Chatbot">Chatbot</option>
             </select>
             {errors.origem && (
@@ -758,25 +1084,14 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
 
         {/* Linha 2: Motivo */}
         <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Motivo *
-            </label>
-            <select
-              value={formData.motivoReduzido}
-              onChange={(e) => setFormData(prev => ({ ...prev, motivoReduzido: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              required
-            >
-              <option value="">Selecione...</option>
-              {MOTIVOS_REDUZIDOS.map(motivo => (
-                <option key={motivo} value={motivo}>{motivo}</option>
-              ))}
-            </select>
-            {errors.motivoReduzido && (
-              <span className="text-red-500 text-xs">{errors.motivoReduzido}</span>
-            )}
-          </div>
+          {renderCampoMotivo(
+            MOTIVOS_REDUZIDOS,
+            formData.motivoReduzido,
+            (novosMotivos) => setFormData(prev => ({ ...prev, motivoReduzido: novosMotivos })),
+            errors.motivoReduzido,
+            'Motivo *',
+            'motivo-ouvidoria'
+          )}
         </div>
 
         {/* Linha 4: Descrição (opcional) */}
@@ -856,6 +1171,994 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
     </>
   );
 
+  /**
+   * Renderizar campos específicos Reclame Aqui
+   */
+  const renderCamposReclameAqui = () => {
+    // Validar ID Entrada (9 dígitos numéricos)
+    const validarIdEntrada = (id) => {
+      const cleaned = id.replace(/\D/g, '');
+      return cleaned.length === 9;
+    };
+
+    return (
+      <>
+        {/* Reclamação Reclame Aqui */}
+        <div className="velohub-card">
+          <h3 className="text-xl font-semibold mb-4 velohub-title">Reclamação</h3>
+          
+          {/* Linha 1: ID Entrada | Data Reclam | CPF Repetido */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                ID Entrada (9 dígitos) *
+              </label>
+              <input
+                type="text"
+                value={formData.idEntrada}
+                onChange={(e) => {
+                  const cleaned = e.target.value.replace(/\D/g, '').slice(0, 9);
+                  setFormData(prev => ({ ...prev, idEntrada: cleaned }));
+                }}
+                className={`w-full border rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white ${
+                  validarIdEntrada(formData.idEntrada) ? 'border-green-500 border-2' : 'border-gray-400 dark:border-gray-500'
+                }`}
+                placeholder="000000000"
+                maxLength={9}
+                required
+              />
+              {errors.idEntrada && (
+                <span className="text-red-500 text-xs">{errors.idEntrada}</span>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                Data Reclam *
+              </label>
+              <input
+                type="date"
+                value={formData.dataReclam}
+                onChange={(e) => setFormData(prev => ({ ...prev, dataReclam: e.target.value }))}
+                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                required
+              />
+              {errors.dataReclam && (
+                <span className="text-red-500 text-xs">{errors.dataReclam}</span>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                CPF Repetido
+              </label>
+              <input
+                type="text"
+                value={formData.cpfRepetido}
+                onChange={(e) => {
+                  const cleaned = e.target.value.replace(/\D/g, '');
+                  setFormData(prev => ({ ...prev, cpfRepetido: cleaned }));
+                }}
+                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                placeholder="Apenas números"
+              />
+            </div>
+          </div>
+
+          {/* Linha 2: Motivo */}
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mb-4">
+            {renderCampoMotivo(
+              MOTIVOS_REDUZIDOS,
+              formData.motivoReduzido,
+              (novosMotivos) => setFormData(prev => ({ ...prev, motivoReduzido: novosMotivos })),
+              errors.motivoReduzido,
+              'Motivo *',
+              'motivo-reclame-aqui'
+            )}
+          </div>
+
+          {/* Descrição */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              Descrição
+            </label>
+            <textarea
+              value={formData.motivoDetalhado}
+              onChange={(e) => setFormData(prev => ({ ...prev, motivoDetalhado: e.target.value }))}
+              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              rows={4}
+              placeholder="Descreva detalhadamente a reclamação..."
+            />
+          </div>
+
+          {/* Solicitado Avaliação, Avaliado e Passível de nota + (abaixo do Descrição) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={formData.solicitadoAvaliacao}
+                  onChange={(e) => setFormData(prev => ({ ...prev, solicitadoAvaliacao: e.target.checked }))}
+                  className="w-5 h-5"
+                />
+                <span>Solicitado Avaliação</span>
+              </label>
+            </div>
+            <div>
+              <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={formData.avaliado}
+                  onChange={(e) => setFormData(prev => ({ ...prev, avaliado: e.target.checked }))}
+                  className="w-5 h-5"
+                />
+                <span>Avaliado</span>
+              </label>
+            </div>
+            <div>
+              <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={formData.passivelNotaMais}
+                  onChange={(e) => setFormData(prev => ({ ...prev, passivelNotaMais: e.target.checked }))}
+                  className="w-5 h-5"
+                />
+                <span>Passível de nota +</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Oportunidade */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              Oportunidade
+            </label>
+            <input
+              type="text"
+              value={formData.oportunidade}
+              onChange={(e) => setFormData(prev => ({ ...prev, oportunidade: e.target.value }))}
+              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              placeholder="Digite a oportunidade..."
+            />
+          </div>
+
+          {/* Anexo */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              Anexo
+            </label>
+            <input
+              type="file"
+              onChange={async (e) => {
+                const files = Array.from(e.target.files);
+                if (files.length === 0) return;
+                
+                // Upload de cada arquivo
+                const uploadPromises = files.map(async (file) => {
+                  try {
+                    const resultado = await anexosAPI.upload(file, formData.tipo);
+                    return resultado.url;
+                  } catch (error) {
+                    console.error('Erro ao fazer upload do anexo:', error);
+                    toast.error(`Erro ao fazer upload de ${file.name}: ${error.message}`);
+                    return null;
+                  }
+                });
+                
+                const urls = await Promise.all(uploadPromises);
+                const urlsValidas = urls.filter(url => url !== null);
+                
+                setFormData(prev => ({ 
+                  ...prev, 
+                  anexos: [...prev.anexos, ...urlsValidas]
+                }));
+                
+                if (urlsValidas.length > 0) {
+                  toast.success(`${urlsValidas.length} arquivo(s) enviado(s) com sucesso`);
+                }
+              }}
+              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              multiple
+            />
+            <small className="text-xs text-gray-600 dark:text-gray-400">
+              Você pode selecionar múltiplos arquivos. Os arquivos serão enviados automaticamente.
+            </small>
+            {formData.anexos.length > 0 && (
+              <div className="mt-2">
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                  Arquivos enviados ({formData.anexos.length}):
+                </p>
+                <ul className="text-xs text-gray-500 dark:text-gray-400 list-disc list-inside">
+                  {formData.anexos.map((url, index) => (
+                    <li key={index} className="truncate">
+                      <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        Anexo {index + 1}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  /**
+   * Buscar registros Reclame Aqui por CPF
+   */
+  const buscarRegistrosReclameAqui = async () => {
+    if (!formData.cpf || formData.cpf.replace(/\D/g, '').length !== 11) {
+      toast.error('CPF inválido. Preencha o CPF do cliente primeiro.');
+      return;
+    }
+
+    setBuscandoReclameAqui(true);
+    try {
+      const cpfLimpo = formData.cpf.replace(/\D/g, '');
+      const resultado = await reclamacoesAPI.getByCpf(cpfLimpo);
+      const todasReclamacoes = resultado.data || resultado || [];
+      
+      // Filtrar apenas registros do tipo Reclame Aqui
+      const registrosRA = todasReclamacoes.filter(r => 
+        r.tipo === 'RECLAME_AQUI' || 
+        r.tipo === 'Reclame Aqui' || 
+        r.tipo === 'RECLAME AQUI'
+      );
+      
+      if (registrosRA.length === 0) {
+        toast.info('Nenhum registro Reclame Aqui encontrado para este CPF.');
+        setReclameAquiRegistros([]);
+        setFormData(prev => ({ ...prev, registrosReclameAqui: 'Nenhum registro encontrado' }));
+      } else {
+        setReclameAquiRegistros(registrosRA);
+        setMostrarModalReclameAqui(true);
+        // Atualizar campo de texto com quantidade encontrada
+        setFormData(prev => ({ 
+          ...prev, 
+          registrosReclameAqui: `${registrosRA.length} registro(s) encontrado(s)` 
+        }));
+      }
+    } catch (error) {
+      console.error('Erro ao buscar registros Reclame Aqui:', error);
+      toast.error('Erro ao buscar registros Reclame Aqui');
+    } finally {
+      setBuscandoReclameAqui(false);
+    }
+  };
+
+  /**
+   * Buscar Outros Protocolos por CPF em todas as collections do DB hub_ouvidoria
+   */
+  const buscarOutrosProtocolos = async () => {
+    if (!formData.cpf || formData.cpf.replace(/\D/g, '').length !== 11) {
+      toast.error('CPF inválido. Preencha o CPF do cliente primeiro.');
+      return;
+    }
+
+    setBuscandoOutrosProtocolos(true);
+    try {
+      const cpfLimpo = formData.cpf.replace(/\D/g, '');
+      const resultado = await reclamacoesAPI.getByCpf(cpfLimpo);
+      const todasReclamacoes = resultado.data || resultado || [];
+      
+      // Filtrar registros que NÃO são do tipo AÇÃO JUDICIAL (para não incluir o próprio registro)
+      const outrosProtocolos = todasReclamacoes.filter(r => {
+        const tipo = String(r.tipo || '').toUpperCase().trim();
+        return tipo !== 'PROCESSOS' && tipo !== 'JUDICIAL' && tipo !== 'AÇÃO JUDICIAL';
+      });
+      
+      if (outrosProtocolos.length === 0) {
+        toast.info('Nenhum outro protocolo encontrado para este CPF.');
+        setOutrosProtocolosRegistros([]);
+        setFormData(prev => ({ ...prev, outrosProtocolos: 'Nenhum protocolo encontrado' }));
+      } else {
+        setOutrosProtocolosRegistros(outrosProtocolos);
+        setMostrarModalOutrosProtocolos(true);
+        // Atualizar campo de texto com quantidade encontrada
+        setFormData(prev => ({ 
+          ...prev, 
+          outrosProtocolos: `${outrosProtocolos.length} protocolo(s) encontrado(s)` 
+        }));
+      }
+    } catch (error) {
+      console.error('Erro ao buscar outros protocolos:', error);
+      toast.error('Erro ao buscar outros protocolos');
+    } finally {
+      setBuscandoOutrosProtocolos(false);
+    }
+  };
+
+  /**
+   * Renderizar campos específicos Ação Judicial
+   */
+  const renderCamposProcessos = () => {
+    return (
+      <>
+        {/* Reclamação Ação Judicial */}
+        <div className="velohub-card">
+          <h3 className="text-xl font-semibold mb-4 velohub-title">Reclamação</h3>
+          
+          {/* Linha 1: Nro do Processo | Empresa Acionada | Data de Entrada | Produto */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                Nro do Processo *
+              </label>
+              <input
+                type="text"
+                value={formData.nroProcesso}
+                onChange={(e) => setFormData(prev => ({ ...prev, nroProcesso: e.target.value }))}
+                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                placeholder="Digite o número do processo"
+                required
+              />
+              {errors.nroProcesso && (
+                <span className="text-red-500 text-xs">{errors.nroProcesso}</span>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                Empresa Acionada *
+              </label>
+              <select
+                value={formData.empresaAcionada}
+                onChange={(e) => setFormData(prev => ({ ...prev, empresaAcionada: e.target.value }))}
+                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                required
+              >
+                <option value="">Selecione...</option>
+                <option value="Velotax">Velotax</option>
+                <option value="Celcoin">Celcoin</option>
+              </select>
+              {errors.empresaAcionada && (
+                <span className="text-red-500 text-xs">{errors.empresaAcionada}</span>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                Data de Entrada *
+              </label>
+              <input
+                type="date"
+                value={formData.dataEntradaProcesso}
+                onChange={(e) => setFormData(prev => ({ ...prev, dataEntradaProcesso: e.target.value }))}
+                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                required
+              />
+              {errors.dataEntradaProcesso && (
+                <span className="text-red-500 text-xs">{errors.dataEntradaProcesso}</span>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                Produto *
+              </label>
+              <select
+                value={formData.produto}
+                onChange={(e) => setFormData(prev => ({ ...prev, produto: e.target.value }))}
+                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                required
+              >
+                <option value="">Selecione...</option>
+                <option value="Antecipação">Antecipação</option>
+                <option value="Credito Pessoal">Credito Pessoal</option>
+                <option value="Credito Trabalhador">Credito Trabalhador</option>
+                <option value="Cupons Velotax">Cupons Velotax</option>
+                <option value="QueroQuitar">QueroQuitar</option>
+                <option value="Seguro DividaZero">Seguro DividaZero</option>
+                <option value="Seguro Celular">Seguro Celular</option>
+                <option value="Seguro Prestamista">Seguro Prestamista</option>
+                <option value="Seguro Saúde">Seguro Saúde</option>
+                <option value="Calculadora">Calculadora</option>
+                <option value="App">App</option>
+                <option value="Outras Ocorrências">Outras Ocorrências</option>
+              </select>
+              {errors.produto && (
+                <span className="text-red-500 text-xs">{errors.produto}</span>
+              )}
+            </div>
+          </div>
+
+          {/* Linha 2: Motivo (múltipla escolha) */}
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mb-4">
+            {renderCampoMotivo(
+              MOTIVOS_ACAO_JUDICIAL,
+              formData.motivoReduzido,
+              (novosMotivos) => setFormData(prev => ({ ...prev, motivoReduzido: novosMotivos })),
+              errors.motivoReduzido,
+              'Motivo *',
+              'motivo-processos'
+            )}
+          </div>
+
+          {/* Linha 3: Descrição */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              Descrição
+            </label>
+            <textarea
+              value={formData.motivoDetalhado}
+              onChange={(e) => setFormData(prev => ({ ...prev, motivoDetalhado: e.target.value }))}
+              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              rows={4}
+              placeholder="Descreva detalhadamente o processo..."
+            />
+          </div>
+
+          {/* Linha 4: Audiência */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div className="flex items-center">
+              <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={formData.audiencia}
+                  onChange={(e) => {
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      audiencia: e.target.checked,
+                      dataAudiencia: e.target.checked ? '' : '',
+                      situacaoAudiencia: e.target.checked ? '' : ''
+                    }));
+                  }}
+                  className="w-5 h-5"
+                />
+                <span>Audiência</span>
+              </label>
+            </div>
+
+            {formData.audiencia && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                    Data da Audiência
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.dataAudiencia}
+                    onChange={(e) => setFormData(prev => ({ ...prev, dataAudiencia: e.target.value }))}
+                    className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                    Situação
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.situacaoAudiencia}
+                    onChange={(e) => setFormData(prev => ({ ...prev, situacaoAudiencia: e.target.value }))}
+                    className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                    placeholder="Digite a situação da audiência"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Linha 5: Subsídios */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              Subsídios
+            </label>
+            <textarea
+              value={formData.subsidios}
+              onChange={(e) => setFormData(prev => ({ ...prev, subsidios: e.target.value }))}
+              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              rows={3}
+              placeholder="Digite os subsídios..."
+            />
+          </div>
+
+          {/* Outros Protocolos */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              Outros Protocolos
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={formData.outrosProtocolos}
+                readOnly
+                className="flex-1 border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed"
+                placeholder="Clique em 'Buscar' para encontrar protocolos relacionados"
+              />
+              <button
+                type="button"
+                onClick={buscarOutrosProtocolos}
+                disabled={buscandoOutrosProtocolos || !formData.cpf || formData.cpf.replace(/\D/g, '').length !== 11}
+                className="px-4 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  borderColor: '#006AB9',
+                  color: '#006AB9',
+                  background: 'transparent',
+                }}
+                onMouseEnter={(e) => {
+                  if (!e.target.disabled) {
+                    e.target.style.background = 'linear-gradient(135deg, #006AB9 0%, #006AB9 100%)';
+                    e.target.style.color = '#F3F7FC';
+                    e.target.style.borderColor = '#006AB9';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!e.target.disabled) {
+                    e.target.style.background = 'transparent';
+                    e.target.style.color = '#006AB9';
+                    e.target.style.borderColor = '#006AB9';
+                  }
+                }}
+              >
+                {buscandoOutrosProtocolos ? 'Buscando...' : 'Buscar'}
+              </button>
+            </div>
+          </div>
+
+          {/* Anexo */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              Anexo
+            </label>
+            <input
+              type="file"
+              onChange={async (e) => {
+                const files = Array.from(e.target.files);
+                if (files.length === 0) return;
+                
+                const uploadPromises = files.map(async (file) => {
+                  try {
+                    const resultado = await anexosAPI.upload(file, formData.tipo);
+                    return resultado.url;
+                  } catch (error) {
+                    console.error('Erro ao fazer upload do anexo:', error);
+                    toast.error(`Erro ao fazer upload de ${file.name}: ${error.message}`);
+                    return null;
+                  }
+                });
+                
+                const urls = await Promise.all(uploadPromises);
+                const urlsValidas = urls.filter(url => url !== null);
+                
+                setFormData(prev => ({ 
+                  ...prev, 
+                  anexos: [...prev.anexos, ...urlsValidas]
+                }));
+                
+                if (urlsValidas.length > 0) {
+                  toast.success(`${urlsValidas.length} arquivo(s) enviado(s) com sucesso`);
+                }
+              }}
+              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              multiple
+            />
+            <small className="text-xs text-gray-600 dark:text-gray-400">
+              Você pode selecionar múltiplos arquivos. Os arquivos serão enviados automaticamente.
+            </small>
+            {formData.anexos.length > 0 && (
+              <div className="mt-2">
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                  Arquivos enviados ({formData.anexos.length}):
+                </p>
+                <ul className="text-xs text-gray-500 dark:text-gray-400 list-disc list-inside">
+                  {formData.anexos.map((url, index) => (
+                    <li key={index} className="truncate">
+                      <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        Anexo {index + 1}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Modal Outros Protocolos */}
+        {mostrarModalOutrosProtocolos && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold velohub-title">
+                  Outros Protocolos Encontrados ({outrosProtocolosRegistros.length})
+                </h3>
+                <button
+                  onClick={() => {
+                    setMostrarModalOutrosProtocolos(false);
+                    setProtocoloExpandido(null);
+                  }}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {outrosProtocolosRegistros.map((protocolo, index) => (
+                  <div
+                    key={index}
+                    className="border border-gray-300 dark:border-gray-600 rounded-lg p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    onClick={() => setProtocoloExpandido(protocoloExpandido === index ? null : index)}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-semibold text-gray-700 dark:text-gray-300">
+                            {protocolo.tipo || 'Sem tipo'}
+                          </span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {protocolo.nome || 'Sem nome'}
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          CPF: {protocolo.cpf ? `${protocolo.cpf.substring(0, 3)}***${protocolo.cpf.substring(9)}` : 'N/A'}
+                        </div>
+                        {protocolo.createdAt && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Criado em: {new Date(protocolo.createdAt).toLocaleDateString('pt-BR')}
+                          </div>
+                        )}
+                      </div>
+                      <button className="text-blue-600 dark:text-blue-400">
+                        {protocoloExpandido === index ? '▼' : '▶'}
+                      </button>
+                    </div>
+
+                    {protocoloExpandido === index && (
+                      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+                        <pre className="text-xs bg-gray-100 dark:bg-gray-900 p-3 rounded overflow-x-auto">
+                          {JSON.stringify(protocolo, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  };
+
+  /**
+   * Renderizar campos específicos Procon
+   */
+  const renderCamposProcon = () => {
+    // Validar Código Procon (16 caracteres)
+    const validarCodigoProcon = (codigo) => {
+      return codigo && codigo.length === 16;
+    };
+
+    return (
+      <>
+        {/* Reclamação Procon */}
+        <div className="velohub-card">
+          <h3 className="text-xl font-semibold mb-4 velohub-title">Reclamação</h3>
+          
+          {/* Linha 1: Código Procon | Data Procon | Produto */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                Código Procon (16 caracteres) *
+              </label>
+              <input
+                type="text"
+                value={formData.codigoProcon}
+                onChange={(e) => {
+                  const valor = e.target.value.slice(0, 16);
+                  setFormData(prev => ({ ...prev, codigoProcon: valor }));
+                }}
+                className={`w-full border rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white ${
+                  validarCodigoProcon(formData.codigoProcon) ? 'border-green-500 border-2' : 'border-gray-400 dark:border-gray-500'
+                }`}
+                placeholder="Digite o código Procon"
+                maxLength={16}
+                required
+              />
+              {errors.codigoProcon && (
+                <span className="text-red-500 text-xs">{errors.codigoProcon}</span>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                Data Procon *
+              </label>
+              <input
+                type="date"
+                value={formData.dataProcon}
+                onChange={(e) => setFormData(prev => ({ ...prev, dataProcon: e.target.value }))}
+                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                required
+              />
+              {errors.dataProcon && (
+                <span className="text-red-500 text-xs">{errors.dataProcon}</span>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                Produto *
+              </label>
+              <select
+                value={formData.produto}
+                onChange={(e) => setFormData(prev => ({ ...prev, produto: e.target.value }))}
+                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                required
+              >
+                <option value="">Selecione...</option>
+                <option value="Antecipação">Antecipação</option>
+                <option value="Credito Pessoal">Credito Pessoal</option>
+                <option value="Credito Trabalhador">Credito Trabalhador</option>
+                <option value="Cupons Velotax">Cupons Velotax</option>
+                <option value="QueroQuitar">QueroQuitar</option>
+                <option value="Seguro DividaZero">Seguro DividaZero</option>
+                <option value="Seguro Celular">Seguro Celular</option>
+                <option value="Seguro Prestamista">Seguro Prestamista</option>
+                <option value="Seguro Saúde">Seguro Saúde</option>
+                <option value="Calculadora">Calculadora</option>
+                <option value="App">App</option>
+                <option value="Outras Ocorrências">Outras Ocorrências</option>
+              </select>
+              {errors.produto && (
+                <span className="text-red-500 text-xs">{errors.produto}</span>
+              )}
+            </div>
+          </div>
+
+          {/* Linha 2: Motivo */}
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mb-4">
+            {renderCampoMotivo(
+              MOTIVOS_REDUZIDOS,
+              formData.motivoReduzido,
+              (novosMotivos) => setFormData(prev => ({ ...prev, motivoReduzido: novosMotivos })),
+              errors.motivoReduzido,
+              'Motivo *',
+              'motivo-procon'
+            )}
+          </div>
+
+          {/* Linha 3: Descrição */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              Descrição
+            </label>
+            <textarea
+              value={formData.motivoDetalhado}
+              onChange={(e) => setFormData(prev => ({ ...prev, motivoDetalhado: e.target.value }))}
+              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              rows={4}
+              placeholder="Descreva detalhadamente a reclamação..."
+            />
+          </div>
+
+          {/* Linha 4: Solução Apresentada */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              Solução Apresentada
+            </label>
+            <textarea
+              value={formData.solucaoApresentada}
+              onChange={(e) => setFormData(prev => ({ ...prev, solucaoApresentada: e.target.value }))}
+              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              rows={4}
+              placeholder="Descreva a solução apresentada..."
+            />
+          </div>
+
+          {/* Linha 5: Processo Administrativo | Cliente Desistiu | Processo Encaminhado | Processo Encerrado */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 items-start">
+            <div className="flex flex-col">
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                Processo Administrativo
+              </label>
+              <select
+                value={formData.processoAdministrativo}
+                onChange={(e) => setFormData(prev => ({ ...prev, processoAdministrativo: e.target.value }))}
+                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              >
+                <option value="">Selecione...</option>
+                <option value="Sim - Status Não Atendido">Sim - Status Não Atendido</option>
+                <option value="Não - Status Atendido">Não - Status Atendido</option>
+                <option value="Sem Interação do Cliente">Sem Interação do Cliente</option>
+              </select>
+            </div>
+
+            <div className="flex items-center" style={{ paddingTop: '1.5rem' }}>
+              <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={formData.clienteDesistiu}
+                  onChange={(e) => setFormData(prev => ({ ...prev, clienteDesistiu: e.target.checked }))}
+                  className="w-5 h-5"
+                />
+                <span>Cliente Desistiu</span>
+              </label>
+            </div>
+
+            <div>
+              <div className="flex items-center" style={{ paddingTop: '1.5rem' }}>
+                <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={formData.encaminhadoJuridico}
+                    onChange={(e) => {
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        encaminhadoJuridico: e.target.checked,
+                        processoEncaminhadoResponsavel: e.target.checked ? '' : '',
+                        processoEncaminhadoData: e.target.checked ? '' : ''
+                      }));
+                    }}
+                    className="w-5 h-5"
+                  />
+                  <span>Processo Encaminhado</span>
+                </label>
+              </div>
+              {formData.encaminhadoJuridico && (
+                <div className="mt-2 space-y-2">
+                  <select
+                    value={formData.processoEncaminhadoResponsavel}
+                    onChange={(e) => setFormData(prev => ({ ...prev, processoEncaminhadoResponsavel: e.target.value }))}
+                    className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                  >
+                    <option value="">Selecione...</option>
+                    <option value="Tadeu">Tadeu</option>
+                    <option value="Aline">Aline</option>
+                    <option value="Celcoin">Celcoin</option>
+                  </select>
+                  <input
+                    type="date"
+                    value={formData.processoEncaminhadoData}
+                    onChange={(e) => setFormData(prev => ({ ...prev, processoEncaminhadoData: e.target.value }))}
+                    className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                    placeholder="Data do encaminhamento"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div className="flex items-center" style={{ paddingTop: '1.5rem' }}>
+                <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={formData.processoEncerrado}
+                    onChange={(e) => {
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        processoEncerrado: e.target.checked,
+                        dataProcessoEncerrado: e.target.checked ? new Date().toISOString().split('T')[0] : ''
+                      }));
+                    }}
+                    className="w-5 h-5"
+                  />
+                  <span>Processo Encerrado</span>
+                </label>
+              </div>
+              {formData.processoEncerrado && (
+                <input
+                  type="date"
+                  value={formData.dataProcessoEncerrado}
+                  onChange={(e) => setFormData(prev => ({ ...prev, dataProcessoEncerrado: e.target.value }))}
+                  className="w-full mt-2 border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                  placeholder="Data do encerramento"
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Registros Reclame Aqui */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              Registros Reclame Aqui?
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={formData.registrosReclameAqui}
+                readOnly
+                className="flex-1 border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed"
+                placeholder="Clique em 'Buscar' para encontrar registros relacionados"
+              />
+              <button
+                type="button"
+                onClick={buscarRegistrosReclameAqui}
+                disabled={buscandoReclameAqui || !formData.cpf || formData.cpf.replace(/\D/g, '').length !== 11}
+                className="px-4 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  borderColor: '#006AB9',
+                  color: '#006AB9',
+                  background: 'transparent',
+                }}
+                onMouseEnter={(e) => {
+                  if (!e.target.disabled) {
+                    e.target.style.background = 'linear-gradient(135deg, #006AB9 0%, #006AB9 100%)';
+                    e.target.style.color = '#F3F7FC';
+                    e.target.style.borderColor = '#006AB9';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!e.target.disabled) {
+                    e.target.style.background = 'transparent';
+                    e.target.style.color = '#006AB9';
+                    e.target.style.borderColor = '#006AB9';
+                  }
+                }}
+              >
+                {buscandoReclameAqui ? 'Buscando...' : 'Buscar'}
+              </button>
+            </div>
+          </div>
+
+          {/* Anexo */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              Anexo
+            </label>
+            <input
+              type="file"
+              onChange={async (e) => {
+                const files = Array.from(e.target.files);
+                if (files.length === 0) return;
+                
+                const uploadPromises = files.map(async (file) => {
+                  try {
+                    const resultado = await anexosAPI.upload(file, formData.tipo);
+                    return resultado.url;
+                  } catch (error) {
+                    console.error('Erro ao fazer upload do anexo:', error);
+                    toast.error(`Erro ao fazer upload de ${file.name}: ${error.message}`);
+                    return null;
+                  }
+                });
+                
+                const urls = await Promise.all(uploadPromises);
+                const urlsValidas = urls.filter(url => url !== null);
+                
+                setFormData(prev => ({ 
+                  ...prev, 
+                  anexos: [...prev.anexos, ...urlsValidas]
+                }));
+                
+                if (urlsValidas.length > 0) {
+                  toast.success(`${urlsValidas.length} arquivo(s) enviado(s) com sucesso`);
+                }
+              }}
+              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              multiple
+            />
+            <small className="text-xs text-gray-600 dark:text-gray-400">
+              Você pode selecionar múltiplos arquivos. Os arquivos serão enviados automaticamente.
+            </small>
+            {formData.anexos.length > 0 && (
+              <div className="mt-2">
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                  Arquivos enviados ({formData.anexos.length}):
+                </p>
+                <ul className="text-xs text-gray-500 dark:text-gray-400 list-disc list-inside">
+                  {formData.anexos.map((url, index) => (
+                    <li key={index} className="truncate">
+                      <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        Anexo {index + 1}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      </>
+    );
+  };
 
   /**
    * Renderizar tentativas de contato (BACEN/Ouvidoria)
@@ -1371,13 +2674,31 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
                   origem: '',
                   anexos: [],
                   prazoBacen: '',
-                  motivoReduzido: '',
+                  motivoReduzido: [],
                   motivoDetalhado: '',
                   dataEntradaAtendimento: '',
                   origem: '',
                   produto: '',
                   prazoOuvidoria: '',
                   motivoDetalhado: '',
+                  cpfRepetido: '',
+                  idEntrada: '',
+                  dataReclam: '',
+                  passivelNotaMais: false,
+                  oportunidade: '',
+                  solicitadoAvaliacao: false,
+                  avaliado: false,
+                  codigoProcon: '',
+                  dataProcon: '',
+                  solucaoApresentada: '',
+                  processoAdministrativo: '',
+                  clienteDesistiu: false,
+                  encaminhadoJuridico: false,
+                  processoEncaminhadoResponsavel: '',
+                  processoEncaminhadoData: '',
+                  processoEncerrado: false,
+                  dataProcessoEncerrado: '',
+                  registrosReclameAqui: '',
                 }));
                 setErrors({});
               }}
@@ -1386,6 +2707,9 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
             >
               <option value="BACEN">Bacen</option>
               <option value="OUVIDORIA">N2 Pix</option>
+              <option value="RECLAME_AQUI">Reclame Aqui</option>
+              <option value="PROCON">Procon</option>
+              <option value="PROCESSOS">Ação Judicial</option>
             </select>
             {errors.tipo && (
               <span className="text-red-500 text-xs">{errors.tipo}</span>
@@ -1536,12 +2860,15 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
         {/* Campos específicos por tipo */}
         {formData.tipo === 'BACEN' && renderCamposBacen()}
         {formData.tipo === 'OUVIDORIA' && renderCamposN2()}
+        {formData.tipo === 'RECLAME_AQUI' && renderCamposReclameAqui()}
+        {formData.tipo === 'PROCON' && renderCamposProcon()}
+        {formData.tipo === 'PROCESSOS' && renderCamposProcessos()}
 
         {/* Tentativas de Contato (BACEN/N2 apenas) */}
-        {renderTentativasContato()}
+        {(formData.tipo === 'BACEN' || formData.tipo === 'OUVIDORIA') && renderTentativasContato()}
 
-        {/* Protocolos (BACEN/N2 apenas) */}
-        {renderProtocolos()}
+        {/* Protocolos (BACEN/N2/Reclame Aqui) */}
+        {(formData.tipo === 'BACEN' || formData.tipo === 'OUVIDORIA' || formData.tipo === 'RECLAME_AQUI') && renderProtocolos()}
 
         {/* Status PIX e Contrato */}
 
@@ -1681,6 +3008,76 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
           </div>
         </div>
       </form>
+
+      {/* Modal de Registros Reclame Aqui (para Procon) */}
+      {mostrarModalReclameAqui && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center backdrop-blur-sm p-4 z-50"
+          onClick={() => setMostrarModalReclameAqui(false)}
+        >
+          <div
+            className="rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col bg-white dark:bg-gray-800"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-xl font-semibold velohub-title">
+                Registros Reclame Aqui Encontrados ({reclameAquiRegistros.length})
+              </h3>
+              <button
+                onClick={() => setMostrarModalReclameAqui(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-6">
+              {reclameAquiRegistros.length === 0 ? (
+                <p className="text-gray-600 dark:text-gray-400">Nenhum registro encontrado.</p>
+              ) : (
+                <div className="space-y-4">
+                  {reclameAquiRegistros.map((registro, index) => (
+                    <div
+                      key={registro._id || index}
+                      className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-700"
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            ID Entrada: <span className="font-normal">{registro.idEntrada || 'N/A'}</span>
+                          </p>
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Data Reclamação: <span className="font-normal">
+                              {registro.dataReclam ? new Date(registro.dataReclam).toLocaleDateString('pt-BR') : 'N/A'}
+                            </span>
+                          </p>
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Motivo: <span className="font-normal">{registro.motivoReduzido || 'N/A'}</span>
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Responsável: <span className="font-normal">{registro.responsavel || 'N/A'}</span>
+                          </p>
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Status: <span className="font-normal">
+                              {registro.Finalizado?.Resolvido ? 'Resolvido' : 'Em Aberto'}
+                            </span>
+                          </p>
+                          {registro.motivoDetalhado && (
+                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mt-2">
+                              Descrição: <span className="font-normal text-xs">{registro.motivoDetalhado}</span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

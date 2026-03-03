@@ -1,6 +1,72 @@
 /**
  * VeloHub V3 - RelatoriosOuvidoria Component
- * VERSION: v2.0.0 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.9.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.9.0:
+ * - CORRIGIDO: Gráfico de tipos por mês agora usa dados agregados do backend para Reclame Aqui, Procon e Ação Judicial
+ * - CORRIGIDO: Fallback no gráfico agora usa campos de data corretos por tipo (dataReclam, dataProcon, dataEntrada) ao invés de createdAt
+ * - Gráfico agora prioriza dados agregados do backend (mais preciso) e usa fallback apenas quando necessário
+ * 
+ * Mudanças v2.8.0:
+ * - CORRIGIDO: Adicionadas validações robustas antes de usar .find() em arrays
+ * - Verificação adicional de Array.isArray() antes de chamar métodos de array
+ * - Validação de d && d._id antes de acessar propriedades em .find()
+ * - Prevenção de erro "Cannot read properties of undefined (reading 'find')"
+ * 
+ * Mudanças v2.7.0:
+ * - Melhorada normalização de "pix" e "PIX" isolados → "Chave Pix"
+ * - Adicionada normalização de "Portabilidade" → "Portabilidade PIX"
+ * - Adicionada normalização de "Encerramento da" → "Encerramento de Conta"
+ * - Melhorada normalização de "Banco Do Brasil" → "Banco do Brasil"
+ * - Melhorada normalização de "Limite Pix" → "Limite PIX"
+ * - Melhorada normalização de "Pix não localizado" → "PIX Não Localizado"
+ * - Melhorada normalização de "Restituição 1 Lote" → "Restituição 1° Lote"
+ * 
+ * Mudanças v2.6.0:
+ * - Adicionada função dividirMotivoConcatenado para dividir motivos concatenados (ex: "Retirar Chave PIX Cpf")
+ * - Melhorada função normalizarMotivoParaAgrupamento com mais padrões de normalização
+ * - Adicionado tratamento especial para "Retirar Chave PIX Cpf" → ["Retirar", "Chave Pix"]
+ * - Filtro melhorado para excluir naturezas/origens do quadro de motivos
+ * - Normalização de variações como "Erro/aplicativo", "Crédito Pessoal Indisponível", etc.
+ * 
+ * Mudanças v2.5.0:
+ * - Adicionada função normalizarMotivoParaAgrupamento para evitar duplicatas no quadro de motivos
+ * - Normalização agrupa variações de capitalização (ex: "Chave Pix", "CHAVE PIX", "Chave PIX")
+ * - Normalização trata variações de preposições (ex: "Encerramento de Conta" vs "Encerramento da conta")
+ * - Filtro para excluir naturezas/origens (Bacen Celcoin, Bacen Via Capital, Consumidor.Gov) do quadro de motivos
+ * 
+ * Mudanças v2.4.0:
+ * - Removidos gráficos individuais (Natureza BACEN e Casos Registrados vs Finalizados N2)
+ * - Criados relatórios específicos para RECLAME_AQUI, PROCON e AÇÃO_JUDICIAL
+ * - Seções de relatórios específicos só são exibidas quando a categoria correspondente está selecionada
+ * - Cada categoria exibe apenas sua tabela de motivos por mês
+ * 
+ * Mudanças v2.3.1:
+ * - CORRIGIDO: Gráfico geral agora mostra todos os tipos selecionados (não apenas BACEN e N2Pix)
+ * - Ajustada normalização de tipos para corresponder ao formato retornado pelo backend
+ * - Backend retorna "RECLAME AQUI" (com espaço) e "AÇÃO JUDICIAL", frontend agora normaliza corretamente
+ * - Gráfico processa dados de relatorio.reclamacoes para tipos sem dados detalhados disponíveis
+ * 
+ * Mudanças v2.3.0:
+ * - Adicionado quadro de motivos mostrando quantidade e percentual de cada motivoReduzido
+ * - Quadro contempla todos os tipos selecionados
+ * - Suporta motivos em formato array (Ação Judicial) e string (outros tipos)
+ * - Tabela ordenada por quantidade (decrescente)
+ * - Exibe total geral e percentuais individuais
+ * 
+ * Mudanças v2.2.0:
+ * - Adicionada seção superior com dados gerais (total, resolvidas, taxa de resolução, tipos selecionados)
+ * - Criado gráfico de linhas com uma linha para cada tipo selecionado
+ * - Eixo X mostra meses do período selecionado
+ * - Legendas na parte inferior com bubbles (círculos apenas com borda, sem preenchimento)
+ * - Gráfico dentro de container-secondary
+ * - Quando nenhum tipo é selecionado, mostra todos os tipos disponíveis
+ * 
+ * Mudanças v2.1.0:
+ * - Adicionado filtro de múltipla escolha para tipos de reclamações
+ * - Tipos disponíveis: BACEN, OUVIDORIA (N2 Pix), RECLAME_AQUI, PROCON, PROCESSOS (Ação Judicial)
+ * - Filtro permite selecionar múltiplos tipos ou nenhum (busca todos)
+ * - Backend atualizado para aceitar múltiplos tipos via parâmetro 'tipos'
  * 
  * Mudanças v2.0.0:
  * - Implementado filtro mensal (seleção MENSAL)
@@ -40,12 +106,418 @@ ChartJS.register(
   ChartDataLabels
 );
 
+/**
+ * Lista de motivos conhecidos para dividir strings concatenadas
+ * Ordenada por tamanho (maior primeiro) para melhor matching
+ */
+const MOTIVOS_CONHECIDOS_FRONTEND = [
+  'Não Recebeu Restituição',
+  'Liquidação Antecipada',
+  'Encerramento de Conta',
+  'Exclusão de Conta',
+  'Bloqueio de Conta',
+  'Contestação de Valores',
+  'Crédito do Trabalhador',
+  'Empréstimo Pessoal',
+  'Liberação Chave Pix',
+  'Abatimento Juros',
+  'Cancelamento Conta',
+  'Devolução à Celcoin',
+  'Superendividamento',
+  'Portabilidade',
+  'Empréstimo',
+  'Chave Pix',
+  'Fraude',
+  'Conta'
+].sort((a, b) => b.length - a.length);
+
+/**
+ * Dividir motivo concatenado em motivos individuais
+ */
+const dividirMotivoConcatenado = (motivo) => {
+  if (!motivo || typeof motivo !== 'string') return [motivo];
+  
+  const motivoTrim = motivo.trim();
+  if (!motivoTrim) return [];
+  
+  const motivoLower = motivoTrim.toLowerCase();
+  
+  // Casos especiais conhecidos que precisam ser divididos
+  if (motivoLower.includes('retirar') && motivoLower.includes('chave') && motivoLower.includes('pix')) {
+    // "Retirar Chave PIX Cpf" → ["Retirar", "Chave Pix"]
+    const partes = [];
+    if (motivoLower.includes('retirar')) {
+      partes.push('Retirar');
+    }
+    if (motivoLower.includes('chave') && motivoLower.includes('pix')) {
+      partes.push('Chave Pix');
+    }
+    if (motivoLower.includes('cpf') && !partes.includes('CPF')) {
+      // CPF geralmente não é um motivo separado, mas se aparecer sozinho, manter
+      // Por enquanto, não adicionar CPF como motivo separado
+    }
+    return partes.length > 0 ? partes : [motivoTrim];
+  }
+  
+  // Verificar se é um motivo conhecido completo
+  for (const motivoConhecido of MOTIVOS_CONHECIDOS_FRONTEND) {
+    if (motivoLower === motivoConhecido.toLowerCase()) {
+      return [motivoConhecido];
+    }
+  }
+  
+  // Tentar encontrar motivos conhecidos no texto
+  const motivosEncontrados = [];
+  const motivosVistos = new Set();
+  let textoRestante = motivoTrim;
+  
+  // Encontrar matches de motivos conhecidos
+  const matches = [];
+  for (const motivoConhecido of MOTIVOS_CONHECIDOS_FRONTEND) {
+    const motivoConhecidoLower = motivoConhecido.toLowerCase();
+    let posicao = textoRestante.toLowerCase().indexOf(motivoConhecidoLower);
+    while (posicao >= 0) {
+      matches.push({ motivo: motivoConhecido, posicao, length: motivoConhecido.length, end: posicao + motivoConhecido.length });
+      posicao = textoRestante.toLowerCase().indexOf(motivoConhecidoLower, posicao + 1);
+    }
+  }
+  
+  // Se não encontrou nenhum motivo conhecido, retornar o original
+  if (matches.length === 0) {
+    return [motivoTrim];
+  }
+  
+  // Remover matches que estão dentro de outros matches maiores
+  const matchesValidos = [];
+  for (let i = 0; i < matches.length; i++) {
+    const match = matches[i];
+    let estaDentroDeOutro = false;
+    for (let j = 0; j < matches.length; j++) {
+      if (i !== j) {
+        const outroMatch = matches[j];
+        if (outroMatch.posicao <= match.posicao && outroMatch.end >= match.end && outroMatch.length > match.length) {
+          estaDentroDeOutro = true;
+          break;
+        }
+      }
+    }
+    if (!estaDentroDeOutro) {
+      matchesValidos.push(match);
+    }
+  }
+  
+  matchesValidos.sort((a, b) => a.posicao - b.posicao);
+  
+  // Processar matches sequencialmente
+  let ultimaPosicao = 0;
+  for (const match of matchesValidos) {
+    // Adicionar texto antes do match se não for vazio
+    if (match.posicao > ultimaPosicao) {
+      const parteAntes = textoRestante.substring(ultimaPosicao, match.posicao).trim();
+      if (parteAntes.length > 0) {
+        // Verificar se parteAntes é um motivo conhecido antes de adicionar
+        let eMotivoConhecido = false;
+        for (const motivoConhecido of MOTIVOS_CONHECIDOS_FRONTEND) {
+          if (parteAntes.toLowerCase() === motivoConhecido.toLowerCase()) {
+            const key = motivoConhecido.toLowerCase();
+            if (!motivosVistos.has(key)) {
+              motivosEncontrados.push(motivoConhecido);
+              motivosVistos.add(key);
+            }
+            eMotivoConhecido = true;
+            break;
+          }
+        }
+        if (!eMotivoConhecido) {
+          const key = parteAntes.toLowerCase();
+          if (!motivosVistos.has(key)) {
+            motivosEncontrados.push(parteAntes);
+            motivosVistos.add(key);
+          }
+        }
+      }
+    }
+    
+    // Adicionar o motivo conhecido
+    const motivoKey = match.motivo.toLowerCase();
+    if (!motivosVistos.has(motivoKey)) {
+      motivosEncontrados.push(match.motivo);
+      motivosVistos.add(motivoKey);
+    }
+    
+    ultimaPosicao = match.end;
+  }
+  
+  // Adicionar texto restante
+  if (ultimaPosicao < textoRestante.length) {
+    const parteRestante = textoRestante.substring(ultimaPosicao).trim();
+    if (parteRestante.length > 0) {
+      // Verificar se parteRestante é um motivo conhecido antes de adicionar
+      let eMotivoConhecido = false;
+      for (const motivoConhecido of MOTIVOS_CONHECIDOS_FRONTEND) {
+        if (parteRestante.toLowerCase() === motivoConhecido.toLowerCase()) {
+          const key = motivoConhecido.toLowerCase();
+          if (!motivosVistos.has(key)) {
+            motivosEncontrados.push(motivoConhecido);
+            motivosVistos.add(key);
+          }
+          eMotivoConhecido = true;
+          break;
+        }
+      }
+      if (!eMotivoConhecido) {
+        const key = parteRestante.toLowerCase();
+        if (!motivosVistos.has(key)) {
+          motivosEncontrados.push(parteRestante);
+        }
+      }
+    }
+  }
+  
+  return motivosEncontrados.length > 0 ? motivosEncontrados : [motivoTrim];
+};
+
+/**
+ * Normalizar motivo para agrupar variações (capitalização, preposições, etc.)
+ * Retorna a versão normalizada para uso como chave e para exibição
+ */
+const normalizarMotivoParaAgrupamento = (motivo) => {
+  if (!motivo || typeof motivo !== 'string') return '';
+  
+  let normalizado = motivo.trim();
+  if (!normalizado) return '';
+  
+  const motivoLower = normalizado.toLowerCase();
+  
+  // Filtrar naturezas/origens que não são motivos
+  const naturezasOrigens = [
+    'bacen celcoin',
+    'bacen via capital',
+    'consumidor.gov',
+    'consumidor gov'
+  ];
+  
+  if (naturezasOrigens.includes(motivoLower)) {
+    return ''; // Retornar string vazia para filtrar depois
+  }
+  
+  // Normalizar variações específicas conhecidas de "Chave Pix"
+  // Incluir casos onde apenas "pix" ou "PIX" aparece sozinho
+  if (motivoLower === 'chave pix' || motivoLower === 'chavepix' || motivoLower === 'chave pix cpf' || 
+      motivoLower === 'pix' || motivoLower.trim() === 'pix') {
+    return 'Chave Pix';
+  }
+  
+  if (motivoLower === 'liberação chave pix' || motivoLower === 'liberação de chave pix') {
+    return 'Liberação Chave Pix';
+  }
+  
+  // "Retirar Chave PIX Cpf" já é tratado na função dividirMotivoConcatenado
+  // Não precisa fazer nada especial aqui
+  
+  if (motivoLower.includes('crédito pessoal') && motivoLower.includes('indisponível')) {
+    return 'Crédito Pessoal Indisponível';
+  }
+  
+  if (motivoLower.includes('juros') && motivoLower.includes('abusivos')) {
+    return 'Juros Abusivos';
+  }
+  
+  if (motivoLower.includes('dívida') && motivoLower.includes('prescrita')) {
+    return 'Dívida Prescrita';
+  }
+  
+  if (motivoLower.includes('dúvidas') && motivoLower.includes('restituição')) {
+    return 'Dúvidas Restituição';
+  }
+  
+  if (motivoLower.includes('dúvidas') && motivoLower.includes('crédito pessoal')) {
+    return 'Dúvidas Crédito Pessoal';
+  }
+  
+  if (motivoLower.includes('alteração') && motivoLower.includes('cadastral')) {
+    return 'Alteração Cadastral';
+  }
+  
+  if (motivoLower.includes('estorno') && motivoLower.includes('plano')) {
+    return 'Estorno de Plano';
+  }
+  
+  if (motivoLower.includes('restituição') && motivoLower.includes('2')) {
+    return 'Restituição 2° Lote';
+  }
+  
+  if (motivoLower.includes('restituição') && motivoLower.includes('1')) {
+    // Normalizar "Restituição 1 Lote" → "Restituição 1° Lote"
+    return 'Restituição 1° Lote';
+  }
+  
+  if (motivoLower.includes('pix') && motivoLower.includes('não') && motivoLower.includes('localizado')) {
+    return 'PIX Não Localizado';
+  }
+  
+  if (motivoLower.includes('cobrança') && motivoLower.includes('indevida')) {
+    return 'Cobrança Indevida';
+  }
+  
+  if (motivoLower.includes('dúvidas') && motivoLower.includes('crédito') && motivoLower.includes('trabalhador')) {
+    return 'Dúvidas Crédito ao Trabalhador';
+  }
+  
+  if (motivoLower.includes('banco') && motivoLower.includes('brasil')) {
+    return 'Banco do Brasil';
+  }
+  
+  if (motivoLower.includes('limite') && motivoLower.includes('pix')) {
+    return 'Limite PIX';
+  }
+  
+  if (motivoLower === 'portabilidade' || (motivoLower.includes('portabilidade') && motivoLower.includes('pix'))) {
+    return 'Portabilidade PIX';
+  }
+  
+  if (motivoLower.includes('encerramento') && motivoLower.includes('conta')) {
+    return 'Encerramento de Conta';
+  }
+  
+  if (motivoLower.includes('encerramento') && motivoLower.includes('da')) {
+    return 'Encerramento de Conta';
+  }
+  
+  if (motivoLower.includes('malha') && motivoLower.includes('fina')) {
+    return 'Malha Fina 2024';
+  }
+  
+  if (motivoLower.includes('taxa') && motivoLower.includes('exclusão')) {
+    return 'Taxa/Exclusão';
+  }
+  
+  if (motivoLower.includes('limite') && motivoLower.includes('pix')) {
+    return 'Limite PIX';
+  }
+  
+  if (motivoLower.includes('seguro') && motivoLower.includes('acidente')) {
+    return 'Seguro Acidente';
+  }
+  
+  if (motivoLower.includes('seguro') && motivoLower.includes('saúde')) {
+    return 'Seguro Saúde';
+  }
+  
+  if (motivoLower.includes('portabilidade')) {
+    // Normalizar "Portabilidade" → "Portabilidade PIX" se não tiver PIX já
+    if (motivoLower.includes('pix')) {
+      return 'Portabilidade PIX';
+    }
+    return 'Portabilidade PIX'; // Mesmo sem "pix" no texto, normalizar para incluir PIX
+  }
+  
+  if (motivoLower.includes('encerramento') && motivoLower.includes('da')) {
+    return 'Encerramento de Conta';
+  }
+  
+  if (motivoLower === 'encerramento da' || motivoLower.startsWith('encerramento da')) {
+    return 'Encerramento de Conta';
+  }
+  
+  if (motivoLower.includes('quitação') && motivoLower.includes('antecipada')) {
+    return 'Quitação Antecipada';
+  }
+  
+  if (motivoLower.includes('antecipação') && motivoLower.includes('não') && motivoLower.includes('disponível')) {
+    return 'Antecipação Não Disponível';
+  }
+  
+  // Preposições que não devem ser capitalizadas (exceto no início)
+  const preposicoes = ['do', 'da', 'de', 'ao', 'à', 'dos', 'das'];
+  
+  // Siglas que devem ser preservadas em maiúsculas
+  const siglas = ['PIX', 'EP', 'BB', 'N/A', 'CPF'];
+  
+  // Converter para title case: primeira letra de cada palavra maiúscula, resto minúscula
+  // Mas preservar siglas e não capitalizar preposições (exceto no início)
+  const palavras = normalizado.split(' ');
+  const palavrasNormalizadas = palavras.map((palavra, index) => {
+    if (!palavra) return '';
+    
+    // Verificar se está dentro de parênteses (preservar siglas)
+    const dentroParenteses = palavra.startsWith('(') && palavra.endsWith(')');
+    const palavraSemParenteses = dentroParenteses ? palavra.slice(1, -1) : palavra;
+    
+    // Preservar siglas conhecidas
+    const palavraUpper = palavraSemParenteses.toUpperCase();
+    if (siglas.includes(palavraUpper)) {
+      return dentroParenteses ? `(${palavraUpper})` : palavraUpper;
+    }
+    
+    // Verificar se é preposição (não capitalizar exceto no início)
+    const palavraLower = palavraSemParenteses.toLowerCase();
+    if (preposicoes.includes(palavraLower) && index > 0) {
+      return dentroParenteses ? `(${palavraLower})` : palavraLower;
+    }
+    
+    // Normal: primeira maiúscula, resto minúscula
+    const resultado = palavraSemParenteses.charAt(0).toUpperCase() + palavraSemParenteses.slice(1).toLowerCase();
+    return dentroParenteses ? `(${resultado})` : resultado;
+  });
+  
+  normalizado = palavrasNormalizadas.join(' ');
+  
+  // Normalizar variações conhecidas específicas após processamento
+  const normalizadoLower = normalizado.toLowerCase();
+  
+  if (normalizadoLower === 'chave pix' || normalizadoLower === 'pix') {
+    normalizado = 'Chave Pix';
+  }
+  
+  if (normalizadoLower === 'liberação chave pix') {
+    normalizado = 'Liberação Chave Pix';
+  }
+  
+  // Normalizar "Erro/aplicativo" → "Erro/Aplicativo"
+  if (normalizadoLower.includes('erro') && normalizadoLower.includes('aplicativo')) {
+    normalizado = normalizado.replace(/erro\s*\/\s*aplicativo/gi, 'Erro/Aplicativo');
+  }
+  
+  // Normalizar "Banco Do Brasil" → "Banco do Brasil" (preposição "do" em minúscula)
+  if (normalizadoLower.includes('banco') && normalizadoLower.includes('brasil')) {
+    normalizado = normalizado.replace(/Banco\s+Do\s+Brasil/gi, 'Banco do Brasil');
+  }
+  
+  // Normalizar "Limite Pix" → "Limite PIX" (PIX em maiúsculas)
+  if (normalizadoLower.includes('limite') && normalizadoLower.includes('pix')) {
+    normalizado = normalizado.replace(/Limite\s+Pix/gi, 'Limite PIX');
+  }
+  
+  // Normalizar "Pix não localizado" → "PIX Não Localizado"
+  if (normalizadoLower.includes('pix') && normalizadoLower.includes('não') && normalizadoLower.includes('localizado')) {
+    normalizado = normalizado.replace(/Pix\s+não\s+localizado/gi, 'PIX Não Localizado');
+  }
+  
+  // Normalizar "Restituição 1 Lote" → "Restituição 1° Lote"
+  if (normalizadoLower.includes('restituição') && normalizadoLower.includes('1') && normalizadoLower.includes('lote')) {
+    normalizado = normalizado.replace(/Restituição\s+1\s+Lote/gi, 'Restituição 1° Lote');
+  }
+  
+  return normalizado;
+};
+
 const RelatoriosOuvidoria = () => {
   const [mesInicio, setMesInicio] = useState('');
   const [mesFim, setMesFim] = useState('');
+  const [tiposSelecionados, setTiposSelecionados] = useState([]);
   const [loading, setLoading] = useState(false);
   const [relatorio, setRelatorio] = useState(null);
   const [dadosDetalhados, setDadosDetalhados] = useState(null);
+
+  // Tipos disponíveis para filtro
+  const TIPOS_DISPONIVEIS = [
+    { value: 'BACEN', label: 'Bacen' },
+    { value: 'OUVIDORIA', label: 'N2 Pix' },
+    { value: 'RECLAME_AQUI', label: 'Reclame Aqui' },
+    { value: 'PROCON', label: 'Procon' },
+    { value: 'PROCESSOS', label: 'Ação Judicial' }
+  ];
 
   /**
    * Converter mês (YYYY-MM) para primeiro dia do mês (YYYY-MM-DD)
@@ -66,6 +538,19 @@ const RelatoriosOuvidoria = () => {
   };
 
   /**
+   * Toggle tipo selecionado
+   */
+  const toggleTipo = (tipoValue) => {
+    setTiposSelecionados(prev => {
+      if (prev.includes(tipoValue)) {
+        return prev.filter(t => t !== tipoValue);
+      } else {
+        return [...prev, tipoValue];
+      }
+    });
+  };
+
+  /**
    * Gerar relatório
    */
   const gerarRelatorio = async () => {
@@ -77,20 +562,25 @@ const RelatoriosOuvidoria = () => {
     const dataInicio = mesParaDataInicio(mesInicio);
     const dataFim = mesParaDataFim(mesFim);
 
+    // Preparar parâmetros com tipos selecionados
+    const params = {
+      dataInicio,
+      dataFim
+    };
+
+    // Se houver tipos selecionados, adicionar ao parâmetro (múltiplos tipos separados por vírgula)
+    if (tiposSelecionados.length > 0) {
+      params.tipos = tiposSelecionados.join(',');
+    }
+
     setLoading(true);
     try {
       // Buscar relatório básico
-      const resultado = await relatoriosAPI.gerar({
-        dataInicio,
-        dataFim
-      });
+      const resultado = await relatoriosAPI.gerar(params);
       setRelatorio(resultado.data || resultado);
 
       // Buscar relatório detalhado
-      const detalhado = await relatoriosAPI.detalhado({
-        dataInicio,
-        dataFim
-      });
+      const detalhado = await relatoriosAPI.detalhado(params);
       setDadosDetalhados(detalhado.data || detalhado);
 
       toast.success('Relatório gerado com sucesso!');
@@ -137,10 +627,283 @@ const RelatoriosOuvidoria = () => {
   };
 
   /**
+   * Processar dados gerais de todos os tipos selecionados
+   */
+  const dadosGerais = useMemo(() => {
+    if (!relatorio) return null;
+
+    return {
+      total: relatorio.total || 0,
+      concluidas: relatorio.concluidas || 0,
+      taxaResolucao: relatorio.taxaResolucao || 0,
+      porTipo: relatorio.porTipo || {},
+      porStatus: relatorio.porStatus || {}
+    };
+  }, [relatorio]);
+
+  /**
+   * Processar quadro de motivos de todos os tipos selecionados
+   */
+  const processarQuadroMotivos = useMemo(() => {
+    if (!relatorio?.reclamacoes) return null;
+
+    // Se nenhum tipo selecionado, usar todos os tipos disponíveis
+    const tiposParaProcessar = tiposSelecionados.length > 0 
+      ? tiposSelecionados 
+      : TIPOS_DISPONIVEIS.map(t => t.value);
+
+    // Normalizar tipo para comparação (deve corresponder ao backend)
+    const normalizarTipo = (tipo) => {
+      const tipoUpper = String(tipo || '').toUpperCase().trim();
+      if (tipoUpper === 'OUVIDORIA' || tipoUpper === 'N2' || tipoUpper === 'N2 & PIX' || tipoUpper === 'N2&PIX') {
+        return 'OUVIDORIA';
+      }
+      if (tipoUpper === 'PROCESSOS' || tipoUpper === 'JUDICIAL' || tipoUpper === 'AÇÃO JUDICIAL' || tipoUpper === 'ACAO JUDICIAL') {
+        return 'AÇÃO JUDICIAL'; // Backend retorna "AÇÃO JUDICIAL"
+      }
+      if (tipoUpper === 'RECLAME_AQUI' || tipoUpper === 'RECLAME AQUI' || tipoUpper === 'RECLAMEAQUI') {
+        return 'RECLAME AQUI'; // Backend retorna "RECLAME AQUI" (com espaço)
+      }
+      return tipoUpper;
+    };
+
+    // Filtrar reclamações dos tipos selecionados
+    const reclamaçõesFiltradas = relatorio.reclamacoes.filter(r => {
+      const rTipo = normalizarTipo(r.tipo);
+      return tiposParaProcessar.some(t => normalizarTipo(t) === rTipo);
+    });
+
+    // Agrupar motivos usando normalização para evitar duplicatas
+    const motivosMap = {};
+    const motivosNormalizadosMap = {}; // Mapear motivo normalizado (chave) para versão padronizada (valor)
+    
+    reclamaçõesFiltradas.forEach(reclamacao => {
+      const motivoReduzido = reclamacao.motivoReduzido;
+      
+      if (!motivoReduzido) return;
+      
+      // Filtrar naturezas/origens que não são motivos (BACEN)
+      const origem = reclamacao.origem;
+      if (origem && (origem === 'Bacen Celcoin' || origem === 'Bacen Via Capital' || origem === 'Consumidor.Gov')) {
+        // Não incluir naturezas/origens como motivos
+        return;
+      }
+      
+      // Função auxiliar para processar um motivo individual
+      const processarMotivoIndividual = (motivo) => {
+        if (!motivo || !motivo.trim()) return;
+        
+        const motivoTrim = motivo.trim();
+        
+        // Primeiro, tentar dividir se for concatenado
+        const motivosDivididos = dividirMotivoConcatenado(motivoTrim);
+        
+        // Processar cada motivo dividido
+        motivosDivididos.forEach(motivoDiv => {
+          if (!motivoDiv || !motivoDiv.trim()) return;
+          
+          // Normalizar o motivo
+          const motivoNormalizado = normalizarMotivoParaAgrupamento(motivoDiv);
+          
+          // Se retornou string vazia, é uma natureza/origem - pular
+          if (motivoNormalizado === '') return;
+          
+          // Se retornou null ou undefined, usar o motivo original normalizado
+          if (!motivoNormalizado) {
+            // Usar o motivo original com capitalização básica
+            const motivoCapitalizado = motivoDiv.split(' ').map(p => 
+              p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()
+            ).join(' ');
+            const chave = motivoCapitalizado.toLowerCase();
+            motivosMap[chave] = (motivosMap[chave] || 0) + 1;
+            if (!motivosNormalizadosMap[chave]) {
+              motivosNormalizadosMap[chave] = motivoCapitalizado;
+            }
+          } else {
+            const chave = motivoNormalizado.toLowerCase();
+            motivosMap[chave] = (motivosMap[chave] || 0) + 1;
+            if (!motivosNormalizadosMap[chave]) {
+              motivosNormalizadosMap[chave] = motivoNormalizado;
+            }
+          }
+        });
+      };
+      
+      // Se for array (como em Ação Judicial), processar cada item
+      if (Array.isArray(motivoReduzido)) {
+        motivoReduzido.forEach(motivo => {
+          processarMotivoIndividual(motivo);
+        });
+      } else if (typeof motivoReduzido === 'string' && motivoReduzido.trim()) {
+        // Se for string, pode ter múltiplos motivos separados por vírgula ou ponto e vírgula
+        const motivos = motivoReduzido.split(/[,;]/).map(m => m.trim()).filter(m => m);
+        motivos.forEach(motivo => {
+          processarMotivoIndividual(motivo);
+        });
+      }
+    });
+
+    // Converter para array usando versões normalizadas e ordenar por quantidade (decrescente)
+    const motivosArray = Object.entries(motivosMap)
+      .map(([chave, quantidade]) => ({ 
+        motivo: motivosNormalizadosMap[chave] || chave, 
+        quantidade 
+      }))
+      .sort((a, b) => b.quantidade - a.quantidade);
+
+    const totalGeral = motivosArray.reduce((sum, item) => sum + item.quantidade, 0);
+
+    return {
+      motivos: motivosArray,
+      total: totalGeral
+    };
+  }, [relatorio, tiposSelecionados]);
+
+  /**
+   * Processar dados de tipos por mês para gráfico geral
+   */
+  const processarDadosTiposPorMes = useMemo(() => {
+    if (!relatorio) return null;
+    
+    // Se nenhum tipo selecionado, usar todos os tipos disponíveis
+    const tiposParaProcessar = tiposSelecionados.length > 0 
+      ? tiposSelecionados 
+      : TIPOS_DISPONIVEIS.map(t => t.value);
+
+    const meses = gerarMesesNoPeriodo;
+    const coresPorTipo = {
+      'BACEN': '#1634FF',
+      'OUVIDORIA': '#1694FF',
+      'RECLAME_AQUI': '#15A237',
+      'PROCON': '#FCC200',
+      'PROCESSOS': '#000058'
+    };
+
+    const labelsPorTipo = {
+      'BACEN': 'Bacen',
+      'OUVIDORIA': 'N2 Pix',
+      'RECLAME_AQUI': 'Reclame Aqui',
+      'PROCON': 'Procon',
+      'PROCESSOS': 'Ação Judicial'
+    };
+
+    // Mapeamento de tipos para normalização (deve corresponder ao backend)
+    const normalizarTipo = (tipo) => {
+      const tipoUpper = String(tipo || '').toUpperCase().trim();
+      if (tipoUpper === 'OUVIDORIA' || tipoUpper === 'N2' || tipoUpper === 'N2 & PIX' || tipoUpper === 'N2&PIX') {
+        return 'OUVIDORIA';
+      }
+      if (tipoUpper === 'PROCESSOS' || tipoUpper === 'JUDICIAL' || tipoUpper === 'AÇÃO JUDICIAL' || tipoUpper === 'ACAO JUDICIAL') {
+        return 'AÇÃO JUDICIAL'; // Backend retorna "AÇÃO JUDICIAL"
+      }
+      if (tipoUpper === 'RECLAME_AQUI' || tipoUpper === 'RECLAME AQUI' || tipoUpper === 'RECLAMEAQUI') {
+        return 'RECLAME AQUI'; // Backend retorna "RECLAME AQUI" (com espaço)
+      }
+      return tipoUpper;
+    };
+
+    const datasets = tiposParaProcessar.map(tipo => {
+      const tipoUpper = tipo.toUpperCase();
+      const tipoNormalizado = normalizarTipo(tipoUpper);
+      
+      // Mapear para chave de cores/labels (usar formato interno)
+      const tipoParaChave = {
+        'AÇÃO JUDICIAL': 'PROCESSOS',
+        'RECLAME AQUI': 'RECLAME_AQUI'
+      };
+      const chaveTipo = tipoParaChave[tipoNormalizado] || tipoNormalizado;
+      
+      const cor = coresPorTipo[chaveTipo] || coresPorTipo[tipoUpper] || '#6B7280';
+      const label = labelsPorTipo[chaveTipo] || labelsPorTipo[tipoUpper] || tipoUpper;
+
+      // Buscar dados do tipo específico do relatório
+      let dadosPorMes = [];
+      
+      if (tipoNormalizado === 'BACEN' && dadosDetalhados?.bacen?.naturezaPorMes && Array.isArray(dadosDetalhados.bacen.naturezaPorMes)) {
+        // Para BACEN, somar todas as naturezas por mês
+        dadosPorMes = meses.map(mes => {
+          const itens = dadosDetalhados.bacen.naturezaPorMes.filter(d => d && d._id && d._id.mes === mes);
+          return itens.reduce((sum, item) => sum + (item.count || 0), 0);
+        });
+      } else if (tipoNormalizado === 'OUVIDORIA' && dadosDetalhados?.n2?.casosRegistradosPorMes && Array.isArray(dadosDetalhados.n2.casosRegistradosPorMes)) {
+        // Para N2, usar casos registrados por mês
+        dadosPorMes = meses.map(mes => {
+          const item = dadosDetalhados.n2.casosRegistradosPorMes.find(d => d?._id?.mes === mes);
+          return item ? (item.count || 0) : 0;
+        });
+      } else if (tipoNormalizado === 'RECLAME AQUI' && dadosDetalhados?.reclameAqui?.motivosPorMes && Array.isArray(dadosDetalhados.reclameAqui.motivosPorMes)) {
+        // Para Reclame Aqui, somar todos os motivos por mês
+        dadosPorMes = meses.map(mes => {
+          const itens = dadosDetalhados.reclameAqui.motivosPorMes.filter(d => d && d._id && d._id.mes === mes);
+          return itens.reduce((sum, item) => sum + (item.count || 0), 0);
+        });
+      } else if (tipoNormalizado === 'PROCON' && dadosDetalhados?.procon?.motivosPorMes && Array.isArray(dadosDetalhados.procon.motivosPorMes)) {
+        // Para Procon, somar todos os motivos por mês
+        dadosPorMes = meses.map(mes => {
+          const itens = dadosDetalhados.procon.motivosPorMes.filter(d => d && d._id && d._id.mes === mes);
+          return itens.reduce((sum, item) => sum + (item.count || 0), 0);
+        });
+      } else if (tipoNormalizado === 'AÇÃO JUDICIAL' && dadosDetalhados?.judicial?.motivosPorMes && Array.isArray(dadosDetalhados.judicial.motivosPorMes)) {
+        // Para Ação Judicial, somar todos os motivos por mês
+        dadosPorMes = meses.map(mes => {
+          const itens = dadosDetalhados.judicial.motivosPorMes.filter(d => d && d._id && d._id.mes === mes);
+          return itens.reduce((sum, item) => sum + (item.count || 0), 0);
+        });
+      } else {
+        // Fallback: buscar do relatório básico usando campo de data correto baseado no tipo
+        dadosPorMes = meses.map(mes => {
+          const [ano, mesNum] = mes.split('-');
+          if (!relatorio.reclamacoes) return 0;
+          
+          return relatorio.reclamacoes.filter(r => {
+            const rTipo = String(r.tipo || '').toUpperCase().trim();
+            // Comparar tipos normalizados
+            const rTipoNormalizado = normalizarTipo(rTipo);
+            return rTipoNormalizado === tipoNormalizado;
+          }).filter(r => {
+            // Filtrar por mês usando campo de data correto baseado no tipo
+            let rDate;
+            if (tipoNormalizado === 'RECLAME AQUI' && r.dataReclam) {
+              rDate = new Date(r.dataReclam);
+            } else if (tipoNormalizado === 'PROCON' && r.dataProcon) {
+              rDate = new Date(r.dataProcon);
+            } else if ((tipoNormalizado === 'AÇÃO JUDICIAL' || tipoNormalizado === 'PROCESSOS') && r.dataEntrada) {
+              rDate = new Date(r.dataEntrada);
+            } else if ((tipoNormalizado === 'BACEN' || tipoNormalizado === 'OUVIDORIA') && r.dataEntrada) {
+              rDate = new Date(r.dataEntrada);
+            } else {
+              // Fallback para createdAt apenas se não houver campo específico
+              rDate = new Date(r.createdAt);
+            }
+            return rDate.getFullYear() === parseInt(ano) && (rDate.getMonth() + 1) === parseInt(mesNum);
+          }).length;
+        });
+      }
+
+      return {
+        label: label,
+        data: dadosPorMes,
+        borderColor: cor,
+        backgroundColor: 'transparent',
+        pointBackgroundColor: 'transparent',
+        pointBorderColor: cor,
+        pointBorderWidth: 2,
+        pointRadius: 4,
+        tension: 0.1
+      };
+    });
+
+    return {
+      labels: meses.map(formatarMes),
+      datasets
+    };
+  }, [dadosDetalhados, tiposSelecionados, gerarMesesNoPeriodo, relatorio]);
+
+  /**
    * Processar dados de natureza por mês para gráfico BACEN
    */
   const processarDadosNatureza = useMemo(() => {
-    if (!dadosDetalhados?.bacen?.naturezaPorMes) return null;
+    if (!dadosDetalhados?.bacen?.naturezaPorMes || !Array.isArray(dadosDetalhados.bacen.naturezaPorMes)) return null;
 
     const meses = gerarMesesNoPeriodo;
     const naturezas = ['Bacen Celcoin', 'Bacen Via Capital', 'Consumidor.Gov'];
@@ -148,10 +911,11 @@ const RelatoriosOuvidoria = () => {
     const datasets = naturezas.map((natureza, index) => {
       const cores = ['#1634FF', '#1694FF', '#000058'];
       const dados = meses.map(mes => {
+        if (!Array.isArray(dadosDetalhados.bacen.naturezaPorMes)) return 0;
         const item = dadosDetalhados.bacen.naturezaPorMes.find(
-          d => d._id.mes === mes && d._id.natureza === natureza
+          d => d && d._id && d._id.mes === mes && d._id.natureza === natureza
         );
-        return item ? item.count : 0;
+        return item ? (item.count || 0) : 0;
       });
 
       return {
@@ -177,17 +941,20 @@ const RelatoriosOuvidoria = () => {
    */
   const processarDadosCasosN2 = useMemo(() => {
     if (!dadosDetalhados?.n2) return null;
+    if (!Array.isArray(dadosDetalhados.n2.casosRegistradosPorMes) || !Array.isArray(dadosDetalhados.n2.casosFinalizadosPorMes)) return null;
 
     const meses = gerarMesesNoPeriodo;
     
     const registrados = meses.map(mes => {
-      const item = dadosDetalhados.n2.casosRegistradosPorMes.find(d => d._id.mes === mes);
-      return item ? item.count : 0;
+      if (!Array.isArray(dadosDetalhados.n2.casosRegistradosPorMes)) return 0;
+      const item = dadosDetalhados.n2.casosRegistradosPorMes.find(d => d && d._id && d._id.mes === mes);
+      return item ? (item.count || 0) : 0;
     });
 
     const finalizados = meses.map(mes => {
-      const item = dadosDetalhados.n2.casosFinalizadosPorMes.find(d => d._id.mes === mes);
-      return item ? item.count : 0;
+      if (!Array.isArray(dadosDetalhados.n2.casosFinalizadosPorMes)) return 0;
+      const item = dadosDetalhados.n2.casosFinalizadosPorMes.find(d => d && d._id && d._id.mes === mes);
+      return item ? (item.count || 0) : 0;
     });
 
     return {
@@ -221,28 +988,30 @@ const RelatoriosOuvidoria = () => {
    * Processar dados PIX Retirado por Natureza
    */
   const processarPixRetirado = useMemo(() => {
-    if (!dadosDetalhados?.bacen?.pixRetiradoPorNatureza) return null;
+    if (!dadosDetalhados?.bacen?.pixRetiradoPorNatureza || !Array.isArray(dadosDetalhados.bacen.pixRetiradoPorNatureza)) return null;
 
     const meses = gerarMesesNoPeriodo;
     const naturezas = ['Bacen Celcoin', 'Bacen Via Capital', 'Consumidor.Gov'];
     
     const tabela = naturezas.map(natureza => {
       const valores = meses.map(mes => {
+        if (!Array.isArray(dadosDetalhados.bacen.pixRetiradoPorNatureza)) return 0;
         const item = dadosDetalhados.bacen.pixRetiradoPorNatureza.find(
-          d => d._id.mes === mes && d._id.natureza === natureza
+          d => d && d._id && d._id.mes === mes && d._id.natureza === natureza
         );
-        return item ? item.count : 0;
+        return item ? (item.count || 0) : 0;
       });
       const total = valores.reduce((sum, val) => sum + val, 0);
       return { natureza, valores, total };
     });
 
     const totaisPorMes = meses.map(mes => {
+      if (!Array.isArray(dadosDetalhados.bacen.pixRetiradoPorNatureza)) return 0;
       return naturezas.reduce((sum, natureza) => {
         const item = dadosDetalhados.bacen.pixRetiradoPorNatureza.find(
-          d => d._id.mes === mes && d._id.natureza === natureza
+          d => d && d._id && d._id.mes === mes && d._id.natureza === natureza
         );
-        return sum + (item ? item.count : 0);
+        return sum + (item ? (item.count || 0) : 0);
       }, 0);
     });
     const totalGeral = totaisPorMes.reduce((sum, val) => sum + val, 0);
@@ -254,25 +1023,27 @@ const RelatoriosOuvidoria = () => {
    * Processar dados PIX Liberado N2
    */
   const processarPixLiberado = useMemo(() => {
-    if (!dadosDetalhados?.n2?.pixLiberadoPorMes) return null;
+    if (!dadosDetalhados?.n2?.pixLiberadoPorMes || !Array.isArray(dadosDetalhados.n2.pixLiberadoPorMes)) return null;
 
     const meses = gerarMesesNoPeriodo;
     
     const sim = meses.map(mes => {
+      if (!Array.isArray(dadosDetalhados.n2.pixLiberadoPorMes)) return 0;
       const item = dadosDetalhados.n2.pixLiberadoPorMes.find(
-        d => d._id.mes === mes && d._id.pixStatus === 'Liberado'
+        d => d && d._id && d._id.mes === mes && d._id.pixStatus === 'Liberado'
       );
-      return item ? item.count : 0;
+      return item ? (item.count || 0) : 0;
     });
 
     const nao = meses.map(mes => {
+      if (!Array.isArray(dadosDetalhados.n2.pixLiberadoPorMes)) return 0;
       const totalMes = dadosDetalhados.n2.pixLiberadoPorMes
-        .filter(d => d._id.mes === mes)
-        .reduce((sum, item) => sum + item.count, 0);
+        .filter(d => d && d._id && d._id.mes === mes)
+        .reduce((sum, item) => sum + (item.count || 0), 0);
       const liberado = dadosDetalhados.n2.pixLiberadoPorMes.find(
-        d => d._id.mes === mes && d._id.pixStatus === 'Liberado'
+        d => d && d._id && d._id.mes === mes && d._id.pixStatus === 'Liberado'
       );
-      return totalMes - (liberado ? liberado.count : 0);
+      return totalMes - (liberado ? (liberado.count || 0) : 0);
     });
 
     const totaisPorMes = meses.map((mes, index) => sim[index] + nao[index]);
@@ -287,18 +1058,48 @@ const RelatoriosOuvidoria = () => {
    * Processar motivos BACEN
    */
   const processarMotivosBacen = useMemo(() => {
-    if (!dadosDetalhados?.bacen?.motivosPorMes) return null;
+    if (!dadosDetalhados?.bacen?.motivosPorMes || !Array.isArray(dadosDetalhados.bacen.motivosPorMes)) return null;
 
     const meses = gerarMesesNoPeriodo;
-    const motivosUnicos = [...new Set(dadosDetalhados.bacen.motivosPorMes.map(d => d._id.motivo))];
+    const dadosParaProcessar = dadosDetalhados.bacen.motivosPorMes;
+    if (!Array.isArray(dadosParaProcessar) || dadosParaProcessar.length === 0) return null;
+    
+    // Verificar se os dados estão usando 'natureza' ao invés de 'motivo' (erro no backend)
+    const primeiroItem = dadosParaProcessar[0];
+    if (primeiroItem && primeiroItem._id && primeiroItem._id.natureza) {
+      // Se os dados têm 'natureza' ao invés de 'motivo', há um erro no backend
+      // Mas vamos processar mesmo assim para não quebrar a interface
+      console.warn('⚠️ AVISO: motivosPorMes está retornando dados de natureza. Verifique o backend.');
+      const motivosUnicos = [...new Set(dadosParaProcessar.map(d => d?._id?.natureza).filter(Boolean))];
+      if (motivosUnicos.length === 0) return null;
+      
+      const tabela = motivosUnicos.map(motivo => {
+        const valores = meses.map(mes => {
+          if (!Array.isArray(dadosParaProcessar)) return 0;
+          const item = dadosParaProcessar.find(
+            d => d && d._id && d._id.mes === mes && d._id.natureza === motivo
+          );
+          return item ? (item.count || 0) : 0;
+        });
+        const total = valores.reduce((sum, val) => sum + val, 0);
+        return { motivo, valores, total };
+      });
+
+      return { tabela, meses };
+    }
+    
+    // Processamento normal com 'motivo'
+    const motivosUnicos = [...new Set(dadosParaProcessar.map(d => d?._id?.motivo).filter(Boolean))];
+    if (motivosUnicos.length === 0) return null;
     
     const tabela = motivosUnicos.map(motivo => {
-      const valores = meses.map(mes => {
-        const item = dadosDetalhados.bacen.motivosPorMes.find(
-          d => d._id.mes === mes && d._id.motivo === motivo
-        );
-        return item ? item.count : 0;
-      });
+        const valores = meses.map(mes => {
+          if (!Array.isArray(dadosParaProcessar)) return 0;
+          const item = dadosParaProcessar.find(
+            d => d && d._id && d._id.mes === mes && d._id.motivo === motivo
+          );
+          return item ? (item.count || 0) : 0;
+        });
       const total = valores.reduce((sum, val) => sum + val, 0);
       return { motivo, valores, total };
     });
@@ -310,17 +1111,106 @@ const RelatoriosOuvidoria = () => {
    * Processar motivos N2
    */
   const processarMotivosN2 = useMemo(() => {
-    if (!dadosDetalhados?.n2?.motivosPorMes) return null;
+    if (!dadosDetalhados?.n2?.motivosPorMes || !Array.isArray(dadosDetalhados.n2.motivosPorMes)) return null;
 
     const meses = gerarMesesNoPeriodo;
-    const motivosUnicos = [...new Set(dadosDetalhados.n2.motivosPorMes.map(d => d._id.motivo))];
+    const motivosPorMes = dadosDetalhados.n2.motivosPorMes;
+    if (motivosPorMes.length === 0) return null;
+
+    const motivosUnicos = [...new Set(motivosPorMes.map(d => d?._id?.motivo).filter(Boolean))];
+    if (motivosUnicos.length === 0) return null;
     
     const tabela = motivosUnicos.map(motivo => {
       const valores = meses.map(mes => {
-        const item = dadosDetalhados.n2.motivosPorMes.find(
-          d => d._id.mes === mes && d._id.motivo === motivo
+        if (!Array.isArray(motivosPorMes)) return 0;
+        const item = motivosPorMes.find(
+          d => d && d._id && d._id.mes === mes && d._id.motivo === motivo
         );
-        return item ? item.count : 0;
+        return item ? (item.count || 0) : 0;
+      });
+      const total = valores.reduce((sum, val) => sum + val, 0);
+      return { motivo, valores, total };
+    });
+
+    return { tabela, meses };
+  }, [dadosDetalhados, gerarMesesNoPeriodo]);
+
+  /**
+   * Processar motivos Reclame Aqui
+   */
+  const processarMotivosReclameAqui = useMemo(() => {
+    if (!dadosDetalhados?.reclameAqui?.motivosPorMes || !Array.isArray(dadosDetalhados.reclameAqui.motivosPorMes)) return null;
+
+    const meses = gerarMesesNoPeriodo;
+    const motivosPorMes = dadosDetalhados.reclameAqui.motivosPorMes;
+    if (motivosPorMes.length === 0) return null;
+
+    const motivosUnicos = [...new Set(motivosPorMes.map(d => d?._id?.motivo).filter(Boolean))];
+    if (motivosUnicos.length === 0) return null;
+    
+    const tabela = motivosUnicos.map(motivo => {
+      const valores = meses.map(mes => {
+        if (!Array.isArray(motivosPorMes)) return 0;
+        const item = motivosPorMes.find(
+          d => d && d._id && d._id.mes === mes && d._id.motivo === motivo
+        );
+        return item ? (item.count || 0) : 0;
+      });
+      const total = valores.reduce((sum, val) => sum + val, 0);
+      return { motivo, valores, total };
+    });
+
+    return { tabela, meses };
+  }, [dadosDetalhados, gerarMesesNoPeriodo]);
+
+  /**
+   * Processar motivos Procon
+   */
+  const processarMotivosProcon = useMemo(() => {
+    if (!dadosDetalhados?.procon?.motivosPorMes || !Array.isArray(dadosDetalhados.procon.motivosPorMes)) return null;
+
+    const meses = gerarMesesNoPeriodo;
+    const motivosPorMes = dadosDetalhados.procon.motivosPorMes;
+    if (motivosPorMes.length === 0) return null;
+
+    const motivosUnicos = [...new Set(motivosPorMes.map(d => d?._id?.motivo).filter(Boolean))];
+    if (motivosUnicos.length === 0) return null;
+    
+    const tabela = motivosUnicos.map(motivo => {
+      const valores = meses.map(mes => {
+        if (!Array.isArray(motivosPorMes)) return 0;
+        const item = motivosPorMes.find(
+          d => d && d._id && d._id.mes === mes && d._id.motivo === motivo
+        );
+        return item ? (item.count || 0) : 0;
+      });
+      const total = valores.reduce((sum, val) => sum + val, 0);
+      return { motivo, valores, total };
+    });
+
+    return { tabela, meses };
+  }, [dadosDetalhados, gerarMesesNoPeriodo]);
+
+  /**
+   * Processar motivos Ação Judicial
+   */
+  const processarMotivosJudicial = useMemo(() => {
+    if (!dadosDetalhados?.judicial?.motivosPorMes || !Array.isArray(dadosDetalhados.judicial.motivosPorMes)) return null;
+
+    const meses = gerarMesesNoPeriodo;
+    const motivosPorMes = dadosDetalhados.judicial.motivosPorMes;
+    if (motivosPorMes.length === 0) return null;
+
+    const motivosUnicos = [...new Set(motivosPorMes.map(d => d?._id?.motivo).filter(Boolean))];
+    if (motivosUnicos.length === 0) return null;
+    
+    const tabela = motivosUnicos.map(motivo => {
+      const valores = meses.map(mes => {
+        if (!Array.isArray(motivosPorMes)) return 0;
+        const item = motivosPorMes.find(
+          d => d && d._id && d._id.mes === mes && d._id.motivo === motivo
+        );
+        return item ? (item.count || 0) : 0;
       });
       const total = valores.reduce((sum, val) => sum + val, 0);
       return { motivo, valores, total };
@@ -501,6 +1391,39 @@ const RelatoriosOuvidoria = () => {
     },
   };
 
+  // Opções específicas para gráfico de tipos (com bubbles nas legendas)
+  const opcoesGraficoTipos = {
+    ...opcoesGrafico,
+    plugins: {
+      ...opcoesGrafico.plugins,
+      legend: {
+        position: 'bottom',
+        labels: {
+          usePointStyle: true,
+          pointStyle: 'circle',
+          padding: 15,
+          boxWidth: 10,
+          boxHeight: 10,
+          generateLabels: function(chart) {
+            const original = ChartJS.defaults.plugins.legend.labels.generateLabels;
+            const labels = original.call(this, chart);
+            labels.forEach((label, index) => {
+              // Bubble: apenas borda circular, sem preenchimento
+              const dataset = chart.data.datasets[index];
+              if (dataset) {
+                label.fillStyle = 'transparent';
+                label.strokeStyle = dataset.borderColor || dataset.pointBorderColor || label.strokeStyle;
+                label.lineWidth = 2;
+                label.pointStyle = 'circle';
+              }
+            });
+            return labels;
+          },
+        },
+      },
+    },
+  };
+
   return (
     <div>
       {/* Filtros */}
@@ -531,6 +1454,33 @@ const RelatoriosOuvidoria = () => {
               className="w-full max-w-xs border border-gray-400 dark:border-gray-500 rounded-lg px-2 py-1.5 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
               required
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              Tipos
+            </label>
+            <div className="flex gap-2 items-center">
+              {TIPOS_DISPONIVEIS.map(tipo => (
+                <label
+                  key={tipo.value}
+                  className="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded border transition-all duration-200 dark:bg-gray-800 whitespace-nowrap"
+                  style={{
+                    borderColor: tiposSelecionados.includes(tipo.value) ? '#006AB9' : '#9CA3AF',
+                    backgroundColor: tiposSelecionados.includes(tipo.value) ? '#E6F2FF' : 'transparent',
+                    color: tiposSelecionados.includes(tipo.value) ? '#006AB9' : '#6B7280'
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={tiposSelecionados.includes(tipo.value)}
+                    onChange={() => toggleTipo(tipo.value)}
+                    className="w-4 h-4 rounded border-gray-400 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm">{tipo.label}</span>
+                </label>
+              ))}
+            </div>
           </div>
 
           <button
@@ -598,20 +1548,99 @@ const RelatoriosOuvidoria = () => {
       {/* Linha Divisória */}
       {relatorio && <hr className="border-b border-gray-300 dark:border-gray-600 my-6" />}
 
+      {/* Seção Superior: Dados Gerais */}
+      {dadosGerais && (
+        <div className="velohub-card mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold" style={{ color: '#006AB9' }}>
+                {dadosGerais.total}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Total de Reclamações
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold" style={{ color: '#15A237' }}>
+                {dadosGerais.concluidas}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Resolvidas
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold" style={{ color: '#1634FF' }}>
+                {dadosGerais.taxaResolucao}%
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Taxa de Resolução
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold" style={{ color: '#272A30' }}>
+                {Object.keys(dadosGerais.porTipo).length}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Tipos Selecionados
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Gráfico de Tipos por Mês */}
+      {processarDadosTiposPorMes && (
+        <div className="container-secondary mb-6">
+          <div style={{ height: '300px', width: '100%' }}>
+            <Line data={processarDadosTiposPorMes} options={opcoesGraficoTipos} />
+          </div>
+        </div>
+      )}
+
+      {/* Quadro de Motivos */}
+      {processarQuadroMotivos && processarQuadroMotivos.motivos.length > 0 && (
+        <div className="container-secondary mb-6">
+          <h3 className="text-lg font-semibold mb-4">Motivos</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr>
+                  <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left text-sm font-medium">Motivo</th>
+                  <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">Quantidade</th>
+                  <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">%</th>
+                </tr>
+              </thead>
+              <tbody>
+                {processarQuadroMotivos.motivos.map((item, index) => {
+                  const percentual = processarQuadroMotivos.total > 0 
+                    ? ((item.quantidade / processarQuadroMotivos.total) * 100).toFixed(1)
+                    : '0.0';
+                  return (
+                    <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm">{item.motivo}</td>
+                      <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm">{item.quantidade}</td>
+                      <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm">{percentual}%</td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-gray-100 dark:bg-gray-800 font-semibold">
+                  <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm">Total</td>
+                  <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm">{processarQuadroMotivos.total}</td>
+                  <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm">100.0%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Linha Divisória */}
+      {relatorio && <hr className="border-b border-gray-300 dark:border-gray-600 my-6" />}
+
       {/* Seção BACEN */}
       {dadosDetalhados?.bacen && (
         <>
           <h2 className="text-xl font-semibold velohub-title mb-4">BACEN</h2>
-
-          {/* Gráfico Natureza */}
-          {processarDadosNatureza && (
-            <div className="container-secondary mb-6">
-              <h3 className="text-lg font-semibold mb-4">Natureza</h3>
-              <div style={{ height: '200px', width: '100%' }}>
-                <Line data={processarDadosNatureza} options={opcoesGrafico} />
-              </div>
-            </div>
-          )}
 
           {/* Container PIX Retirado */}
           {processarPixRetirado && (
@@ -708,16 +1737,6 @@ const RelatoriosOuvidoria = () => {
         <>
           <h2 className="text-xl font-semibold velohub-title mb-4">N2 e Pix</h2>
 
-          {/* Gráfico Casos Registrados vs Finalizados */}
-          {processarDadosCasosN2 && (
-            <div className="container-secondary mb-6">
-              <h3 className="text-lg font-semibold mb-4">Casos Registrados vs Finalizados</h3>
-              <div style={{ height: '200px', width: '100%' }}>
-                <Line data={processarDadosCasosN2} options={opcoesGrafico} />
-              </div>
-            </div>
-          )}
-
           {/* Container PIX Liberado */}
           {processarPixLiberado && (
             <div className="container-secondary mb-6">
@@ -794,6 +1813,144 @@ const RelatoriosOuvidoria = () => {
                   </thead>
                   <tbody>
                     {processarMotivosN2.tabela.map((linha, index) => (
+                      <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm">{linha.motivo}</td>
+                        {linha.valores.map((valor, idx) => (
+                          <td key={idx} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm whitespace-nowrap">
+                            {valor}
+                          </td>
+                        ))}
+                        <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-semibold">
+                          {linha.total}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Seção Reclame Aqui */}
+      {dadosDetalhados?.reclameAqui && (
+        <>
+          <h2 className="text-xl font-semibold velohub-title mb-4">Reclame Aqui</h2>
+
+          {/* Tabela Motivos Reclame Aqui */}
+          {processarMotivosReclameAqui && (
+            <div className="container-secondary mb-6">
+              <h3 className="text-lg font-semibold mb-4">Motivos</h3>
+              <div className={`overflow-x-auto ${gerarMesesNoPeriodo.length > 6 ? 'overflow-x-scroll' : ''}`}>
+                <table className="w-full border-collapse min-w-full">
+                  <thead>
+                    <tr>
+                      <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left text-sm font-medium">Motivo</th>
+                      {processarMotivosReclameAqui.meses.map(mes => (
+                        <th key={mes} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
+                          {formatarMes(mes)}
+                        </th>
+                      ))}
+                      <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {processarMotivosReclameAqui.tabela.map((linha, index) => (
+                      <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm">{linha.motivo}</td>
+                        {linha.valores.map((valor, idx) => (
+                          <td key={idx} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm whitespace-nowrap">
+                            {valor}
+                          </td>
+                        ))}
+                        <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-semibold">
+                          {linha.total}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Linha Divisória */}
+          <hr className="border-b border-gray-300 dark:border-gray-600 my-6" />
+        </>
+      )}
+
+      {/* Seção Procon */}
+      {dadosDetalhados?.procon && (
+        <>
+          <h2 className="text-xl font-semibold velohub-title mb-4">Procon</h2>
+
+          {/* Tabela Motivos Procon */}
+          {processarMotivosProcon && (
+            <div className="container-secondary mb-6">
+              <h3 className="text-lg font-semibold mb-4">Motivos</h3>
+              <div className={`overflow-x-auto ${gerarMesesNoPeriodo.length > 6 ? 'overflow-x-scroll' : ''}`}>
+                <table className="w-full border-collapse min-w-full">
+                  <thead>
+                    <tr>
+                      <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left text-sm font-medium">Motivo</th>
+                      {processarMotivosProcon.meses.map(mes => (
+                        <th key={mes} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
+                          {formatarMes(mes)}
+                        </th>
+                      ))}
+                      <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {processarMotivosProcon.tabela.map((linha, index) => (
+                      <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm">{linha.motivo}</td>
+                        {linha.valores.map((valor, idx) => (
+                          <td key={idx} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm whitespace-nowrap">
+                            {valor}
+                          </td>
+                        ))}
+                        <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-semibold">
+                          {linha.total}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Linha Divisória */}
+          <hr className="border-b border-gray-300 dark:border-gray-600 my-6" />
+        </>
+      )}
+
+      {/* Seção Ação Judicial */}
+      {dadosDetalhados?.judicial && (
+        <>
+          <h2 className="text-xl font-semibold velohub-title mb-4">Ação Judicial</h2>
+
+          {/* Tabela Motivos Ação Judicial */}
+          {processarMotivosJudicial && (
+            <div className="container-secondary mb-6">
+              <h3 className="text-lg font-semibold mb-4">Motivos</h3>
+              <div className={`overflow-x-auto ${gerarMesesNoPeriodo.length > 6 ? 'overflow-x-scroll' : ''}`}>
+                <table className="w-full border-collapse min-w-full">
+                  <thead>
+                    <tr>
+                      <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left text-sm font-medium">Motivo</th>
+                      {processarMotivosJudicial.meses.map(mes => (
+                        <th key={mes} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
+                          {formatarMes(mes)}
+                        </th>
+                      ))}
+                      <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {processarMotivosJudicial.tabela.map((linha, index) => (
                       <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                         <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm">{linha.motivo}</td>
                         {linha.valores.map((valor, idx) => (

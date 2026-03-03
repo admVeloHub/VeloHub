@@ -1,6 +1,11 @@
 /**
  * VeloHub V3 - Main Styles
- * VERSION: v1.2.5 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.2.6 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.2.6:
+ * - CORRIGIDO container-secondary: limitado ao tamanho do frame (width: 100%, max-width: 100%, box-sizing: border-box)
+ * - Adicionado overflow: hidden no container-secondary para evitar vazamento horizontal
+ * - Container agora respeita limites do viewport e não ultrapassa o frame
  * 
  * Mudanças v1.2.5:
  * - Adicionadas classes CSS específicas para modal velonews (.velonews-modal-overlay e .velonews-modal-content) com z-index máximo (2147483647) e !important
@@ -138,6 +143,12 @@ html {
   padding: 16px;
   margin: 8px 0;
   box-shadow: none;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: visible;
+  min-width: 0;
 }
 
 .dark .container-secondary {
