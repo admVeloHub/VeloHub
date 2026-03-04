@@ -1,7 +1,11 @@
 /**
  * VeloHub V3 - API Configuration
- * VERSION: v1.0.21 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.22 | DATE: 2026-03-03 | AUTHOR: VeloHub Development Team
  * REGRA: Frontend porta 8080 | Backend porta 8090 | VeloChat Server porta 3002 na rede local
+ * 
+ * Mudanças v1.0.22:
+ * - Atualizado: agora sempre usa ngrok (removido Skynet)
+ * - Mantido proxy do backend para resolver CORS: Frontend → Backend → ngrok
  * 
  * Mudanças v1.0.21:
  * - CORREÇÃO CORS: Frontend agora usa proxy do backend (/api/whatsapp/send) ao invés de chamar ngrok diretamente
@@ -121,20 +125,24 @@ export const getWhatsAppApiUrl = () => {
 
 /**
  * Obtém o endpoint completo da API do WhatsApp baseado no ambiente
- * VERSION: v1.0.21 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.22 | DATE: 2026-03-03 | AUTHOR: VeloHub Development Team
  * 
- * Mudanças v1.0.21:
- * - CORREÇÃO CORS: Frontend agora usa proxy do backend (/api/whatsapp/send) ao invés de chamar ngrok diretamente
- * - Backend faz proxy para ngrok, resolvendo problemas de CORS
+ * Mudanças v1.0.22:
+ * - Atualizado comentário: agora sempre usa ngrok (removido Skynet)
+ * - Mantido proxy do backend para resolver problemas de CORS
+ * 
+ * Fluxo:
+ * - Frontend sempre chama: /api/whatsapp/send (proxy do próprio backend)
+ * - Backend faz proxy para: ngrok (https://carmina-peskier-balletically.ngrok-free.dev/send)
+ * - Isso resolve CORS porque o frontend não chama ngrok diretamente
  * 
  * Endpoints:
- * - Frontend sempre usa: /api/whatsapp/send (proxy do backend)
- * - Backend faz proxy para:
- *   - Local (localhost:3001): http://localhost:3001/api/whatsapp/send
- *   - Produção (ngrok): https://carmina-peskier-balletically.ngrok-free.dev/send
+ * - Frontend → Backend: /api/whatsapp/send
+ * - Backend → ngrok: https://carmina-peskier-balletically.ngrok-free.dev/send
  */
 export const getWhatsAppEndpoint = () => {
   // SEMPRE usar proxy do backend para evitar problemas de CORS
+  // Frontend chama backend → Backend chama ngrok
   const backendApiUrl = getApiBaseUrl().replace('/api', ''); // Remover /api para adicionar /api/whatsapp/send
   return `${backendApiUrl}/api/whatsapp/send`;
 };

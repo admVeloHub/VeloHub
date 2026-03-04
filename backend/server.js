@@ -1,6 +1,30 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.47.2 | DATE: 2026-03-03 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.48.2 | DATE: 2026-03-03 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.48.2:
+ * - MELHORIA: Tratamento específico para erro 503 (WhatsApp desconectado)
+ * - Detecta quando erro 503 é devido a WhatsApp desconectado vs serviço indisponível
+ * - Mensagens de erro mais claras e específicas para cada situação
+ * 
+ * Mudanças v2.48.1:
+ * - MELHORIA: Mensagens de erro mais informativas em desenvolvimento local
+ * - Adicionado aviso quando em desenvolvimento usando URL remota (ngrok)
+ * - Melhorados logs para facilitar diagnóstico de problemas de conexão
+ * 
+ * Mudanças v2.48.0:
+ * - SIMPLIFICAÇÃO: Removida lógica do Skynet, usando apenas ngrok para todos os ambientes
+ * - Sempre usa WHATSAPP_API_URL ou fallback para ngrok padrão
+ * - Sempre usa endpoint /send (padrão do ngrok)
+ * - Removida toda detecção de Skynet e lógica condicional complexa
+ * - Código simplificado e mais fácil de manter
+ * 
+ * Mudanças v2.47.3:
+ * - MELHORIA: Melhorado tratamento de erros 503 no proxy WhatsApp
+ * - Adicionada detecção específica de erros de conexão (ECONNREFUSED, ENOTFOUND, etc.)
+ * - Adicionada validação de URL antes de tentar conectar
+ * - Mensagens de erro mais claras e informativas
+ * - Logs detalhados incluindo código de erro e URL de destino
  * 
  * Mudanças v2.47.2:
  * - CORREÇÃO CRÍTICA: Corrigida detecção de endpoint em produção
@@ -6111,50 +6135,52 @@ try {
     try {
       const config = require('./config');
       
-      // Obter URL do WhatsApp (ngrok em produção, localhost em dev)
-      const isProduction = config.NODE_ENV === 'production';
-      let whatsappApiUrl = isProduction
-        ? (config.WHATSAPP_API_URL || 'https://carmina-peskier-balletically.ngrok-free.dev')
-        : (config.SKYNET_API_URL || 'http://localhost:3001');
+      // Obter URL do WhatsApp (sempre ngrok)
+      // Usa WHATSAPP_API_URL se configurado, senão usa fallback padrão do ngrok
+      let whatsappApiUrl = config.WHATSAPP_API_URL || 'https://carmina-peskier-balletically.ngrok-free.dev';
+      
+      // Validação básica da URL
+      if (!whatsappApiUrl) {
+        console.error('[WHATSAPP PROXY] ❌ WhatsApp API URL não configurada!');
+        return res.status(503).json({
+          ok: false,
+          error: 'WhatsApp API não configurada. Verifique a variável WHATSAPP_API_URL.'
+        });
+      }
       
       // Garantir que a URL não seja o próprio backend (evitar loop)
       // Remover barras finais e normalizar URL
       whatsappApiUrl = whatsappApiUrl.trim().replace(/\/+$/, '');
       
-      // Detectar endpoint baseado na URL
-      // IMPORTANTE: 
-      // - ngrok sempre usa /send
-      // - Skynet sempre usa /api/whatsapp/send
-      // - Não detectar o próprio backend como Skynet
       const currentHost = req.get('host') || req.hostname || '';
       const isOwnBackend = whatsappApiUrl.includes(currentHost) || 
                           whatsappApiUrl.includes('velohub-278491073220.us-east1.run.app') ||
                           whatsappApiUrl.includes('velohub-main-staging-278491073220.us-east1.run.app');
       
-      // ngrok sempre usa /send (não é Skynet)
-      const isNgrok = whatsappApiUrl.includes('ngrok') || whatsappApiUrl.includes('trycloudflare');
+      if (isOwnBackend) {
+        console.error('[WHATSAPP PROXY] ❌ WhatsApp API URL aponta para o próprio backend!');
+        return res.status(503).json({
+          ok: false,
+          error: 'Configuração inválida: WhatsApp API URL não pode apontar para o próprio backend.'
+        });
+      }
       
-      // Skynet usa /api/whatsapp/send (apenas se não for ngrok e não for o próprio backend)
-      const isSkynet = !isOwnBackend && !isNgrok && (
-                       whatsappApiUrl.includes('skynet') || 
-                       whatsappApiUrl.includes('backend-gcp') ||
-                       whatsappApiUrl === 'http://localhost:3001' ||
-                       (whatsappApiUrl.includes('us-east1.run.app') && !whatsappApiUrl.includes('velohub'))
-                       );
-      
-      // ngrok → /send | Skynet/localhost:3001 → /api/whatsapp/send | outros → /send (padrão)
-      const endpoint = isSkynet ? '/api/whatsapp/send' : '/send';
+      // ngrok sempre usa /send
+      const endpoint = '/send';
       
       // Garantir que não haja barras duplas na construção da URL
       const targetUrl = `${whatsappApiUrl}${endpoint}`.replace(/([^:]\/)\/+/g, '$1');
       
-      console.log(`[WHATSAPP PROXY] Ambiente: ${isProduction ? 'PRODUÇÃO' : 'DESENVOLVIMENTO'}`);
+      const isDevelopment = config.NODE_ENV !== 'production';
+      console.log(`[WHATSAPP PROXY] Ambiente: ${config.NODE_ENV || 'development'}`);
+      console.log(`[WHATSAPP PROXY] Modo: ${isDevelopment ? 'DESENVOLVIMENTO' : 'PRODUÇÃO'}`);
       console.log(`[WHATSAPP PROXY] WhatsApp API URL: ${whatsappApiUrl}`);
-      console.log(`[WHATSAPP PROXY] É próprio backend? ${isOwnBackend}`);
-      console.log(`[WHATSAPP PROXY] É ngrok? ${isNgrok}`);
-      console.log(`[WHATSAPP PROXY] É Skynet? ${isSkynet}`);
-      console.log(`[WHATSAPP PROXY] Endpoint selecionado: ${endpoint}`);
+      console.log(`[WHATSAPP PROXY] Endpoint: ${endpoint}`);
       console.log(`[WHATSAPP PROXY] Fazendo proxy para: ${targetUrl}`);
+      
+      if (isDevelopment && !whatsappApiUrl.includes('localhost') && !whatsappApiUrl.includes('127.0.0.1')) {
+        console.warn(`[WHATSAPP PROXY] ⚠️ ATENÇÃO: Em desenvolvimento, usando URL remota (ngrok). Certifique-se de que está acessível.`);
+      }
       console.log(`[WHATSAPP PROXY] Payload recebido:`, {
         jid: req.body?.jid,
         mensagemLength: req.body?.mensagem?.length || 0,
@@ -6166,6 +6192,10 @@ try {
       const timeoutId = setTimeout(() => controller.abort(), 30000);
       
       try {
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2a44b1'},body:JSON.stringify({sessionId:'2a44b1',location:'server.js:6187',message:'BEFORE_FETCH_TO_WHATSAPP',data:{targetUrl,whatsappApiUrl,endpoint,hasBody:!!req.body,bodyKeys:Object.keys(req.body||{}),headers:{contentType:'application/json',hasNgrokHeader:whatsappApiUrl.includes('ngrok')}},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        
         const response = await fetch(targetUrl, {
           method: 'POST',
           headers: {
@@ -6179,10 +6209,44 @@ try {
         
         clearTimeout(timeoutId);
         
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2a44b1'},body:JSON.stringify({sessionId:'2a44b1',location:'server.js:6198',message:'AFTER_FETCH_RESPONSE',data:{status:response.status,statusText:response.statusText,ok:response.ok,headers:Object.fromEntries(response.headers.entries())},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        
         // Verificar se resposta foi bem-sucedida
         if (!response.ok) {
           const errorText = await response.text();
+          
+          // #region agent log
+          fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2a44b1'},body:JSON.stringify({sessionId:'2a44b1',location:'server.js:6202',message:'ERROR_RESPONSE_DETAILS',data:{status:response.status,errorText,errorTextLength:errorText.length,errorTextLower:errorText.toLowerCase(),containsWhatsapp:errorText.toLowerCase().includes('whatsapp'),containsDesconectado:errorText.toLowerCase().includes('desconectado'),containsDisconnected:errorText.toLowerCase().includes('disconnected'),containsWebsocket:errorText.toLowerCase().includes('websocket')},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+          // #endregion
+          
           console.error(`[WHATSAPP PROXY] Erro do WhatsApp API: ${response.status} - ${errorText}`);
+          
+          // Tratamento específico para erro 503 (WhatsApp desconectado)
+          if (response.status === 503) {
+            const isWhatsAppDisconnected = errorText.toLowerCase().includes('whatsapp') && 
+                                          (errorText.toLowerCase().includes('desconectado') || 
+                                           errorText.toLowerCase().includes('disconnected') ||
+                                           errorText.toLowerCase().includes('websocket'));
+            
+            // #region agent log
+            fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2a44b1'},body:JSON.stringify({sessionId:'2a44b1',location:'server.js:6207',message:'503_ERROR_ANALYSIS',data:{isWhatsAppDisconnected,errorText,willReturnDisconnected:isWhatsAppDisconnected},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+            // #endregion
+            
+            if (isWhatsAppDisconnected) {
+              return res.status(503).json({
+                ok: false,
+                error: 'WhatsApp desconectado. O serviço WhatsApp não está disponível no momento.'
+              });
+            }
+            
+            return res.status(503).json({
+              ok: false,
+              error: 'Serviço WhatsApp temporariamente indisponível. Tente novamente em alguns instantes.'
+            });
+          }
+          
           return res.status(response.status).json({
             ok: false,
             error: errorText || `Erro ${response.status} do WhatsApp API`
@@ -6191,6 +6255,11 @@ try {
         
         // Retornar resposta do WhatsApp API
         const data = await response.json();
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2a44b1'},body:JSON.stringify({sessionId:'2a44b1',location:'server.js:6232',message:'SUCCESS_RESPONSE',data:{ok:data?.ok,hasMessageId:!!data?.messageId,hasError:!!data?.error},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
+        
         console.log(`[WHATSAPP PROXY] Resposta recebida:`, data);
         return res.json(data);
         
@@ -6205,10 +6274,38 @@ try {
           });
         }
         
-        console.error('[WHATSAPP PROXY] Erro ao fazer proxy:', fetchError);
+        // Detectar tipos específicos de erro de conexão
+        const errorMessage = fetchError.message || String(fetchError);
+        const isConnectionError = errorMessage.includes('ECONNREFUSED') || 
+                              errorMessage.includes('ENOTFOUND') ||
+                              errorMessage.includes('ETIMEDOUT') ||
+                              errorMessage.includes('getaddrinfo') ||
+                              errorMessage.includes('fetch failed');
+        
+        console.error('[WHATSAPP PROXY] Erro ao fazer proxy:', {
+          name: fetchError.name,
+          message: errorMessage,
+          code: fetchError.code,
+          targetUrl,
+          whatsappApiUrl,
+          endpoint
+        });
+        
+        if (isConnectionError) {
+          const isDevelopment = config.NODE_ENV !== 'production';
+          const errorMsg = isDevelopment
+            ? `Não foi possível conectar ao WhatsApp API (${whatsappApiUrl}). Em desenvolvimento local, verifique: 1) Se o ngrok está rodando, 2) Se a URL está correta na variável WHATSAPP_API_URL, 3) Se o serviço WhatsApp está acessível através do ngrok.`
+            : `Não foi possível conectar ao WhatsApp API (${whatsappApiUrl}). Verifique se o serviço está online.`;
+          
+          return res.status(503).json({
+            ok: false,
+            error: errorMsg
+          });
+        }
+        
         return res.status(503).json({
           ok: false,
-          error: 'Erro ao conectar com WhatsApp API: ' + fetchError.message
+          error: 'Erro ao conectar com WhatsApp API: ' + errorMessage
         });
       }
     } catch (error) {
