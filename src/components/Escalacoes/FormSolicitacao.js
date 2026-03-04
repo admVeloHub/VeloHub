@@ -1,7 +1,12 @@
 /**
  * VeloHub V3 - FormSolicitacao Component (Escalações Module)
- * VERSION: v1.15.1 | DATE: 2025-02-18 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.15.2 | DATE: 2026-03-03 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
+ * 
+ * Mudanças v1.15.2:
+ * - MELHORIA: Melhorado tratamento de erro 503 para detectar WhatsApp desconectado
+ * - Detecta múltiplas variações de mensagem de erro do backend
+ * - Mensagens mais específicas baseadas no tipo de erro retornado
  * 
  * Mudanças v1.15.1:
  * - Melhorado tratamento de erro 503 (WhatsApp desconectado) com mensagens mais claras
@@ -662,10 +667,21 @@ const FormSolicitacao = ({ registrarLog }) => {
               const errorData = await res.json();
               console.error('❌ [FormSolicitacao] Erro da API WhatsApp:', errorData);
               
-              // Detectar erro específico de WebSocket desconectado
-              if (res.status === 503 && errorData?.error?.includes('WebSocket')) {
-                console.warn('⚠️ [FormSolicitacao] WhatsApp WebSocket não está conectado');
+              // Detectar erro específico de WhatsApp desconectado
+              const errorMessage = errorData?.error || '';
+              const isWhatsAppDisconnected = res.status === 503 && (
+                errorMessage.toLowerCase().includes('whatsapp desconectado') ||
+                errorMessage.toLowerCase().includes('whatsapp está desconectado') ||
+                errorMessage.toLowerCase().includes('websocket') ||
+                errorMessage.toLowerCase().includes('não está disponível')
+              );
+              
+              if (isWhatsAppDisconnected) {
+                console.warn('⚠️ [FormSolicitacao] WhatsApp está desconectado');
                 if (registrarLog) registrarLog('⚠️ WhatsApp está desconectado. A solicitação foi registrada no painel.');
+              } else if (res.status === 503) {
+                console.warn('⚠️ [FormSolicitacao] Serviço WhatsApp temporariamente indisponível');
+                if (registrarLog) registrarLog('⚠️ Serviço WhatsApp temporariamente indisponível. A solicitação foi registrada no painel.');
               }
             } catch (e) {
               console.error('❌ [FormSolicitacao] Erro HTTP:', res.status, res.statusText);

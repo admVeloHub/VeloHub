@@ -1,16 +1,16 @@
 /**
  * VeloHub V3 - WhatsApp Service para Módulo Escalações
- * VERSION: v1.4.6 | DATE: 2026-03-03 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.5.0 | DATE: 2026-03-03 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
  * 
- * Serviço para integração com API WhatsApp (SKYNET ou ngrok)
+ * Serviço para integração com API WhatsApp (ngrok)
  * 
- * Mudanças v1.4.6:
- * - CORREÇÃO CRÍTICA: Corrigida detecção de endpoint em produção
- * - ngrok sempre usa /send (não é detectado como Skynet)
- * - Skynet usa /api/whatsapp/send apenas quando realmente for Skynet
- * - Melhorada lógica de detecção para garantir que produção use ngrok com /send
- * - Adicionados logs detalhados incluindo detecção de ngrok
+ * Mudanças v1.5.0:
+ * - SIMPLIFICAÇÃO: Removida lógica do Skynet, usando apenas ngrok para todos os ambientes
+ * - Sempre usa WHATSAPP_API_URL ou fallback para ngrok padrão
+ * - Sempre usa endpoint /send (padrão do ngrok)
+ * - Removida toda detecção de Skynet e lógica condicional complexa
+ * - Código simplificado e mais fácil de manter
  * 
  * Mudanças v1.4.5:
  * - CORREÇÃO: Corrigida detecção de Skynet/GCP que identificava incorretamente o próprio backend
@@ -121,51 +121,32 @@ async function sendMessage(jid, mensagem, imagens = [], videos = [], options = {
   // #region agent log
   fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'whatsappService.js:94',message:'sendMessage ENTRY',data:{jid,hasMensagem:!!mensagem,mensagemLength:mensagem?.length||0,imagensCount:imagens.length,videosCount:videos.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
   // #endregion
-  // Seleção de URL baseada em ambiente
-  // Produção: usar ngrok (WHATSAPP_API_URL)
-  // Desenvolvimento: usar SKYNET (SKYNET_API_URL) ou localhost:3001
-  const isProduction = config.NODE_ENV === 'production';
-  let apiUrl = isProduction
-    ? (config.WHATSAPP_API_URL || 'https://carmina-peskier-balletically.ngrok-free.dev')
-    : (config.SKYNET_API_URL || 'http://localhost:3001');
+  // Seleção de URL - sempre usa ngrok
+  // Usa WHATSAPP_API_URL se configurado, senão usa fallback padrão do ngrok
+  let apiUrl = config.WHATSAPP_API_URL || 'https://carmina-peskier-balletically.ngrok-free.dev';
   
   // Garantir que a URL não seja o próprio backend (evitar loop)
   // Remover barras finais e normalizar URL
   apiUrl = apiUrl.trim().replace(/\/+$/, '');
   
-  // Detectar endpoint baseado na URL
-  // IMPORTANTE: 
-  // - ngrok sempre usa /send
-  // - Skynet sempre usa /api/whatsapp/send
-  // - Não detectar o próprio backend como Skynet
   const isOwnBackend = apiUrl.includes('velohub-278491073220.us-east1.run.app') ||
                        apiUrl.includes('velohub-main-staging-278491073220.us-east1.run.app');
   
-  // ngrok sempre usa /send (não é Skynet)
-  const isNgrok = apiUrl.includes('ngrok') || apiUrl.includes('trycloudflare');
+  if (isOwnBackend) {
+    console.error('[WHATSAPP] ❌ WhatsApp API URL aponta para o próprio backend!');
+    return { ok: false, error: 'Configuração inválida: WhatsApp API URL não pode apontar para o próprio backend.' };
+  }
   
-  // Skynet usa /api/whatsapp/send (apenas se não for ngrok e não for o próprio backend)
-  const isSkynet = !isOwnBackend && !isNgrok && (
-                   apiUrl.includes('skynet') || 
-                   apiUrl.includes('backend-gcp') ||
-                   apiUrl === 'http://localhost:3001' ||
-                   (apiUrl.includes('us-east1.run.app') && !apiUrl.includes('velohub'))
-                   );
-  
-  // ngrok → /send | Skynet/localhost:3001 → /api/whatsapp/send | outros → /send (padrão)
-  const endpoint = isSkynet ? '/api/whatsapp/send' : '/send';
+  // ngrok sempre usa /send
+  const endpoint = '/send';
   
   // Garantir que não haja barras duplas na construção da URL
   const fullUrl = `${apiUrl}${endpoint}`.replace(/([^:]\/)\/+/g, '$1');
   
   // Logs de diagnóstico
   console.log(`[WHATSAPP] ========================================`);
-  console.log(`[WHATSAPP] Ambiente: ${isProduction ? 'PRODUÇÃO' : 'DESENVOLVIMENTO'}`);
-  console.log(`[WHATSAPP] NODE_ENV: ${config.NODE_ENV || 'development'}`);
-  console.log(`[WHATSAPP] É próprio backend? ${isOwnBackend}`);
-  console.log(`[WHATSAPP] É ngrok? ${isNgrok}`);
-  console.log(`[WHATSAPP] É Skynet? ${isSkynet}`);
-  console.log(`[WHATSAPP] API selecionada: ${isSkynet ? 'SKYNET' : (isNgrok ? 'NGROK' : 'OUTRO')}`);
+  console.log(`[WHATSAPP] Ambiente: ${config.NODE_ENV || 'development'}`);
+  console.log(`[WHATSAPP] API: NGROK`);
   console.log(`[WHATSAPP] URL base: ${apiUrl}`);
   console.log(`[WHATSAPP] Endpoint: ${endpoint}`);
   console.log(`[WHATSAPP] URL completa: ${fullUrl}`);
