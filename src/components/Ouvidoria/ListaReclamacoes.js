@@ -1,6 +1,10 @@
 /**
  * VeloHub V3 - ListaReclamacoes Component
- * VERSION: v1.11.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.12.0 | DATE: 2026-03-04 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.12.0:
+ * - Modal de edição: adicionado min-h-0 ao conteúdo para permitir scroll completo do formulário
+ * - Modal: altura fixa h-[95vh] para garantir área de scroll definida (corrige N2 Pix incompleto)
  * 
  * Mudanças v1.11.0:
  * - Corrigido filtro de tipo: "Processos" alterado para "PROCESSOS" (value) e "Ação Judicial" (label)
@@ -581,7 +585,7 @@ const ListaReclamacoes = () => {
           onClick={() => setSelectedReclamacao(null)}
         >
           <div
-            className="rounded-lg shadow-xl w-full max-w-6xl max-h-[95vh] overflow-hidden flex flex-col"
+            className="rounded-lg shadow-xl w-full max-w-6xl h-[95vh] max-h-[95vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
             style={{
               borderRadius: '12px',
@@ -607,8 +611,8 @@ const ListaReclamacoes = () => {
               </button>
             </div>
 
-            {/* Conteúdo do Modal com scroll */}
-            <div className="overflow-y-auto flex-1 p-6">
+            {/* Conteúdo do Modal com scroll - min-h-0 permite overflow em flex children */}
+            <div className="overflow-y-auto flex-1 min-h-0 p-6">
               <FormReclamacaoEdit
                 reclamacao={selectedReclamacao}
                 onClose={() => setSelectedReclamacao(null)}
