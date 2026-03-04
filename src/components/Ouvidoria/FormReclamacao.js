@@ -1,8 +1,15 @@
 /**
  * VeloHub V3 - FormReclamacao Component
- * VERSION: v3.14.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.15.2 | DATE: 2026-02-25 | AUTHOR: VeloHub Development Team
  * 
  * Componente de formulário para criação de reclamações BACEN, Ouvidoria, Reclame Aqui, Procon e Processos
+ * 
+ * Mudanças v3.15.2:
+ * - Valores dos campos Motivos e Produto convertidos para primeira letra maiúscula
+ * 
+ * Mudanças v3.15.0:
+ * - Atualizado campo Motivos (BACEN e N2 Pix) com novos valores: abatimento de juros, cancelamento, cobrança, encerramento de conta, erro, fraude, lgpd, liberação chave pix, superendividamento
+ * - Atualizado campo Produto do formulário N2 Pix com novos valores: antecipação, crédito pessoal, crédito trabalhador, cupons, seguros
  * 
  * Mudanças v3.14.0:
  * - Campo Origem do formulário N2 Pix: removidos valores "Telefone" e "Ticket", adicionado valor "Atendimento"
@@ -139,42 +146,28 @@ const validarCPF = (cpf) => {
 
 /**
  * Opções de motivo reduzido (BACEN/N2)
- * VERSION: v1.2.0 | DATE: 2026-03-02 | Normalizado para padrão "Aaaaa Aaaaa" (primeira maiúscula apenas)
+ * VERSION: v1.3.2 | DATE: 2026-02-25 | Primeira letra maiúscula
  * 
- * Motivos individuais extraídos e normalizados das abas:
- * - Base Bacen 2025, Base Bacen 2026 (para formulário BACEN)
- * - Base ouvidoria 2025, Base Ouvidoria 2026 (para formulário N2Pix)
- * 
- * Padrão de normalização: primeira letra maiúscula, resto minúscula (exceto siglas como PIX, EP)
- * Preposições (do, da, de, ao) não são capitalizadas exceto no início
+ * Motivos disponíveis para formulários BACEN e N2 Pix:
+ * - Abatimento de juros
+ * - Cancelamento
+ * - Cobrança
+ * - Encerramento de conta
+ * - Erro
+ * - Fraude
+ * - Lgpd
+ * - Liberação chave pix
+ * - Superendividamento
  */
 const MOTIVOS_REDUZIDOS = [
-  'Abatimento Juros',
-  'Acesso ao App',
-  'Bloqueio de Conta',
-  'Cancelamento Conta',
-  'Chave Pix',
-  'Conta',
-  'Contestação de Valores',
-  'Crédito do Trabalhador',
-  'Credito Pessoal',
-  'Cupons Velotax',
-  'Devolução à Celcoin',
-  'Empréstimo',
-  'Empréstimo Pessoal',
-  'Encerramento de Conta',
-  'Exclusão de Conta',
+  'Abatimento de juros',
+  'Cancelamento',
+  'Cobrança',
+  'Encerramento de conta',
+  'Erro',
   'Fraude',
-  'Liberação Chave Pix',
-  'Liquidação Antecipada',
-  'Não Recebeu Restituição',
-  'Portabilidade',
-  'Probl. App',
-  'Quero Quitar (EP)',
-  'Seguro Celular',
-  'Seguro Divida Zero',
-  'Seguro Prestamista',
-  'Seguro Saude',
+  'Lgpd',
+  'Liberação chave pix',
   'Superendividamento'
 ];
 
@@ -1020,17 +1013,10 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
             >
               <option value="">Selecione...</option>
               <option value="Antecipação">Antecipação</option>
-              <option value="Credito Pessoal">Credito Pessoal</option>
-              <option value="Credito Trabalhador">Credito Trabalhador</option>
-              <option value="Cupons Velotax">Cupons Velotax</option>
-              <option value="QueroQuitar">QueroQuitar</option>
-              <option value="Seguro DividaZero">Seguro DividaZero</option>
-              <option value="Seguro Celular">Seguro Celular</option>
-              <option value="Seguro Prestamista">Seguro Prestamista</option>
-              <option value="Seguro Saúde">Seguro Saúde</option>
-              <option value="Calculadora">Calculadora</option>
-              <option value="App">App</option>
-              <option value="Outras Ocorrências">Outras Ocorrências</option>
+              <option value="Crédito pessoal">Crédito pessoal</option>
+              <option value="Crédito trabalhador">Crédito trabalhador</option>
+              <option value="Cupons">Cupons</option>
+              <option value="Seguros">Seguros</option>
             </select>
           </div>
 
