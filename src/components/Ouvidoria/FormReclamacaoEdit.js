@@ -1,6 +1,15 @@
 /**
  * VeloHub V3 - FormReclamacaoEdit Component
- * VERSION: v1.10.2 | DATE: 2026-02-25 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.12.0 | DATE: 2026-03-04 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.12.0:
+ * - Adicionado suporte completo para Ação Judicial (PROCESSOS): renderCamposProcessos, validação, payload
+ * - Normalização do tipo Ação Judicial no converterParaFormData
+ * - Campos: Nro Processo, Empresa Acionada, Data Entrada, Produto, Motivo, Descrição, Audiência, Subsídios, Outros Protocolos, Anexo
+ * 
+ * Mudanças v1.11.0:
+ * - Corrigida normalização do tipo no converterParaFormData: adicionados N2 Pix, N2 PIX, Ouvidoria
+ * - dataEntradaAtendimento agora usa fallback para dataEntradaN2 e dataEntrada (schema N2)
  * 
  * Mudanças v1.10.2:
  * - Valores dos campos Motivos e Produto convertidos para primeira letra maiúscula
@@ -153,12 +162,22 @@ const converterParaFormData = (reclamacao) => {
 
   // Normalizar tipo (API pode retornar diferentes formatos mas código espera formatos específicos)
   let tipoNormalizado = reclamacao.tipo || 'BACEN';
-  if (tipoNormalizado === 'Reclame Aqui' || tipoNormalizado === 'RECLAME AQUI') {
+  const tipoStr = String(tipoNormalizado).trim();
+  const tipoUpper = tipoStr.toUpperCase();
+  if (tipoStr === 'Reclame Aqui' || tipoUpper === 'RECLAME AQUI' || tipoUpper === 'RECLAMEAQUI') {
     tipoNormalizado = 'RECLAME_AQUI';
-  } else if (tipoNormalizado === 'N2' || tipoNormalizado === 'N2 & Pix' || tipoNormalizado === 'N2&PIX') {
+  } else if (
+    tipoUpper === 'N2' || tipoUpper === 'N2 & PIX' || tipoUpper === 'N2&PIX' ||
+    tipoUpper === 'N2 PIX' || tipoStr === 'N2 Pix' || tipoStr === 'Ouvidoria' || tipoUpper === 'OUVIDORIA'
+  ) {
     tipoNormalizado = 'OUVIDORIA';
-  } else if (tipoNormalizado === 'Procon' || tipoNormalizado === 'PROCON') {
+  } else if (tipoStr === 'Procon' || tipoUpper === 'PROCON') {
     tipoNormalizado = 'PROCON';
+  } else if (
+    tipoUpper === 'PROCESSOS' || tipoUpper === 'JUDICIAL' ||
+    tipoUpper === 'AÇÃO JUDICIAL' || tipoUpper === 'ACAO JUDICIAL' || tipoStr === 'Ação Judicial'
+  ) {
+    tipoNormalizado = 'PROCESSOS';
   }
 
   return {
@@ -183,8 +202,8 @@ const converterParaFormData = (reclamacao) => {
       : (reclamacao.motivoReduzido ? [reclamacao.motivoReduzido] : []),
     motivoDetalhado: reclamacao.motivoDetalhado || '',
     
-    // Campos OUVIDORIA
-    dataEntradaAtendimento: formatarDataInput(reclamacao.dataEntradaAtendimento),
+    // Campos OUVIDORIA (dataEntradaN2 e dataEntradaAtendimento usados no schema N2)
+    dataEntradaAtendimento: formatarDataInput(reclamacao.dataEntradaAtendimento || reclamacao.dataEntradaN2 || reclamacao.dataEntrada),
     prazoOuvidoria: formatarDataInput(reclamacao.prazoOuvidoria),
     
     // Campos Reclame Aqui
@@ -232,6 +251,16 @@ const converterParaFormData = (reclamacao) => {
     pixStatus: reclamacao.pixStatus || '',
     statusContratoQuitado: reclamacao.statusContratoQuitado || false,
     statusContratoAberto: reclamacao.statusContratoAberto || false,
+    
+    // Campos Ação Judicial (PROCESSOS)
+    nroProcesso: reclamacao.nroProcesso || '',
+    empresaAcionada: reclamacao.empresaAcionada || '',
+    dataEntradaProcesso: formatarDataInput(reclamacao.dataEntrada || reclamacao.dataEntradaProcesso),
+    audiencia: reclamacao.audiencia || false,
+    dataAudiencia: formatarDataInput(reclamacao.dataAudiencia),
+    situacaoAudiencia: reclamacao.situacaoAudiencia || '',
+    subsidios: reclamacao.subsidios || '',
+    outrosProtocolos: reclamacao.outrosProtocolos || '',
   };
 };
 
@@ -304,6 +333,15 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
     statusContratoQuitado: false,
     statusContratoAberto: false,
     enviarParaCobranca: false,
+    // Ação Judicial
+    nroProcesso: '',
+    empresaAcionada: '',
+    dataEntradaProcesso: new Date().toISOString().split('T')[0],
+    audiencia: false,
+    dataAudiencia: '',
+    situacaoAudiencia: '',
+    subsidios: '',
+    outrosProtocolos: '',
   });
 
   const [loading, setLoading] = useState(false);
@@ -312,6 +350,10 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
   const dropdownRef = useRef(null);
   const [dropdownMotivoAberto, setDropdownMotivoAberto] = useState(null); // ID único do campo de motivo aberto
   const dropdownMotivoRefs = useRef({});
+  const [mostrarModalOutrosProtocolos, setMostrarModalOutrosProtocolos] = useState(false);
+  const [buscandoOutrosProtocolos, setBuscandoOutrosProtocolos] = useState(false);
+  const [outrosProtocolosRegistros, setOutrosProtocolosRegistros] = useState([]);
+  const [protocoloExpandido, setProtocoloExpandido] = useState(null);
 
   // Fechar dropdown de motivo ao clicar fora
   useEffect(() => {
@@ -542,6 +584,25 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
       }
     }
     
+    // Validações PROCESSOS (Ação Judicial)
+    if (formData.tipo === 'PROCESSOS') {
+      if (!formData.nroProcesso) {
+        novosErros.nroProcesso = 'Número do Processo é obrigatório';
+      }
+      if (!formData.empresaAcionada) {
+        novosErros.empresaAcionada = 'Empresa Acionada é obrigatória';
+      }
+      if (!formData.dataEntradaProcesso) {
+        novosErros.dataEntradaProcesso = 'Data de Entrada é obrigatória';
+      }
+      if (!formData.produto) {
+        novosErros.produto = 'Produto é obrigatório';
+      }
+      if (!formData.motivoReduzido || formData.motivoReduzido.length === 0) {
+        novosErros.motivoReduzido = 'Selecione pelo menos um motivo';
+      }
+    }
+    
     // Validações RECLAME_AQUI
     if (formData.tipo === 'RECLAME_AQUI') {
       if (!formData.idEntrada || formData.idEntrada.replace(/\D/g, '').length !== 9) {
@@ -702,6 +763,22 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           protocolosReclameAqui: formData.protocolosReclameAqui.filter(p => p.trim() !== ''),
           procon: formData.procon,
           protocolosProcon: formData.protocolosProcon.filter(p => p.trim() !== ''),
+        };
+      } else if (formData.tipo === 'PROCESSOS') {
+        payload = {
+          ...payload,
+          nroProcesso: formData.nroProcesso,
+          empresaAcionada: formData.empresaAcionada,
+          dataEntrada: formData.dataEntradaProcesso,
+          produto: formData.produto,
+          motivoReduzido: formData.motivoReduzido,
+          motivoDetalhado: formData.motivoDetalhado || '',
+          audiencia: formData.audiencia || false,
+          dataAudiencia: formData.audiencia && formData.dataAudiencia ? formData.dataAudiencia : '',
+          situacaoAudiencia: formData.audiencia && formData.situacaoAudiencia ? formData.situacaoAudiencia : '',
+          subsidios: formData.subsidios || '',
+          outrosProtocolos: formData.outrosProtocolos || '',
+          anexos: formData.anexos,
         };
       }
 
@@ -1357,6 +1434,285 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
       setBuscandoReclameAqui(false);
     }
   };
+
+  /**
+   * Buscar Outros Protocolos por CPF (Ação Judicial)
+   */
+  const buscarOutrosProtocolos = async () => {
+    if (!formData.cpf || formData.cpf.replace(/\D/g, '').length !== 11) {
+      toast.error('CPF inválido. Preencha o CPF do cliente primeiro.');
+      return;
+    }
+    setBuscandoOutrosProtocolos(true);
+    try {
+      const cpfLimpo = formData.cpf.replace(/\D/g, '');
+      const resultado = await reclamacoesAPI.getByCpf(cpfLimpo);
+      const todasReclamacoes = resultado.data || resultado || [];
+      const outrosProtocolos = todasReclamacoes.filter(r => {
+        const tipo = String(r.tipo || '').toUpperCase().trim();
+        return tipo !== 'PROCESSOS' && tipo !== 'JUDICIAL' && tipo !== 'AÇÃO JUDICIAL';
+      });
+      if (outrosProtocolos.length === 0) {
+        toast.info('Nenhum outro protocolo encontrado para este CPF.');
+        setOutrosProtocolosRegistros([]);
+        setFormData(prev => ({ ...prev, outrosProtocolos: 'Nenhum protocolo encontrado' }));
+      } else {
+        setOutrosProtocolosRegistros(outrosProtocolos);
+        setMostrarModalOutrosProtocolos(true);
+        setFormData(prev => ({ ...prev, outrosProtocolos: `${outrosProtocolos.length} protocolo(s) encontrado(s)` }));
+      }
+    } catch (error) {
+      console.error('Erro ao buscar outros protocolos:', error);
+      toast.error('Erro ao buscar outros protocolos');
+    } finally {
+      setBuscandoOutrosProtocolos(false);
+    }
+  };
+
+  /**
+   * Renderizar campos específicos Ação Judicial
+   */
+  const renderCamposProcessos = () => (
+    <>
+      <div className="velohub-card">
+        <h3 className="text-xl font-semibold mb-4 velohub-title">Reclamação</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Nro do Processo *</label>
+            <input
+              type="text"
+              value={formData.nroProcesso}
+              onChange={(e) => setFormData(prev => ({ ...prev, nroProcesso: e.target.value }))}
+              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              placeholder="Digite o número do processo"
+              required
+            />
+            {errors.nroProcesso && <span className="text-red-500 text-xs">{errors.nroProcesso}</span>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Empresa Acionada *</label>
+            <select
+              value={formData.empresaAcionada}
+              onChange={(e) => setFormData(prev => ({ ...prev, empresaAcionada: e.target.value }))}
+              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              required
+            >
+              <option value="">Selecione...</option>
+              <option value="Velotax">Velotax</option>
+              <option value="Celcoin">Celcoin</option>
+            </select>
+            {errors.empresaAcionada && <span className="text-red-500 text-xs">{errors.empresaAcionada}</span>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Data de Entrada *</label>
+            <input
+              type="date"
+              value={formData.dataEntradaProcesso}
+              onChange={(e) => setFormData(prev => ({ ...prev, dataEntradaProcesso: e.target.value }))}
+              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              required
+            />
+            {errors.dataEntradaProcesso && <span className="text-red-500 text-xs">{errors.dataEntradaProcesso}</span>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Produto *</label>
+            <select
+              value={formData.produto}
+              onChange={(e) => setFormData(prev => ({ ...prev, produto: e.target.value }))}
+              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              required
+            >
+              <option value="">Selecione...</option>
+              <option value="Antecipação">Antecipação</option>
+              <option value="Credito Pessoal">Credito Pessoal</option>
+              <option value="Credito Trabalhador">Credito Trabalhador</option>
+              <option value="Cupons Velotax">Cupons Velotax</option>
+              <option value="QueroQuitar">QueroQuitar</option>
+              <option value="Seguro DividaZero">Seguro DividaZero</option>
+              <option value="Seguro Celular">Seguro Celular</option>
+              <option value="Seguro Prestamista">Seguro Prestamista</option>
+              <option value="Seguro Saúde">Seguro Saúde</option>
+              <option value="Calculadora">Calculadora</option>
+              <option value="App">App</option>
+              <option value="Outras Ocorrências">Outras Ocorrências</option>
+            </select>
+            {errors.produto && <span className="text-red-500 text-xs">{errors.produto}</span>}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mb-4">
+          {renderCampoMotivo(
+            MOTIVOS_ACAO_JUDICIAL,
+            formData.motivoReduzido,
+            (novosMotivos) => setFormData(prev => ({ ...prev, motivoReduzido: novosMotivos })),
+            errors.motivoReduzido,
+            'Motivo *',
+            'motivo-processos-edit'
+          )}
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Descrição</label>
+          <textarea
+            value={formData.motivoDetalhado}
+            onChange={(e) => setFormData(prev => ({ ...prev, motivoDetalhado: e.target.value }))}
+            className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+            rows={4}
+            placeholder="Descreva detalhadamente o processo..."
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="flex items-center">
+            <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                checked={formData.audiencia}
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  audiencia: e.target.checked,
+                  dataAudiencia: e.target.checked ? '' : '',
+                  situacaoAudiencia: e.target.checked ? '' : ''
+                }))}
+                className="w-5 h-5"
+              />
+              <span>Audiência</span>
+            </label>
+          </div>
+          {formData.audiencia && (
+            <>
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Data da Audiência</label>
+                <input
+                  type="date"
+                  value={formData.dataAudiencia}
+                  onChange={(e) => setFormData(prev => ({ ...prev, dataAudiencia: e.target.value }))}
+                  className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Situação</label>
+                <input
+                  type="text"
+                  value={formData.situacaoAudiencia}
+                  onChange={(e) => setFormData(prev => ({ ...prev, situacaoAudiencia: e.target.value }))}
+                  className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                  placeholder="Digite a situação da audiência"
+                />
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Subsídios</label>
+          <textarea
+            value={formData.subsidios}
+            onChange={(e) => setFormData(prev => ({ ...prev, subsidios: e.target.value }))}
+            className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+            rows={3}
+            placeholder="Digite os subsídios..."
+          />
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Outros Protocolos</label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={formData.outrosProtocolos}
+              readOnly
+              className="flex-1 border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed"
+              placeholder="Clique em 'Buscar' para encontrar protocolos relacionados"
+            />
+            <button
+              type="button"
+              onClick={buscarOutrosProtocolos}
+              disabled={buscandoOutrosProtocolos || !formData.cpf || formData.cpf.replace(/\D/g, '').length !== 11}
+              className="px-4 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ borderColor: '#006AB9', color: '#006AB9', background: 'transparent' }}
+            >
+              {buscandoOutrosProtocolos ? 'Buscando...' : 'Buscar'}
+            </button>
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Anexo</label>
+          <input
+            type="file"
+            onChange={async (e) => {
+              const files = Array.from(e.target.files);
+              if (files.length === 0) return;
+              const uploadPromises = files.map(async (file) => {
+                try {
+                  const resultado = await anexosAPI.upload(file, formData.tipo);
+                  return resultado.url;
+                } catch (error) {
+                  toast.error(`Erro ao fazer upload de ${file.name}: ${error.message}`);
+                  return null;
+                }
+              });
+              const urls = await Promise.all(uploadPromises);
+              const urlsValidas = urls.filter(url => url !== null);
+              setFormData(prev => ({ ...prev, anexos: [...prev.anexos, ...urlsValidas] }));
+              if (urlsValidas.length > 0) toast.success(`${urlsValidas.length} arquivo(s) enviado(s) com sucesso`);
+            }}
+            className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+            multiple
+          />
+          <small className="text-xs text-gray-600 dark:text-gray-400">Você pode selecionar múltiplos arquivos.</small>
+          {formData.anexos.length > 0 && (
+            <div className="mt-2">
+              <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Arquivos enviados ({formData.anexos.length}):</p>
+              <ul className="text-xs text-gray-500 dark:text-gray-400 list-disc list-inside">
+                {formData.anexos.map((url, index) => (
+                  <li key={index} className="truncate">
+                    <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Anexo {index + 1}</a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {mostrarModalOutrosProtocolos && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10001]">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold velohub-title">Outros Protocolos Encontrados ({outrosProtocolosRegistros.length})</h3>
+              <button onClick={() => { setMostrarModalOutrosProtocolos(false); setProtocoloExpandido(null); }} className="text-gray-500 hover:text-gray-700">✕</button>
+            </div>
+            <div className="space-y-4">
+              {outrosProtocolosRegistros.map((protocolo, index) => (
+                <div key={index} className="border border-gray-300 dark:border-gray-600 rounded-lg p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700" onClick={() => setProtocoloExpandido(protocoloExpandido === index ? null : index)}>
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-semibold text-gray-700 dark:text-gray-300">{protocolo.tipo || 'Sem tipo'}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">{protocolo.nome || 'Sem nome'}</span>
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">CPF: {protocolo.cpf ? `${protocolo.cpf.substring(0, 3)}***${protocolo.cpf.substring(9)}` : 'N/A'}</div>
+                      {protocolo.createdAt && <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Criado em: {new Date(protocolo.createdAt).toLocaleDateString('pt-BR')}</div>}
+                    </div>
+                    <button className="text-blue-600 dark:text-blue-400">{protocoloExpandido === index ? '▼' : '▶'}</button>
+                  </div>
+                  {protocoloExpandido === index && (
+                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+                      <pre className="text-xs bg-gray-100 dark:bg-gray-900 p-3 rounded overflow-x-auto">{JSON.stringify(protocolo, null, 2)}</pre>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
 
   /**
    * Renderizar campos específicos Procon
@@ -2329,6 +2685,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
       {formData.tipo === 'OUVIDORIA' && renderCamposOuvidoria()}
       {formData.tipo === 'RECLAME_AQUI' && renderCamposReclameAqui()}
       {formData.tipo === 'PROCON' && renderCamposProcon()}
+      {formData.tipo === 'PROCESSOS' && renderCamposProcessos()}
 
       {/* Tentativas de Contato (BACEN/N2 apenas) */}
       {(formData.tipo === 'BACEN' || formData.tipo === 'OUVIDORIA') && renderTentativasContato()}

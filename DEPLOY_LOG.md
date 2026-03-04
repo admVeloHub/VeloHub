@@ -40,6 +40,171 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Correções Modal Edição Ouvidoria: N2 Pix e Ação Judicial**
+- **Data/Hora**: 2026-03-04
+- **Tipo**: GitHub Push
+- **Versão**: FormReclamacaoEdit.js v1.11.0 → v1.12.0, ListaReclamacoes.js v1.11.0 → v1.12.0
+- **Arquivos Modificados**:
+  - `src/components/Ouvidoria/FormReclamacaoEdit.js` (v1.12.0 - suporte completo Ação Judicial, normalização N2 Pix)
+  - `src/components/Ouvidoria/ListaReclamacoes.js` (v1.12.0 - modal altura fixa para scroll correto)
+  - `backend/routes/api/ouvidoria/reclamacoes.js` (AÇÃO JUDICIAL em getCollectionByType)
+- **Descrição**: 
+  - Modal N2 Pix: normalização de tipo, dataEntradaAtendimento com fallback, scroll completo
+  - Modal Ação Judicial: formulário completo (Nro Processo, Empresa Acionada, Data, Produto, Motivo, Descrição, Audiência, Subsídios, Outros Protocolos, Anexo)
+  - Modal: altura fixa h-[95vh] para garantir scroll em formulários longos
+- **Status**: ✅ Concluído com sucesso
+
+### **GitHub Push - Atualização Valores Campos Motivos e Produto - Formulários BACEN e N2 Pix**
+- **Data/Hora**: 2026-02-25
+- **Tipo**: GitHub Push
+- **Commit**: 2b91c7e
+- **Versão**: FormReclamacao.js v3.15.0 → v3.15.2, FormReclamacaoEdit.js v1.10.0 → v1.10.2
+- **Arquivos Modificados**:
+  - `src/components/Ouvidoria/FormReclamacao.js` (v3.15.0 → v3.15.2 - atualização valores campos Motivos e Produto)
+  - `src/components/Ouvidoria/FormReclamacaoEdit.js` (v1.10.0 → v1.10.2 - atualização valores campos Motivos e Produto)
+- **Descrição**: 
+  - Atualizado campo Motivos (BACEN e N2 Pix) com novos valores: Abatimento de juros, Cancelamento, Cobrança, Encerramento de conta, Erro, Fraude, Lgpd, Liberação chave pix, Superendividamento
+  - Atualizado campo Produto do formulário N2 Pix com novos valores: Antecipação, Crédito pessoal, Crédito trabalhador, Cupons, Seguros
+  - Valores formatados com primeira letra maiúscula
+- **Status**: ✅ Concluído com sucesso
+
+### **GitHub Push - Atualizações Módulos Ouvidoria, Escalações e Server**
+- **Data/Hora**: 2026-02-25
+- **Tipo**: GitHub Push
+- **Commit**: cee1565
+- **Arquivos Modificados**:
+  - `backend/routes/api/ouvidoria/relatorios.js` (atualizações rotas)
+  - `backend/server.js` (melhorias servidor backend)
+  - `backend/services/escalacoes/whatsappService.js` (atualizações serviço WhatsApp)
+  - `src/components/Escalacoes/FormSolicitacao.js` (melhorias formulário solicitações)
+  - `src/config/api-config.js` (atualizações configuração API)
+- **Descrição**: 
+  - Atualizações na rota API de relatórios do módulo Ouvidoria
+  - Melhorias no servidor backend (server.js)
+  - Atualizações no serviço WhatsApp do módulo Escalações
+  - Melhorias no formulário de solicitações do módulo Escalações
+  - Atualizações em configurações de API
+- **Status**: ✅ Concluído com sucesso
+
+### **GitHub Push - Atualizações Módulos Ouvidoria, Escalações e Novos Scripts de Importação**
+- **Data/Hora**: 2026-02-25
+- **Tipo**: GitHub Push
+- **Commit**: d63ae16
+- **Arquivos Modificados**:
+  - `backend/routes/api/ouvidoria/dashboard.js` (atualizações rotas)
+  - `backend/routes/api/ouvidoria/reclamacoes.js` (atualizações rotas)
+  - `backend/routes/api/ouvidoria/relatorios.js` (atualizações rotas)
+  - `backend/server.js` (atualizações backend)
+  - `backend/services/escalacoes/whatsappService.js` (melhorias serviço WhatsApp)
+  - `src/components/Ouvidoria/FormReclamacao.js` (atualizações componente)
+  - `src/components/Ouvidoria/FormReclamacaoEdit.js` (atualizações componente)
+  - `src/components/Ouvidoria/ListaReclamacoes.js` (atualizações componente)
+  - `src/components/Ouvidoria/RelatoriosOuvidoria.js` (atualizações componente)
+  - `src/components/Ouvidoria/AnaliseDiaria.js` (NOVO - componente análise diária)
+  - `src/components/VeloChatWidget.js` (atualizações componente)
+  - `src/index.css` (atualizações estilos)
+  - `src/pages/OuvidoriaPage.js` (atualizações página)
+  - `src/services/ouvidoriaApi.js` (atualizações serviço)
+  - `backend/scripts/README_IMPORT_ACAO_JUDICIAL.md` (NOVO - documentação importação)
+  - `backend/scripts/README_IMPORT_PROCON.md` (NOVO - documentação importação)
+  - `backend/scripts/criar_indices_procon.py` (NOVO - script Python criação índices)
+  - `backend/scripts/extract-motivos-from-excel.js` (NOVO - script extração motivos)
+  - `backend/scripts/importar_acao_judicial_excel.py` (NOVO - script Python importação)
+  - `backend/scripts/importar_procon_excel.py` (NOVO - script Python importação)
+  - `backend/scripts/migrate-reclame-aqui-2026-xlsx.js` (NOVO - script migração Reclame Aqui)
+  - `backend/scripts/normalizar-chave-pix-todas-collections.js` (NOVO - script normalização PIX)
+  - `backend/scripts/normalizar-todos-motivos-mongodb.js` (NOVO - script normalização motivos)
+  - `backend/scripts/test-motivos-bacen.js` (NOVO - script teste motivos)
+  - `backend/scripts/update-motivos-bacen-from-excel.js` (NOVO - script atualização motivos BACEN)
+  - `backend/scripts/update-motivos-n2pix-from-excel.js` (NOVO - script atualização motivos N2PIX)
+  - `backend/scripts/verificar-chave-pix-mongodb.js` (NOVO - script verificação chave PIX)
+  - `backend/scripts/verificar-motivos-collections.js` (NOVO - script verificação motivos)
+  - `backend/scripts/verificar-motivos-especificos.js` (NOVO - script verificação motivos específicos)
+- **Descrição**: 
+  - Atualizações nas rotas API do módulo Ouvidoria (dashboard, reclamações, relatórios)
+  - Melhorias no serviço WhatsApp do módulo Escalações
+  - Atualizações no backend server.js
+  - Atualizações em componentes do módulo Ouvidoria (FormReclamacao, FormReclamacaoEdit, ListaReclamacoes, RelatoriosOuvidoria)
+  - Novo componente AnaliseDiaria para módulo Ouvidoria
+  - Atualizações no VeloChatWidget
+  - Atualizações em estilos (index.css)
+  - Atualizações na página OuvidoriaPage e serviço ouvidoriaApi
+  - Adicionados scripts de importação: Ação Judicial, Procon, Reclame Aqui
+  - Adicionados scripts de normalização: chave PIX, motivos
+  - Adicionados scripts de atualização de motivos a partir de Excel
+  - Adicionados scripts de verificação: motivos, chave PIX
+  - Adicionada documentação de importação (Ação Judicial, Procon)
+  - Scripts Python para criação de índices e importação
+- **Status**: ✅ Concluído com sucesso
+
+### **GitHub Push - Correção CORS WhatsApp e Garantias de sessionId no Login**
+- **Data/Hora**: 2026-03-02
+- **Tipo**: GitHub Push
+- **Commit**: 5985b90
+- **Arquivos Modificados**:
+  - `backend/server.js` (v2.47.0): Adicionado endpoint proxy `/api/whatsapp/send` para resolver CORS
+  - `src/config/api-config.js` (v1.0.21): Endpoint agora usa proxy do backend ao invés de ngrok diretamente
+  - `src/services/auth.js` (v1.7.0): Garantias obrigatórias de sessionId, prevenção de duplicação
+  - `src/components/LoginPage.js` (v2.6.0): Apenas validação de credenciais, sem criação de sessionId
+  - `src/components/LoadingPage.js` (v2.1.0): Criação de sessionId com retry (5 tentativas) e mensagens em tempo real
+  - `src/services/velochatApi.js` (v4.7.2): Promise.allSettled para evitar falhas totais em getConversations
+  - `src/components/VeloChatWidget.js` (v3.46.0): Aguarda garantia de sessionId antes de inicializar operações
+- **Descrição**: 
+  - **CORREÇÃO CORS**: Frontend agora usa proxy do backend (`/api/whatsapp/send`) ao invés de chamar ngrok diretamente, resolvendo problemas de CORS
+  - **GARANTIAS SESSIONID**: sessionId agora é obrigatório em todo o fluxo de autenticação
+  - LoginPage apenas valida credenciais e passa controle para LoadingPage
+  - LoadingPage cria sessionId com 5 tentativas e mensagens de status em tempo real
+  - checkAuthenticationState falha autenticação se sessionId não puder ser garantido
+  - VeloChatWidget aguarda sessionId garantido antes de inicializar operações
+  - Prevenção de duplicação de sessionId com checks em múltiplas camadas
+  - getConversations usa Promise.allSettled para retornar resultados parciais mesmo se uma requisição falhar
+- **Status**: ✅ Concluído com sucesso
+
+### **GitHub Push - Atualizações Módulos Ouvidoria, Escalações e Scripts de Migração (v2)**
+- **Data/Hora**: 2026-02-25
+- **Tipo**: GitHub Push
+- **Commit**: 38562e5
+- **Arquivos Modificados**:
+  - `backend/routes/api/ouvidoria/clientes.js` (atualizações rotas)
+  - `backend/routes/api/ouvidoria/dashboard.js` (atualizações rotas)
+  - `backend/routes/api/ouvidoria/reclamacoes.js` (atualizações rotas)
+  - `backend/routes/api/ouvidoria/relatorios.js` (atualizações rotas)
+  - `backend/routes/api/escalacoes/solicitacoes.js` (melhorias rotas)
+  - `backend/services/escalacoes/whatsappService.js` (melhorias serviço WhatsApp)
+  - `backend/scripts/migrate-bacen-2025-xlsx-v2.js` (NOVO - versão v2 script migração)
+  - `backend/scripts/migrate-bacen-2026-xlsx-v2.js` (NOVO - versão v2 script migração)
+  - `backend/scripts/migrate-ouvidoria-2025-xlsx-v2.js` (NOVO - versão v2 script migração)
+  - `backend/scripts/migrate-ouvidoria-2026-xlsx-v2.js` (NOVO - versão v2 script migração)
+  - `backend/scripts/migrate-bacen-2025-xlsx.js` (REMOVIDO - substituído por v2)
+  - `backend/scripts/migrate-bacen-2026-xlsx.js` (REMOVIDO - substituído por v2)
+  - `backend/scripts/migrate-ouvidoria-2025-xlsx.js` (REMOVIDO - substituído por v2)
+  - `backend/scripts/migrate-ouvidoria-2026-xlsx.js` (REMOVIDO - substituído por v2)
+  - `backend/scripts/sync-csv-to-mongodb.js` (atualizações script sincronização)
+  - `backend/scripts/sync-firebase-to-mongodb.js` (atualizações script sincronização)
+  - `backend/scripts/test-prazo-medio.js` (NOVO - script teste prazo médio)
+  - `backend/scripts/testar-bacen2025-exemplo.js` (NOVO - script teste exemplo)
+  - `backend/scripts/verificar-cabecalhos-bacen2025.js` (NOVO - script verificação cabeçalhos)
+  - `backend/scripts/verificar-cabecalhos-ouvidoria2025.js` (NOVO - script verificação cabeçalhos)
+  - `backend/scripts/verificar-datas-2025.js` (NOVO - script verificação datas)
+  - `backend/scripts/README_SYNC_FIREBASE.md` (atualizações documentação)
+  - `src/App_v2-1.js` (atualizações gerais)
+  - `src/components/Ouvidoria/DashboardOuvidoria.js` (atualizações componente)
+  - `src/components/Ouvidoria/MinhasReclamacoes.js` (atualizações componente)
+  - `src/services/ouvidoriaApi.js` (atualizações serviço)
+  - `src/config/api-config.js` (atualizações configuração)
+  - `painel de serviços/lib/apiConfig.js` (atualizações configuração)
+  - `docs/DASHBOARD_METRICS_LOGIC.md` (NOVO - documentação métricas dashboard)
+- **Descrição**: 
+  - Atualizações nas rotas API do módulo Ouvidoria (clientes, dashboard, reclamações, relatórios)
+  - Melhorias no módulo Escalações (solicitações e WhatsApp service)
+  - Atualizações nos scripts de migração e sincronização (versões v2 dos scripts xlsx)
+  - Removidos scripts antigos de migração xlsx (substituídos por versões v2)
+  - Adicionados novos scripts de teste e verificação (prazo médio, cabeçalhos, datas)
+  - Atualizações em componentes do módulo Ouvidoria (Dashboard, MinhasReclamacoes)
+  - Atualizações em configurações de API e painel de serviços
+  - Adicionada documentação de métricas do dashboard
+- **Status**: ✅ Concluído com sucesso
+
 ### **GitHub Push - Atualizações Dependências, Scripts XLSX e Melhorias Módulos**
 - **Data/Hora**: 2026-02-25
 - **Tipo**: GitHub Push

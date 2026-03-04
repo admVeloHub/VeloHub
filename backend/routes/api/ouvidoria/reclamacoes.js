@@ -92,6 +92,8 @@ const getCollectionByType = (db, tipo) => {
       return db.collection('reclamacoes_procon');
     case 'PROCESSOS':
     case 'JUDICIAL':
+    case 'AÇÃO JUDICIAL':
+    case 'ACAO JUDICIAL':
       return db.collection('reclamacoes_judicial');
     default:
       // Fallback para BACEN se tipo não especificado

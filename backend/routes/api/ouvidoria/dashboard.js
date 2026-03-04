@@ -1,6 +1,17 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Dashboard
- * VERSION: v2.25.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.26.0 | DATE: 2026-03-04 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.26.0:
+ * - CORRIGIDO: Dashboard agora usa os mesmos critérios de data do relatório para contar cada collection
+ * - Criada função criarFiltroDataPorCollection() similar à do relatório para manter consistência
+ * - BACEN: usa dataEntrada (com fallback para createdAt se não existir)
+ * - N2: usa dataEntradaN2 (com fallback para dataEntradaAtendimento e depois createdAt)
+ * - Reclame Aqui: usa dataReclam (com fallback para createdAt se não existir)
+ * - Procon: usa dataProcon (com fallback para createdAt se não existir)
+ * - Judicial: usa dataEntrada (com fallback para createdAt se não existir)
+ * - Filtros corretos aplicados em ambas as rotas /stats e /metricas
+ * - Mantida compatibilidade com filtros de dataInicio/dataFim
  * 
  * Mudanças v2.25.0:
  * - Corrigido erro ao acessar motivoReduzido.toUpperCase() quando motivoReduzido é array
@@ -168,6 +179,114 @@ function normalizarMotivoParaComparacao(motivoReduzido) {
 }
 
 /**
+ * Criar filtro de data correto baseado no tipo de coleção
+ * Usa os mesmos critérios do relatório para manter consistência
+ * @param {string} collectionName - Nome da coleção
+ * @param {Date} dataInicio - Data de início do filtro
+ * @param {Date} dataFim - Data de fim do filtro
+ * @returns {Object} - Filtro MongoDB com campos de data corretos e fallbacks
+ */
+function criarFiltroDataPorCollection(collectionName, dataInicio, dataFim) {
+  // Se não há filtro de data, retornar objeto vazio
+  if (!dataInicio && !dataFim) {
+    return {};
+  }
+
+  const dataInicioDate = dataInicio ? new Date(dataInicio) : null;
+  const dataFimDate = dataFim ? new Date(dataFim) : null;
+
+  // Preparar condições de data
+  const condicoesDataInicio = dataInicioDate ? { $gte: dataInicioDate } : {};
+  const condicoesDataFim = dataFimDate ? { $lte: dataFimDate } : {};
+  const condicoesData = { ...condicoesDataInicio, ...condicoesDataFim };
+
+  // N2: dataEntradaN2 -> dataEntradaAtendimento -> createdAt
+  if (collectionName === 'reclamacoes_n2Pix') {
+    return {
+      $or: [
+        { dataEntradaN2: { $exists: true, $ne: null, ...condicoesData } },
+        { 
+          $and: [
+            { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
+            { dataEntradaAtendimento: { $exists: true, $ne: null, ...condicoesData } }
+          ]
+        },
+        { 
+          $and: [
+            { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
+            { $or: [{ dataEntradaAtendimento: { $exists: false } }, { dataEntradaAtendimento: null }] },
+            { createdAt: condicoesData }
+          ]
+        }
+      ]
+    };
+  }
+
+  // BACEN: dataEntrada -> createdAt
+  if (collectionName === 'reclamacoes_bacen') {
+    return {
+      $or: [
+        { dataEntrada: { $exists: true, $ne: null, ...condicoesData } },
+        { 
+          $and: [
+            { $or: [{ dataEntrada: { $exists: false } }, { dataEntrada: null }] },
+            { createdAt: condicoesData }
+          ]
+        }
+      ]
+    };
+  }
+
+  // Reclame Aqui: dataReclam -> createdAt
+  if (collectionName === 'reclamacoes_reclameAqui') {
+    return {
+      $or: [
+        { dataReclam: { $exists: true, $ne: null, ...condicoesData } },
+        { 
+          $and: [
+            { $or: [{ dataReclam: { $exists: false } }, { dataReclam: null }] },
+            { createdAt: condicoesData }
+          ]
+        }
+      ]
+    };
+  }
+
+  // Procon: dataProcon -> createdAt
+  if (collectionName === 'reclamacoes_procon') {
+    return {
+      $or: [
+        { dataProcon: { $exists: true, $ne: null, ...condicoesData } },
+        { 
+          $and: [
+            { $or: [{ dataProcon: { $exists: false } }, { dataProcon: null }] },
+            { createdAt: condicoesData }
+          ]
+        }
+      ]
+    };
+  }
+
+  // Judicial: dataEntrada -> createdAt
+  if (collectionName === 'reclamacoes_judicial') {
+    return {
+      $or: [
+        { dataEntrada: { $exists: true, $ne: null, ...condicoesData } },
+        { 
+          $and: [
+            { $or: [{ dataEntrada: { $exists: false } }, { dataEntrada: null }] },
+            { createdAt: condicoesData }
+          ]
+        }
+      ]
+    };
+  }
+
+  // Fallback padrão: usar createdAt
+  return { createdAt: condicoesData };
+}
+
+/**
  * Inicializar rotas de dashboard
  * @param {Object} client - MongoDB client
  * @param {Function} connectToMongo - Função para conectar ao MongoDB
@@ -212,34 +331,32 @@ const initDashboardRoutes = (client, connectToMongo) => {
       await connectToMongo();
       const db = client.db('hub_ouvidoria');
 
-      // Construir filtro de data se fornecido
-      const filtroData = {};
-      if (req.query.dataInicio || req.query.dataFim) {
-        filtroData.createdAt = {};
-        if (req.query.dataInicio) {
-          const dataInicio = new Date(req.query.dataInicio);
-          dataInicio.setHours(0, 0, 0, 0);
-          filtroData.createdAt.$gte = dataInicio;
-        }
-        if (req.query.dataFim) {
-          const dataFim = new Date(req.query.dataFim);
-          dataFim.setHours(23, 59, 59, 999);
-          filtroData.createdAt.$lte = dataFim;
-        }
+      // Preparar datas para filtro
+      let dataInicio = null;
+      let dataFim = null;
+      if (req.query.dataInicio) {
+        dataInicio = new Date(req.query.dataInicio);
+        dataInicio.setHours(0, 0, 0, 0);
+      }
+      if (req.query.dataFim) {
+        dataFim = new Date(req.query.dataFim);
+        dataFim.setHours(23, 59, 59, 999);
       }
 
-      // Usar apenas filtro de data (sem filtro deletada)
-      const filtroCompleto = {
-        ...filtroData
-      };
+      // Criar filtros específicos para cada coleção usando campos de data corretos
+      const filtroBacen = criarFiltroDataPorCollection('reclamacoes_bacen', dataInicio, dataFim);
+      const filtroN2 = criarFiltroDataPorCollection('reclamacoes_n2Pix', dataInicio, dataFim);
+      const filtroReclameAqui = criarFiltroDataPorCollection('reclamacoes_reclameAqui', dataInicio, dataFim);
+      const filtroProcon = criarFiltroDataPorCollection('reclamacoes_procon', dataInicio, dataFim);
+      const filtroJudicial = criarFiltroDataPorCollection('reclamacoes_judicial', dataInicio, dataFim);
 
-      // Buscar todas as reclamações não deletadas de todas as coleções
+      // Buscar todas as reclamações de todas as coleções com filtros corretos
       const [bacen, n2Pix, reclameAquiDocs, proconDocs, judicialDocs] = await Promise.all([
-        db.collection('reclamacoes_bacen').find(filtroCompleto).toArray(),
-        db.collection('reclamacoes_n2Pix').find(filtroCompleto).toArray(),
-        db.collection('reclamacoes_reclameAqui').find(filtroCompleto).toArray(),
-        db.collection('reclamacoes_procon').find(filtroCompleto).toArray(),
-        db.collection('reclamacoes_judicial').find(filtroCompleto).toArray()
+        db.collection('reclamacoes_bacen').find(filtroBacen).toArray(),
+        db.collection('reclamacoes_n2Pix').find(filtroN2).toArray(),
+        db.collection('reclamacoes_reclameAqui').find(filtroReclameAqui).toArray(),
+        db.collection('reclamacoes_procon').find(filtroProcon).toArray(),
+        db.collection('reclamacoes_judicial').find(filtroJudicial).toArray()
       ]);
       
       const todas = [...bacen, ...n2Pix, ...reclameAquiDocs, ...proconDocs, ...judicialDocs];
@@ -471,34 +588,32 @@ const initDashboardRoutes = (client, connectToMongo) => {
       await connectToMongo();
       const db = client.db('hub_ouvidoria');
 
-      // Construir filtro de data se fornecido
-      const filtroData = {};
-      if (req.query.dataInicio || req.query.dataFim) {
-        filtroData.createdAt = {};
-        if (req.query.dataInicio) {
-          const dataInicio = new Date(req.query.dataInicio);
-          dataInicio.setHours(0, 0, 0, 0);
-          filtroData.createdAt.$gte = dataInicio;
-        }
-        if (req.query.dataFim) {
-          const dataFim = new Date(req.query.dataFim);
-          dataFim.setHours(23, 59, 59, 999);
-          filtroData.createdAt.$lte = dataFim;
-        }
+      // Preparar datas para filtro
+      let dataInicio = null;
+      let dataFim = null;
+      if (req.query.dataInicio) {
+        dataInicio = new Date(req.query.dataInicio);
+        dataInicio.setHours(0, 0, 0, 0);
+      }
+      if (req.query.dataFim) {
+        dataFim = new Date(req.query.dataFim);
+        dataFim.setHours(23, 59, 59, 999);
       }
 
-      // Usar apenas filtro de data (sem filtro deletada)
-      const filtroCompleto = {
-        ...filtroData
-      };
+      // Criar filtros específicos para cada coleção usando campos de data corretos
+      const filtroBacen = criarFiltroDataPorCollection('reclamacoes_bacen', dataInicio, dataFim);
+      const filtroN2 = criarFiltroDataPorCollection('reclamacoes_n2Pix', dataInicio, dataFim);
+      const filtroReclameAqui = criarFiltroDataPorCollection('reclamacoes_reclameAqui', dataInicio, dataFim);
+      const filtroProcon = criarFiltroDataPorCollection('reclamacoes_procon', dataInicio, dataFim);
+      const filtroJudicial = criarFiltroDataPorCollection('reclamacoes_judicial', dataInicio, dataFim);
 
-      // Buscar todas as reclamações não deletadas de todas as coleções
+      // Buscar todas as reclamações de todas as coleções com filtros corretos
       const [bacen, n2Pix, reclameAquiDocs, proconDocs, judicialDocs] = await Promise.all([
-        db.collection('reclamacoes_bacen').find(filtroCompleto).toArray(),
-        db.collection('reclamacoes_n2Pix').find(filtroCompleto).toArray(),
-        db.collection('reclamacoes_reclameAqui').find(filtroCompleto).toArray(),
-        db.collection('reclamacoes_procon').find(filtroCompleto).toArray(),
-        db.collection('reclamacoes_judicial').find(filtroCompleto).toArray()
+        db.collection('reclamacoes_bacen').find(filtroBacen).toArray(),
+        db.collection('reclamacoes_n2Pix').find(filtroN2).toArray(),
+        db.collection('reclamacoes_reclameAqui').find(filtroReclameAqui).toArray(),
+        db.collection('reclamacoes_procon').find(filtroProcon).toArray(),
+        db.collection('reclamacoes_judicial').find(filtroJudicial).toArray()
       ]);
       
       const todas = [...bacen, ...n2Pix, ...reclameAquiDocs, ...proconDocs, ...judicialDocs];
