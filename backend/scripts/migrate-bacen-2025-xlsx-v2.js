@@ -316,7 +316,7 @@ function converterRegistro(row) {
     protocolosReclameAqui: [],
     procon: converterBoolean(row.procon || ''),
     protocolosProcon: [],
-    pixStatus: converterPixStatus(row.pixLiberado || ''),
+    pixLiberado: ['Liberado', 'Excluído', 'Solicitada'].includes(converterPixStatus(row.pixLiberado || '')),
     statusContratoQuitado: converterBoolean(row.aceitouLiquidacao || ''),
     statusContratoAberto: !converterBoolean(row.aceitouLiquidacao || ''),
     enviarParaCobranca: converterBoolean(row.enviarParaCobranca || ''),

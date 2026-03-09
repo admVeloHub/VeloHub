@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - MinhasReclamacoes Component
- * VERSION: v1.6.0 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.7.0 | DATE: 2026-03-05 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.7.0:
+ * - dataEntradaAtendimento → dataEntradaN2 (schema LISTA_SCHEMAS.rb: apenas dataEntradaN2)
  * 
  * Mudanças v1.5.0:
  * - Removido campo status (usar Finalizado.Resolvido para determinar se está em andamento ou resolvido)
@@ -145,7 +148,7 @@ const MinhasReclamacoes = ({ colaboradorNome, userEmail }) => {
                 </span>
               </div>
               <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2 mb-1">
-                <span>Data: {formatDate(reclamacao.dataEntrada || reclamacao.dataEntradaAtendimento || reclamacao.createdAt)}</span>
+                <span>Data: {formatDate(reclamacao.dataEntrada || reclamacao.dataEntradaN2 || reclamacao.createdAt)}</span>
                 {reclamacao.motivoReduzido && <span>• {reclamacao.motivoReduzido}</span>}
               </div>
             </div>

@@ -1,6 +1,21 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Reclamações
- * VERSION: v2.10.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.13.0 | DATE: 2026-03-05 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.13.0:
+ * - Exibição: tipo retornado como 'N2 Pix' (antes 'Ouvidoria'/'N2') em listagens e getById
+ * - getCollectionByType: adicionado case 'N2 PIX'
+ * 
+ * Mudanças v2.12.0:
+ * - Garantir que campos de data sejam salvos como Date (não string)
+ * - Função normalizarCamposDataParaDate() converte strings YYYY-MM-DD para Date
+ * - Aplicado em POST (criação) e PUT (atualização) antes de persistir
+ * 
+ * Mudanças v2.11.0:
+ * - CORRIGIDO: OUVIDORIA agora usa reclamacoes_n2Pix (reclamacoes_ouvidoria foi renomeada/descontinuada)
+ * - Removidas todas as referências à collection reclamacoes_ouvidoria
+ * - Busca sem filtro agora usa 5 collections (bacen, n2Pix, reclameAqui, procon, judicial)
+ * - Corrige erros de contagem causados por envio de registros para collection descontinuada
  * 
  * Mudanças v2.10.0:
  * - Adicionado suporte para tipo AÇÃO JUDICIAL (PROCESSOS) na função getCollectionByType
@@ -19,12 +34,11 @@
  * Mudanças v2.7.0:
  * - Atualizado mapeamento de tipos para todas as coleções corretas:
  *   - BACEN → reclamacoes_bacen
- *   - N2 → reclamacoes_n2Pix
- *   - Ouvidoria → reclamacoes_ouvidoria
+ *   - N2 / OUVIDORIA → reclamacoes_n2Pix (reclamacoes_ouvidoria descontinuada)
  *   - Reclame Aqui → reclamacoes_reclameAqui
  *   - Procon → reclamacoes_procon
  *   - Ação Judicial (PROCESSOS) → reclamacoes_judicial
- * - Busca sem filtro agora inclui todas as 6 coleções
+ * - Busca sem filtro agora inclui todas as 5 coleções (ouvidoria descontinuada)
  * - Índices criados para todas as coleções na inicialização
  * - Função getCollectionByType atualizada com todos os tipos corretos
  * 
@@ -66,6 +80,80 @@ const express = require('express');
 const router = express.Router();
 const { ObjectId } = require('mongodb');
 
+/** Lista de campos que devem ser Date (não string) */
+const CAMPOS_DATA = [
+  'dataEntrada', 'dataEntradaN2', 'dataReclam', 'dataProcon',
+  'prazoBacen', 'prazoOuvidoria', 'processoEncaminhadoData', 'dataProcessoEncerrado',
+  'dataAudiencia', 'dataEntradaProcesso'
+];
+
+/**
+ * Converte string de data (YYYY-MM-DD) para Date. Retorna null se inválido.
+ */
+const parsearDataParaDate = (valor) => {
+  if (!valor) return null;
+  if (valor instanceof Date) return valor;
+  if (typeof valor !== 'string') return null;
+  const trimmed = String(valor).trim();
+  if (!trimmed) return null;
+  const parsed = new Date(trimmed);
+  return isNaN(parsed.getTime()) ? null : parsed;
+};
+
+/**
+ * Normaliza campos de data no objeto: converte strings para Date
+ * Para OUVIDORIA/N2: dataEntradaAtendimento (legado do form) → dataEntradaN2 (schema oficial)
+ */
+const normalizarCamposDataParaDate = (obj) => {
+  const result = { ...obj };
+  // Mapear dataEntradaAtendimento → dataEntradaN2 (schema LISTA_SCHEMAS.rb tem apenas dataEntradaN2)
+  if (result.dataEntradaAtendimento != null) {
+    if (!result.dataEntradaN2) {
+      const val = result.dataEntradaAtendimento;
+      result.dataEntradaN2 = val instanceof Date ? val : (parsearDataParaDate(val) ?? new Date(val));
+    }
+    delete result.dataEntradaAtendimento;
+  }
+  for (const campo of CAMPOS_DATA) {
+    if (result[campo] != null && typeof result[campo] === 'string') {
+      const dataDate = parsearDataParaDate(result[campo]);
+      if (dataDate) result[campo] = dataDate;
+    }
+  }
+  if (result.Finalizado?.dataResolucao != null && typeof result.Finalizado.dataResolucao === 'string') {
+    const dataResolucao = parsearDataParaDate(result.Finalizado.dataResolucao);
+    if (dataResolucao) {
+      result.Finalizado = { ...result.Finalizado, dataResolucao };
+    }
+  }
+  if (result.tentativasContato?.lista) {
+    result.tentativasContato = {
+      lista: result.tentativasContato.lista.map((t) => {
+        if (t.data != null && typeof t.data === 'string') {
+          const d = parsearDataParaDate(t.data);
+          return d ? { ...t, data: d } : t;
+        }
+        return t;
+      })
+    };
+  }
+  // Remover telefones.principal (schema tem apenas telefones.lista)
+  if (result.telefones?.principal != null) {
+    const { principal, ...telefonesResto } = result.telefones;
+    result.telefones = telefonesResto;
+  }
+  // pixStatus (legado) → pixLiberado (boolean). Liberado/Excluído/Solicitada → true; Não aplicável/vazio → false
+  if (result.pixStatus !== undefined) {
+    const s = String(result.pixStatus || '').toLowerCase().trim();
+    result.pixLiberado = ['liberado', 'excluído', 'excluido', 'solicitada', 'solicitado'].includes(s);
+    delete result.pixStatus;
+  }
+  if (result.pixLiberado !== undefined) {
+    result.pixLiberado = result.pixLiberado === true;
+  }
+  return result;
+};
+
 /**
  * Obter coleção MongoDB baseado no tipo de reclamação
  * @param {Object} db - MongoDB database instance
@@ -79,11 +167,11 @@ const getCollectionByType = (db, tipo) => {
     case 'BACEN':
       return db.collection('reclamacoes_bacen');
     case 'N2':
+    case 'N2 PIX':
     case 'N2 & PIX':
     case 'N2&PIX':
-      return db.collection('reclamacoes_n2Pix');
     case 'OUVIDORIA':
-      return db.collection('reclamacoes_ouvidoria');
+      return db.collection('reclamacoes_n2Pix');
     case 'RECLAME AQUI':
     case 'RECLAMEAQUI':
     case 'RECLAME_AQUI':
@@ -147,7 +235,6 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         // Criar índices para cada coleção
         await createIndexes(db.collection('reclamacoes_bacen'), 'reclamacoes_bacen');
         await createIndexes(db.collection('reclamacoes_n2Pix'), 'reclamacoes_n2Pix');
-        await createIndexes(db.collection('reclamacoes_ouvidoria'), 'reclamacoes_ouvidoria');
         await createIndexes(db.collection('reclamacoes_reclameAqui'), 'reclamacoes_reclameAqui');
         await createIndexes(db.collection('reclamacoes_procon'), 'reclamacoes_procon');
         await createIndexes(db.collection('reclamacoes_judicial'), 'reclamacoes_judicial');
@@ -238,14 +325,14 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         
         // Mapear tipo para exibição (normalizar nomes)
         let tipoParaAdicionar = tipoUpper;
-        if (tipoUpper === 'N2' || tipoUpper === 'N2 & PIX' || tipoUpper === 'N2&PIX') {
-          tipoParaAdicionar = 'N2';
+        if (tipoUpper === 'N2' || tipoUpper === 'N2 & PIX' || tipoUpper === 'N2&PIX' || tipoUpper === 'N2 PIX') {
+          tipoParaAdicionar = 'N2 Pix';
         } else if (tipoUpper === 'RECLAME AQUI' || tipoUpper === 'RECLAMEAQUI') {
           tipoParaAdicionar = 'Reclame Aqui';
         } else if (tipoUpper === 'PROCESSOS' || tipoUpper === 'JUDICIAL' || tipoUpper === 'AÇÃO JUDICIAL' || tipoUpper === 'ACAO JUDICIAL') {
           tipoParaAdicionar = 'Ação Judicial';
         } else if (tipoUpper === 'OUVIDORIA') {
-          tipoParaAdicionar = 'Ouvidoria';
+          tipoParaAdicionar = 'N2 Pix';
         } else if (tipoUpper === 'PROCON') {
           tipoParaAdicionar = 'Procon';
         }
@@ -253,21 +340,19 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         // Adicionar tipo aos resultados
         reclamacoes = reclamacoes.map(r => ({ ...r, tipo: tipoParaAdicionar }));
       } else {
-        // Buscar em todas as coleções
-        const [bacen, n2Pix, ouvidoria, reclameAqui, procon, judicial] = await Promise.all([
+        // Buscar em todas as coleções (5 collections - reclamacoes_ouvidoria descontinuada/renomeada para n2Pix)
+        const [bacen, n2Pix, reclameAqui, procon, judicial] = await Promise.all([
           db.collection('reclamacoes_bacen').find(filter).toArray(),
           db.collection('reclamacoes_n2Pix').find(filter).toArray(),
-          db.collection('reclamacoes_ouvidoria').find(filter).toArray(),
           db.collection('reclamacoes_reclameAqui').find(filter).toArray(),
           db.collection('reclamacoes_procon').find(filter).toArray(),
           db.collection('reclamacoes_judicial').find(filter).toArray()
         ]);
         
-        // Adicionar tipo aos resultados
+        // Adicionar tipo aos resultados (n2Pix inclui N2 e OUVIDORIA - collection unificada)
         const todas = [
           ...bacen.map(r => ({ ...r, tipo: 'BACEN' })),
-          ...n2Pix.map(r => ({ ...r, tipo: 'N2' })),
-          ...ouvidoria.map(r => ({ ...r, tipo: 'Ouvidoria' })),
+          ...n2Pix.map(r => ({ ...r, tipo: 'N2 Pix' })),
           ...reclameAqui.map(r => ({ ...r, tipo: 'Reclame Aqui' })),
           ...procon.map(r => ({ ...r, tipo: 'Procon' })),
           ...judicial.map(r => ({ ...r, tipo: 'Ação Judicial' }))
@@ -334,22 +419,20 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         const collection = getCollectionByType(db, tipo);
         reclamacao = await collection.findOne({ _id: new ObjectId(id) });
       } else {
-        // Buscar em todas as coleções
-        const [bacen, n2Pix, ouvidoria, reclameAqui, procon, judicial] = await Promise.all([
+        // Buscar em todas as coleções (5 collections - reclamacoes_ouvidoria descontinuada)
+        const [bacen, n2Pix, reclameAqui, procon, judicial] = await Promise.all([
           db.collection('reclamacoes_bacen').findOne({ _id: new ObjectId(id) }),
           db.collection('reclamacoes_n2Pix').findOne({ _id: new ObjectId(id) }),
-          db.collection('reclamacoes_ouvidoria').findOne({ _id: new ObjectId(id) }),
           db.collection('reclamacoes_reclameAqui').findOne({ _id: new ObjectId(id) }),
           db.collection('reclamacoes_procon').findOne({ _id: new ObjectId(id) }),
           db.collection('reclamacoes_judicial').findOne({ _id: new ObjectId(id) })
         ]);
         
-        reclamacao = bacen || n2Pix || ouvidoria || reclameAqui || procon || judicial;
+        reclamacao = bacen || n2Pix || reclameAqui || procon || judicial;
         if (reclamacao) {
           // Adicionar tipo ao resultado
           if (bacen) reclamacao.tipo = 'BACEN';
-          else if (n2Pix) reclamacao.tipo = 'N2';
-          else if (ouvidoria) reclamacao.tipo = 'Ouvidoria';
+          else if (n2Pix) reclamacao.tipo = 'N2 Pix';
           else if (reclameAqui) reclamacao.tipo = 'Reclame Aqui';
           else if (procon) reclamacao.tipo = 'Procon';
           else if (judicial) reclamacao.tipo = 'Ação Judicial';
@@ -455,11 +538,11 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
 
       // Preparar documento (remover tipo do documento pois já está na coleção)
       const { tipo, ...dadosSemTipo } = dados;
-      const documento = {
+      const documento = normalizarCamposDataParaDate({
         ...dadosSemTipo,
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
+      });
 
       const resultado = await collection.insertOne(documento);
 
@@ -562,11 +645,11 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
       // Remover tipo do updateDoc se presente (não deve ser atualizado)
       const { tipo: tipoRemovido, ...dadosSemTipo } = dados;
       
-      // Atualizar documento
-      const updateDoc = {
+      // Atualizar documento (normalizar datas para Date)
+      const updateDoc = normalizarCamposDataParaDate({
         ...dadosSemTipo,
         updatedAt: new Date(),
-      };
+      });
 
       const resultado = await collection.updateOne(
         { _id: new ObjectId(id) },

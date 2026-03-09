@@ -6519,6 +6519,13 @@ try {
 // - Adicionado middleware de verificação de acesso (acessos.ouvidoria === true)
 // - Rotas protegidas com checkOuvidoriaAccess
 console.log('📋 Registrando rotas do módulo Ouvidoria...');
+
+// Rota de diagnóstico (sem auth) - verificar se /api/ouvidoria/dashboard está acessível
+app.get('/api/ouvidoria/dashboard/ping', (req, res) => {
+  res.json({ ok: true, message: 'Dashboard route reachable' });
+});
+console.log('   - GET /api/ouvidoria/dashboard/ping (diagnóstico)');
+
 try {
   const initReclamacoesRoutes = require('./routes/api/ouvidoria/reclamacoes');
   const initDashboardRoutes = require('./routes/api/ouvidoria/dashboard');

@@ -316,7 +316,7 @@ function converterRegistro(row) {
     motivoReduzido: row.motivoReduzido || '',
     motivoDetalhado: '',
     passivelNotaMais: row.passivelNotaMais || false,
-    pixStatus: converterPixStatus(row.pixRetirado || ''),
+    pixLiberado: ['Liberado', 'Excluído', 'Solicitada'].includes(converterPixStatus(row.pixRetirado || '')),
     statusContratoQuitado: false,
     statusContratoAberto: false,
     enviarParaCobranca: false,

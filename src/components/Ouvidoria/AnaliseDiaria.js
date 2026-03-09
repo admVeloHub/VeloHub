@@ -1,6 +1,11 @@
 /**
  * VeloHub V3 - AnaliseDiaria Component
- * VERSION: v2.2.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.3.0 | DATE: 2026-03-06 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.3.0:
+ * - CORRIGIDO: Natureza = origem (schema 471); Motivos = motivoReduzido (schema 475); dias = dataEntrada (470)
+ * - Tabela Natureza: apenas Bacen Celcoin, Bacen Via Capital, Consumidor.Gov (removido Chave PIX)
+ * - Tabela Motivos: exclui naturezas; backend e frontend alinhados ao schema
  * 
  * Mudanças v2.2.0:
  * - Removida normalização/agrupamento de motivos - cada motivo individual aparece em sua própria linha
@@ -82,7 +87,10 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { relatoriosAPI } from '../../services/ouvidoriaApi';
 import toast from 'react-hot-toast';
 
-/** Lista fixa de motivos reduzidos (BACEN/N2) - mesma do FormReclamacao e schema. Linhas da tabela Motivos. */
+/** Naturezas (origem, schema 471) - NÃO confundir com Motivos (motivoReduzido, schema 475) */
+const NATUREZAS_BACEN = ['Bacen Celcoin', 'Bacen Via Capital', 'Consumidor.Gov'];
+
+/** Lista fixa de motivos reduzidos (BACEN/N2) - referência. Tabela Motivos usa dados da API (motivoReduzido). */
 const MOTIVOS_REDUZIDOS = [
   'Abatimento Juros',
   'Abatimento Juros/Chave PIX',
@@ -234,7 +242,8 @@ const AnaliseDiaria = () => {
     }
 
     const dias = gerarDiasNoPeriodo;
-    const naturezas = ['Bacen Celcoin', 'Bacen Via Capital', 'Consumidor.Gov', 'Chave PIX'];
+    // NATUREZA = origem (schema 471): Bacen Celcoin, Bacen Via Capital, Consumidor.Gov
+    const naturezas = ['Bacen Celcoin', 'Bacen Via Capital', 'Consumidor.Gov'];
     
     // #region agent log
     console.log('🔍 [DEBUG] Processando natureza:', {
@@ -287,6 +296,7 @@ const AnaliseDiaria = () => {
     if (!dadosDiarios?.bacen?.pixRetiradoPorDia) return null;
 
     const dias = gerarDiasNoPeriodo;
+    // PIX Retirado agrupado por natureza (origem)
     const naturezas = ['Bacen Celcoin', 'Bacen Via Capital', 'Consumidor.Gov'];
     
     const tabela = naturezas.map(natureza => {
@@ -317,16 +327,18 @@ const AnaliseDiaria = () => {
 
   /**
    * Processar dados de Motivos por dia (BACEN)
-   * Linhas = valores únicos de motivoReduzido encontrados no banco (sem normalização/agrupamento).
-   * Colunas = datas. Cada motivo individual aparece em sua própria linha.
+   * MOTIVOS = motivoReduzido (schema 475). Linhas = valores do banco. Colunas = dataEntrada (schema 470).
+   * Excluir naturezas (origem) da tabela Motivos.
    */
   const processarMotivosBacen = useMemo(() => {
     if (!dadosDiarios?.bacen) return null;
 
     const dias = gerarDiasNoPeriodo;
-    const dadosParaProcessar = dadosDiarios.bacen.motivosPorDia || [];
+    const dadosParaProcessar = (dadosDiarios.bacen.motivosPorDia || []).filter(
+      item => item._id?.motivo && !NATUREZAS_BACEN.includes(item._id.motivo)
+    );
 
-    // Agrupar por motivo exato (sem normalização): criar mapa { motivo: { contagensPorDia } }
+    // Agrupar por motivo: criar mapa { motivo: { contagensPorDia } }
     const motivosAgrupados = new Map();
     
     dadosParaProcessar.forEach(item => {
@@ -357,7 +369,7 @@ const AnaliseDiaria = () => {
         const total = valores.reduce((sum, val) => sum + val, 0);
         return { motivo: grupo.motivo, valores, total };
       })
-      .sort((a, b) => a.motivo.localeCompare(b.motivo));
+      .sort((a, b) => String(a.motivo || '').localeCompare(String(b.motivo || '')));
 
     // #region agent log
     const motivosComDados = tabela.filter(t => t.total > 0);
@@ -442,7 +454,7 @@ const AnaliseDiaria = () => {
         const total = valores.reduce((sum, val) => sum + val, 0);
         return { motivo: grupo.motivo, valores, total };
       })
-      .sort((a, b) => a.motivo.localeCompare(b.motivo));
+      .sort((a, b) => String(a.motivo || '').localeCompare(String(b.motivo || '')));
 
     return { tabela, dias };
   }, [dadosDiarios, gerarDiasNoPeriodo]);
