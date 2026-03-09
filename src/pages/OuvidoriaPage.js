@@ -1,6 +1,10 @@
 /**
  * VeloHub V3 - OuvidoriaPage (Módulo Ouvidoria/BACEN)
- * VERSION: v1.6.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.7.0 | DATE: 2026-02-25 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.7.0:
+ * - Removido bypass e bloqueio da aba "Análise Diária"
+ * - Aba "Análise Diária" agora acessível para todos os usuários
  * 
  * Mudanças v1.6.0:
  * - Adicionado bypass de acesso para aba "Análise Diária"
@@ -486,24 +490,7 @@ const OuvidoriaPage = () => {
       case 'relatorios':
         return <RelatoriosOuvidoria />;
       case 'analise-diaria':
-        // Verificar acesso: apenas lucas.gravina@velotax.com.br pode acessar
-        const userEmail = userSession?.user?.email;
-        if (userEmail === 'lucas.gravina@velotax.com.br') {
-          return <AnaliseDiaria />;
-        } else {
-          return (
-            <div className="container-secondary">
-              <div className="text-center p-8">
-                <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--cor-texto-primario)' }}>
-                  Acesso Restrito
-                </h2>
-                <p style={{ color: 'var(--cor-texto-secundario)' }}>
-                  Esta funcionalidade está disponível apenas para usuários autorizados.
-                </p>
-              </div>
-            </div>
-          );
-        }
+        return <AnaliseDiaria />;
       default:
         return null;
     }
@@ -560,18 +547,15 @@ const OuvidoriaPage = () => {
             >
               Relatórios
             </button>
-            {/* Aba Análise Diária - apenas visível para lucas.gravina@velotax.com.br */}
-            {userSession?.user?.email === 'lucas.gravina@velotax.com.br' && (
-              <button
-                onClick={() => setActiveTab('analise-diaria')}
-                className={`px-6 py-3 text-2xl font-semibold transition-colors duration-200 ${activeTab === 'analise-diaria' ? '' : 'opacity-50'}`}
-                style={{
-                  color: activeTab === 'analise-diaria' ? 'var(--blue-light)' : 'var(--cor-texto-secundario)'
-                }}
-              >
-                Análise Diária
-              </button>
-            )}
+            <button
+              onClick={() => setActiveTab('analise-diaria')}
+              className={`px-6 py-3 text-2xl font-semibold transition-colors duration-200 ${activeTab === 'analise-diaria' ? '' : 'opacity-50'}`}
+              style={{
+                color: activeTab === 'analise-diaria' ? 'var(--blue-light)' : 'var(--cor-texto-secundario)'
+              }}
+            >
+              Análise Diária
+            </button>
           </div>
           
           {/* Linha divisória */}
