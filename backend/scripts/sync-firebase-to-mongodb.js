@@ -140,13 +140,13 @@ function converterOrigemBacen(origem) {
 }
 
 /**
- * Converter pixStatus
+ * Converter para pixLiberado (boolean)
+ * Liberado/Excluído/Solicitada → true; Não aplicável → false
  */
-function converterPixStatus(pixLiberado, enviarCobranca) {
-  if (pixLiberado === true) return 'Liberado';
-  if (pixLiberado === false && enviarCobranca === true) return 'Solicitada';
-  if (pixLiberado === false && enviarCobranca === false) return 'Excluído';
-  return 'Não aplicável';
+function converterPixLiberado(pixLiberado, enviarCobranca) {
+  if (pixLiberado === true) return true;
+  if (pixLiberado === false && (enviarCobranca === true || enviarCobranca === false)) return true; // Excluído ou Solicitada
+  return false;
 }
 
 /**
@@ -187,7 +187,7 @@ function converterReclamacaoBacen(firebaseDoc) {
     procon: modulosContato.procon === true || firebaseDoc.procon === true || camposEspecificos.procon === true,
     protocolosProcon: Array.isArray(firebaseDoc.protocolosProcon) ? firebaseDoc.protocolosProcon : [],
     protocolosSemAcionamento: firebaseDoc.protocolosSemAcionamento || '',
-    pixStatus: converterPixStatus(firebaseDoc.pixLiberado, firebaseDoc.enviarCobranca),
+    pixLiberado: converterPixLiberado(firebaseDoc.pixLiberado, firebaseDoc.enviarCobranca),
     statusContratoQuitado: firebaseDoc.aceitouLiquidacao === true,
     statusContratoAberto: firebaseDoc.aceitouLiquidacao === false,
     casosCriticos: firebaseDoc.casosCriticos === true || camposEspecificos.casosCriticos === true,
@@ -250,7 +250,7 @@ function converterReclamacaoN2(firebaseDoc) {
     procon: modulosContato.procon === true || firebaseDoc.procon === true,
     protocolosProcon: Array.isArray(firebaseDoc.protocolosProcon) ? firebaseDoc.protocolosProcon : [],
     protocolosSemAcionamento: firebaseDoc.protocolosSemAcionamento || '',
-    pixStatus: converterPixStatus(firebaseDoc.pixLiberado, firebaseDoc.enviarCobranca),
+    pixLiberado: converterPixLiberado(firebaseDoc.pixLiberado, firebaseDoc.enviarCobranca),
     statusContratoQuitado: firebaseDoc.aceitouLiquidacao === true,
     statusContratoAberto: firebaseDoc.aceitouLiquidacao === false,
     casosCriticos: firebaseDoc.casosCriticos === true,

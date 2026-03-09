@@ -1,17 +1,35 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Dashboard
- * VERSION: v2.26.0 | DATE: 2026-03-04 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.32.0 | DATE: 2026-03-05 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.32.0:
+ * - Removido tipo Judicial do dashboard e da contagem Total (apenas N2, Reclame Aqui, Bacen, Procon)
+ * 
+ * Mudanças v2.31.0:
+ * - Pix Liberado, Pix Retido e % Retenção: filtram apenas casos com motivoReduzido contendo "Liberação" e "Pix"
+ * - Criada função isMotivoLiberacaoPix() para verificar motivo (liberação chave pix, liberação de pix, etc.)
+ * 
+ * Mudanças v2.30.0:
+ * - Adicionado percRetencao em porTipo: % de ocorrências com pix retido (pixLiberado === false)
+ * 
+ * Mudanças v2.29.0:
+ * - Adicionado filtro de produto (produtos) nas rotas /stats e /metricas
+ * - Query param produtos (array): filtra por produto quando informado (ex: produtos=Antecipação&produtos=Credito Pessoal)
+ * - Quando vazio ou ausente, não aplica filtro de produto
+ * 
+ * Mudanças v2.28.0:
+ * - Adicionado data.porTipo com estatísticas por collection (N2, Reclame Aqui, Bacen, Procon, Judicial, Total)
+ * - Cada tipo: ocorrencias, emAberto, resolvido, prazoMedio, caEProtocolos, pixLiberado, pixRetido
+ * - Total inclui taxaResolucao adicional
+ * 
+ * Mudanças v2.27.0:
+ * - HOMOGENEIZAÇÃO: Contagem baseada APENAS na data de entrada (removido fallback createdAt)
+ * - BACEN: dataEntrada | N2: dataEntradaN2 | Reclame Aqui: dataReclam | Procon: dataProcon | Judicial: dataEntrada
+ * - Documentos sem data de entrada no período não são contados
  * 
  * Mudanças v2.26.0:
  * - CORRIGIDO: Dashboard agora usa os mesmos critérios de data do relatório para contar cada collection
  * - Criada função criarFiltroDataPorCollection() similar à do relatório para manter consistência
- * - BACEN: usa dataEntrada (com fallback para createdAt se não existir)
- * - N2: usa dataEntradaN2 (com fallback para dataEntradaAtendimento e depois createdAt)
- * - Reclame Aqui: usa dataReclam (com fallback para createdAt se não existir)
- * - Procon: usa dataProcon (com fallback para createdAt se não existir)
- * - Judicial: usa dataEntrada (com fallback para createdAt se não existir)
- * - Filtros corretos aplicados em ambas as rotas /stats e /metricas
- * - Mantida compatibilidade com filtros de dataInicio/dataFim
  * 
  * Mudanças v2.25.0:
  * - Corrigido erro ao acessar motivoReduzido.toUpperCase() quando motivoReduzido é array
@@ -179,12 +197,23 @@ function normalizarMotivoParaComparacao(motivoReduzido) {
 }
 
 /**
- * Criar filtro de data correto baseado no tipo de coleção
- * Usa os mesmos critérios do relatório para manter consistência
+ * Verificar se motivoReduzido contém "Liberação de Pix" (ou variações: liberação chave pix, liberação de chave pix)
+ * @param {string|Array<string>|undefined} motivoReduzido - Motivo reduzido
+ * @returns {boolean}
+ */
+function isMotivoLiberacaoPix(motivoReduzido) {
+  const norm = normalizarMotivoParaComparacao(motivoReduzido);
+  return norm.includes('liberação') && norm.includes('pix') ||
+         norm.includes('liberacao') && norm.includes('pix');
+}
+
+/**
+ * Criar filtro de data baseado na data de ENTRADA da ocorrência (NUNCA createdAt)
+ * Homogeneizado com Dashboard, Relatórios e Análise Diária
  * @param {string} collectionName - Nome da coleção
  * @param {Date} dataInicio - Data de início do filtro
  * @param {Date} dataFim - Data de fim do filtro
- * @returns {Object} - Filtro MongoDB com campos de data corretos e fallbacks
+ * @returns {Object} - Filtro MongoDB pelo campo de data de entrada
  */
 function criarFiltroDataPorCollection(collectionName, dataInicio, dataFim) {
   // Se não há filtro de data, retornar objeto vazio
@@ -200,90 +229,122 @@ function criarFiltroDataPorCollection(collectionName, dataInicio, dataFim) {
   const condicoesDataFim = dataFimDate ? { $lte: dataFimDate } : {};
   const condicoesData = { ...condicoesDataInicio, ...condicoesDataFim };
 
-  // N2: dataEntradaN2 -> dataEntradaAtendimento -> createdAt
-  if (collectionName === 'reclamacoes_n2Pix') {
-    return {
-      $or: [
-        { dataEntradaN2: { $exists: true, $ne: null, ...condicoesData } },
-        { 
-          $and: [
-            { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
-            { dataEntradaAtendimento: { $exists: true, $ne: null, ...condicoesData } }
-          ]
-        },
-        { 
-          $and: [
-            { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
-            { $or: [{ dataEntradaAtendimento: { $exists: false } }, { dataEntradaAtendimento: null }] },
-            { createdAt: condicoesData }
-          ]
-        }
-      ]
-    };
-  }
-
-  // BACEN: dataEntrada -> createdAt
+  // Homogeneização: contagem SEMPRE baseada na data de entrada (NUNCA createdAt)
+  // BACEN: dataEntrada
   if (collectionName === 'reclamacoes_bacen') {
-    return {
-      $or: [
-        { dataEntrada: { $exists: true, $ne: null, ...condicoesData } },
-        { 
-          $and: [
-            { $or: [{ dataEntrada: { $exists: false } }, { dataEntrada: null }] },
-            { createdAt: condicoesData }
-          ]
-        }
-      ]
-    };
+    return { dataEntrada: { $exists: true, $ne: null, ...condicoesData } };
   }
 
-  // Reclame Aqui: dataReclam -> createdAt
+  // N2: dataEntradaN2
+  if (collectionName === 'reclamacoes_n2Pix') {
+    return { dataEntradaN2: { $exists: true, $ne: null, ...condicoesData } };
+  }
+
+  // Reclame Aqui: dataReclam
   if (collectionName === 'reclamacoes_reclameAqui') {
-    return {
-      $or: [
-        { dataReclam: { $exists: true, $ne: null, ...condicoesData } },
-        { 
-          $and: [
-            { $or: [{ dataReclam: { $exists: false } }, { dataReclam: null }] },
-            { createdAt: condicoesData }
-          ]
-        }
-      ]
-    };
+    return { dataReclam: { $exists: true, $ne: null, ...condicoesData } };
   }
 
-  // Procon: dataProcon -> createdAt
+  // Procon: dataProcon
   if (collectionName === 'reclamacoes_procon') {
-    return {
-      $or: [
-        { dataProcon: { $exists: true, $ne: null, ...condicoesData } },
-        { 
-          $and: [
-            { $or: [{ dataProcon: { $exists: false } }, { dataProcon: null }] },
-            { createdAt: condicoesData }
-          ]
-        }
-      ]
-    };
+    return { dataProcon: { $exists: true, $ne: null, ...condicoesData } };
   }
 
-  // Judicial: dataEntrada -> createdAt
+  // Judicial: dataEntrada
   if (collectionName === 'reclamacoes_judicial') {
-    return {
-      $or: [
-        { dataEntrada: { $exists: true, $ne: null, ...condicoesData } },
-        { 
-          $and: [
-            { $or: [{ dataEntrada: { $exists: false } }, { dataEntrada: null }] },
-            { createdAt: condicoesData }
-          ]
-        }
-      ]
-    };
+    return { dataEntrada: { $exists: true, $ne: null, ...condicoesData } };
   }
 
-  // Fallback padrão: usar createdAt
   return { createdAt: condicoesData };
+}
+
+/**
+ * Criar filtro de produto (quando array de produtos informado)
+ * @param {Array<string>} produtos - Array de valores de produto
+ * @returns {Object} - Filtro MongoDB ou objeto vazio
+ */
+function criarFiltroProduto(produtos) {
+  if (!produtos || !Array.isArray(produtos) || produtos.length === 0) {
+    return {};
+  }
+  const valores = produtos.filter(p => p && String(p).trim());
+  if (valores.length === 0) return {};
+  return { produto: { $in: valores } };
+}
+
+/**
+ * Mesclar filtro de data com filtro de produto
+ * @param {Object} filtroData - Filtro retornado por criarFiltroDataPorCollection
+ * @param {Object} filtroProduto - Filtro retornado por criarFiltroProduto
+ * @returns {Object} - Filtro combinado (MongoDB interpreta múltiplos campos como AND)
+ */
+function mesclarFiltros(filtroData, filtroProduto) {
+  if (Object.keys(filtroProduto).length === 0) return filtroData;
+  return { ...filtroData, ...filtroProduto };
+}
+
+/**
+ * Calcular estatísticas por tipo (para data.porTipo)
+ * @param {Array} docs - Array de documentos da collection
+ * @returns {Object} - { ocorrencias, emAberto, resolvido, prazoMedio, caEProtocolos, pixLiberado, pixRetido, percRetencao, taxaResolucao }
+ */
+function calcularStatsPorTipo(docs) {
+  const ocorrencias = docs.length;
+  const emAberto = docs.filter(r => !r.Finalizado || r.Finalizado.Resolvido !== true).length;
+  const resolvido = docs.filter(r => r.Finalizado?.Resolvido === true).length;
+  const caEProtocolos = docs.filter(r => (
+    r.acionouCentral === true ||
+    (r.protocolosCentral && Array.isArray(r.protocolosCentral) && r.protocolosCentral.length > 0) ||
+    r.n2SegundoNivel === true ||
+    (r.protocolosN2 && Array.isArray(r.protocolosN2) && r.protocolosN2.length > 0) ||
+    r.reclameAqui === true ||
+    (r.protocolosReclameAqui && Array.isArray(r.protocolosReclameAqui) && r.protocolosReclameAqui.length > 0) ||
+    r.procon === true ||
+    (r.protocolosProcon && Array.isArray(r.protocolosProcon) && r.protocolosProcon.length > 0)
+  )).length;
+  // Pix Liberado, Pix Retido e % Retenção: apenas casos com motivoReduzido = Liberação de Pix (ou variações)
+  const docsLiberacaoPix = docs.filter(r => isMotivoLiberacaoPix(r.motivoReduzido));
+  const pixLiberado = docsLiberacaoPix.filter(r => r.pixLiberado === true || ['Liberado', 'Excluído', 'Solicitada'].includes(r.pixStatus)).length;
+  const pixRetido = docsLiberacaoPix.filter(r => r.pixLiberado === false).length;
+  const percRetencao = docsLiberacaoPix.length > 0 ? Math.round((pixRetido / docsLiberacaoPix.length) * 1000) / 10 : 0;
+
+  const concluidasComData = docs.filter(r => {
+    if (r.Finalizado?.Resolvido !== true) return false;
+    if (!r.createdAt || !r.Finalizado?.dataResolucao) return false;
+    const inicio = new Date(r.createdAt);
+    const fim = new Date(r.Finalizado.dataResolucao);
+    if (isNaN(inicio.getTime()) || isNaN(fim.getTime())) return false;
+    if (fim < inicio) return false;
+    const diffMs = fim.getTime() - inicio.getTime();
+    const dias = diffMs / (1000 * 60 * 60 * 24);
+    if (dias < 0 || dias > 365) return false;
+    return true;
+  });
+
+  let prazoMedio = 0;
+  if (concluidasComData.length > 0) {
+    const somaDias = concluidasComData.reduce((acc, r) => {
+      const inicio = new Date(r.createdAt);
+      const fim = new Date(r.Finalizado.dataResolucao);
+      const diffMs = fim.getTime() - inicio.getTime();
+      return acc + (diffMs / (1000 * 60 * 60 * 24));
+    }, 0);
+    prazoMedio = parseFloat((somaDias / concluidasComData.length).toFixed(1));
+  }
+
+  const taxaResolucao = ocorrencias > 0 ? Math.round((resolvido / ocorrencias) * 1000) / 10 : 0;
+
+  return {
+    ocorrencias,
+    emAberto,
+    resolvido,
+    prazoMedio,
+    caEProtocolos,
+    pixLiberado,
+    pixRetido,
+    percRetencao,
+    taxaResolucao,
+  };
 }
 
 /**
@@ -343,23 +404,30 @@ const initDashboardRoutes = (client, connectToMongo) => {
         dataFim.setHours(23, 59, 59, 999);
       }
 
-      // Criar filtros específicos para cada coleção usando campos de data corretos
-      const filtroBacen = criarFiltroDataPorCollection('reclamacoes_bacen', dataInicio, dataFim);
-      const filtroN2 = criarFiltroDataPorCollection('reclamacoes_n2Pix', dataInicio, dataFim);
-      const filtroReclameAqui = criarFiltroDataPorCollection('reclamacoes_reclameAqui', dataInicio, dataFim);
-      const filtroProcon = criarFiltroDataPorCollection('reclamacoes_procon', dataInicio, dataFim);
-      const filtroJudicial = criarFiltroDataPorCollection('reclamacoes_judicial', dataInicio, dataFim);
+      // Preparar filtro de produto (produtos pode vir como string ou array)
+      const produtosRaw = req.query.produtos;
+      const produtos = Array.isArray(produtosRaw)
+        ? produtosRaw
+        : produtosRaw
+          ? [produtosRaw]
+          : [];
+      const filtroProduto = criarFiltroProduto(produtos);
 
-      // Buscar todas as reclamações de todas as coleções com filtros corretos
-      const [bacen, n2Pix, reclameAquiDocs, proconDocs, judicialDocs] = await Promise.all([
+      // Criar filtros específicos para cada coleção (data + produto)
+      const filtroBacen = mesclarFiltros(criarFiltroDataPorCollection('reclamacoes_bacen', dataInicio, dataFim), filtroProduto);
+      const filtroN2 = mesclarFiltros(criarFiltroDataPorCollection('reclamacoes_n2Pix', dataInicio, dataFim), filtroProduto);
+      const filtroReclameAqui = mesclarFiltros(criarFiltroDataPorCollection('reclamacoes_reclameAqui', dataInicio, dataFim), filtroProduto);
+      const filtroProcon = mesclarFiltros(criarFiltroDataPorCollection('reclamacoes_procon', dataInicio, dataFim), filtroProduto);
+
+      // Buscar reclamações (N2, Reclame Aqui, Bacen, Procon - Judicial excluído do dashboard)
+      const [bacen, n2Pix, reclameAquiDocs, proconDocs] = await Promise.all([
         db.collection('reclamacoes_bacen').find(filtroBacen).toArray(),
         db.collection('reclamacoes_n2Pix').find(filtroN2).toArray(),
         db.collection('reclamacoes_reclameAqui').find(filtroReclameAqui).toArray(),
-        db.collection('reclamacoes_procon').find(filtroProcon).toArray(),
-        db.collection('reclamacoes_judicial').find(filtroJudicial).toArray()
+        db.collection('reclamacoes_procon').find(filtroProcon).toArray()
       ]);
       
-      const todas = [...bacen, ...n2Pix, ...reclameAquiDocs, ...proconDocs, ...judicialDocs];
+      const todas = [...bacen, ...n2Pix, ...reclameAquiDocs, ...proconDocs];
       
       const hoje = new Date();
       hoje.setHours(0, 0, 0, 0);
@@ -396,11 +464,8 @@ const initDashboardRoutes = (client, connectToMongo) => {
       // Reclame Aqui
       const reclameAqui = reclameAquiDocs.length;
 
-      // Ação Judicial
-      const acaoJudicial = judicialDocs.length;
-
-      // Pix Liberado (pixStatus === "Liberado")
-      const pixLiberado = todas.filter(r => r.pixStatus === 'Liberado').length;
+      // Pix Liberado (pixLiberado === true ou pixStatus legado)
+      const pixLiberado = todas.filter(r => r.pixLiberado === true || ['Liberado', 'Excluído', 'Solicitada'].includes(r.pixStatus)).length;
       
       // Para Cobrança (enviarParaCobranca === true)
       const paraCobranca = todas.filter(r => r.enviarParaCobranca === true).length;
@@ -507,6 +572,15 @@ const initDashboardRoutes = (client, connectToMongo) => {
         );
       }).length;
 
+      // porTipo: estatísticas por collection (Judicial excluído)
+      const porTipo = {
+        N2: calcularStatsPorTipo(n2Pix),
+        'Reclame Aqui': calcularStatsPorTipo(reclameAquiDocs),
+        Bacen: calcularStatsPorTipo(bacen),
+        Procon: calcularStatsPorTipo(proconDocs),
+        Total: calcularStatsPorTipo(todas),
+      };
+
       const stats = {
         total,
         totalBacen,
@@ -515,7 +589,6 @@ const initDashboardRoutes = (client, connectToMongo) => {
         concluidas,
         prazoVencendo,
         reclameAqui,
-        acaoJudicial,
         taxaResolucao,
         mediaPrazo,
         liquidacaoAntecipada,
@@ -523,6 +596,7 @@ const initDashboardRoutes = (client, connectToMongo) => {
         caEProtocolos,
         pixLiberado,
         paraCobranca,
+        porTipo,
       };
 
       console.log(`✅ Estatísticas do dashboard calculadas`);
@@ -600,23 +674,21 @@ const initDashboardRoutes = (client, connectToMongo) => {
         dataFim.setHours(23, 59, 59, 999);
       }
 
-      // Criar filtros específicos para cada coleção usando campos de data corretos
+      // Criar filtros específicos para cada coleção (Judicial excluído)
       const filtroBacen = criarFiltroDataPorCollection('reclamacoes_bacen', dataInicio, dataFim);
       const filtroN2 = criarFiltroDataPorCollection('reclamacoes_n2Pix', dataInicio, dataFim);
       const filtroReclameAqui = criarFiltroDataPorCollection('reclamacoes_reclameAqui', dataInicio, dataFim);
       const filtroProcon = criarFiltroDataPorCollection('reclamacoes_procon', dataInicio, dataFim);
-      const filtroJudicial = criarFiltroDataPorCollection('reclamacoes_judicial', dataInicio, dataFim);
 
-      // Buscar todas as reclamações de todas as coleções com filtros corretos
-      const [bacen, n2Pix, reclameAquiDocs, proconDocs, judicialDocs] = await Promise.all([
+      // Buscar reclamações (N2, Reclame Aqui, Bacen, Procon - Judicial excluído)
+      const [bacen, n2Pix, reclameAquiDocs, proconDocs] = await Promise.all([
         db.collection('reclamacoes_bacen').find(filtroBacen).toArray(),
         db.collection('reclamacoes_n2Pix').find(filtroN2).toArray(),
         db.collection('reclamacoes_reclameAqui').find(filtroReclameAqui).toArray(),
-        db.collection('reclamacoes_procon').find(filtroProcon).toArray(),
-        db.collection('reclamacoes_judicial').find(filtroJudicial).toArray()
+        db.collection('reclamacoes_procon').find(filtroProcon).toArray()
       ]);
       
-      const todas = [...bacen, ...n2Pix, ...reclameAquiDocs, ...proconDocs, ...judicialDocs];
+      const todas = [...bacen, ...n2Pix, ...reclameAquiDocs, ...proconDocs];
       
       const total = todas.length; // Total = todas as 5 collections
       // Resolvidas = Finalizado.Resolvido === true
@@ -704,11 +776,8 @@ const initDashboardRoutes = (client, connectToMongo) => {
       // Reclame Aqui
       const reclameAqui = reclameAquiDocs.length;
 
-      // Ação Judicial
-      const acaoJudicial = judicialDocs.length;
-
-      // Pix Liberado (pixStatus === "Liberado")
-      const pixLiberado = todas.filter(r => r.pixStatus === 'Liberado').length;
+      // Pix Liberado (pixLiberado === true ou pixStatus legado)
+      const pixLiberado = todas.filter(r => r.pixLiberado === true || ['Liberado', 'Excluído', 'Solicitada'].includes(r.pixStatus)).length;
       
       // Para Cobrança (enviarParaCobranca === true)
       const paraCobranca = todas.filter(r => r.enviarParaCobranca === true).length;
@@ -748,7 +817,6 @@ const initDashboardRoutes = (client, connectToMongo) => {
         mediaPrazo,
         comProcon,
         reclameAqui,
-        acaoJudicial,
         liquidacaoAntecipada,
         caEProtocolos,
         pixLiberado,

@@ -1,10 +1,31 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Relatórios
- * VERSION: v2.15.0 | DATE: 2026-03-04 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.20.0 | DATE: 2026-03-06 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.20.0:
+ * - CORRIGIDO Análise Diária: Natureza = origem (schema 471); Motivos = motivoReduzido (schema 475); dias = dataEntrada (470)
+ * - naturezaPorDia e pixRetiradoPorDia: APENAS origem (Bacen Celcoin, Bacen Via Capital, Consumidor.Gov)
+ * - motivosPorDia: find() + processamento em memória (como Painel Tempo Real) - mais robusto que aggregation
+ * 
+ * Mudanças v2.19.0:
+ * - HOMOGENEIZAÇÃO: Contagem baseada APENAS na data de entrada (removido fallback createdAt)
+ * - criarFiltroData: BACEN dataEntrada | N2 dataEntradaN2 | Reclame dataReclam | Procon dataProcon | Judicial dataEntrada
+ * - Todas as agregações (detalhado e diario): filtro por data de entrada, sem createdAt
+ * - Documentos sem data de entrada no período não são contados
+ * 
+ * Mudanças v2.18.0:
+ * - Exibição: tipo retornado como 'N2 Pix' (antes 'OUVIDORIA') em listagens
+ * - tipoParaCollection: adicionado 'N2 PIX'
+ * 
+ * Mudanças v2.16.0:
+ * - CORRIGIDO: Filtro de data agora aceita campos armazenados como STRING (ex: "2026-02-24")
+ * - Alguns docs têm dataEntrada/dataEntradaN2 como string; comparação Date vs string falhava
+ * - Adicionado $or para aceitar tanto Date quanto string no formato YYYY-MM-DD
+ * - Corrige discrepância: Relatório mostrava 595/1193 ao invés de 605/1258
  * 
  * Mudanças v2.15.0:
  * - CORRIGIDO: Todas as queries N2 agora usam dataEntradaN2 ao invés de dataEntrada
- * - Adicionado fallback para dataEntradaAtendimento e depois createdAt quando dataEntradaN2 não existe
+ * - Adicionado fallback para dataEntradaN2 e depois createdAt quando dataEntradaN2 não existe
  * - Corrigido logs de debug para usar dataEntradaN2
  * - Corrigido queries: casosRegistradosPorMes, casosFinalizadosPorMes, pixLiberadoPorMes, motivosPorMesN2Raw
  * 
@@ -472,6 +493,12 @@ function processarMotivosParaRelatorio(motivoReduzido) {
   }
 }
 
+/** Valores de origem (schema 471) - NÃO confundir com motivoReduzido (schema 475). Usado para excluir da tabela Motivos. */
+const ORIGEM_BACEN = ['Bacen Celcoin', 'Bacen Via Capital', 'Consumidor.Gov'];
+
+/** Retorna true se o valor é uma origem (natureza), não um motivo. Motivos não devem incluir origens na tabela. */
+const isOrigemBacen = (valor) => ORIGEM_BACEN.includes(valor);
+
 /**
  * Inicializar rotas de relatórios
  * @param {Object} client - MongoDB client
@@ -507,52 +534,53 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         });
       }
 
-      // Função auxiliar para criar filtro de data correto baseado no tipo de coleção
+      // Função auxiliar para criar filtro de data baseado na data de ENTRADA (NUNCA createdAt)
+      // Homogeneizado com Dashboard, Relatórios e Análise Diária
       const criarFiltroData = (collectionName) => {
         const dataInicioDate = new Date(dataInicio);
         const dataFimDate = new Date(dataFim + 'T23:59:59.999Z');
-        
-        // Para N2, usar $or com fallback para dataEntradaN2, dataEntradaAtendimento e createdAt
+
+        // N2: dataEntradaN2 (sem fallback createdAt) - aceita Date ou string
         if (collectionName === 'reclamacoes_n2Pix') {
           return {
             $or: [
               { dataEntradaN2: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } },
-              { 
-                $and: [
-                  { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
-                  { dataEntradaAtendimento: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } }
-                ]
-              },
-              { 
-                $and: [
-                  { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
-                  { $or: [{ dataEntradaAtendimento: { $exists: false } }, { dataEntradaAtendimento: null }] },
-                  { createdAt: { $gte: dataInicioDate, $lte: dataFimDate } }
-                ]
-              }
+              { dataEntradaN2: { $exists: true, $ne: null, $type: 'string', $gte: dataInicio, $lte: dataFim } }
             ]
           };
         }
-        
-        // Determinar campo de data correto baseado no tipo de coleção
-        let campoData;
+
+        // BACEN, Judicial: dataEntrada
         if (collectionName === 'reclamacoes_bacen' || collectionName === 'reclamacoes_judicial') {
-          campoData = 'dataEntrada';
-        } else if (collectionName === 'reclamacoes_reclameAqui') {
-          campoData = 'dataReclam';
-        } else if (collectionName === 'reclamacoes_procon') {
-          campoData = 'dataProcon';
-        } else {
-          // Fallback para createdAt se não reconhecer o tipo
-          campoData = 'createdAt';
+          return {
+            $or: [
+              { dataEntrada: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } },
+              { dataEntrada: { $exists: true, $ne: null, $type: 'string', $gte: dataInicio, $lte: dataFim } }
+            ]
+          };
         }
-        
-        return {
-          [campoData]: {
-            $gte: dataInicioDate,
-            $lte: dataFimDate
-          }
-        };
+
+        // Reclame Aqui: dataReclam
+        if (collectionName === 'reclamacoes_reclameAqui') {
+          return {
+            $or: [
+              { dataReclam: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } },
+              { dataReclam: { $exists: true, $ne: null, $type: 'string', $gte: dataInicio, $lte: dataFim } }
+            ]
+          };
+        }
+
+        // Procon: dataProcon
+        if (collectionName === 'reclamacoes_procon') {
+          return {
+            $or: [
+              { dataProcon: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } },
+              { dataProcon: { $exists: true, $ne: null, $type: 'string', $gte: dataInicio, $lte: dataFim } }
+            ]
+          };
+        }
+
+        return { createdAt: { $gte: dataInicioDate, $lte: dataFimDate } };
       };
 
       // Função auxiliar para determinar campo de ordenação baseado no tipo
@@ -574,6 +602,7 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         'BACEN': 'reclamacoes_bacen',
         'OUVIDORIA': 'reclamacoes_n2Pix',
         'N2': 'reclamacoes_n2Pix',
+        'N2 PIX': 'reclamacoes_n2Pix',
         'N2 & PIX': 'reclamacoes_n2Pix',
         'N2&PIX': 'reclamacoes_n2Pix',
         'RECLAME_AQUI': 'reclamacoes_reclameAqui',
@@ -612,8 +641,8 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
           
           // Normalizar tipo para retorno
           let tipoNormalizado = tipoUpper;
-          if (tipoUpper === 'N2' || tipoUpper === 'N2 & PIX' || tipoUpper === 'N2&PIX') {
-            tipoNormalizado = 'OUVIDORIA';
+          if (tipoUpper === 'OUVIDORIA' || tipoUpper === 'N2' || tipoUpper === 'N2 & PIX' || tipoUpper === 'N2&PIX' || tipoUpper === 'N2 PIX') {
+            tipoNormalizado = 'N2 Pix';
           } else if (tipoUpper === 'PROCESSOS' || tipoUpper === 'JUDICIAL' || tipoUpper === 'AÇÃO JUDICIAL' || tipoUpper === 'ACAO JUDICIAL') {
             tipoNormalizado = 'AÇÃO JUDICIAL';
           } else if (tipoUpper === 'RECLAME_AQUI' || tipoUpper === 'RECLAMEAQUI') {
@@ -626,20 +655,19 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         const resultados = await Promise.all(promises);
         // Ordenar usando campo de data correto baseado no tipo
         reclamacoes = resultados.flat().sort((a, b) => {
-          // Para N2, usar dataEntradaN2 com fallback para dataEntradaAtendimento e depois createdAt
+          // Para N2, usar dataEntradaN2 com fallback para dataEntradaN2 e depois createdAt
           let dataA, dataB;
-          if (a.tipo === 'OUVIDORIA' || a.tipo === 'N2') {
-            dataA = new Date(a.dataEntradaN2 || a.dataEntradaAtendimento || a.createdAt);
+          if (a.tipo === 'OUVIDORIA' || a.tipo === 'N2' || a.tipo === 'N2 Pix') {
+            dataA = new Date(a.dataEntradaN2);
           } else {
             const campoA = a.tipo === 'RECLAME AQUI' ? 'dataReclam' : a.tipo === 'PROCON' ? 'dataProcon' : 'dataEntrada';
-            dataA = new Date(a[campoA] || a.createdAt);
+            dataA = new Date(a[campoA]);
           }
-          
-          if (b.tipo === 'OUVIDORIA' || b.tipo === 'N2') {
-            dataB = new Date(b.dataEntradaN2 || b.dataEntradaAtendimento || b.createdAt);
+          if (b.tipo === 'OUVIDORIA' || b.tipo === 'N2' || b.tipo === 'N2 Pix') {
+            dataB = new Date(b.dataEntradaN2);
           } else {
             const campoB = b.tipo === 'RECLAME AQUI' ? 'dataReclam' : b.tipo === 'PROCON' ? 'dataProcon' : 'dataEntrada';
-            dataB = new Date(b[campoB] || b.createdAt);
+            dataB = new Date(b[campoB]);
           }
           return dataB - dataA;
         });
@@ -656,25 +684,16 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         // Combinar e adicionar tipo
         reclamacoes = [
           ...bacen.map(r => ({ ...r, tipo: 'BACEN' })),
-          ...n2Pix.map(r => ({ ...r, tipo: 'OUVIDORIA' })),
+          ...n2Pix.map(r => ({ ...r, tipo: 'N2 Pix' })),
           ...reclameAqui.map(r => ({ ...r, tipo: 'RECLAME AQUI' })),
           ...procon.map(r => ({ ...r, tipo: 'PROCON' })),
           ...judicial.map(r => ({ ...r, tipo: 'AÇÃO JUDICIAL' }))
         ].sort((a, b) => {
-          // Para N2, usar dataEntradaN2 com fallback para dataEntradaAtendimento e depois createdAt
           let dataA, dataB;
-          if (a.tipo === 'OUVIDORIA' || a.tipo === 'N2') {
-            dataA = new Date(a.dataEntradaN2 || a.dataEntradaAtendimento || a.createdAt);
-          } else {
-            const campoA = a.tipo === 'RECLAME AQUI' ? 'dataReclam' : a.tipo === 'PROCON' ? 'dataProcon' : 'dataEntrada';
-            dataA = new Date(a[campoA] || a.createdAt);
-          }
-          if (b.tipo === 'OUVIDORIA' || b.tipo === 'N2') {
-            dataB = new Date(b.dataEntradaN2 || b.dataEntradaAtendimento || b.createdAt);
-          } else {
-            const campoB = b.tipo === 'RECLAME AQUI' ? 'dataReclam' : b.tipo === 'PROCON' ? 'dataProcon' : 'dataEntrada';
-            dataB = new Date(b[campoB] || b.createdAt);
-          }
+          const campoA = (a.tipo === 'OUVIDORIA' || a.tipo === 'N2' || a.tipo === 'N2 Pix') ? 'dataEntradaN2' : (a.tipo === 'RECLAME AQUI' ? 'dataReclam' : a.tipo === 'PROCON' ? 'dataProcon' : 'dataEntrada');
+          const campoB = (b.tipo === 'OUVIDORIA' || b.tipo === 'N2' || b.tipo === 'N2 Pix') ? 'dataEntradaN2' : (b.tipo === 'RECLAME AQUI' ? 'dataReclam' : b.tipo === 'PROCON' ? 'dataProcon' : 'dataEntrada');
+          dataA = new Date(a[campoA]);
+          dataB = new Date(b[campoB]);
           return dataB - dataA;
         });
       }
@@ -717,7 +736,7 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
           cpf: r.cpf ? r.cpf.substring(0, 3) + '***' + r.cpf.substring(9) : '', // CPF parcial
           tipo: r.tipo,
           status: r.Finalizado?.Resolvido === true ? 'Resolvido' : 'Em Andamento',
-          dataEntrada: r.dataEntradaN2 || r.dataEntradaAtendimento || r.dataEntrada || r.createdAt,
+          dataEntrada: (r.tipo === 'OUVIDORIA' || r.tipo === 'N2' || r.tipo === 'N2 Pix') ? r.dataEntradaN2 : (r.tipo === 'RECLAME AQUI' ? r.dataReclam : r.tipo === 'PROCON' ? r.dataProcon : r.dataEntrada),
           motivoReduzido: r.motivoReduzido,
           responsavel: r.responsavel,
           createdAt: r.createdAt,
@@ -783,7 +802,7 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
 
       // Se nenhum tipo especificado, processar todos (comportamento padrão)
       const processarBacen = tiposParaProcessar.length === 0 || tiposParaProcessar.includes('BACEN');
-      const processarN2 = tiposParaProcessar.length === 0 || tiposParaProcessar.includes('OUVIDORIA') || tiposParaProcessar.includes('N2');
+      const processarN2 = tiposParaProcessar.length === 0 || tiposParaProcessar.includes('OUVIDORIA') || tiposParaProcessar.includes('N2') || tiposParaProcessar.includes('N2 Pix');
       const processarReclameAqui = tiposParaProcessar.length === 0 || tiposParaProcessar.includes('RECLAME_AQUI') || tiposParaProcessar.includes('RECLAME AQUI') || tiposParaProcessar.includes('RECLAMEAQUI');
       const processarProcon = tiposParaProcessar.length === 0 || tiposParaProcessar.includes('PROCON');
       const processarJudicial = tiposParaProcessar.length === 0 || tiposParaProcessar.includes('PROCESSOS') || tiposParaProcessar.includes('JUDICIAL') || tiposParaProcessar.includes('AÇÃO JUDICIAL') || tiposParaProcessar.includes('ACAO JUDICIAL');
@@ -803,11 +822,11 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
       if (processarBacen) {
         const bacenCollection = db.collection('reclamacoes_bacen');
       
-      // Natureza por mês (origem) - usar dataEntrada ao invés de createdAt
+      // Natureza por mês (origem) - data de ENTRADA (nunca createdAt)
       const naturezaPorMes = await bacenCollection.aggregate([
         {
           $match: {
-            dataEntrada: { $gte: dataInicioDate, $lte: dataFimDate }
+            dataEntrada: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate }
           }
         },
         {
@@ -835,12 +854,12 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         }
       ]).toArray();
 
-      // PIX Retirado por Natureza e Mês (pixStatus === "Liberado" || "Excluído") - usar dataEntrada ao invés de createdAt
+      // PIX Retirado por Natureza e Mês - data de ENTRADA (nunca createdAt)
       const pixRetiradoPorNatureza = await bacenCollection.aggregate([
         {
           $match: {
-            dataEntrada: { $gte: dataInicioDate, $lte: dataFimDate },
-            pixStatus: { $in: ['Liberado', 'Excluído'] }
+            dataEntrada: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate },
+            $or: [{ pixLiberado: true }, { pixStatus: { $in: ['Liberado', 'Excluído', 'Solicitada'] } }]
           }
         },
         {
@@ -868,11 +887,11 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         }
       ]).toArray();
 
-      // Motivos por mês - usar dataEntrada ao invés de createdAt
+      // Motivos por mês - data de ENTRADA (nunca createdAt)
       const motivosPorMesBacen = await bacenCollection.aggregate([
         {
           $match: {
-            dataEntrada: { $gte: dataInicioDate, $lte: dataFimDate },
+            dataEntrada: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate },
             motivoReduzido: { $exists: true, $ne: '' }
           }
         },
@@ -922,117 +941,28 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
       if (processarN2) {
         const n2Collection = db.collection('reclamacoes_n2Pix');
 
-        // Debug: Verificar quantos documentos existem e quantos têm dataEntradaN2
+        // Debug: contagem baseada APENAS em dataEntradaN2 (sem fallback createdAt)
         const totalN2 = await n2Collection.countDocuments({});
         const n2ComDataEntradaN2 = await n2Collection.countDocuments({ dataEntradaN2: { $exists: true, $ne: null } });
-        const n2ComDataEntradaAtendimento = await n2Collection.countDocuments({ 
-          $and: [
-            { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
-            { dataEntradaAtendimento: { $exists: true, $ne: null } }
-          ]
-        });
-        const n2SemDataEntradaN2 = await n2Collection.countDocuments({ 
-          $and: [
-            { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
-            { $or: [{ dataEntradaAtendimento: { $exists: false } }, { dataEntradaAtendimento: null }] }
-          ]
-        });
-        const n2NoPeriodoDataEntradaN2 = await n2Collection.countDocuments({
+        const n2NoPeriodo = await n2Collection.countDocuments({
           dataEntradaN2: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate }
         });
-        const n2NoPeriodoDataEntradaAtendimento = await n2Collection.countDocuments({
-          $and: [
-            { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
-            { dataEntradaAtendimento: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } }
-          ]
-        });
-        const n2NoPeriodoCreatedAt = await n2Collection.countDocuments({
-          $and: [
-            { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
-            { $or: [{ dataEntradaAtendimento: { $exists: false } }, { dataEntradaAtendimento: null }] },
-            { createdAt: { $gte: dataInicioDate, $lte: dataFimDate } }
-          ]
-        });
-        const n2NoPeriodoTotal = n2NoPeriodoDataEntradaN2 + n2NoPeriodoDataEntradaAtendimento + n2NoPeriodoCreatedAt;
-        console.log(`🔍 [N2 Debug] Total documentos: ${totalN2}`);
-        console.log(`🔍 [N2 Debug] Com dataEntradaN2: ${n2ComDataEntradaN2}, Com dataEntradaAtendimento (sem dataEntradaN2): ${n2ComDataEntradaAtendimento}, Sem ambos: ${n2SemDataEntradaN2}`);
-        console.log(`🔍 [N2 Debug] No período (${dataInicio} a ${dataFim}): ${n2NoPeriodoTotal} (dataEntradaN2: ${n2NoPeriodoDataEntradaN2}, dataEntradaAtendimento: ${n2NoPeriodoDataEntradaAtendimento}, createdAt: ${n2NoPeriodoCreatedAt})`);
-        
-        // Verificar alguns documentos de exemplo para debug
-        const exemploDocs = await n2Collection.find({}).limit(3).toArray();
-        console.log(`🔍 [N2 Debug] Exemplo de documentos:`, exemploDocs.map(d => ({
-          _id: d._id,
-          dataEntradaN2: d.dataEntradaN2,
-          dataEntradaN2Type: typeof d.dataEntradaN2,
-          dataEntradaAtendimento: d.dataEntradaAtendimento,
-          dataEntradaAtendimentoType: typeof d.dataEntradaAtendimento,
-          createdAt: d.createdAt,
-          createdAtType: typeof d.createdAt
-        })));
+        console.log(`🔍 [N2 Debug] Total: ${totalN2}, Com dataEntradaN2: ${n2ComDataEntradaN2}, No período: ${n2NoPeriodo}`);
 
-      // Casos registrados por mês - usar dataEntradaN2 com fallback para dataEntradaAtendimento e depois createdAt
+      // Casos registrados por mês - APENAS dataEntradaN2 (nunca createdAt)
       const casosRegistradosPorMes = await n2Collection.aggregate([
         {
           $match: {
-            $or: [
-              { dataEntradaN2: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } },
-              { 
-                $and: [
-                  { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
-                  { dataEntradaAtendimento: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } }
-                ]
-              },
-              { 
-                $and: [
-                  { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
-                  { $or: [{ dataEntradaAtendimento: { $exists: false } }, { dataEntradaAtendimento: null }] },
-                  { createdAt: { $gte: dataInicioDate, $lte: dataFimDate } }
-                ]
-              }
-            ]
+            dataEntradaN2: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate }
           }
         },
         {
           $addFields: {
             dataEntradaDate: {
               $cond: {
-                if: { 
-                  $and: [
-                    { $ne: ['$dataEntradaN2', null] },
-                    { $ne: [{ $type: '$dataEntradaN2' }, 'missing'] }
-                  ]
-                },
-                then: {
-                  $cond: {
-                    if: { $eq: [{ $type: '$dataEntradaN2' }, 'date'] },
-                    then: '$dataEntradaN2',
-                    else: { $toDate: '$dataEntradaN2' }
-                  }
-                },
-                else: {
-                  $cond: {
-                    if: { 
-                      $and: [
-                        { $ne: ['$dataEntradaAtendimento', null] },
-                        { $ne: [{ $type: '$dataEntradaAtendimento' }, 'missing'] }
-                      ]
-                    },
-                    then: {
-                      $cond: {
-                        if: { $eq: [{ $type: '$dataEntradaAtendimento' }, 'date'] },
-                        then: '$dataEntradaAtendimento',
-                        else: { $toDate: '$dataEntradaAtendimento' }
-                      }
-                    },
-                    else: {
-                      $cond: {
-                        if: { $eq: [{ $type: '$createdAt' }, 'date'] },
-                        then: '$createdAt',
-                        else: { $toDate: '$createdAt' }
-                      }
-                    }
-                  }
-                }
+                if: { $eq: [{ $type: '$dataEntradaN2' }, 'date'] },
+                then: '$dataEntradaN2',
+                else: { $toDate: '$dataEntradaN2' }
               }
             }
           }
@@ -1050,33 +980,12 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         }
       ]).toArray();
 
-      // Casos finalizados por mês (Finalizado.Resolvido === true)
-      // Usar dataResolucao se disponível, senão usar updatedAt quando Resolvido = true
-      // Filtro por dataEntradaN2 com fallback para dataEntradaAtendimento e depois createdAt
+      // Casos finalizados por mês (Finalizado.Resolvido === true) - APENAS dataEntradaN2
       const casosFinalizadosPorMes = await n2Collection.aggregate([
         {
           $match: {
-            $and: [
-              {
-                $or: [
-                  { dataEntradaN2: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } },
-                  { 
-                    $and: [
-                      { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
-                      { dataEntradaAtendimento: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } }
-                    ]
-                  },
-                  { 
-                    $and: [
-                      { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
-                      { $or: [{ dataEntradaAtendimento: { $exists: false } }, { dataEntradaAtendimento: null }] },
-                      { createdAt: { $gte: dataInicioDate, $lte: dataFimDate } }
-                    ]
-                  }
-                ]
-              },
-              { 'Finalizado.Resolvido': true }
-            ]
+            dataEntradaN2: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate },
+            'Finalizado.Resolvido': true
           }
         },
         {
@@ -1125,69 +1034,20 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         }
       ]).toArray();
 
-      // PIX Liberado por mês (pixStatus === "Liberado") - usar dataEntradaN2 com fallback para dataEntradaAtendimento e depois createdAt
+      // PIX Liberado por mês - APENAS dataEntradaN2 (nunca createdAt)
       const pixLiberadoPorMes = await n2Collection.aggregate([
         {
           $match: {
-            $or: [
-              { dataEntradaN2: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } },
-              { 
-                $and: [
-                  { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
-                  { dataEntradaAtendimento: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } }
-                ]
-              },
-              { 
-                $and: [
-                  { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
-                  { $or: [{ dataEntradaAtendimento: { $exists: false } }, { dataEntradaAtendimento: null }] },
-                  { createdAt: { $gte: dataInicioDate, $lte: dataFimDate } }
-                ]
-              }
-            ]
+            dataEntradaN2: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate }
           }
         },
         {
           $addFields: {
             dataEntradaDate: {
               $cond: {
-                if: { 
-                  $and: [
-                    { $ne: ['$dataEntradaN2', null] },
-                    { $ne: [{ $type: '$dataEntradaN2' }, 'missing'] }
-                  ]
-                },
-                then: {
-                  $cond: {
-                    if: { $eq: [{ $type: '$dataEntradaN2' }, 'date'] },
-                    then: '$dataEntradaN2',
-                    else: { $toDate: '$dataEntradaN2' }
-                  }
-                },
-                else: {
-                  $cond: {
-                    if: { 
-                      $and: [
-                        { $ne: ['$dataEntradaAtendimento', null] },
-                        { $ne: [{ $type: '$dataEntradaAtendimento' }, 'missing'] }
-                      ]
-                    },
-                    then: {
-                      $cond: {
-                        if: { $eq: [{ $type: '$dataEntradaAtendimento' }, 'date'] },
-                        then: '$dataEntradaAtendimento',
-                        else: { $toDate: '$dataEntradaAtendimento' }
-                      }
-                    },
-                    else: {
-                      $cond: {
-                        if: { $eq: [{ $type: '$createdAt' }, 'date'] },
-                        then: '$createdAt',
-                        else: { $toDate: '$createdAt' }
-                      }
-                    }
-                  }
-                }
+                if: { $eq: [{ $type: '$dataEntradaN2' }, 'date'] },
+                then: '$dataEntradaN2',
+                else: { $toDate: '$dataEntradaN2' }
               }
             }
           }
@@ -1196,7 +1056,7 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
           $group: {
             _id: {
               mes: { $dateToString: { format: '%Y-%m', date: '$dataEntradaDate' } },
-              pixStatus: '$pixStatus'
+              pixStatus: { $cond: [{ $or: [{ $eq: ['$pixLiberado', true] }, { $in: ['$pixStatus', ['Liberado', 'Excluído', 'Solicitada']] }] }, 'Liberado', 'Não aplicável' ] }
             },
             count: { $sum: 1 }
           }
@@ -1206,36 +1066,15 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         }
       ]).toArray();
 
-      // Motivos por mês - usar dataEntradaN2 com fallback para dataEntradaAtendimento e depois createdAt
-      // Tratar tanto arrays quanto strings (alguns registros antigos podem ter strings concatenadas)
+      // Motivos por mês - APENAS dataEntradaN2 (nunca createdAt)
       const motivosPorMesN2Raw = await n2Collection.aggregate([
         {
           $match: {
-            $and: [
-              {
-                $or: [
-                  { dataEntradaN2: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } },
-                  { 
-                    $and: [
-                      { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
-                      { dataEntradaAtendimento: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } }
-                    ]
-                  },
-                  { 
-                    $and: [
-                      { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
-                      { $or: [{ dataEntradaAtendimento: { $exists: false } }, { dataEntradaAtendimento: null }] },
-                      { createdAt: { $gte: dataInicioDate, $lte: dataFimDate } }
-                    ]
-                  }
-                ]
-              },
-              { motivoReduzido: { $exists: true, $ne: null } }
-            ]
+            dataEntradaN2: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate },
+            motivoReduzido: { $exists: true, $ne: null }
           }
         },
         {
-          // Converter string para array se necessário, depois desenrolar
           $addFields: {
             motivoReduzidoArray: {
               $cond: {
@@ -1250,46 +1089,11 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
                 }
               }
             },
-            // Garantir que dataEntradaN2 seja Date para $dateToString (com fallback para dataEntradaAtendimento e depois createdAt)
             dataEntradaDate: {
               $cond: {
-                if: { 
-                  $and: [
-                    { $ne: ['$dataEntradaN2', null] },
-                    { $ne: [{ $type: '$dataEntradaN2' }, 'missing'] }
-                  ]
-                },
-                then: {
-                  $cond: {
-                    if: { $eq: [{ $type: '$dataEntradaN2' }, 'date'] },
-                    then: '$dataEntradaN2',
-                    else: { $toDate: '$dataEntradaN2' }
-                  }
-                },
-                else: {
-                  $cond: {
-                    if: { 
-                      $and: [
-                        { $ne: ['$dataEntradaAtendimento', null] },
-                        { $ne: [{ $type: '$dataEntradaAtendimento' }, 'missing'] }
-                      ]
-                    },
-                    then: {
-                      $cond: {
-                        if: { $eq: [{ $type: '$dataEntradaAtendimento' }, 'date'] },
-                        then: '$dataEntradaAtendimento',
-                        else: { $toDate: '$dataEntradaAtendimento' }
-                      }
-                    },
-                    else: {
-                      $cond: {
-                        if: { $eq: [{ $type: '$createdAt' }, 'date'] },
-                        then: '$createdAt',
-                        else: { $toDate: '$createdAt' }
-                      }
-                    }
-                  }
-                }
+                if: { $eq: [{ $type: '$dataEntradaN2' }, 'date'] },
+                then: '$dataEntradaN2',
+                else: { $toDate: '$dataEntradaN2' }
               }
             }
           }
@@ -1364,11 +1168,11 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
       if (processarReclameAqui) {
         const reclameAquiCollection = db.collection('reclamacoes_reclameAqui');
 
-        // Motivos por mês - usar dataReclam ao invés de createdAt
+        // Motivos por mês - APENAS dataReclam (nunca createdAt)
         const motivosPorMesReclameAquiRaw = await reclameAquiCollection.aggregate([
           {
             $match: {
-              dataReclam: { $gte: dataInicioDate, $lte: dataFimDate },
+              dataReclam: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate },
               motivoReduzido: { $exists: true, $ne: null }
             }
           },
@@ -1464,11 +1268,11 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         });
         console.log(`🔍 [Procon Debug] Total documentos: ${totalProcon}, Com dataProcon: ${proconComDataProcon}, No período (${dataInicio} a ${dataFim}): ${proconNoPeriodo}`);
 
-        // Motivos por mês - usar dataProcon ao invés de createdAt
+        // Motivos por mês - APENAS dataProcon (nunca createdAt)
         const motivosPorMesProconRaw = await proconCollection.aggregate([
           {
             $match: {
-              dataProcon: { $gte: dataInicioDate, $lte: dataFimDate },
+              dataProcon: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate },
               motivoReduzido: { $exists: true, $ne: null }
             }
           },
@@ -1564,11 +1368,11 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         });
         console.log(`🔍 [Judicial Debug] Total documentos: ${totalJudicial}, Com dataEntrada: ${judicialComDataEntrada}, No período (${dataInicio} a ${dataFim}): ${judicialNoPeriodo}`);
 
-        // Motivos por mês - usar dataEntrada ao invés de createdAt
+        // Motivos por mês - APENAS dataEntrada (nunca createdAt)
         const motivosPorMesJudicialRaw = await judicialCollection.aggregate([
           {
             $match: {
-              dataEntrada: { $gte: dataInicioDate, $lte: dataFimDate },
+              dataEntrada: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate },
               motivoReduzido: { $exists: true, $ne: null }
             }
           },
@@ -1587,29 +1391,12 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
                   }
                 }
               },
-            // Garantir que dataEntrada seja Date para $dateToString (com fallback para createdAt)
+            // dataEntrada para $dateToString (filtro já garante que existe)
             dataEntradaDate: {
               $cond: {
-                if: { 
-                  $and: [
-                    { $ne: ['$dataEntrada', null] },
-                    { $ne: [{ $type: '$dataEntrada' }, 'missing'] }
-                  ]
-                },
-                then: {
-                  $cond: {
-                    if: { $eq: [{ $type: '$dataEntrada' }, 'date'] },
-                    then: '$dataEntrada',
-                    else: { $toDate: '$dataEntrada' }
-                  }
-                },
-                else: {
-                  $cond: {
-                    if: { $eq: [{ $type: '$createdAt' }, 'date'] },
-                    then: '$createdAt',
-                    else: { $toDate: '$createdAt' }
-                  }
-                }
+                if: { $eq: [{ $type: '$dataEntrada' }, 'date'] },
+                then: '$dataEntrada',
+                else: { $toDate: '$dataEntrada' }
               }
             }
             }
@@ -1763,15 +1550,20 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         // Processar BACEN
         const bacenCollection = db.collection('reclamacoes_bacen');
         
-        // Natureza por dia - usar dataEntrada ao invés de createdAt
-        // Usar $cond para verificar se origem tem valores válidos, senão usar motivoReduzido
-        // Valores válidos de natureza: "Bacen Celcoin", "Bacen Via Capital", "Consumidor.Gov"
-        const naturezaPorDia = await bacenCollection.aggregate([
-          {
-            $match: {
-              dataEntrada: { $gte: dataInicioDate, $lte: dataFimDate }
-            }
-          },
+        // Filtro data: aceita Date ou string (v2.16.0)
+        const filtroDataBacen = {
+          $or: [
+            { dataEntrada: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } },
+            { dataEntrada: { $exists: true, $ne: null, $type: 'string', $gte: dataInicio, $lte: dataFim } }
+          ],
+          origem: { $exists: true, $ne: '', $in: ['Bacen Celcoin', 'Bacen Via Capital', 'Consumidor.Gov'] }
+        };
+
+        let naturezaPorDia, pixRetiradoPorDia, motivosPorDia;
+        try {
+          // Natureza por dia - APENAS origem (schema 471), dataEntrada (schema 470)
+          naturezaPorDia = await bacenCollection.aggregate([
+          { $match: filtroDataBacen },
           {
             $addFields: {
               dataEntradaDate: {
@@ -1783,33 +1575,12 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
               }
             }
           },
-          {
-            $addFields: {
-              natureza: {
-                $cond: {
-                  if: { $in: ['$origem', ['Bacen Celcoin', 'Bacen Via Capital', 'Consumidor.Gov']] },
-                  then: '$origem',
-                  else: {
-                    $cond: {
-                      if: { $in: ['$motivoReduzido', ['Bacen Celcoin', 'Bacen Via Capital', 'Consumidor.Gov']] },
-                      then: '$motivoReduzido',
-                      else: null
-                    }
-                  }
-                }
-              }
-            }
-          },
-          {
-            $match: {
-              natureza: { $ne: null }
-            }
-          },
+          { $match: { dataEntradaDate: { $ne: null } } },
           {
             $group: {
               _id: {
                 dia: { $dateToString: { format: '%Y-%m-%d', date: '$dataEntradaDate' } },
-                natureza: '$natureza'
+                natureza: '$origem'
               },
               count: { $sum: 1 }
             }
@@ -1819,14 +1590,12 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
           }
         ]).toArray();
 
-        // PIX Retirado por dia (pixStatus === "Liberado" || "Excluído") - usar dataEntrada ao invés de createdAt
-        // Usar $cond para verificar se origem tem valores válidos, senão usar motivoReduzido
-        // Valores válidos de natureza: "Bacen Celcoin", "Bacen Via Capital", "Consumidor.Gov"
-        const pixRetiradoPorDia = await bacenCollection.aggregate([
+          // PIX Retirado por dia - APENAS dataEntrada, agrupado por origem (natureza)
+          pixRetiradoPorDia = await bacenCollection.aggregate([
           {
             $match: {
-              dataEntrada: { $gte: dataInicioDate, $lte: dataFimDate },
-              pixStatus: { $in: ['Liberado', 'Excluído'] }
+              ...filtroDataBacen,
+              pixLiberado: true
             }
           },
           {
@@ -1840,33 +1609,12 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
               }
             }
           },
-          {
-            $addFields: {
-              natureza: {
-                $cond: {
-                  if: { $in: ['$origem', ['Bacen Celcoin', 'Bacen Via Capital', 'Consumidor.Gov']] },
-                  then: '$origem',
-                  else: {
-                    $cond: {
-                      if: { $in: ['$motivoReduzido', ['Bacen Celcoin', 'Bacen Via Capital', 'Consumidor.Gov']] },
-                      then: '$motivoReduzido',
-                      else: null
-                    }
-                  }
-                }
-              }
-            }
-          },
-          {
-            $match: {
-              natureza: { $ne: null }
-            }
-          },
+          { $match: { dataEntradaDate: { $ne: null } } },
           {
             $group: {
               _id: {
                 dia: { $dateToString: { format: '%Y-%m-%d', date: '$dataEntradaDate' } },
-                natureza: '$natureza'
+                natureza: '$origem'
               },
               count: { $sum: 1 }
             }
@@ -1876,189 +1624,79 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
           }
         ]).toArray();
 
-        // Motivos por dia - apenas motivoReduzido que são MOTIVOS (não naturezas) - usar dataEntrada ao invés de createdAt
-        // #region agent log
-        const totalRegistrosPeriodo = await bacenCollection.countDocuments({
-          dataEntrada: { $gte: dataInicioDate, $lte: dataFimDate }
-        });
-        const totalComMotivoReduzido = await bacenCollection.countDocuments({
-          dataEntrada: { $gte: dataInicioDate, $lte: dataFimDate },
-          motivoReduzido: { $exists: true, $ne: '' }
-        });
-        console.log('🔍 [DEBUG] Antes agregação motivosPorDia:', {
-          totalRegistrosPeriodo,
-          totalComMotivoReduzido,
-          motivosValidosCount: MOTIVOS_VALIDOS.length,
-          dataInicio,
-          dataFim
-        });
-        // #endregion
-        
-        // Contar TODOS os valores de motivoReduzido (sem filtro restritivo)
-        // O frontend vai normalizar e agrupar variações (ex: "CHAVE PIX" e "Chave PIX")
-        const motivosPorDia = await bacenCollection.aggregate([
-          {
-            $match: {
-              dataEntrada: { $gte: dataInicioDate, $lte: dataFimDate },
-              motivoReduzido: { 
-                $exists: true, 
-                $ne: ''
-              }
-            }
-          },
-          {
-            $addFields: {
-              dataEntradaDate: {
-                $cond: {
-                  if: { $eq: [{ $type: '$dataEntrada' }, 'date'] },
-                  then: '$dataEntrada',
-                  else: { $toDate: '$dataEntrada' }
-                }
-              }
-            }
-          },
-          {
-            $group: {
-              _id: {
-                dia: { $dateToString: { format: '%Y-%m-%d', date: '$dataEntradaDate' } },
-                motivo: '$motivoReduzido'
-              },
-              count: { $sum: 1 }
-            }
-          },
-          {
-            $sort: { '_id.dia': 1, '_id.motivo': 1 }
-          }
-        ]).toArray();
-
-        // #region agent log
-        const valoresUnicosRetornados = [...new Set(motivosPorDia.map(m => m._id.motivo))];
-        console.log('🔍 [DEBUG] Após agregação motivosPorDia:', {
-          motivosPorDiaLength: motivosPorDia.length,
-          valoresUnicosRetornados,
-          primeirosItens: motivosPorDia.slice(0, 5)
-        });
-        // #endregion
-
-        // Debug: verificar estrutura dos dados retornados
-        console.log(`🔍 DEBUG diario - Total de itens em motivosPorDia: ${motivosPorDia.length}`);
-        
-        // SEMPRE verificar quantos registros têm motivoReduzido (mesmo quando há resultados) - usar dataEntrada
-        const totalComMotivo = await bacenCollection.countDocuments({
-          dataEntrada: { $gte: dataInicioDate, $lte: dataFimDate },
-          motivoReduzido: { $exists: true, $ne: '' }
-        });
-        console.log(`🔍 DEBUG diario - Total com motivoReduzido: ${totalComMotivo}`);
-        
-        // Listar valores únicos de motivoReduzido encontrados (todos, não apenas os válidos) - usar dataEntrada
-        const valoresUnicosMotivoReduzido = await bacenCollection.distinct('motivoReduzido', {
-          dataEntrada: { $gte: dataInicioDate, $lte: dataFimDate },
-          motivoReduzido: { $exists: true, $ne: '' }
-        });
-        console.log(`🔍 DEBUG diario - Valores únicos de motivoReduzido encontrados (${valoresUnicosMotivoReduzido.length}):`, valoresUnicosMotivoReduzido);
-        
-        // Verificar quantos são motivos válidos vs naturezas
-        const valoresMotivosValidos = valoresUnicosMotivoReduzido.filter(v => MOTIVOS_VALIDOS.includes(v));
-        const valoresNaturezas = valoresUnicosMotivoReduzido.filter(v => !MOTIVOS_VALIDOS.includes(v));
-        console.log(`🔍 DEBUG diario - Valores que são motivos válidos (${valoresMotivosValidos.length}):`, valoresMotivosValidos);
-        console.log(`🔍 DEBUG diario - Valores que são naturezas ou outros (${valoresNaturezas.length}):`, valoresNaturezas);
-        
-        if (motivosPorDia.length > 0) {
-          const primeiroMotivo = motivosPorDia[0];
-          console.log('🔍 DEBUG diario - primeiro item motivosPorDia:', JSON.stringify(primeiroMotivo, null, 2));
-          const valoresUnicos = [...new Set(motivosPorDia.map(m => m._id.motivo))];
-          console.log(`🔍 DEBUG diario - Valores únicos de motivo encontrados na agregação (${valoresUnicos.length}):`, valoresUnicos);
+        // Motivos por dia - find() + processamento em memória (como Painel Tempo Real)
+        // Mais robusto que aggregation; funciona com motivoReduzido String ou [String]
+          const filtroMotivosBacen = {
+            $or: [
+              { dataEntrada: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } },
+              { dataEntrada: { $exists: true, $ne: null, $type: 'string', $gte: dataInicio, $lte: dataFim } }
+            ]
+          };
+          const docsBacen = await bacenCollection.find(filtroMotivosBacen).toArray();
+          const diaStr = (d) => {
+            if (!d) return null;
+            const dt = d instanceof Date ? d : new Date(d);
+            return isNaN(dt.getTime()) ? null : dt.toISOString().slice(0, 10);
+          };
+          const motivosPorDiaMap = {};
+          docsBacen.forEach((d) => {
+            const dia = diaStr(d.dataEntrada);
+            if (!dia) return;
+            const motivosArr = Array.isArray(d.motivoReduzido)
+              ? d.motivoReduzido.filter((m) => m && String(m).trim())
+              : d.motivoReduzido ? [String(d.motivoReduzido).trim()] : [];
+            motivosArr.forEach((m) => {
+              const motivo = String(m).trim();
+              if (!motivo) return;
+              if (isOrigemBacen(motivo)) return;
+              if (!motivosPorDiaMap[motivo]) motivosPorDiaMap[motivo] = {};
+              motivosPorDiaMap[motivo][dia] = (motivosPorDiaMap[motivo][dia] || 0) + 1;
+            });
+          });
+          motivosPorDia = [];
+          Object.keys(motivosPorDiaMap).sort().forEach((motivo) => {
+            Object.entries(motivosPorDiaMap[motivo]).forEach(([dia, count]) => {
+              motivosPorDia.push({ _id: { dia, motivo }, count });
+            });
+          });
+          motivosPorDia.sort((a, b) => {
+            if (a._id.dia !== b._id.dia) return a._id.dia.localeCompare(b._id.dia);
+            return a._id.motivo.localeCompare(b._id.motivo);
+          });
+        } catch (bacenErr) {
+          console.error('❌ Erro agregação BACEN diario:', bacenErr.message);
+          console.error('Stack:', bacenErr.stack);
+          naturezaPorDia = [];
+          pixRetiradoPorDia = [];
+          motivosPorDia = [];
         }
-        
-        // Debug: verificar quantos registros têm PIX retirado - usar dataEntrada
-        const totalPixRetirado = await bacenCollection.countDocuments({
-          dataEntrada: { $gte: dataInicioDate, $lte: dataFimDate },
-          pixStatus: { $in: ['Liberado', 'Excluído'] }
-        });
-        console.log(`🔍 DEBUG diario - Total de registros com PIX retirado: ${totalPixRetirado}`);
-        console.log(`🔍 DEBUG diario - Total de itens em pixRetiradoPorDia: ${pixRetiradoPorDia.length}`);
 
         resultado.bacen = {
-          naturezaPorDia,
-          pixRetiradoPorDia,
-          motivosPorDia
+          naturezaPorDia: naturezaPorDia || [],
+          pixRetiradoPorDia: pixRetiradoPorDia || [],
+          motivosPorDia: motivosPorDia || []
         };
         
-        // #region agent log
-        console.log('🔍 [DEBUG] resultado.bacen antes de enviar:', {
-          motivosPorDiaLength: resultado.bacen.motivosPorDia.length,
-          motivosPorDiaSample: resultado.bacen.motivosPorDia.slice(0, 3)
-        });
-        // #endregion
       }
 
       if (!tipo || tipo === 'N2') {
         // Processar N2
         const n2Collection = db.collection('reclamacoes_n2Pix');
         
-        // Número de chamados por dia - usar dataEntradaN2 com fallback para dataEntradaAtendimento e depois createdAt
+        // Chamados por dia - APENAS dataEntradaN2 (nunca createdAt)
         const chamadosPorDia = await n2Collection.aggregate([
           {
             $match: {
-              $or: [
-                { dataEntradaN2: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } },
-                { 
-                  $and: [
-                    { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
-                    { dataEntradaAtendimento: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } }
-                  ]
-                },
-                { 
-                  $and: [
-                    { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
-                    { $or: [{ dataEntradaAtendimento: { $exists: false } }, { dataEntradaAtendimento: null }] },
-                    { createdAt: { $gte: dataInicioDate, $lte: dataFimDate } }
-                  ]
-                }
-              ]
+              dataEntradaN2: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate }
             }
           },
           {
             $addFields: {
               dataEntradaDate: {
                 $cond: {
-                  if: { 
-                    $and: [
-                      { $ne: ['$dataEntradaN2', null] },
-                      { $ne: [{ $type: '$dataEntradaN2' }, 'missing'] }
-                    ]
-                  },
-                  then: {
-                    $cond: {
-                      if: { $eq: [{ $type: '$dataEntradaN2' }, 'date'] },
-                      then: '$dataEntradaN2',
-                      else: { $toDate: '$dataEntradaN2' }
-                    }
-                  },
-                  else: {
-                    $cond: {
-                      if: { 
-                        $and: [
-                          { $ne: ['$dataEntradaAtendimento', null] },
-                          { $ne: [{ $type: '$dataEntradaAtendimento' }, 'missing'] }
-                        ]
-                      },
-                      then: {
-                        $cond: {
-                          if: { $eq: [{ $type: '$dataEntradaAtendimento' }, 'date'] },
-                          then: '$dataEntradaAtendimento',
-                          else: { $toDate: '$dataEntradaAtendimento' }
-                        }
-                      },
-                      else: {
-                        $cond: {
-                          if: { $eq: [{ $type: '$createdAt' }, 'date'] },
-                          then: '$createdAt',
-                          else: { $toDate: '$createdAt' }
-                        }
-                      }
-                    }
-                  }
+                  if: { $eq: [{ $type: '$dataEntradaN2' }, 'date'] },
+                  then: '$dataEntradaN2',
+                  else: { $toDate: '$dataEntradaN2' }
                 }
               }
             }
@@ -2076,74 +1714,21 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
           }
         ]).toArray();
 
-        // PIX Retirado por dia (pixStatus === "Liberado" || "Excluído") - usar dataEntradaN2 com fallback para dataEntradaAtendimento e depois createdAt
+        // PIX Retirado por dia - APENAS dataEntradaN2 (nunca createdAt)
         const pixRetiradoPorDiaN2 = await n2Collection.aggregate([
           {
             $match: {
-              $and: [
-                {
-                  $or: [
-                    { dataEntradaN2: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } },
-                    { 
-                      $and: [
-                        { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
-                        { dataEntradaAtendimento: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } }
-                      ]
-                    },
-                    { 
-                      $and: [
-                        { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
-                        { $or: [{ dataEntradaAtendimento: { $exists: false } }, { dataEntradaAtendimento: null }] },
-                        { createdAt: { $gte: dataInicioDate, $lte: dataFimDate } }
-                      ]
-                    }
-                  ]
-                },
-                { pixStatus: { $in: ['Liberado', 'Excluído'] } }
-              ]
+              dataEntradaN2: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate },
+              $or: [{ pixLiberado: true }, { pixStatus: { $in: ['Liberado', 'Excluído', 'Solicitada'] } }]
             }
           },
           {
             $addFields: {
               dataEntradaDate: {
                 $cond: {
-                  if: { 
-                    $and: [
-                      { $ne: ['$dataEntradaN2', null] },
-                      { $ne: [{ $type: '$dataEntradaN2' }, 'missing'] }
-                    ]
-                  },
-                  then: {
-                    $cond: {
-                      if: { $eq: [{ $type: '$dataEntradaN2' }, 'date'] },
-                      then: '$dataEntradaN2',
-                      else: { $toDate: '$dataEntradaN2' }
-                    }
-                  },
-                  else: {
-                    $cond: {
-                      if: { 
-                        $and: [
-                          { $ne: ['$dataEntradaAtendimento', null] },
-                          { $ne: [{ $type: '$dataEntradaAtendimento' }, 'missing'] }
-                        ]
-                      },
-                      then: {
-                        $cond: {
-                          if: { $eq: [{ $type: '$dataEntradaAtendimento' }, 'date'] },
-                          then: '$dataEntradaAtendimento',
-                          else: { $toDate: '$dataEntradaAtendimento' }
-                        }
-                      },
-                      else: {
-                        $cond: {
-                          if: { $eq: [{ $type: '$createdAt' }, 'date'] },
-                          then: '$createdAt',
-                          else: { $toDate: '$createdAt' }
-                        }
-                      }
-                    }
-                  }
+                  if: { $eq: [{ $type: '$dataEntradaN2' }, 'date'] },
+                  then: '$dataEntradaN2',
+                  else: { $toDate: '$dataEntradaN2' }
                 }
               }
             }
@@ -2161,130 +1746,38 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
           }
         ]).toArray();
 
-        // Motivos por dia - contar TODOS os valores de motivoReduzido (sem filtro restritivo) - usar dataEntradaN2 com fallback para dataEntradaAtendimento e depois createdAt
-        // Tratar tanto arrays quanto strings (alguns registros antigos podem ter strings concatenadas)
-        const motivosPorDiaN2Raw = await n2Collection.aggregate([
-          {
-            $match: {
-              $and: [
-                {
-                  $or: [
-                    { dataEntradaN2: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } },
-                    { 
-                      $and: [
-                        { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
-                        { dataEntradaAtendimento: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } }
-                      ]
-                    },
-                    { 
-                      $and: [
-                        { $or: [{ dataEntradaN2: { $exists: false } }, { dataEntradaN2: null }] },
-                        { $or: [{ dataEntradaAtendimento: { $exists: false } }, { dataEntradaAtendimento: null }] },
-                        { createdAt: { $gte: dataInicioDate, $lte: dataFimDate } }
-                      ]
-                    }
-                  ]
-                },
-                { motivoReduzido: { $exists: true, $ne: null } }
-              ]
-            }
-          },
-          {
-            $addFields: {
-              dataEntradaDate: {
-                $cond: {
-                  if: { 
-                    $and: [
-                      { $ne: ['$dataEntradaN2', null] },
-                      { $ne: [{ $type: '$dataEntradaN2' }, 'missing'] }
-                    ]
-                  },
-                  then: {
-                    $cond: {
-                      if: { $eq: [{ $type: '$dataEntradaN2' }, 'date'] },
-                      then: '$dataEntradaN2',
-                      else: { $toDate: '$dataEntradaN2' }
-                    }
-                  },
-                  else: {
-                    $cond: {
-                      if: { 
-                        $and: [
-                          { $ne: ['$dataEntradaAtendimento', null] },
-                          { $ne: [{ $type: '$dataEntradaAtendimento' }, 'missing'] }
-                        ]
-                      },
-                      then: {
-                        $cond: {
-                          if: { $eq: [{ $type: '$dataEntradaAtendimento' }, 'date'] },
-                          then: '$dataEntradaAtendimento',
-                          else: { $toDate: '$dataEntradaAtendimento' }
-                        }
-                      },
-                      else: {
-                        $cond: {
-                          if: { $eq: [{ $type: '$createdAt' }, 'date'] },
-                          then: '$createdAt',
-                          else: { $toDate: '$createdAt' }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          {
-            // Converter string para array se necessário, depois desenrolar
-            $addFields: {
-              motivoReduzidoArray: {
-                $cond: {
-                  if: { $isArray: '$motivoReduzido' },
-                  then: '$motivoReduzido',
-                  else: {
-                    $cond: {
-                      if: { $eq: [{ $type: '$motivoReduzido' }, 'string'] },
-                      then: ['$motivoReduzido'],
-                      else: []
-                    }
-                  }
-                }
-              }
-            }
-          },
-          {
-            // Desenrolar array motivoReduzido para processar cada motivo individualmente
-            $unwind: {
-              path: '$motivoReduzidoArray',
-              preserveNullAndEmptyArrays: false
-            }
-          },
-          {
-            $project: {
-              dia: { $dateToString: { format: '%Y-%m-%d', date: '$dataEntradaDate' } },
-              motivo: '$motivoReduzidoArray'
-            }
-          }
-        ]).toArray();
-        
-        // Processar motivos concatenados e reagrupar
-        const motivosPorDiaN2Map = new Map();
-        motivosPorDiaN2Raw.forEach(item => {
-          const motivosIndividuais = processarMotivosParaRelatorio(item.motivo);
-          motivosIndividuais.forEach(motivo => {
-            const key = `${item.dia}|${motivo}`;
-            motivosPorDiaN2Map.set(key, (motivosPorDiaN2Map.get(key) || 0) + 1);
+        // Motivos por dia N2 - find() + processamento em memória (como Painel Tempo Real)
+        const filtroN2 = {
+          dataEntradaN2: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate }
+        };
+        const docsN2 = await n2Collection.find(filtroN2).toArray();
+        const diaStrN2 = (d) => {
+          if (!d) return null;
+          const dt = d instanceof Date ? d : new Date(d);
+          return isNaN(dt.getTime()) ? null : dt.toISOString().slice(0, 10);
+        };
+        const motivosPorDiaN2Map = {};
+        docsN2.forEach((d) => {
+          const dia = diaStrN2(d.dataEntradaN2);
+          if (!dia) return;
+          const motivosArr = Array.isArray(d.motivoReduzido)
+            ? d.motivoReduzido.filter((m) => m && String(m).trim())
+            : d.motivoReduzido ? [String(d.motivoReduzido).trim()] : [];
+          motivosArr.forEach((m) => {
+            const motivo = String(m).trim();
+            if (!motivo) return;
+            if (isOrigemBacen(motivo)) return;
+            if (!motivosPorDiaN2Map[motivo]) motivosPorDiaN2Map[motivo] = {};
+            motivosPorDiaN2Map[motivo][dia] = (motivosPorDiaN2Map[motivo][dia] || 0) + 1;
           });
         });
-        
-        // Converter de volta para formato esperado
-        const motivosPorDiaN2 = Array.from(motivosPorDiaN2Map.entries()).map(([key, count]) => {
-          const [dia, motivo] = key.split('|');
-          return {
-            _id: { dia, motivo },
-            count
-          };
-        }).sort((a, b) => {
+        const motivosPorDiaN2 = [];
+        Object.keys(motivosPorDiaN2Map).sort().forEach((motivo) => {
+          Object.entries(motivosPorDiaN2Map[motivo]).forEach(([dia, count]) => {
+            motivosPorDiaN2.push({ _id: { dia, motivo }, count });
+          });
+        });
+        motivosPorDiaN2.sort((a, b) => {
           if (a._id.dia !== b._id.dia) return a._id.dia.localeCompare(b._id.dia);
           return a._id.motivo.localeCompare(b._id.motivo);
         });
@@ -2304,6 +1797,7 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
       });
     } catch (error) {
       console.error('❌ Erro ao gerar relatório diário:', error);
+      console.error('Stack:', error.stack);
       res.status(500).json({
         success: false,
         message: 'Erro ao gerar relatório diário',

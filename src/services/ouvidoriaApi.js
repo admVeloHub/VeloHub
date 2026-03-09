@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Ouvidoria API Service
- * VERSION: v2.3.1 | DATE: 2026-02-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.4.0 | DATE: 2026-03-05 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.4.0:
+ * - Adicionado parâmetro produtos (array) em getStats e getMetricas do dashboardAPI
  * 
  * Mudanças v2.3.1:
  * - Atualizado comentário: reclamacoes_ouvidoria → reclamacoes_n2Pix
@@ -201,26 +204,32 @@ export const colaboradoresAPI = {
 export const dashboardAPI = {
   /**
    * Buscar estatísticas gerais
-   * @param {Object} filtros - Filtros opcionais (dataInicio, dataFim)
+   * @param {Object} filtros - Filtros opcionais (dataInicio, dataFim, produtos)
    * @returns {Promise<Object>} Estatísticas
    */
   getStats: (filtros = {}) => {
     const query = new URLSearchParams();
     if (filtros.dataInicio) query.append('dataInicio', filtros.dataInicio);
     if (filtros.dataFim) query.append('dataFim', filtros.dataFim);
+    if (filtros.produtos && Array.isArray(filtros.produtos)) {
+      filtros.produtos.forEach(p => { if (p) query.append('produtos', p); });
+    }
     const queryString = query.toString();
     return apiRequest(`/ouvidoria/dashboard/stats${queryString ? `?${queryString}` : ''}`);
   },
 
   /**
    * Buscar métricas específicas
-   * @param {Object} filtros - Filtros opcionais (dataInicio, dataFim)
+   * @param {Object} filtros - Filtros opcionais (dataInicio, dataFim, produtos)
    * @returns {Promise<Object>} Métricas
    */
   getMetricas: (filtros = {}) => {
     const query = new URLSearchParams();
     if (filtros.dataInicio) query.append('dataInicio', filtros.dataInicio);
     if (filtros.dataFim) query.append('dataFim', filtros.dataFim);
+    if (filtros.produtos && Array.isArray(filtros.produtos)) {
+      filtros.produtos.forEach(p => { if (p) query.append('produtos', p); });
+    }
     const queryString = query.toString();
     return apiRequest(`/ouvidoria/dashboard/metricas${queryString ? `?${queryString}` : ''}`);
   },

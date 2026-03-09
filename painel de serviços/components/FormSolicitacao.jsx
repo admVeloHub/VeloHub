@@ -1,5 +1,5 @@
 // components/FormSolicitacao.jsx
-// VERSION: v2.0.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+// VERSION: v2.0.1 | DATE: 2026-03-06 | AUTHOR: VeloHub Development Team
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { toTitleCase, normStatus, normCpf } from "@/lib/utils";
@@ -312,7 +312,7 @@ export default function FormSolicitacao({ registrarLog }) {
           if (whatsappError.name === 'AbortError') {
             whatsappTimeout = true;
             registrarLog("⏱️ Envio para o grupo demorou; solicitação será registrada no painel");
-            toast.info("Envio para o grupo demorou; solicitação será registrada no painel");
+            toast("Envio para o grupo demorou; solicitação será registrada no painel");
           } else {
             const errorText = whatsappError.message || String(whatsappError);
             // Detectar WhatsApp desconectado

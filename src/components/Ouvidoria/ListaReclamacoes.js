@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - ListaReclamacoes Component
- * VERSION: v1.12.0 | DATE: 2026-03-04 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.13.0 | DATE: 2026-03-05 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.13.0:
+ * - Exibição: "N2 & Pix" → "N2 Pix" em filtros e lista
  * 
  * Mudanças v1.12.0:
  * - Modal de edição: adicionado min-h-0 ao conteúdo para permitir scroll completo do formulário
@@ -218,8 +221,8 @@ const ListaReclamacoes = () => {
     if (tipoUpper === 'PROCESSOS' || tipoUpper === 'JUDICIAL' || tipoUpper === 'AÇÃO JUDICIAL' || tipoUpper === 'ACAO JUDICIAL') {
       return 'Ação Judicial';
     }
-    if (tipoUpper === 'N2' || tipoUpper === 'N2 & PIX' || tipoUpper === 'N2&PIX' || tipoUpper === 'OUVIDORIA') {
-      return 'N2 & Pix';
+    if (tipoUpper === 'N2' || tipoUpper === 'N2 & PIX' || tipoUpper === 'N2&PIX' || tipoUpper === 'N2 PIX' || tipoUpper === 'OUVIDORIA') {
+      return 'N2 Pix';
     }
     if (tipoUpper === 'RECLAME_AQUI' || tipoUpper === 'RECLAMEAQUI' || tipoUpper === 'RECLAME AQUI') {
       return 'Reclame Aqui';
@@ -379,7 +382,7 @@ const ListaReclamacoes = () => {
             >
               <option value="">Todos</option>
               <option value="BACEN">BACEN</option>
-              <option value="N2">N2 & Pix</option>
+              <option value="N2">N2 Pix</option>
               <option value="Reclame Aqui">Reclame Aqui</option>
               <option value="Procon">Procon</option>
               <option value="PROCESSOS">Ação Judicial</option>

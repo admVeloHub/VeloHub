@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Clientes
- * VERSION: v2.1.0 | DATE: 2025-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.2.0 | DATE: 2026-03-05 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.2.0:
+ * - Exibição: tipo retornado como 'N2 Pix' (antes 'OUVIDORIA') em histórico de cliente
  * 
  * Mudanças v2.1.0:
  * - Removida referência à coleção reclamacoes_chatbot (formulário ChatBot foi removido)
@@ -62,7 +65,7 @@ const initClientesRoutes = (client, connectToMongo) => {
       // Combinar resultados e adicionar tipo
       const historico = [
         ...bacen.map(r => ({ ...r, tipo: 'BACEN' })),
-        ...n2Pix.map(r => ({ ...r, tipo: 'OUVIDORIA' }))
+        ...n2Pix.map(r => ({ ...r, tipo: 'N2 Pix' }))
       ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
       console.log(`✅ Histórico encontrado para CPF ${cpfLimpo.substring(0, 3)}***${cpfLimpo.substring(9)}: ${historico.length} registros`);

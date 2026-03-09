@@ -1,6 +1,10 @@
 /**
  * VeloHub V3 - RelatoriosOuvidoria Component
- * VERSION: v2.9.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.10.0 | DATE: 2026-03-05 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.10.0:
+ * - labelsPorTipo e coresPorTipo: adicionado 'N2 PIX' para compatibilidade com API que retorna tipo 'N2 Pix'
+ * - normalizarTipo: aceita 'N2 PIX' além de OUVIDORIA, N2, etc.
  * 
  * Mudanças v2.9.0:
  * - CORRIGIDO: Gráfico de tipos por mês agora usa dados agregados do backend para Reclame Aqui, Procon e Ação Judicial
@@ -655,7 +659,7 @@ const RelatoriosOuvidoria = () => {
     // Normalizar tipo para comparação (deve corresponder ao backend)
     const normalizarTipo = (tipo) => {
       const tipoUpper = String(tipo || '').toUpperCase().trim();
-      if (tipoUpper === 'OUVIDORIA' || tipoUpper === 'N2' || tipoUpper === 'N2 & PIX' || tipoUpper === 'N2&PIX') {
+      if (tipoUpper === 'OUVIDORIA' || tipoUpper === 'N2' || tipoUpper === 'N2 & PIX' || tipoUpper === 'N2&PIX' || tipoUpper === 'N2 PIX') {
         return 'OUVIDORIA';
       }
       if (tipoUpper === 'PROCESSOS' || tipoUpper === 'JUDICIAL' || tipoUpper === 'AÇÃO JUDICIAL' || tipoUpper === 'ACAO JUDICIAL') {
@@ -774,6 +778,7 @@ const RelatoriosOuvidoria = () => {
     const coresPorTipo = {
       'BACEN': '#1634FF',
       'OUVIDORIA': '#1694FF',
+      'N2 PIX': '#1694FF',
       'RECLAME_AQUI': '#15A237',
       'PROCON': '#FCC200',
       'PROCESSOS': '#000058'
@@ -782,6 +787,7 @@ const RelatoriosOuvidoria = () => {
     const labelsPorTipo = {
       'BACEN': 'Bacen',
       'OUVIDORIA': 'N2 Pix',
+      'N2 PIX': 'N2 Pix',
       'RECLAME_AQUI': 'Reclame Aqui',
       'PROCON': 'Procon',
       'PROCESSOS': 'Ação Judicial'
@@ -790,7 +796,7 @@ const RelatoriosOuvidoria = () => {
     // Mapeamento de tipos para normalização (deve corresponder ao backend)
     const normalizarTipo = (tipo) => {
       const tipoUpper = String(tipo || '').toUpperCase().trim();
-      if (tipoUpper === 'OUVIDORIA' || tipoUpper === 'N2' || tipoUpper === 'N2 & PIX' || tipoUpper === 'N2&PIX') {
+      if (tipoUpper === 'OUVIDORIA' || tipoUpper === 'N2' || tipoUpper === 'N2 & PIX' || tipoUpper === 'N2&PIX' || tipoUpper === 'N2 PIX') {
         return 'OUVIDORIA';
       }
       if (tipoUpper === 'PROCESSOS' || tipoUpper === 'JUDICIAL' || tipoUpper === 'AÇÃO JUDICIAL' || tipoUpper === 'ACAO JUDICIAL') {

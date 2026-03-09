@@ -1,6 +1,50 @@
 /**
  * VeloHub V3 - FormReclamacaoEdit Component
- * VERSION: v1.12.0 | DATE: 2026-03-04 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.21.0 | DATE: 2026-03-06 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.21.0:
+ * - Removido campo oportunidade do form Reclame Aqui (não consta no schema)
+ * 
+ * Mudanças v1.20.0:
+ * - Form Reclame Aqui: lista específica de motivos (MOTIVOS_RECLAME_AQUI) igual ao FormReclamacao
+ * 
+ * Mudanças v1.19.0:
+ * - Form N2: campo Protocolo N2 ao lado de Motivo; removido n2SegundoNivel (537) do payload OUVIDORIA
+ * - localizarAtendimentos: lógica por tipo (incluirN2, incluirN2SegundoNivel) igual ao FormReclamacao
+ * 
+ * Mudanças v1.18.0:
+ * - Localizar Atendimentos adicionado aos forms BACEN, OUVIDORIA (N2) e RECLAME_AQUI (na área Canais de Atendimento)
+ * - Função localizarAtendimentos parametrizada: exclui o tipo do form atual da busca
+ * - Preenche também procon/protocolosProcon para forms BACEN, N2, Reclame Aqui
+ * 
+ * Mudanças v1.17.0:
+ * - Form Procon: "Registros Reclame Aqui" renomeado para "Localizar Atendimentos"
+ * - Localizar Atendimentos: busca CPF em todas as collections e preenche acionouCentral, protocolosCentral, n2SegundoNivel, protocolosN2, reclameAqui, protocolosReclameAqui, pixLiberado, statusContratoQuitado
+ * - Adicionados campos Central de Atendimento, N2 Ouvidoria, Reclame Aqui (com protocolos) e Pix Liberado/Contrato Quitado no form Procon (omitido Procon)
+ * 
+ * Mudanças v1.16.3:
+ * - Corrigido toast.info para toast (react-hot-toast não possui método .info)
+ * 
+ * Mudanças v1.16.2:
+ * - Campo Produto do form N2 Pix: Antecipação, Antecipação 2026, Conta Celcoin, Empréstimo pessoal, Seguros, Crédito ao trabalhador
+ * 
+ * Mudanças v1.16.1:
+ * - Campo Produto do form Reclame Aqui: opções atualizadas (Antecipação, Antecipação 2026, Aplicativo, Conta Celcoin, Cupom, Empréstimo pessoal, Seguros, Crédito ao trabalhador, VeloPrime)
+ * 
+ * Mudanças v1.16.0:
+ * - Adicionado campo Produto no formulário Reclame Aqui (obrigatório)
+ * 
+ * Mudanças v1.15.0:
+ * - Produto: "Antecipação" exibe "Antecipação Outros Anos" (valor no banco mantido); novo "Antecipação 2026"
+ * 
+ * Mudanças v1.14.0:
+ * - Ocultos campos redundantes: Escalado N2 no form N2 Pix, Procon no form Procon, Reclame Aqui no form Reclame Aqui
+ * - Status do contrato: 1 checkbox "Contrato Quitado" (Boolean); statusContratoAberto derivado no payload
+ * - Pix Liberado e Contrato Quitado sempre na coluna 3 (md:col-start-3)
+ * 
+ * Mudanças v1.13.0:
+ * - Data de entrada obrigatória em todos os formulários
+ * - Toast específico quando data de entrada não preenchida (ex: "Data de entrada é obrigatória")
  * 
  * Mudanças v1.12.0:
  * - Adicionado suporte completo para Ação Judicial (PROCESSOS): renderCamposProcessos, validação, payload
@@ -9,7 +53,7 @@
  * 
  * Mudanças v1.11.0:
  * - Corrigida normalização do tipo no converterParaFormData: adicionados N2 Pix, N2 PIX, Ouvidoria
- * - dataEntradaAtendimento agora usa fallback para dataEntradaN2 e dataEntrada (schema N2)
+ * - Schema N2: usa dataEntradaN2 (dataEntradaAtendimento removido - redundante)
  * 
  * Mudanças v1.10.2:
  * - Valores dos campos Motivos e Produto convertidos para primeira letra maiúscula
@@ -144,6 +188,28 @@ const MOTIVOS_ACAO_JUDICIAL = [
 ];
 
 /**
+ * Opções de motivo para Reclame Aqui (múltipla escolha)
+ */
+const MOTIVOS_RECLAME_AQUI = [
+  'Liberação Chave Pix',
+  'Cancelamento/ Estorno',
+  'Abatimento de Juros',
+  'Cobrança',
+  'Encerramento de Conta Celcoin',
+  'Erro',
+  'Fraude',
+  'LGPD',
+  'Juros Abusivos',
+  'Sem Margem',
+  'Valor Minimo para contratação',
+  'Desativada Não considerar Reclamação',
+  'Reativação de Cadastro',
+  'Dúvidas Gerais',
+  'Limite baixo do Pix',
+  'Erro E-cac'
+];
+
+/**
  * Converter dados da reclamação para formData
  */
 const converterParaFormData = (reclamacao) => {
@@ -202,8 +268,8 @@ const converterParaFormData = (reclamacao) => {
       : (reclamacao.motivoReduzido ? [reclamacao.motivoReduzido] : []),
     motivoDetalhado: reclamacao.motivoDetalhado || '',
     
-    // Campos OUVIDORIA (dataEntradaN2 e dataEntradaAtendimento usados no schema N2)
-    dataEntradaAtendimento: formatarDataInput(reclamacao.dataEntradaAtendimento || reclamacao.dataEntradaN2 || reclamacao.dataEntrada),
+    // Campos OUVIDORIA (schema: dataEntradaN2)
+    dataEntradaN2: formatarDataInput(reclamacao.dataEntradaN2 || reclamacao.dataEntrada),
     prazoOuvidoria: formatarDataInput(reclamacao.prazoOuvidoria),
     
     // Campos Reclame Aqui
@@ -211,7 +277,6 @@ const converterParaFormData = (reclamacao) => {
     idEntrada: reclamacao.idEntrada || '',
     dataReclam: formatarDataInput(reclamacao.dataReclam),
     passivelNotaMais: reclamacao.passivelNotaMais || false,
-    oportunidade: reclamacao.oportunidade || '',
     solicitadoAvaliacao: reclamacao.solicitadoAvaliacao || false,
     avaliado: reclamacao.avaliado || false,
     
@@ -248,9 +313,14 @@ const converterParaFormData = (reclamacao) => {
     protocolosProcon: reclamacao.protocolosProcon?.length > 0 
       ? reclamacao.protocolosProcon 
       : [''],
-    pixStatus: reclamacao.pixStatus || '',
+    localizarAtendimentos: reclamacao.localizarAtendimentos || '',
+    pixLiberado: (() => {
+      if (reclamacao.pixLiberado === true) return true;
+      if (reclamacao.pixLiberado === false) return false;
+      const s = String(reclamacao.pixStatus || '').toLowerCase().trim();
+      return ['liberado', 'excluído', 'excluido', 'solicitada', 'solicitado'].includes(s);
+    })(),
     statusContratoQuitado: reclamacao.statusContratoQuitado || false,
-    statusContratoAberto: reclamacao.statusContratoAberto || false,
     
     // Campos Ação Judicial (PROCESSOS)
     nroProcesso: reclamacao.nroProcesso || '',
@@ -300,13 +370,12 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
     prazoBacen: '',
     motivoReduzido: [],
     motivoDetalhado: '',
-    dataEntradaAtendimento: '',
+    dataEntradaN2: '',
     prazoOuvidoria: '',
     cpfRepetido: '',
     idEntrada: '',
     dataReclam: '',
     passivelNotaMais: false,
-    oportunidade: '',
     solicitadoAvaliacao: false,
     avaliado: false,
     codigoProcon: '',
@@ -329,10 +398,10 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
     protocolosReclameAqui: [''],
     procon: false,
     protocolosProcon: [''],
-    pixStatus: '',
+    pixLiberado: false,
     statusContratoQuitado: false,
-    statusContratoAberto: false,
     enviarParaCobranca: false,
+    localizarAtendimentos: '',
     // Ação Judicial
     nroProcesso: '',
     empresaAcionada: '',
@@ -342,6 +411,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
     situacaoAudiencia: '',
     subsidios: '',
     outrosProtocolos: '',
+    localizarAtendimentos: '',
   });
 
   const [loading, setLoading] = useState(false);
@@ -544,8 +614,8 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
 
     // Validações OUVIDORIA
     if (formData.tipo === 'OUVIDORIA') {
-      if (!formData.dataEntradaAtendimento) {
-        novosErros.dataEntradaAtendimento = 'Data entrada atendimento é obrigatória';
+      if (!formData.dataEntradaN2) {
+        novosErros.dataEntradaN2 = 'Data entrada atendimento é obrigatória';
       }
       if (!formData.motivoReduzido || formData.motivoReduzido.length === 0) {
         novosErros.motivoReduzido = 'Selecione pelo menos um motivo';
@@ -562,6 +632,9 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
       }
       if (!formData.dataReclam) {
         novosErros.dataReclam = 'Data Reclamação é obrigatória';
+      }
+      if (!formData.produto) {
+        novosErros.produto = 'Produto é obrigatório';
       }
       if (!formData.motivoReduzido || formData.motivoReduzido.length === 0) {
         novosErros.motivoReduzido = 'Selecione pelo menos um motivo';
@@ -617,7 +690,20 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
     }
 
     setErrors(novosErros);
-    return Object.keys(novosErros).length === 0;
+    return { valid: Object.keys(novosErros).length === 0, errors: novosErros };
+  };
+
+  /**
+   * Toast de acordo com o erro de validação (prioridade: data de entrada)
+   */
+  const exibirToastValidacao = (errors) => {
+    const camposDataEntrada = ['dataEntrada', 'dataEntradaN2', 'dataReclam', 'dataProcon', 'dataEntradaProcesso'];
+    const erroData = camposDataEntrada.find(c => errors[c]);
+    if (erroData) {
+      toast.error(errors[erroData]);
+      return;
+    }
+    toast.error('Por favor, preencha todos os campos obrigatórios');
   };
 
   /**
@@ -632,8 +718,9 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
       return;
     }
 
-    if (!validarFormulario()) {
-      toast.error('Por favor, preencha todos os campos obrigatórios');
+    const { valid, errors } = validarFormulario();
+    if (!valid) {
+      exibirToastValidacao(errors);
       setShowSaveOptions(false);
       return;
     }
@@ -682,14 +769,14 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           protocolosReclameAqui: formData.protocolosReclameAqui.filter(p => p.trim() !== ''),
           procon: formData.procon,
           protocolosProcon: formData.protocolosProcon.filter(p => p.trim() !== ''),
-          pixStatus: formData.pixStatus,
+          pixLiberado: formData.pixLiberado,
           statusContratoQuitado: formData.statusContratoQuitado,
-          statusContratoAberto: formData.statusContratoAberto,
+          statusContratoAberto: !formData.statusContratoQuitado,
         };
       } else if (formData.tipo === 'OUVIDORIA') {
         payload = {
           ...payload,
-          dataEntradaAtendimento: formData.dataEntradaAtendimento,
+          dataEntradaN2: formData.dataEntradaN2,
           origem: formData.origem || '',
           produto: formData.produto || '',
           prazoOuvidoria: formData.prazoOuvidoria || '',
@@ -699,15 +786,14 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           tentativasContato: { lista: formData.tentativasContato.lista.filter(t => t.data || t.meio || t.resultado) },
           acionouCentral: formData.acionouCentral,
           protocolosCentral: formData.protocolosCentral.filter(p => p.trim() !== ''),
-          n2SegundoNivel: formData.n2SegundoNivel,
-          protocolosN2: formData.protocolosN2.filter(p => p.trim() !== ''),
+          protocolosN2: (formData.protocolosN2 || []).filter(p => p && String(p).trim() !== ''),
           reclameAqui: formData.reclameAqui,
           protocolosReclameAqui: formData.protocolosReclameAqui.filter(p => p.trim() !== ''),
           procon: formData.procon,
           protocolosProcon: formData.protocolosProcon.filter(p => p.trim() !== ''),
-          pixStatus: formData.pixStatus,
+          pixLiberado: formData.pixLiberado,
           statusContratoQuitado: formData.statusContratoQuitado,
-          statusContratoAberto: formData.statusContratoAberto,
+          statusContratoAberto: !formData.statusContratoQuitado,
         };
       } else if (formData.tipo === 'RECLAME_AQUI') {
         payload = {
@@ -715,15 +801,15 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           cpfRepetido: formData.cpfRepetido || '',
           idEntrada: formData.idEntrada,
           dataReclam: formData.dataReclam,
+          produto: formData.produto,
           motivoReduzido: formData.motivoReduzido,
           motivoDetalhado: formData.motivoDetalhado || '',
           passivelNotaMais: formData.passivelNotaMais,
-          pixStatus: formData.pixStatus || '',
+          pixLiberado: formData.pixLiberado === true,
           statusContratoQuitado: formData.statusContratoQuitado,
-          statusContratoAberto: formData.statusContratoAberto,
+          statusContratoAberto: !formData.statusContratoQuitado,
           enviarParaCobranca: formData.enviarParaCobranca || false,
           anexos: formData.anexos,
-          oportunidade: formData.oportunidade || '',
           solicitadoAvaliacao: formData.solicitadoAvaliacao,
           avaliado: formData.avaliado,
           // Tratativa N1: Canais de atendimento e protocolos acionados
@@ -754,15 +840,15 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           dataProcessoEncerrado: formData.processoEncerrado && formData.dataProcessoEncerrado ? formData.dataProcessoEncerrado : '',
           registrosReclameAqui: formData.registrosReclameAqui || '',
           anexos: formData.anexos,
-          // Tratativa N1: Canais de atendimento e protocolos acionados
+          // Tratativa N1: Canais de atendimento e protocolos acionados (schema Procon não inclui procon/protocolosProcon)
           acionouCentral: formData.acionouCentral,
-          protocolosCentral: formData.protocolosCentral.filter(p => p.trim() !== ''),
+          protocolosCentral: formData.protocolosCentral.filter(p => p && String(p).trim() !== ''),
           n2SegundoNivel: formData.n2SegundoNivel,
-          protocolosN2: formData.protocolosN2.filter(p => p.trim() !== ''),
+          protocolosN2: formData.protocolosN2.filter(p => p && String(p).trim() !== ''),
           reclameAqui: formData.reclameAqui,
-          protocolosReclameAqui: formData.protocolosReclameAqui.filter(p => p.trim() !== ''),
-          procon: formData.procon,
-          protocolosProcon: formData.protocolosProcon.filter(p => p.trim() !== ''),
+          protocolosReclameAqui: formData.protocolosReclameAqui.filter(p => p && String(p).trim() !== ''),
+          pixLiberado: formData.pixLiberado || false,
+          statusContratoQuitado: formData.statusContratoQuitado || false,
         };
       } else if (formData.tipo === 'PROCESSOS') {
         payload = {
@@ -897,7 +983,8 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
               className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
             >
               <option value="">Selecione...</option>
-              <option value="Antecipação">Antecipação</option>
+              <option value="Antecipação 2026">Antecipação 2026</option>
+              <option value="Antecipação">Antecipação Outros Anos</option>
               <option value="Credito Pessoal">Credito Pessoal</option>
               <option value="Credito Trabalhador">Credito Trabalhador</option>
             </select>
@@ -1039,10 +1126,11 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
             >
               <option value="">Selecione...</option>
               <option value="Antecipação">Antecipação</option>
-              <option value="Crédito pessoal">Crédito pessoal</option>
-              <option value="Crédito trabalhador">Crédito trabalhador</option>
-              <option value="Cupons">Cupons</option>
+              <option value="Antecipação 2026">Antecipação 2026</option>
+              <option value="Conta Celcoin">Conta Celcoin</option>
+              <option value="Empréstimo pessoal">Empréstimo pessoal</option>
               <option value="Seguros">Seguros</option>
+              <option value="Crédito ao trabalhador">Crédito ao trabalhador</option>
             </select>
           </div>
 
@@ -1069,12 +1157,12 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
             </label>
             <input
               type="date"
-              value={formData.dataEntradaAtendimento}
-              onChange={(e) => setFormData(prev => ({ ...prev, dataEntradaAtendimento: e.target.value }))}
+              value={formData.dataEntradaN2}
+              onChange={(e) => setFormData(prev => ({ ...prev, dataEntradaN2: e.target.value }))}
               className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
               required
             />
-            {errors.dataEntradaAtendimento && <span className="text-red-500 text-xs">{errors.dataEntradaAtendimento}</span>}
+            {errors.dataEntradaN2 && <span className="text-red-500 text-xs">{errors.dataEntradaN2}</span>}
           </div>
 
           <div>
@@ -1090,7 +1178,8 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mb-4">
+        {/* Linha 2: Motivo | Protocolo N2 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
             {renderCampoMotivo(
               MOTIVOS_REDUZIDOS,
@@ -1098,8 +1187,35 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
               (novosMotivos) => setFormData(prev => ({ ...prev, motivoReduzido: novosMotivos })),
               errors.motivoReduzido,
               'Motivo *',
-              'motivo-bacen-edit'
+              'motivo-n2-edit'
             )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              Protocolo N2
+            </label>
+            {(formData.protocolosN2?.length > 0 ? formData.protocolosN2 : ['']).map((p, i) => (
+              <div key={i} className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  value={p}
+                  onChange={(e) => atualizarProtocolo('protocolosN2', i, e.target.value)}
+                  className="flex-1 border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                  placeholder="Nro protocolo"
+                />
+                {(formData.protocolosN2?.length || 0) > 1 && (
+                  <button type="button" onClick={() => removerProtocolo('protocolosN2', i)} className="text-sm px-2 text-red-600">Remover</button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => adicionarProtocolo('protocolosN2')}
+              className="text-sm px-3 py-2 rounded border dark:bg-gray-700"
+              style={{ borderColor: '#006AB9', color: '#006AB9', background: 'transparent' }}
+            >
+              + Adicionar protocolo
+            </button>
           </div>
         </div>
 
@@ -1193,8 +1309,8 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
         <div className="velohub-card">
           <h3 className="text-xl font-semibold mb-4 velohub-title">Reclamação</h3>
           
-          {/* Linha 1: ID Entrada | Data Reclam | CPF Repetido */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          {/* Linha 1: ID Entrada | Data Reclam | CPF Repetido | Produto */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
                 ID Entrada (9 dígitos) *
@@ -1249,12 +1365,38 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                 placeholder="Apenas números"
               />
             </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                Produto *
+              </label>
+              <select
+                value={formData.produto}
+                onChange={(e) => setFormData(prev => ({ ...prev, produto: e.target.value }))}
+                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                required
+              >
+                <option value="">Selecione...</option>
+                <option value="Antecipação">Antecipação</option>
+                <option value="Antecipação 2026">Antecipação 2026</option>
+                <option value="Aplicativo">Aplicativo</option>
+                <option value="Conta Celcoin">Conta Celcoin</option>
+                <option value="Cupom">Cupom</option>
+                <option value="Empréstimo pessoal">Empréstimo pessoal</option>
+                <option value="Seguros">Seguros</option>
+                <option value="Crédito ao trabalhador">Crédito ao trabalhador</option>
+                <option value="VeloPrime">VeloPrime</option>
+              </select>
+              {errors.produto && (
+                <span className="text-red-500 text-xs">{errors.produto}</span>
+              )}
+            </div>
           </div>
 
           {/* Linha 2: Motivo */}
           <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mb-4">
             {renderCampoMotivo(
-              MOTIVOS_REDUZIDOS,
+              MOTIVOS_RECLAME_AQUI,
               formData.motivoReduzido,
               (novosMotivos) => setFormData(prev => ({ ...prev, motivoReduzido: novosMotivos })),
               errors.motivoReduzido,
@@ -1312,20 +1454,6 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                 <span>Passível de nota +</span>
               </label>
             </div>
-          </div>
-
-          {/* Oportunidade */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Oportunidade
-            </label>
-            <input
-              type="text"
-              value={formData.oportunidade}
-              onChange={(e) => setFormData(prev => ({ ...prev, oportunidade: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              placeholder="Digite a oportunidade..."
-            />
           </div>
 
           {/* Anexo */}
@@ -1393,6 +1521,129 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
   };
 
   /**
+   * Localizar Atendimentos por CPF: busca em todas as collections e preenche
+   * acionouCentral/protocolosCentral, n2SegundoNivel/protocolosN2, reclameAqui/protocolosReclameAqui,
+   * procon/protocolosProcon, pixLiberado e statusContratoQuitado conforme encontrado.
+   * Lógica por tipo: BACEN busca N1, N2, Reclame Aqui, Procon; N2 busca N1, Reclame Aqui, Procon (sem n2SegundoNivel);
+   * Reclame Aqui busca N1, N2, Procon; Procon busca N1, N2, Reclame Aqui.
+   * @param {string} tipoExcluir - Tipo do form atual (BACEN, OUVIDORIA, RECLAME_AQUI, PROCON) - excluído da busca
+   */
+  const localizarAtendimentos = async (tipoExcluir = 'PROCON') => {
+    if (!formData.cpf || formData.cpf.replace(/\D/g, '').length !== 11) {
+      toast.error('CPF inválido. Preencha o CPF do cliente primeiro.');
+      return;
+    }
+
+    setBuscandoReclameAqui(true);
+    try {
+      const cpfLimpo = formData.cpf.replace(/\D/g, '');
+      const resultado = await reclamacoesAPI.getByCpf(cpfLimpo);
+      const todasReclamacoes = Array.isArray(resultado) ? resultado : (resultado?.data || []);
+
+      const tiposExcluir = [tipoExcluir?.toUpperCase?.()?.trim?.()].flatMap(t => {
+        if (t === 'OUVIDORIA') return ['OUVIDORIA', 'N2', 'N2 PIX'];
+        if (t === 'RECLAME_AQUI') return ['RECLAME_AQUI', 'RECLAME AQUI'];
+        return t ? [t] : [];
+      });
+
+      const registros = todasReclamacoes.filter(r => {
+        const tipo = String(r.tipo || '').toUpperCase().trim();
+        return !tiposExcluir.includes(tipo);
+      });
+
+      const protocolosCentral = [];
+      const protocolosN2 = [];
+      const protocolosReclameAqui = [];
+      const protocolosProcon = [];
+      let acionouCentral = false;
+      let n2SegundoNivel = false;
+      let reclameAqui = false;
+      let procon = false;
+      let pixLiberado = formData.pixLiberado;
+      let statusContratoQuitado = formData.statusContratoQuitado;
+
+      const incluirN2 = tipoExcluir !== 'OUVIDORIA';
+      const incluirReclameAqui = tipoExcluir !== 'RECLAME_AQUI';
+      const incluirProcon = true;
+      const incluirN2SegundoNivel = tipoExcluir !== 'OUVIDORIA';
+
+      for (const r of registros) {
+        const tipo = String(r.tipo || '').toUpperCase().trim();
+
+        if (r.acionouCentral && Array.isArray(r.protocolosCentral)) {
+          acionouCentral = true;
+          protocolosCentral.push(...r.protocolosCentral.filter(p => p && String(p).trim()));
+        }
+        if (incluirN2 && (tipo === 'OUVIDORIA' || tipo === 'N2' || tipo === 'N2 PIX')) {
+          if (incluirN2SegundoNivel) n2SegundoNivel = true;
+          if (Array.isArray(r.protocolosN2)) {
+            protocolosN2.push(...r.protocolosN2.filter(p => p && String(p).trim()));
+          }
+        }
+        if (incluirReclameAqui && (tipo === 'RECLAME_AQUI' || tipo === 'RECLAME AQUI')) {
+          reclameAqui = true;
+          if (Array.isArray(r.protocolosReclameAqui)) {
+            protocolosReclameAqui.push(...r.protocolosReclameAqui.filter(p => p && String(p).trim()));
+          }
+        }
+        if (incluirProcon && tipo === 'PROCON') {
+          procon = true;
+          if (Array.isArray(r.protocolosProcon)) {
+            protocolosProcon.push(...r.protocolosProcon.filter(p => p && String(p).trim()));
+          }
+        }
+        if (tipo === 'BACEN') {
+          if (r.pixLiberado === true) pixLiberado = true;
+          if (r.statusContratoQuitado === true) statusContratoQuitado = true;
+        }
+      }
+
+      const protocolosCentralUnicos = [...new Set(protocolosCentral)];
+      const protocolosN2Unicos = [...new Set(protocolosN2)];
+      const protocolosReclameAquiUnicos = [...new Set(protocolosReclameAqui)];
+      const protocolosProconUnicos = [...new Set(protocolosProcon)];
+
+      const msgResultado = registros.length === 0
+        ? 'Nenhum atendimento encontrado para este CPF.'
+        : `${registros.length} atendimento(s) encontrado(s). Campos preenchidos automaticamente.`;
+
+      const updates = {
+        acionouCentral: acionouCentral || formData.acionouCentral,
+        protocolosCentral: protocolosCentralUnicos.length > 0 ? protocolosCentralUnicos : formData.protocolosCentral,
+        reclameAqui: reclameAqui || formData.reclameAqui,
+        protocolosReclameAqui: protocolosReclameAquiUnicos.length > 0 ? protocolosReclameAquiUnicos : formData.protocolosReclameAqui,
+        procon: procon || formData.procon,
+        protocolosProcon: protocolosProconUnicos.length > 0 ? protocolosProconUnicos : formData.protocolosProcon,
+        registrosReclameAqui: msgResultado,
+        localizarAtendimentos: msgResultado,
+      };
+      if (incluirN2) {
+        updates.protocolosN2 = protocolosN2Unicos.length > 0 ? protocolosN2Unicos : formData.protocolosN2;
+      }
+      if (incluirN2SegundoNivel) {
+        updates.n2SegundoNivel = n2SegundoNivel || formData.n2SegundoNivel;
+      }
+      if (['BACEN', 'OUVIDORIA', 'RECLAME_AQUI', 'PROCON'].includes(tipoExcluir)) {
+        updates.pixLiberado = pixLiberado;
+        updates.statusContratoQuitado = statusContratoQuitado;
+      }
+
+      setFormData(prev => ({ ...prev, ...updates }));
+
+      if (registros.length === 0) {
+        toast('Nenhum atendimento encontrado para este CPF.');
+      } else {
+        toast.success(`${registros.length} atendimento(s) encontrado(s). Campos preenchidos automaticamente.`);
+      }
+    } catch (error) {
+      console.error('Erro ao localizar atendimentos:', error);
+      toast.error('Erro ao localizar atendimentos');
+    } finally {
+      setBuscandoReclameAqui(false);
+    }
+  };
+
+  /**
    * Buscar registros Reclame Aqui por CPF
    */
   const buscarRegistrosReclameAqui = async () => {
@@ -1415,7 +1666,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
       );
       
       if (registrosRA.length === 0) {
-        toast.info('Nenhum registro Reclame Aqui encontrado para este CPF.');
+        toast('Nenhum registro Reclame Aqui encontrado para este CPF.');
         setReclameAquiRegistros([]);
         setFormData(prev => ({ ...prev, registrosReclameAqui: 'Nenhum registro encontrado' }));
       } else {
@@ -1453,7 +1704,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
         return tipo !== 'PROCESSOS' && tipo !== 'JUDICIAL' && tipo !== 'AÇÃO JUDICIAL';
       });
       if (outrosProtocolos.length === 0) {
-        toast.info('Nenhum outro protocolo encontrado para este CPF.');
+        toast('Nenhum outro protocolo encontrado para este CPF.');
         setOutrosProtocolosRegistros([]);
         setFormData(prev => ({ ...prev, outrosProtocolos: 'Nenhum protocolo encontrado' }));
       } else {
@@ -1524,7 +1775,8 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
               required
             >
               <option value="">Selecione...</option>
-              <option value="Antecipação">Antecipação</option>
+              <option value="Antecipação 2026">Antecipação 2026</option>
+              <option value="Antecipação">Antecipação Outros Anos</option>
               <option value="Credito Pessoal">Credito Pessoal</option>
               <option value="Credito Trabalhador">Credito Trabalhador</option>
               <option value="Cupons Velotax">Cupons Velotax</option>
@@ -1781,7 +2033,8 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                 required
               >
                 <option value="">Selecione...</option>
-                <option value="Antecipação">Antecipação</option>
+                <option value="Antecipação 2026">Antecipação 2026</option>
+                <option value="Antecipação">Antecipação Outros Anos</option>
                 <option value="Credito Pessoal">Credito Pessoal</option>
                 <option value="Credito Trabalhador">Credito Trabalhador</option>
                 <option value="Cupons Velotax">Cupons Velotax</option>
@@ -1803,7 +2056,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           {/* Linha 2: Motivo */}
           <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mb-4">
             {renderCampoMotivo(
-              MOTIVOS_REDUZIDOS,
+              MOTIVOS_RECLAME_AQUI,
               formData.motivoReduzido,
               (novosMotivos) => setFormData(prev => ({ ...prev, motivoReduzido: novosMotivos })),
               errors.motivoReduzido,
@@ -1942,46 +2195,222 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
             </div>
           </div>
 
-          {/* Registros Reclame Aqui */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Registros Reclame Aqui?
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={formData.registrosReclameAqui}
-                readOnly
-                className="flex-1 border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed"
-                placeholder="Clique em 'Buscar' para encontrar registros relacionados"
-              />
-              <button
-                type="button"
-                onClick={buscarRegistrosReclameAqui}
-                disabled={buscandoReclameAqui || !formData.cpf || formData.cpf.replace(/\D/g, '').length !== 11}
-                className="px-4 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{
-                  borderColor: '#006AB9',
-                  color: '#006AB9',
-                  background: 'transparent',
-                }}
-                onMouseEnter={(e) => {
-                  if (!e.target.disabled) {
-                    e.target.style.background = 'linear-gradient(135deg, #006AB9 0%, #006AB9 100%)';
-                    e.target.style.color = '#F3F7FC';
-                    e.target.style.borderColor = '#006AB9';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!e.target.disabled) {
-                    e.target.style.background = 'transparent';
-                    e.target.style.color = '#006AB9';
-                    e.target.style.borderColor = '#006AB9';
-                  }
-                }}
-              >
-                {buscandoReclameAqui ? 'Buscando...' : 'Buscar'}
-              </button>
+          {/* Localizar Atendimentos e Protocolos */}
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => localizarAtendimentos('PROCON')}
+              disabled={buscandoReclameAqui || !formData.cpf || formData.cpf.replace(/\D/g, '').length !== 11}
+              className="px-4 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+              style={{
+                borderColor: '#006AB9',
+                color: '#006AB9',
+                background: 'transparent',
+              }}
+              onMouseEnter={(e) => {
+                if (!e.target.disabled) {
+                  e.target.style.background = 'linear-gradient(135deg, #006AB9 0%, #006AB9 100%)';
+                  e.target.style.color = '#F3F7FC';
+                  e.target.style.borderColor = '#006AB9';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!e.target.disabled) {
+                  e.target.style.background = 'transparent';
+                  e.target.style.color = '#006AB9';
+                  e.target.style.borderColor = '#006AB9';
+                }
+              }}
+            >
+              {buscandoReclameAqui ? 'Buscando...' : 'Localizar Atendimentos e Protocolos'}
+            </button>
+            <input
+              type="text"
+              value={formData.registrosReclameAqui}
+              readOnly
+              className="min-w-0 max-w-md border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed text-sm"
+              placeholder=""
+            />
+          </div>
+
+          {/* Atendimento N1 e Protocolos (omitir Procon) - L1: N1 | N2 */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <div className="flex items-center mb-2">
+                <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={formData.acionouCentral}
+                    onChange={(e) => setFormData(prev => ({ ...prev, acionouCentral: e.target.checked }))}
+                    className="w-5 h-5"
+                  />
+                  <span>Atendimento N1</span>
+                </label>
+              </div>
+              {formData.acionouCentral && (
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                    Nro Protocolo
+                  </label>
+                  {formData.protocolosCentral.map((protocolo, index) => (
+                    <div key={index} className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={protocolo}
+                        onChange={(e) => atualizarProtocolo('protocolosCentral', index, e.target.value)}
+                        className="flex-1 border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                        placeholder="Digite o protocolo"
+                      />
+                      {formData.protocolosCentral.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removerProtocolo('protocolosCentral', index)}
+                          className="text-sm px-3 py-2 rounded border dark:bg-gray-700"
+                          style={{ borderColor: '#dc2626', color: '#dc2626', background: 'transparent' }}
+                        >
+                          Remover
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => adicionarProtocolo('protocolosCentral')}
+                    className="text-sm px-3 py-2 rounded border dark:bg-gray-700"
+                    style={{ borderColor: '#006AB9', color: '#006AB9', background: 'transparent' }}
+                  >
+                    + Adicionar Protocolo
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div className="flex items-center mb-2">
+                <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={formData.n2SegundoNivel}
+                    onChange={(e) => setFormData(prev => ({ ...prev, n2SegundoNivel: e.target.checked }))}
+                    className="w-5 h-5"
+                  />
+                  <span>N2 Ouvidoria</span>
+                </label>
+              </div>
+              {formData.n2SegundoNivel && (
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                    Protocolos N2
+                  </label>
+                  {formData.protocolosN2.map((protocolo, index) => (
+                    <div key={index} className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={protocolo}
+                        onChange={(e) => atualizarProtocolo('protocolosN2', index, e.target.value)}
+                        className="flex-1 border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                        placeholder="Digite o protocolo"
+                      />
+                      {formData.protocolosN2.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removerProtocolo('protocolosN2', index)}
+                          className="text-sm px-3 py-2 rounded border dark:bg-gray-700"
+                          style={{ borderColor: '#dc2626', color: '#dc2626', background: 'transparent' }}
+                        >
+                          Remover
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => adicionarProtocolo('protocolosN2')}
+                    className="text-sm px-3 py-2 rounded border dark:bg-gray-700"
+                    style={{ borderColor: '#006AB9', color: '#006AB9', background: 'transparent' }}
+                  >
+                    + Adicionar Protocolo
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* L2: Reclame Aqui (C1) | Pix Liberado + Contrato Quitado (C3) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <div className="flex items-center mb-2">
+                <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={formData.reclameAqui}
+                    onChange={(e) => setFormData(prev => ({ ...prev, reclameAqui: e.target.checked }))}
+                    className="w-5 h-5"
+                  />
+                  <span>Reclame Aqui</span>
+                </label>
+              </div>
+              {formData.reclameAqui && (
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                    Protocolos Reclame Aqui
+                  </label>
+                  {formData.protocolosReclameAqui.map((protocolo, index) => (
+                    <div key={index} className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={protocolo}
+                        onChange={(e) => atualizarProtocolo('protocolosReclameAqui', index, e.target.value)}
+                        className="flex-1 border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                        placeholder="Digite o protocolo"
+                      />
+                      {formData.protocolosReclameAqui.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removerProtocolo('protocolosReclameAqui', index)}
+                          className="text-sm px-3 py-2 rounded border dark:bg-gray-700"
+                          style={{ borderColor: '#dc2626', color: '#dc2626', background: 'transparent' }}
+                        >
+                          Remover
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => adicionarProtocolo('protocolosReclameAqui')}
+                    className="text-sm px-3 py-2 rounded border dark:bg-gray-700"
+                    style={{ borderColor: '#006AB9', color: '#006AB9', background: 'transparent' }}
+                  >
+                    + Adicionar Protocolo
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="md:col-start-3 space-y-4">
+              <div className="flex items-center">
+                <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={formData.pixLiberado === true}
+                    onChange={(e) => setFormData(prev => ({ ...prev, pixLiberado: e.target.checked }))}
+                    className="w-5 h-5"
+                  />
+                  <span>Pix Liberado</span>
+                </label>
+              </div>
+              <div className="flex items-center">
+                <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={formData.statusContratoQuitado}
+                    onChange={(e) => setFormData(prev => ({ ...prev, statusContratoQuitado: e.target.checked }))}
+                    className="w-5 h-5"
+                  />
+                  <span>Contrato Quitado</span>
+                </label>
+              </div>
             </div>
           </div>
 
@@ -2163,25 +2592,63 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
   const renderProtocolos = () => (
     <div className="velohub-card">
       <h3 className="text-xl font-semibold mb-4 velohub-title">Canais de Atendimento e Protocolos Acionados</h3>
+
+      {/* Localizar Atendimentos e Protocolos */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => localizarAtendimentos(formData.tipo)}
+          disabled={buscandoReclameAqui || !formData.cpf || formData.cpf.replace(/\D/g, '').length !== 11}
+          className="px-4 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+          style={{
+            borderColor: '#006AB9',
+            color: '#006AB9',
+            background: 'transparent',
+          }}
+          onMouseEnter={(e) => {
+            if (!e.target.disabled) {
+              e.target.style.background = 'linear-gradient(135deg, #006AB9 0%, #006AB9 100%)';
+              e.target.style.color = '#F3F7FC';
+              e.target.style.borderColor = '#006AB9';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!e.target.disabled) {
+              e.target.style.background = 'transparent';
+              e.target.style.color = '#006AB9';
+              e.target.style.borderColor = '#006AB9';
+            }
+          }}
+        >
+          {buscandoReclameAqui ? 'Buscando...' : 'Localizar Atendimentos e Protocolos'}
+        </button>
+        <input
+          type="text"
+          value={formData.localizarAtendimentos}
+          readOnly
+          className="min-w-0 max-w-md border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed text-sm"
+          placeholder=""
+        />
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        {/* Central de Ajuda */}
-        <div>
-          <div className="flex items-center mb-2">
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.acionouCentral}
-                onChange={(e) => setFormData(prev => ({ ...prev, acionouCentral: e.target.checked }))}
-                className="mr-2"
-              />
-              <span>Central de Ajuda</span>
-            </label>
-          </div>
-          {formData.acionouCentral && (
-            <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                Qual Protocolo - Central de Ajuda
+          {/* Atendimento N1 */}
+          <div>
+            <div className="flex items-center mb-2">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.acionouCentral}
+                  onChange={(e) => setFormData(prev => ({ ...prev, acionouCentral: e.target.checked }))}
+                  className="mr-2"
+                />
+                <span>Atendimento N1</span>
+              </label>
+            </div>
+            {formData.acionouCentral && (
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                  Nro Protocolo
               </label>
               {formData.protocolosCentral.map((protocolo, index) => (
                 <div key={index} className="flex gap-2 mb-2">
@@ -2244,7 +2711,8 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           )}
         </div>
 
-        {/* Escalado Ouvidoria */}
+        {/* Escalado N2 - oculto no form N2 Pix (redundante) */}
+        {formData.tipo !== 'OUVIDORIA' && (
         <div>
           <div className="flex items-center mb-2">
             <label className="flex items-center">
@@ -2254,13 +2722,13 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                 onChange={(e) => setFormData(prev => ({ ...prev, n2SegundoNivel: e.target.checked }))}
                 className="mr-2"
               />
-              <span>Escalado Ouvidoria</span>
+              <span>Escalado N2</span>
             </label>
           </div>
           {formData.n2SegundoNivel && (
             <div>
               <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                Qual Protocolo - Escalado Ouvidoria
+                Qual Protocolo - Escalado N2
               </label>
               {formData.protocolosN2.map((protocolo, index) => (
                 <div key={index} className="flex gap-2 mb-2">
@@ -2322,29 +2790,28 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
             </div>
           )}
         </div>
+        )}
 
-        {/* PIX liberado ou excluído? */}
-        <div>
-          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-            PIX liberado ou excluído?
-          </label>
-          <select
-            value={formData.pixStatus}
-            onChange={(e) => setFormData(prev => ({ ...prev, pixStatus: e.target.value }))}
-            className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-          >
-            <option value="">Selecione...</option>
-            <option value="Liberado">Liberado</option>
-            <option value="Excluído">Excluído</option>
-            <option value="Solicitada">Solicitada</option>
-            <option value="Não aplicável">Não aplicável</option>
-          </select>
+        {/* Pix Liberado (checkbox boolean) - sempre coluna 3 */}
+        <div className="md:col-start-3">
+          <div className="flex items-center mb-2">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={formData.pixLiberado === true}
+                onChange={(e) => setFormData(prev => ({ ...prev, pixLiberado: e.target.checked }))}
+                className="mr-2"
+              />
+              <span>Pix Liberado</span>
+            </label>
+          </div>
         </div>
       </div>
 
       {/* Grid 3x2: Linha 2 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        {/* Reclame Aqui */}
+        {/* Reclame Aqui - oculto no form Reclame Aqui (redundante) */}
+        {formData.tipo !== 'RECLAME_AQUI' && (
         <div>
           <div className="flex items-center mb-2">
             <label className="flex items-center">
@@ -2422,8 +2889,10 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
             </div>
           )}
         </div>
+        )}
 
-        {/* Procon */}
+        {/* Procon - oculto no form Procon (redundante) */}
+        {formData.tipo !== 'PROCON' && (
         <div>
           <div className="flex items-center mb-2">
             <label className="flex items-center">
@@ -2501,13 +2970,11 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
             </div>
           )}
         </div>
+        )}
 
-        {/* Status do contrato */}
-        <div>
-          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-            Status do contrato
-          </label>
-          <div className="space-y-2">
+        {/* Status do contrato - 1 checkbox Boolean: Contrato Quitado - sempre coluna 3 */}
+        <div className="md:col-start-3">
+          <div className="flex items-center mb-2">
             <label className="flex items-center">
               <input
                 type="checkbox"
@@ -2515,16 +2982,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                 onChange={(e) => setFormData(prev => ({ ...prev, statusContratoQuitado: e.target.checked }))}
                 className="mr-2"
               />
-              <span>Quitado</span>
-            </label>
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.statusContratoAberto}
-                onChange={(e) => setFormData(prev => ({ ...prev, statusContratoAberto: e.target.checked }))}
-                className="mr-2"
-              />
-              <span>Em aberto</span>
+              <span>Contrato Quitado</span>
             </label>
           </div>
         </div>
