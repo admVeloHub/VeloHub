@@ -1,6 +1,12 @@
 /**
  * VeloHub V3 - ErrosBugsTab Component
- * VERSION: v1.24.1 | DATE: 2025-02-18 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.25.0 | DATE: 2026-03-13 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.25.0:
+ * - Migração de anexos: base64 → upload via signed URL GCS (mediabank_velohub/anexos_produto)
+ * - imagens: [{ nome, imagemUrl }], videos: [{ nome, videoUrl }]
+ * - processFiles agora faz upload imediato via backend /api/anexos-produto/get-upload-url
+ * - Modal de anexos e respostas suportam ambos formatos (legado e novo)
  * 
  * Mudanças v1.24.1:
  * - Melhorado tratamento de erro 503 (WhatsApp desconectado) com logs mais informativos
@@ -148,7 +154,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { errosBugsAPI, logsAPI, solicitacoesAPI } from '../../services/escalacoesApi';
-import { API_BASE_URL, WHATSAPP_API_URL, WHATSAPP_DEFAULT_JID, WHATSAPP_ENDPOINT } from '../../config/api-config';
+import { API_BASE_URL } from '../../config/api-config';
 import toast from 'react-hot-toast';
 
 /**
@@ -162,8 +168,9 @@ const ErrosBugsTab = () => {
   const [descricao, setDescricao] = useState('');
   const [marca, setMarca] = useState('');
   const [modelo, setModelo] = useState('');
-  const [imagens, setImagens] = useState([]); // [{ name, type, data, preview }]
-  const [videos, setVideos] = useState([]); // [{ name, type, data, thumbnail }]
+  const [imagens, setImagens] = useState([]); // [{ nome, imagemUrl }] - upload via signed URL GCS
+  const [videos, setVideos] = useState([]);   // [{ nome, videoUrl }] - upload via signed URL GCS
+  const [uploading, setUploading] = useState(false);
   // Campos para Exclusão de Conta
   const [excluirVelotax, setExcluirVelotax] = useState(false);
   const [excluirCelcoin, setExcluirCelcoin] = useState(false);
@@ -509,125 +516,64 @@ const ErrosBugsTab = () => {
   };
 
   /**
-   * Gerar thumbnail de imagem (~400px)
-   * @param {string} dataUrl - Data URL da imagem
-   * @returns {Promise<string|null>} Data URL do thumbnail ou null
+   * Upload para GCS via signed URL (backend /api/anexos-produto/get-upload-url)
+   * @param {File} file - Arquivo a enviar
+   * @param {string} tipoAnexo - 'imagem' ou 'video'
+   * @returns {Promise<{nome, imagemUrl}|{nome, videoUrl}>}
    */
-  const makeThumb = (dataUrl) => new Promise((resolve) => {
-    try {
-      const img = new Image();
-      img.onload = () => {
-        const maxW = 400;
-        const scale = Math.min(1, maxW / img.width);
-        const w = Math.round(img.width * scale);
-        const h = Math.round(img.height * scale);
-        const c = document.createElement('canvas');
-        c.width = w;
-        c.height = h;
-        const ctx = c.getContext('2d');
-        ctx.drawImage(img, 0, 0, w, h);
-        resolve(c.toDataURL('image/jpeg', 0.8));
-      };
-      img.onerror = () => resolve(null);
-      img.src = dataUrl;
-    } catch (err) {
-      resolve(null);
-    }
-  });
+  const uploadToGcs = async (file, tipoAnexo) => {
+    const baseUrl = API_BASE_URL.replace(/\/api\/?$/, '');
+    const res = await fetch(`${baseUrl}/api/anexos-produto/get-upload-url`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileName: file.name,
+        contentType: file.type || (tipoAnexo === 'imagem' ? 'image/jpeg' : 'video/mp4'),
+        tipo: tipoAnexo
+      })
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'Erro ao obter URL de upload');
+    const putRes = await fetch(data.signedUrl, {
+      method: 'PUT',
+      body: file,
+      headers: { 'Content-Type': file.type || (tipoAnexo === 'imagem' ? 'image/jpeg' : 'video/mp4') }
+    });
+    if (!putRes.ok) throw new Error('Falha no upload para o servidor');
+    return tipoAnexo === 'imagem'
+      ? { nome: file.name, imagemUrl: data.publicUrl }
+      : { nome: file.name, videoUrl: data.publicUrl };
+  };
 
   /**
-   * Processar arquivos arrastados ou selecionados
+   * Processar arquivos arrastados ou selecionados - upload via signed URL GCS
    * @param {FileList|Array<File>} files - Lista de arquivos
    */
   const processFiles = async (files) => {
     const fileArray = Array.from(files || []);
-    const newImagens = [];
-    const newVideos = [];
-
-    for (const file of fileArray) {
-      try {
-        // Verificar tamanho máximo (50MB)
+    if (!fileArray.length) return;
+    setUploading(true);
+    try {
+      for (const file of fileArray) {
         if (file.size > 50 * 1024 * 1024) {
-          alert(`O arquivo "${file.name}" é muito grande. Máximo permitido: 50MB`);
+          toast.error(`O arquivo "${file.name}" é muito grande. Máximo: 50MB`);
           continue;
         }
-
-        // Verificar se é imagem
         if (file.type && file.type.startsWith('image/')) {
-          const dataUrl = await new Promise((ok, err) => {
-            const r = new FileReader();
-            r.onload = () => ok(String(r.result));
-            r.onerror = err;
-            r.readAsDataURL(file);
-          });
-          const base64 = String(dataUrl).split(',')[1];
-          const preview = await makeThumb(String(dataUrl));
-          newImagens.push({
-            name: file.name,
-            type: file.type || 'image/jpeg',
-            data: base64,
-            preview
-          });
+          const item = await uploadToGcs(file, 'imagem');
+          setImagens((prev) => [...prev, item]);
+        } else if (file.type && file.type.startsWith('video/')) {
+          const item = await uploadToGcs(file, 'video');
+          setVideos((prev) => [...prev, item]);
         }
-        // Verificar se é vídeo
-        else if (file.type && file.type.startsWith('video/')) {
-          const dataUrl = await new Promise((ok, err) => {
-            const r = new FileReader();
-            r.onload = () => ok(String(r.result));
-            r.onerror = err;
-            r.readAsDataURL(file);
-          });
-          const base64 = String(dataUrl).split(',')[1];
-          const thumbnail = await makeVideoThumb(file);
-          newVideos.push({
-            name: file.name,
-            type: file.type || 'video/mp4',
-            data: base64,
-            thumbnail
-          });
-        }
-      } catch (err) {
-        console.error('Erro ao processar arquivo:', err);
       }
-    }
-
-    if (newImagens.length > 0) {
-      setImagens((prev) => [...prev, ...newImagens]);
-    }
-    if (newVideos.length > 0) {
-      setVideos((prev) => [...prev, ...newVideos]);
+    } catch (err) {
+      console.error('Erro ao processar arquivo:', err);
+      toast.error(err?.message || 'Erro ao enviar anexo');
+    } finally {
+      setUploading(false);
     }
   };
-
-  /**
-   * Gerar thumbnail de vídeo
-   * @param {File} videoFile - Arquivo de vídeo
-   * @returns {Promise<string|null>} Data URL do thumbnail ou null
-   */
-  const makeVideoThumb = (videoFile) => new Promise((resolve) => {
-    try {
-      const video = document.createElement('video');
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      
-      video.preload = 'metadata';
-      video.addEventListener('loadedmetadata', () => {
-        canvas.width = 320;
-        canvas.height = (canvas.width / video.videoWidth) * video.videoHeight;
-        video.currentTime = 1;
-      });
-      
-      video.addEventListener('seeked', () => {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', 0.8));
-      });
-      
-      video.addEventListener('error', () => resolve(null));
-      video.src = URL.createObjectURL(videoFile);
-    } catch (err) {
-      resolve(null);
-    }
-  });
 
   /**
    * Abrir modal de anexos
@@ -820,82 +766,11 @@ const ErrosBugsTab = () => {
     setLoading(true);
     setMsg('');
 
-    // Usar configurações do api-config.js (mesmo padrão do FormSolicitacao)
-    const apiUrl = WHATSAPP_API_URL;
-    const defaultJid = WHATSAPP_DEFAULT_JID;
-
     const legenda = montarLegenda();
-    
-    // Definir agentName antes de usar (mesmo padrão do FormSolicitacao)
     const agentName = selectedAgent || agente || '';
 
     try {
-      // 1) Enviar via WhatsApp se configurado
-      let waMessageId = null;
-      let messageIdsArr = [];
-      if (apiUrl && defaultJid) {
-        try {
-          // Formatar imagens e vídeos para o formato esperado pela API ({ data, type })
-          const imagensFormatadas = imagens?.map(({ data, type }) => ({ data, type })).filter(img => img.data && img.type) || [];
-          const videosFormatados = videos?.map(({ data, type }) => ({ data, type })).filter(vid => vid.data && vid.type) || [];
-          
-          const whatsappEndpoint = WHATSAPP_ENDPOINT;
-          console.log('📤 [ErrosBugsTab] Enviando para WhatsApp API:', whatsappEndpoint);
-          
-          // CPF apenas números para API WhatsApp (mesmo padrão do FormSolicitacao)
-          const cpfApenasNumeros = String(cpf || '').replace(/\D/g, '');
-          
-          // Payload incluindo cpf e solicitacao para correlacionar replies
-          const whatsappPayload = {
-            jid: defaultJid,
-            mensagem: legenda,
-            cpf: cpfApenasNumeros,
-            solicitacao: `Erro/Bug - ${tipo}`,
-            agente: agentName,
-            imagens: imagensFormatadas,
-            videos: videosFormatados
-          };
-          
-          console.log('📤 [ErrosBugsTab] Payload WhatsApp:', {
-            jid: whatsappPayload.jid,
-            cpf: whatsappPayload.cpf,
-            solicitacao: whatsappPayload.solicitacao,
-            agente: whatsappPayload.agente,
-            imagensCount: whatsappPayload.imagens?.length || 0,
-            videosCount: whatsappPayload.videos?.length || 0
-          });
-          
-          const resp = await fetch(whatsappEndpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(whatsappPayload)
-          });
-          
-          if (resp && resp.ok) {
-            const d = await resp.json().catch(() => ({}));
-            console.log('✅ [ErrosBugsTab] Resposta do WhatsApp:', d);
-            waMessageId = d?.messageId || d?.key?.id || null;
-            if (Array.isArray(d?.messageIds)) messageIdsArr = d.messageIds;
-          } else {
-            // Tentar ler mensagem de erro
-            try {
-              const errorData = await resp.json();
-              console.error('❌ [ErrosBugsTab] Erro da API WhatsApp:', errorData);
-              
-              // Detectar erro específico de WebSocket desconectado
-              if (resp.status === 503 && errorData?.error?.includes('WebSocket')) {
-                console.warn('⚠️ [ErrosBugsTab] WhatsApp WebSocket não está conectado');
-              }
-            } catch (e) {
-              console.error('❌ [ErrosBugsTab] Erro HTTP:', resp.status, resp.statusText);
-            }
-          }
-        } catch (err) {
-          console.error('Erro ao enviar via WhatsApp:', err);
-        }
-      }
-
-      // 2) Criar registro no backend
+      // Criar registro no backend (WhatsApp descontinuado - replies via polling MongoDB)
       // CPF sempre apenas números (sem formatação) para o backend e WhatsApp
       const cpfApenasNumeros = String(cpf || '').replace(/\D/g, '');
       
@@ -910,23 +785,8 @@ const ErrosBugsTab = () => {
           descricao,
           marca: marca || '',
           modelo: modelo || '',
-          imagens: imagens?.map(({ name, type, data, preview }) => ({
-            name,
-            type,
-            size: (data || '').length
-          })),
-          previews: imagens?.map(({ preview }) => preview).filter(Boolean),
-          // Incluir dados completos das imagens para envio via WhatsApp
-          imageData: imagens?.map(({ data, type }) => ({ data, type })).filter(img => img.data && img.type) || [],
-          videos: videos?.map(({ name, type, data, thumbnail }) => ({
-            name,
-            type,
-            size: (data || '').length
-          })),
-          videoThumbnails: videos?.map(({ thumbnail }) => thumbnail).filter(Boolean),
-          // Incluir dados completos dos vídeos para envio via WhatsApp
-          videoData: videos?.map(({ data, type }) => ({ data, type })).filter(vid => vid.data && vid.type) || [],
-          messageIds: messageIdsArr,
+          imagens: imagens?.map(({ nome, imagemUrl }) => ({ nome, imagemUrl })) || [],
+          videos: videos?.map(({ nome, videoUrl }) => ({ nome, videoUrl })) || [],
           // Campos para Exclusão de Conta
           exclusao: tipo === 'Exclusão de Conta' ? {
             excluirVelotax: !!excluirVelotax,
@@ -935,9 +795,7 @@ const ErrosBugsTab = () => {
             portabilidadePendente: !!portabilidadePendente,
             dividaIrpfQuitada: !!dividaIrpfQuitada,
           } : undefined
-        },
-        agentContact: defaultJid || null,
-        waMessageId
+        }
       };
 
       const result = await errosBugsAPI.create(erroBugData);
@@ -948,9 +806,8 @@ const ErrosBugsTab = () => {
           action: 'send_request',
           detail: {
             tipo: `Erro/Bug - ${tipo}`,
-            cpf: cpfApenasNumeros, // CPF normalizado no log também
-            waMessageId,
-            whatsappSent: !!(apiUrl && defaultJid)
+            cpf: cpfApenasNumeros,
+            whatsappSent: false
           }
         });
       } catch (logErr) {
@@ -959,15 +816,15 @@ const ErrosBugsTab = () => {
 
       // 4) Adicionar ao cache local
       const newItem = {
-        cpf: cpfApenasNumeros, // CPF normalizado no cache também
+        cpf: cpfApenasNumeros,
         tipo: `Erro/Bug - ${tipo}`,
-        waMessageId,
-        status: 'em aberto',
+        waMessageId: null,
+        status: 'enviado',
         createdAt: new Date().toISOString()
       };
       saveCache([newItem, ...localLogs].slice(0, 50));
 
-      setMsg(apiUrl && defaultJid ? 'Enviado e registrado com sucesso.' : 'Registrado no painel. WhatsApp não configurado.');
+      setMsg('Registrado no painel com sucesso.');
       // Não limpar agente, pois é automático
       setCpf('');
       setDescricao('');
@@ -1215,30 +1072,20 @@ const ErrosBugsTab = () => {
               const imgs = items.filter((it) => it.type && it.type.startsWith('image/'));
               if (!imgs.length) return;
               e.preventDefault();
-              const arr = [...imagens];
-              for (const it of imgs) {
-                try {
+              setUploading(true);
+              try {
+                for (const it of imgs) {
                   const file = it.getAsFile();
                   if (!file) continue;
-                  const dataUrl = await new Promise((ok, err) => {
-                    const r = new FileReader();
-                    r.onload = () => ok(String(r.result));
-                    r.onerror = err;
-                    r.readAsDataURL(file);
-                  });
-                  const base64 = String(dataUrl).split(',')[1];
-                  const preview = await makeThumb(String(dataUrl));
-                  arr.push({
-                    name: file.name || 'clipboard.png',
-                    type: file.type || 'image/png',
-                    data: base64,
-                    preview
-                  });
-                } catch (err) {
-                  console.error('Erro ao processar imagem:', err);
+                  const item = await uploadToGcs(file, 'imagem');
+                  setImagens((prev) => [...prev, item]);
                 }
+              } catch (err) {
+                console.error('Erro ao processar imagem da área de transferência:', err);
+                toast.error(err?.message || 'Erro ao enviar imagem');
+              } finally {
+                setUploading(false);
               }
-              setImagens(arr);
             }}
           />
         </div>
@@ -1313,12 +1160,13 @@ const ErrosBugsTab = () => {
               Aceitamos imagens (JPG, PNG, GIF) e vídeos (MP4, WebM, MOV) - Máx 50MB por arquivo
             </div>
             <div className="flex gap-2 justify-center">
-              <label className="inline-block px-3 py-2 rounded bg-sky-600 text-white cursor-pointer hover:bg-sky-700 transition-colors">
-                Selecionar imagens
+              <label className={`inline-block px-3 py-2 rounded bg-sky-600 text-white cursor-pointer hover:bg-sky-700 transition-colors ${uploading ? 'opacity-60 cursor-not-allowed' : ''}`}>
+                {uploading ? 'Enviando...' : 'Selecionar imagens'}
                 <input
                   type="file"
                   accept="image/*"
                   multiple
+                  disabled={uploading}
                   onChange={async (e) => {
                     const files = e.target.files;
                     if (files && files.length > 0) {
@@ -1330,12 +1178,13 @@ const ErrosBugsTab = () => {
                   className="hidden"
                 />
               </label>
-              <label className="inline-block px-3 py-2 rounded bg-purple-600 text-white cursor-pointer hover:bg-purple-700 transition-colors">
-                Selecionar vídeos
+              <label className={`inline-block px-3 py-2 rounded bg-purple-600 text-white cursor-pointer hover:bg-purple-700 transition-colors ${uploading ? 'opacity-60 cursor-not-allowed' : ''}`}>
+                {uploading ? 'Enviando...' : 'Selecionar vídeos'}
                 <input
                   type="file"
                   accept="video/*"
                   multiple
+                  disabled={uploading}
                   onChange={async (e) => {
                     const files = e.target.files;
                     if (files && files.length > 0) {
@@ -1361,9 +1210,9 @@ const ErrosBugsTab = () => {
                     {imagens.map((im, idx) => (
                       <div key={idx} className="relative group">
                         <img
-                          src={im.preview ? im.preview : im.data ? `data:${im.type || 'image/jpeg'};base64,${im.data}` : ''}
-                          alt={`anexo-${idx}`}
-                          className="h-16 w-auto rounded border border-gray-300 dark:border-gray-600"
+                          src={im.imagemUrl || ''}
+                          alt={im.nome || `anexo-${idx}`}
+                          className="h-16 w-auto rounded border border-gray-300 dark:border-gray-600 object-cover"
                         />
                         <button
                           type="button"
@@ -1384,16 +1233,16 @@ const ErrosBugsTab = () => {
                     {videos.map((vid, idx) => (
                       <div key={idx} className="relative group">
                         <div className="relative">
-                          <img
-                            src={vid.thumbnail || ''}
-                            alt={`video-thumb-${idx}`}
-                            className="h-16 w-auto rounded border border-gray-300 dark:border-gray-600"
+                          <video
+                            src={vid.videoUrl || ''}
+                            className="h-16 w-auto rounded border border-gray-300 dark:border-gray-600 object-cover"
+                            preload="metadata"
                           />
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded">
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded pointer-events-none">
                             <span className="text-white text-xs">▶</span>
                           </div>
                         </div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400 mt-1 max-w-32 truncate">{vid.name}</div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400 mt-1 max-w-32 truncate">{vid.nome}</div>
                         <button
                           type="button"
                           onClick={() => setVideos((prev) => prev.filter((_, i) => i !== idx))}
@@ -1527,14 +1376,8 @@ const ErrosBugsTab = () => {
             {searchResults && searchResults.length > 0 && !searchLoading && (
               <div className="space-y-2">
                 {searchResults.map((r) => {
-                  const imgCount = Array.isArray(r?.payload?.previews)
-                    ? r.payload.previews.length
-                    : Array.isArray(r?.payload?.imagens)
-                    ? r.payload.imagens.length
-                    : 0;
-                  const videoCount = Array.isArray(r?.payload?.videos)
-                    ? r.payload.videos.length
-                    : 0;
+                  const imgCount = Array.isArray(r?.payload?.imagens) ? r.payload.imagens.length : (Array.isArray(r?.payload?.previews) ? r.payload.previews.length : 0);
+                  const videoCount = Array.isArray(r?.payload?.videos) ? r.payload.videos.length : 0;
                   const total = imgCount + videoCount;
                   const repliesList = Array.isArray(r.replies) ? r.replies : [];
                   // Remover prefixo "Erro/Bug - " do tipo
@@ -1742,132 +1585,116 @@ const ErrosBugsTab = () => {
                   </div>
                 </div>
 
-                {/* Imagens */}
+                {/* Imagens - suporta formato novo (imagemUrl) e legado (previews) */}
                 {(() => {
+                  const imgs = selectedRequest.payload?.imagens || [];
                   const previews = selectedRequest.payload?.previews || [];
-                  if (previews.length === 0) return null;
+                  const hasNewFormat = imgs.some((im) => im?.imagemUrl);
+                  const displayList = hasNewFormat
+                    ? imgs.filter((im) => im?.imagemUrl).map((im) => ({ src: im.imagemUrl, name: im.nome || im.name }))
+                    : previews.map((preview, idx) => ({ src: preview, name: imgs[idx]?.name || `imagem-${idx + 1}.png` }));
+                  if (displayList.length === 0) return null;
                   return (
                     <div>
                       <h4 className="font-medium mb-2 text-gray-800 dark:text-gray-200">
-                        Imagens ({previews.length})
+                        Imagens ({displayList.length})
                       </h4>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        {previews.map((preview, idx) => {
-                          const imageName = selectedRequest.payload?.imagens?.[idx]?.name || `imagem-${idx + 1}.png`;
-                          return (
-                            <div key={idx} className="relative group">
-                              <img
-                                src={preview}
-                                alt={`imagem-${idx}`}
-                                className="w-full h-32 object-cover rounded-lg border border-gray-300 dark:border-gray-600 cursor-pointer hover:opacity-90 transition-opacity"
-                                onClick={() => openImage(preview)}
-                              />
-                              <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-lg">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openImage(preview);
-                                  }}
-                                  className="bg-white text-gray-800 text-xs px-3 py-1.5 rounded hover:bg-gray-100 transition-colors"
-                                >
-                                  Ver
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    downloadImage(preview, imageName);
-                                  }}
-                                  className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded hover:bg-blue-700 transition-colors"
-                                >
-                                  Download
-                                </button>
-                              </div>
+                        {displayList.map((item, idx) => (
+                          <div key={idx} className="relative group">
+                            <img
+                              src={item.src}
+                              alt={item.name || `imagem-${idx}`}
+                              className="w-full h-32 object-cover rounded-lg border border-gray-300 dark:border-gray-600 cursor-pointer hover:opacity-90 transition-opacity"
+                              onClick={() => openImage(item.src)}
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-lg">
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); openImage(item.src); }}
+                                className="bg-white text-gray-800 text-xs px-3 py-1.5 rounded hover:bg-gray-100 transition-colors"
+                              >
+                                Ver
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); downloadImage(item.src, item.name); }}
+                                className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded hover:bg-blue-700 transition-colors"
+                              >
+                                Download
+                              </button>
                             </div>
-                          );
-                        })}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   );
                 })()}
 
-                {/* Vídeos */}
+                {/* Vídeos - suporta formato novo (videoUrl) e legado (videoData) */}
                 {(() => {
-                  const videos = selectedRequest.payload?.videos || [];
+                  const vids = selectedRequest.payload?.videos || [];
                   const thumbnails = selectedRequest.payload?.videoThumbnails || [];
                   const videoData = selectedRequest.payload?.videoData || [];
-                  if (videos.length === 0) return null;
+                  const hasNewFormat = vids.some((v) => v?.videoUrl);
+                  if (vids.length === 0) return null;
                   return (
                     <div>
-                      <h4 className="font-medium mb-2 text-gray-800 dark:text-gray-200">Vídeos ({videos.length})</h4>
+                      <h4 className="font-medium mb-2 text-gray-800 dark:text-gray-200">Vídeos ({vids.length})</h4>
                       <div className="space-y-2">
-                        {videos.map((video, idx) => {
+                        {vids.map((video, idx) => {
+                          const videoUrl = video?.videoUrl;
                           const videoDataItem = videoData[idx];
                           const hasVideoData = videoDataItem && videoDataItem.data && videoDataItem.type;
-                          const videoDataUrl = hasVideoData 
-                            ? `data:${videoDataItem.type};base64,${videoDataItem.data}`
-                            : null;
+                          const hasVideo = !!videoUrl || hasVideoData;
+                          const videoName = video?.nome || video?.name || `video-${idx + 1}.mp4`;
                           return (
                             <div
                               key={idx}
                               className={`flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg ${
-                                hasVideoData ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors' : ''
+                                hasVideo ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors' : ''
                               }`}
                               onClick={() => {
-                                if (hasVideoData) {
+                                if (videoUrl) {
+                                  window.open(videoUrl, '_blank');
+                                } else if (hasVideoData) {
                                   openVideo({
                                     data: videoDataItem.data,
                                     type: videoDataItem.type,
-                                    name: video.name || `video-${idx + 1}.mp4`
+                                    name: videoName
                                   });
                                 }
                               }}
                             >
                               <div className="relative">
-                                {thumbnails[idx] && (
-                                  <img
-                                    src={thumbnails[idx]}
-                                    alt={`video-thumb-${idx}`}
-                                    className="w-20 h-14 object-cover rounded border border-gray-300 dark:border-gray-600"
-                                  />
-                                )}
+                                {videoUrl ? (
+                                  <video src={videoUrl} className="w-20 h-14 object-cover rounded border border-gray-300 dark:border-gray-600" preload="metadata" />
+                                ) : thumbnails[idx] ? (
+                                  <img src={thumbnails[idx]} alt={`video-thumb-${idx}`} className="w-20 h-14 object-cover rounded border border-gray-300 dark:border-gray-600" />
+                                ) : null}
                                 <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded">
                                   <span className="text-white text-xs">▶</span>
                                 </div>
                               </div>
                               <div className="flex-1">
-                                <div className="text-sm font-medium text-gray-800 dark:text-gray-200">{video.name}</div>
-                                <div className="text-xs text-gray-600 dark:text-gray-400">
-                                  {video.type} • {Math.round(video.size / 1024 / 1024 * 100) / 100} MB
-                                </div>
+                                <div className="text-sm font-medium text-gray-800 dark:text-gray-200">{videoName}</div>
+                                {video?.type && <div className="text-xs text-gray-600 dark:text-gray-400">{video.type}</div>}
                               </div>
-                              {hasVideoData ? (
+                              {videoUrl ? (
                                 <div className="flex gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openVideo({
-                                        data: videoDataItem.data,
-                                        type: videoDataItem.type,
-                                        name: video.name || `video-${idx + 1}.mp4`
-                                      });
-                                    }}
-                                    className="text-xs px-3 py-1.5 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                                  >
+                                  <button type="button" onClick={(e) => { e.stopPropagation(); window.open(videoUrl, '_blank'); }} className="text-xs px-3 py-1.5 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors">
                                     Reproduzir
                                   </button>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (videoDataUrl) {
-                                        downloadVideo(videoDataUrl, video.name || `video-${idx + 1}.mp4`);
-                                      }
-                                    }}
-                                    className="text-xs px-3 py-1.5 rounded bg-gray-600 text-white hover:bg-gray-700 transition-colors"
-                                  >
+                                  <a href={videoUrl} download={videoName} target="_blank" rel="noopener noreferrer" className="text-xs px-3 py-1.5 rounded bg-gray-600 text-white hover:bg-gray-700 transition-colors" onClick={(e) => e.stopPropagation()}>
+                                    Download
+                                  </a>
+                                </div>
+                              ) : hasVideoData ? (
+                                <div className="flex gap-2">
+                                  <button type="button" onClick={(e) => { e.stopPropagation(); openVideo({ data: videoDataItem.data, type: videoDataItem.type, name: videoName }); }} className="text-xs px-3 py-1.5 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+                                    Reproduzir
+                                  </button>
+                                  <button type="button" onClick={(e) => { e.stopPropagation(); downloadVideo(`data:${videoDataItem.type};base64,${videoDataItem.data}`, videoName); }} className="text-xs px-3 py-1.5 rounded bg-gray-600 text-white hover:bg-gray-700 transition-colors">
                                     Download
                                   </button>
                                 </div>
@@ -1885,7 +1712,7 @@ const ErrosBugsTab = () => {
                 })()}
 
                 {/* Mensagem se não houver anexos */}
-                {(!selectedRequest.payload?.previews?.length && !selectedRequest.payload?.videos?.length) && (
+                {(!selectedRequest.payload?.imagens?.length && !selectedRequest.payload?.videos?.length) && (
                   <div className="text-center text-gray-600 dark:text-gray-400 py-8">
                     Nenhum anexo disponível para esta solicitação.
                   </div>
@@ -2024,41 +1851,37 @@ const ErrosBugsTab = () => {
                   </div>
                 </div>
 
-                {/* Anexos */}
+                {/* Anexos - suporta formato novo (imagemUrl/videoUrl) e legado (previews/videoData) */}
                 {(() => {
-                  const imgCount = Array.isArray(selectedRepliesRequest?.payload?.previews) 
-                    ? selectedRepliesRequest.payload.previews.length 
-                    : Array.isArray(selectedRepliesRequest?.payload?.imagens) 
-                    ? selectedRepliesRequest.payload.imagens.length 
-                    : 0;
-                  const videoCount = Array.isArray(selectedRepliesRequest?.payload?.videos) 
-                    ? selectedRepliesRequest.payload.videos.length 
-                    : 0;
+                  const p = selectedRepliesRequest?.payload || {};
+                  const imgs = p.imagens || [];
+                  const vids = p.videos || [];
+                  const previews = p.previews || [];
+                  const hasNewFormatImgs = imgs.some((im) => im?.imagemUrl);
+                  const imgDisplayList = hasNewFormatImgs
+                    ? imgs.filter((im) => im?.imagemUrl).map((im) => ({ src: im.imagemUrl, name: im.nome || im.name }))
+                    : previews.map((src, idx) => ({ src, name: imgs[idx]?.name || `imagem-${idx + 1}.png` }));
+                  const imgCount = imgDisplayList.length;
+                  const videoCount = vids.length;
                   const totalAnexos = imgCount + videoCount;
-                  
+
                   if (totalAnexos > 0) {
                     return (
                       <div>
-                        <h4 className="font-medium mb-3 text-gray-800 dark:text-gray-200">
-                          Anexos ({totalAnexos})
-                        </h4>
+                        <h4 className="font-medium mb-3 text-gray-800 dark:text-gray-200">Anexos ({totalAnexos})</h4>
                         {imgCount > 0 && (
                           <div className="mb-3">
                             <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">Imagens ({imgCount}):</div>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                              {(selectedRepliesRequest.payload.previews || selectedRepliesRequest.payload.imagens || []).map((preview, idx) => (
+                              {imgDisplayList.map((item, idx) => (
                                 <div key={idx} className="relative group">
                                   <img
-                                    src={preview}
-                                    alt={`anexo-${idx}`}
+                                    src={item.src}
+                                    alt={item.name || `anexo-${idx}`}
                                     className="w-full h-32 object-cover rounded-lg border border-gray-200 dark:border-gray-600 cursor-pointer hover:opacity-80 transition-opacity"
-                                    onClick={() => window.open(preview, '_blank')}
+                                    onClick={() => window.open(item.src, '_blank')}
                                   />
-                                  <button
-                                    type="button"
-                                    onClick={() => window.open(preview, '_blank')}
-                                    className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                                  >
+                                  <button type="button" onClick={() => window.open(item.src, '_blank')} className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
                                     Abrir
                                   </button>
                                 </div>
@@ -2070,29 +1893,38 @@ const ErrosBugsTab = () => {
                           <div>
                             <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">Vídeos ({videoCount}):</div>
                             <div className="space-y-2">
-                              {(selectedRepliesRequest.payload.videos || []).map((video, idx) => (
-                                <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                                  <div className="relative">
-                                    {selectedRepliesRequest.payload.videoThumbnails?.[idx] && (
-                                      <img
-                                        src={selectedRepliesRequest.payload.videoThumbnails[idx]}
-                                        alt={`video-thumb-${idx}`}
-                                        className="w-20 h-14 object-cover rounded border"
-                                      />
-                                    )}
-                                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded">
-                                      <span className="text-white text-xs">▶</span>
+                              {vids.map((video, idx) => {
+                                const videoUrl = video?.videoUrl;
+                                const videoName = video?.nome || video?.name || `Vídeo ${idx + 1}`;
+                                const thumb = p.videoThumbnails?.[idx];
+                                return (
+                                  <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                    <div className="relative">
+                                      {videoUrl ? (
+                                        <video src={videoUrl} className="w-20 h-14 object-cover rounded border" preload="metadata" />
+                                      ) : thumb ? (
+                                        <img src={thumb} alt={`video-thumb-${idx}`} className="w-20 h-14 object-cover rounded border" />
+                                      ) : null}
+                                      <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded">
+                                        <span className="text-white text-xs">▶</span>
+                                      </div>
                                     </div>
+                                    <div className="flex-1">
+                                      <div className="text-sm font-medium text-gray-800 dark:text-gray-200">{videoName}</div>
+                                      <div className="text-xs text-gray-500 dark:text-gray-400">{video?.type || 'video/mp4'}</div>
+                                    </div>
+                                    {videoUrl ? (
+                                      <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800">
+                                        Abrir
+                                      </a>
+                                    ) : (
+                                      <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900 px-2 py-1 rounded">
+                                        Vídeo não disponível
+                                      </div>
+                                    )}
                                   </div>
-                                  <div className="flex-1">
-                                    <div className="text-sm font-medium text-gray-800 dark:text-gray-200">{video.name || `Vídeo ${idx + 1}`}</div>
-                                    <div className="text-xs text-gray-500 dark:text-gray-400">{video.type || 'video/mp4'}</div>
-                                  </div>
-                                  <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900 px-2 py-1 rounded">
-                                    Vídeo não disponível
-                                  </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </div>
                         )}

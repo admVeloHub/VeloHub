@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Relatórios
- * VERSION: v2.20.0 | DATE: 2026-03-06 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.21.0 | DATE: 2026-03-16 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.21.0:
+ * - Padronização de grafias em MOTIVOS_CONHECIDOS e MOTIVOS_VALIDOS: Abatimento de Juros, Liberação Chave Pix, Contestação de Valores, Encerramento de Conta, Exclusão de Conta, Não Recebeu Restituição
  * 
  * Mudanças v2.20.0:
  * - CORRIGIDO Análise Diária: Natureza = origem (schema 471); Motivos = motivoReduzido (schema 475); dias = dataEntrada (470)
@@ -175,7 +178,7 @@ const MOTIVOS_CONHECIDOS = [
   'Crédito do Trabalhador',
   'Empréstimo Pessoal',
   'Liberação Chave Pix',
-  'Abatimento Juros',
+  'Abatimento de Juros',
   'Cancelamento Conta',
   'Devolução à Celcoin',
   'Superendividamento',
@@ -1517,12 +1520,12 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
 
       // Lista de motivos válidos (não naturezas) - usada em BACEN e N2 para motivosPorDia
       const MOTIVOS_VALIDOS = [
-        'Abatimento Juros',
-        'Abatimento Juros/Chave PIX',
+        'Abatimento de Juros',
+        'Abatimento de Juros/Chave PIX',
         'Cancelamento Conta',
         'Chave PIX',
-        'PIX/Abatimento Juros/Encerramento de conta',
-        'Chave PIX/Abatimento Juros/Prob. App',
+        'PIX/Abatimento de Juros/Encerramento de Conta',
+        'Chave PIX/Abatimento de Juros/Prob. App',
         'Chave PIX/Acesso ao App',
         'Chave PIX/Exclusão de Conta',
         'Conta',
@@ -1533,11 +1536,11 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         'Devolução à Celcoin',
         'Fraude',
         'Liquidação Antecipada',
-        'Liquidação Antecipada/Abatimento Juros',
-        'Não recebeu restituição',
-        'Não recebeu restituição/Abatimento Juros',
-        'Não recebeu restituição/Abatimento Juros/Chave PIX',
-        'Não recebeu restituição/Chave PIX',
+        'Liquidação Antecipada/Abatimento de Juros',
+        'Não Recebeu Restituição',
+        'Não Recebeu Restituição/Abatimento de Juros',
+        'Não Recebeu Restituição/Abatimento de Juros/Chave PIX',
+        'Não Recebeu Restituição/Chave PIX',
         'Probl. App/Gov',
         'Seguro Celular',
         'Seguro Divida Zero',

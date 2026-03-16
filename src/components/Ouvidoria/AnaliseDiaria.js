@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - AnaliseDiaria Component
- * VERSION: v2.3.0 | DATE: 2026-03-06 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.4.0 | DATE: 2026-03-16 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.4.0:
+ * - Padronização de grafias em MOTIVOS_REDUZIDOS: Abatimento de Juros, Liberação Chave Pix, Contestação de Valores, Encerramento de Conta, Exclusão de Conta, Não Recebeu Restituição
  * 
  * Mudanças v2.3.0:
  * - CORRIGIDO: Natureza = origem (schema 471); Motivos = motivoReduzido (schema 475); dias = dataEntrada (470)
@@ -92,12 +95,12 @@ const NATUREZAS_BACEN = ['Bacen Celcoin', 'Bacen Via Capital', 'Consumidor.Gov']
 
 /** Lista fixa de motivos reduzidos (BACEN/N2) - referência. Tabela Motivos usa dados da API (motivoReduzido). */
 const MOTIVOS_REDUZIDOS = [
-  'Abatimento Juros',
-  'Abatimento Juros/Chave PIX',
+  'Abatimento de Juros',
+  'Abatimento de Juros/Chave PIX',
   'Cancelamento Conta',
   'Chave PIX',
-  'PIX/Abatimento Juros/Encerramento de conta',
-  'Chave PIX/Abatimento Juros/Prob. App',
+  'PIX/Abatimento de Juros/Encerramento de Conta',
+  'Chave PIX/Abatimento de Juros/Prob. App',
   'Chave PIX/Acesso ao App',
   'Chave PIX/Exclusão de Conta',
   'Conta',
@@ -108,11 +111,11 @@ const MOTIVOS_REDUZIDOS = [
   'Devolução à Celcoin',
   'Fraude',
   'Liquidação Antecipada',
-  'Liquidação Antecipada/Abatimento Juros',
-  'Não recebeu restituição',
-  'Não recebeu restituição/Abatimento Juros',
-  'Não recebeu restituição/Abatimento Juros/Chave PIX',
-  'Não recebeu restituição/Chave PIX',
+  'Liquidação Antecipada/Abatimento de Juros',
+  'Não Recebeu Restituição',
+  'Não Recebeu Restituição/Abatimento de Juros',
+  'Não Recebeu Restituição/Abatimento de Juros/Chave PIX',
+  'Não Recebeu Restituição/Chave PIX',
   'Probl. App/Gov',
   'Seguro Celular',
   'Seguro Divida Zero',

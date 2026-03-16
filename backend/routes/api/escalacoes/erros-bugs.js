@@ -56,8 +56,6 @@
 
 const express = require('express');
 const router = express.Router();
-const whatsappService = require('../../../services/escalacoes/whatsappService');
-const config = require('../../../config');
 
 /**
  * Inicializar rotas de erros/bugs
@@ -325,7 +323,7 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
         });
       }
 
-      const { agente, cpf, tipo, payload, agentContact, waMessageId, descricao } = req.body;
+      const { agente, cpf, tipo, payload, descricao } = req.body;
 
       // Validação básica
       if (!agente || !tipo) {
@@ -359,11 +357,7 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
         cpf: cpf ? String(cpf).replace(/\D/g, '') : '',
         tipo: tipoCompleto,
         payload: payloadCompleto,
-        status: 'em aberto',
-        agentContact: agentContact || null,
-        waMessageId: waMessageId || null,
-        respondedAt: null,
-        respondedBy: null,
+        reply: [{ status: 'enviado', msgProdutos: null, msgN1: null, at: now }],
         createdAt: now,
         updatedAt: now
       };
@@ -371,136 +365,6 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
       const result = await collection.insertOne(erroBug);
 
       console.log(`✅ Erro/Bug criado: ${result.insertedId}`);
-
-      // Montar mensagem para WhatsApp
-      const mensagemTexto = (() => {
-        const agentName = colaboradorNome || '';
-        let m = `*Novo Erro/Bug - ${tipo}*\n\n`;
-        m += `Agente: ${agentName}\n`;
-        if (erroBug.cpf) m += `CPF: ${erroBug.cpf}\n`;
-        m += `\nDescrição:\n${descricao || payload?.descricao || '—'}\n`;
-        if (payload?.imagens?.length || payload?.videos?.length) {
-          const totalAnexos = (payload.imagens?.length || 0) + (payload.videos?.length || 0);
-          const tipos = [];
-          if (payload.imagens?.length) tipos.push(`${payload.imagens.length} imagem(ns)`);
-          if (payload.videos?.length) tipos.push(`${payload.videos.length} vídeo(s)`);
-          m += `\n[Anexos: ${totalAnexos} - ${tipos.join(', ')}]\n`;
-        }
-        return m;
-      })();
-
-      // Enviar via WhatsApp se configurado E se frontend não enviou ainda
-      // Se waMessageId já foi fornecido pelo frontend, não tentar enviar novamente
-      let waMessageIdFinal = waMessageId || null;
-      let messageIdsArray = [];
-      
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:259',message:'CHECKING WHATSAPP CONFIG',data:{hasWhatsappApiUrl:!!config.WHATSAPP_API_URL,hasWhatsappDefaultJid:!!config.WHATSAPP_DEFAULT_JID,whatsappApiUrl:config.WHATSAPP_API_URL||null,whatsappDefaultJid:config.WHATSAPP_DEFAULT_JID||null,hasWhatsappService:!!whatsappService,hasWaMessageId:!!waMessageId,hasMensagemTexto:!!mensagemTexto},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
-      
-      // Só tentar enviar se o frontend não enviou ainda (waMessageId não fornecido)
-      if (!waMessageId && config.WHATSAPP_API_URL && config.WHATSAPP_DEFAULT_JID && mensagemTexto) {
-        try {
-          // #region agent log
-          fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:263',message:'WHATSAPP CONFIG OK - ENTERING TRY BLOCK',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-          // #endregion
-          // Extrair imagens do payload.imageData (dados completos em base64)
-          const imagens = [];
-          if (payload && payload.imageData && Array.isArray(payload.imageData)) {
-            payload.imageData.forEach((image) => {
-              if (image && image.data && image.type) {
-                // Remover prefixo data:image se existir
-                const base64Data = String(image.data).replace(/^data:image\/[^;]+;base64,/, '');
-                imagens.push({
-                  data: base64Data,
-                  type: image.type || 'image/jpeg'
-                });
-              }
-            });
-          }
-          
-          // Extrair vídeos do payload.videoData (dados completos em base64)
-          const videos = [];
-          if (payload && payload.videoData && Array.isArray(payload.videoData)) {
-            payload.videoData.forEach((video) => {
-              if (video && video.data && video.type) {
-                // Remover prefixo data:video se existir
-                const base64Data = String(video.data).replace(/^data:video\/[^;]+;base64,/, '');
-                videos.push({
-                  data: base64Data,
-                  type: video.type || 'video/mp4'
-                });
-              }
-            });
-          }
-          
-          // #region agent log
-          fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:298',message:'CALLING whatsappService.sendMessage',data:{jid:config.WHATSAPP_DEFAULT_JID,mensagemLength:mensagemTexto?.length||0,imagensCount:imagens.length,videosCount:videos.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-          // #endregion
-          const whatsappResult = await whatsappService.sendMessage(
-              config.WHATSAPP_DEFAULT_JID,
-              mensagemTexto,
-              imagens,
-              videos,
-              {
-                cpf: erroBug.cpf || null,
-                solicitacao: tipo,
-                agente: colaboradorNome
-              }
-            );
-            
-            // #region agent log
-            fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:305',message:'whatsappResult RECEIVED',data:{ok:whatsappResult?.ok,hasMessageId:!!whatsappResult?.messageId,hasMessageIds:Array.isArray(whatsappResult?.messageIds),error:whatsappResult?.error||null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-            // #endregion
-            
-            if (whatsappResult.ok) {
-            waMessageIdFinal = whatsappResult.messageId || null;
-            messageIdsArray = whatsappResult.messageIds || [];
-            
-            // Atualizar erro/bug com waMessageId e messageIds
-            if (waMessageIdFinal || messageIdsArray.length > 0) {
-              const updateData = {};
-              if (waMessageIdFinal) updateData.waMessageId = waMessageIdFinal;
-              if (messageIdsArray.length > 0) {
-                updateData['payload.messageIds'] = messageIdsArray;
-              }
-              
-              await collection.updateOne(
-                { _id: result.insertedId },
-                { $set: updateData }
-              );
-              
-              // Atualizar objeto local para resposta
-              erroBug.waMessageId = waMessageIdFinal;
-              if (!erroBug.payload) erroBug.payload = {};
-              erroBug.payload.messageIds = messageIdsArray;
-            }
-            
-            console.log(`✅ WhatsApp: Mensagem enviada com sucesso! messageId: ${waMessageIdFinal}`);
-          } else {
-            console.warn(`⚠️ WhatsApp: Falha ao enviar mensagem: ${whatsappResult.error}`);
-            // Adicionar informação de erro ao payload para o frontend
-            if (!erroBug.payload) erroBug.payload = {};
-            erroBug.payload.whatsappError = whatsappResult.error || 'Erro desconhecido ao enviar via WhatsApp';
-          }
-        } catch (whatsappError) {
-          // #region agent log
-          fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:335',message:'CATCH whatsappError',data:{errorMessage:whatsappError?.message,errorName:whatsappError?.name,errorStack:whatsappError?.stack?.substring(0,200)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-          // #endregion
-          console.error('❌ Erro ao enviar via WhatsApp (não crítico):', whatsappError);
-          // Não bloquear criação do erro/bug se WhatsApp falhar
-        }
-      } else {
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:275',message:'WHATSAPP NOT CONFIGURED OR SKIPPED',data:{hasWhatsappApiUrl:!!config.WHATSAPP_API_URL,hasWhatsappDefaultJid:!!config.WHATSAPP_DEFAULT_JID,hasWaMessageId:!!waMessageId,hasMensagemTexto:!!mensagemTexto},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
-        console.log('[WHATSAPP] WhatsApp não configurado ou mensagemTexto ausente - pulando envio');
-      }
-
-      // Atualizar agentContact se WhatsApp foi usado
-      if (config.WHATSAPP_DEFAULT_JID && waMessageIdFinal) {
-        erroBug.agentContact = config.WHATSAPP_DEFAULT_JID;
-      }
 
       // Log de atividade
       if (userActivityLogger) {
@@ -511,9 +375,7 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
               erroBugId: result.insertedId.toString(),
               tipo: tipoCompleto,
               cpf: erroBug.cpf,
-              colaboradorNome: colaboradorNome,
-              waMessageId: waMessageIdFinal,
-              whatsappSent: !!waMessageIdFinal
+              colaboradorNome: colaboradorNome
             }
           });
         } catch (logErr) {
@@ -521,20 +383,12 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
         }
       }
 
-      // Preparar resposta com informações sobre WhatsApp
-      const responseData = {
-        _id: result.insertedId,
-        ...erroBug
-      };
-      
-      // Adicionar aviso se WhatsApp não foi enviado
-      if (config.WHATSAPP_API_URL && config.WHATSAPP_DEFAULT_JID && !waMessageIdFinal) {
-        responseData.whatsappWarning = erroBug.payload?.whatsappError || 'WhatsApp não disponível no momento. O registro foi criado com sucesso.';
-      }
-      
       res.status(201).json({
         success: true,
-        data: responseData
+        data: {
+          _id: result.insertedId,
+          ...erroBug
+        }
       });
     } catch (error) {
       handleError(req, res, error, 'Erro ao criar erro/bug');

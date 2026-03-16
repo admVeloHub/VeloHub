@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Ouvidoria API Service
- * VERSION: v2.4.0 | DATE: 2026-03-05 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.5.0 | DATE: 2026-03-16 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.5.0:
+ * - Adicionado parâmetro motivos (array) em getStats e getMetricas do dashboardAPI
  * 
  * Mudanças v2.4.0:
  * - Adicionado parâmetro produtos (array) em getStats e getMetricas do dashboardAPI
@@ -214,13 +217,16 @@ export const dashboardAPI = {
     if (filtros.produtos && Array.isArray(filtros.produtos)) {
       filtros.produtos.forEach(p => { if (p) query.append('produtos', p); });
     }
+    if (filtros.motivos && Array.isArray(filtros.motivos)) {
+      filtros.motivos.forEach(m => { if (m) query.append('motivos', m); });
+    }
     const queryString = query.toString();
     return apiRequest(`/ouvidoria/dashboard/stats${queryString ? `?${queryString}` : ''}`);
   },
 
   /**
    * Buscar métricas específicas
-   * @param {Object} filtros - Filtros opcionais (dataInicio, dataFim, produtos)
+   * @param {Object} filtros - Filtros opcionais (dataInicio, dataFim, produtos, motivos)
    * @returns {Promise<Object>} Métricas
    */
   getMetricas: (filtros = {}) => {
@@ -229,6 +235,9 @@ export const dashboardAPI = {
     if (filtros.dataFim) query.append('dataFim', filtros.dataFim);
     if (filtros.produtos && Array.isArray(filtros.produtos)) {
       filtros.produtos.forEach(p => { if (p) query.append('produtos', p); });
+    }
+    if (filtros.motivos && Array.isArray(filtros.motivos)) {
+      filtros.motivos.forEach(m => { if (m) query.append('motivos', m); });
     }
     const queryString = query.toString();
     return apiRequest(`/ouvidoria/dashboard/metricas${queryString ? `?${queryString}` : ''}`);

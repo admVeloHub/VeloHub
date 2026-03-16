@@ -87,6 +87,22 @@ import { API_BASE_URL } from '../config/api-config';
 import toast from 'react-hot-toast';
 
 /**
+ * Obtém o status do chamado a partir do array reply.
+ * Se reply vazio ou inexistente → "em aberto"
+ * Caso contrário → status do último elemento (enviado | feito | não feito)
+ * @param {Object} solicitacao - Objeto da solicitação
+ * @returns {string}
+ */
+const getStatusChamado = (solicitacao) => {
+  const reply = Array.isArray(solicitacao?.reply) ? solicitacao.reply : [];
+  if (reply.length === 0) return 'enviado';
+  const last = reply[reply.length - 1];
+  const s = String(last?.status || '').toLowerCase();
+  if (['enviado', 'feito', 'não feito', 'nao feito'].includes(s)) return s === 'nao feito' ? 'não feito' : s;
+  return 'enviado';
+};
+
+/**
  * Componente Calculadora de Restituição
  * Calcula os valores dos lotes de restituição com acréscimos
  */
@@ -226,6 +242,11 @@ const EscalacoesPage = () => {
   const [expandedAgentCards, setExpandedAgentCards] = useState(new Set());
   // Estado para modal de respostas
   const [selectedRepliesRequest, setSelectedRepliesRequest] = useState(null);
+  // Estado para formulário de adicionar reply
+  const [addReplyOrigem, setAddReplyOrigem] = useState('produtos');
+  const [addReplyStatus, setAddReplyStatus] = useState('enviado');
+  const [addReplyText, setAddReplyText] = useState('');
+  const [addReplyLoading, setAddReplyLoading] = useState(false);
   
   // Debug: monitorar mudanças no estado do modal
   useEffect(() => {
@@ -667,18 +688,18 @@ const EscalacoesPage = () => {
       (r) => new Date(r?.createdAt || 0).toDateString() === todayStr
     ).length;
     const done = base.filter(
-      (r) => String(r?.status || '').toLowerCase() === 'feito'
+      (r) => String(getStatusChamado(r) || '').toLowerCase() === 'feito'
     ).length;
     const pending = base.length - done;
     setStats({ today, pending, done });
 
-    // Notificações de mudança de status
+    // Notificações de mudança de status (status derivado de reply[].status)
     try {
       const prev = Array.isArray(prevRequestsRef.current) ? prevRequestsRef.current : [];
       const mapPrev = new Map(prev.map((r) => [r.id, String(r.status || '')]));
       const changed = base.filter((r) => {
         const prevSt = mapPrev.get(r._id || r.id);
-        const curSt = String(r?.status || '').toLowerCase();
+        const curSt = String(getStatusChamado(r) || '').toLowerCase();
         if (!prevSt) return false;
         return (
           prevSt.toLowerCase() !== curSt &&
@@ -714,7 +735,7 @@ const EscalacoesPage = () => {
           }
         };
         changed.forEach((r) => {
-          const st = String(r.status || '').toLowerCase();
+          const st = String(getStatusChamado(r) || '').toLowerCase();
           notify(
             st === 'feito' ? 'Solicitação concluída' : 'Solicitação marcada como não feita',
             `${r.tipo} — ${r.cpf}`
@@ -724,7 +745,7 @@ const EscalacoesPage = () => {
       }
       prevRequestsRef.current = base.map((r) => ({
         id: r._id || r.id,
-        status: r.status,
+        status: getStatusChamado(r),
       }));
     } catch (err) {
       console.error('Erro ao processar mudanças:', err);
@@ -1073,7 +1094,9 @@ const EscalacoesPage = () => {
                         ? r.payload.videos.length
                         : 0;
                       const total = imgCount + videoCount;
+                      const replyArr = Array.isArray(r.reply) ? r.reply : [];
                       const repliesList = Array.isArray(r.replies) ? r.replies : [];
+                      const totalReplies = replyArr.length + repliesList.length;
                       const requestId = r._id || r.id;
                       const handleCardClick = (e) => {
                         // Se o clique foi em um botão ou link, não fazer nada
@@ -1110,20 +1133,19 @@ const EscalacoesPage = () => {
                                       {videoCount > 0 ? `${videoCount} vid` : ''}
                                     </span>
                                   )}
-                                  {repliesList.length > 0 && (
+                                  {totalReplies > 0 && (
                                     <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                                      {repliesList.length} resposta{repliesList.length !== 1 ? 's' : ''}
+                                      {totalReplies} resposta{totalReplies !== 1 ? 's' : ''}
                                     </span>
                                   )}
                                 </div>
                                 <div className="text-xs text-gray-600 dark:text-gray-400">
-                                  Agente: {r.colaboradorNome || r.agente || '—'} • Status: {r.status || '—'}
+                                  Agente: {r.colaboradorNome || r.agente || '—'} • Status: {getStatusChamado(r)}
                                 </div>
                               </div>
                             </div>
                             <div className="flex items-center gap-2" onClick={(e) => {
-                              // Permitir clique apenas se não houver respostas (para não interferir com o modal de respostas)
-                              if (repliesList.length === 0) {
+                              if (totalReplies === 0) {
                                 e.stopPropagation();
                               }
                             }}>
@@ -1175,7 +1197,7 @@ const EscalacoesPage = () => {
             {!agentHistoryLoading && agentHistory.length > 0 && (
               <div className="space-y-2">
                 {agentHistory.slice(0, agentHistoryLimit).map((r) => {
-                  const s = String(r.status || '').toLowerCase();
+                  const s = String(getStatusChamado(r) || '').toLowerCase();
                   const badge =
                     s === 'feito'
                       ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-200'
@@ -1303,7 +1325,7 @@ const EscalacoesPage = () => {
                     <div className="text-sm space-y-1 text-gray-800 dark:text-gray-200">
                       <div><strong>CPF:</strong> {selectedRepliesRequest.cpf || '—'}</div>
                       <div><strong>Agente:</strong> {selectedRepliesRequest.colaboradorNome || selectedRepliesRequest.agente || '—'}</div>
-                      <div><strong>Status:</strong> {selectedRepliesRequest.status || '—'}</div>
+                      <div><strong>Status:</strong> {getStatusChamado(selectedRepliesRequest)}</div>
                       <div><strong>Tipo:</strong> {selectedRepliesRequest.tipo || '—'}</div>
                       <div><strong>Data:</strong> {selectedRepliesRequest.createdAt ? new Date(selectedRepliesRequest.createdAt).toLocaleString('pt-BR') : '—'}</div>
                     </div>
@@ -1387,15 +1409,55 @@ const EscalacoesPage = () => {
                     return null;
                   })()}
                   
-                  {/* Lista de respostas */}
+                  {/* Lista de respostas - suporta reply (novo) e replies (legado) */}
                   {(() => {
+                    const replyArray = Array.isArray(selectedRepliesRequest.reply) ? selectedRepliesRequest.reply : [];
                     const replies = Array.isArray(selectedRepliesRequest.replies) ? selectedRepliesRequest.replies : [];
-                    console.log('[Modal] Replies encontradas:', {
-                      requestId: selectedRepliesRequest._id || selectedRepliesRequest.id,
-                      repliesCount: replies.length,
-                      replies: replies
-                    });
-                    return replies.length > 0 ? (
+                    const hasReply = replyArray.length > 0;
+                    const hasReplies = replies.length > 0;
+                    if (hasReply) {
+                      return (
+                        <div>
+                          <h4 className="font-medium mb-3 text-gray-800 dark:text-gray-200">
+                            Respostas do time ({replyArray.length})
+                          </h4>
+                          <div className="space-y-3">
+                            {replyArray.map((item, i) => (
+                              <div key={i} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                    (item.status || '').toLowerCase() === 'feito' ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-200' :
+                                    (item.status || '').toLowerCase() === 'não feito' || (item.status || '').toLowerCase() === 'nao feito' ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200' :
+                                    'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200'
+                                  }`}>
+                                    {item.status || '—'}
+                                  </span>
+                                  {item.at && (
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                      {new Date(item.at).toLocaleString('pt-BR')}
+                                    </span>
+                                  )}
+                                </div>
+                                {item.msgProdutos && (
+                                  <div className="mb-2">
+                                    <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Time Produtos:</div>
+                                    <div className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">{item.msgProdutos}</div>
+                                  </div>
+                                )}
+                                {item.msgN1 && (
+                                  <div>
+                                    <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Time N1 (Atendimento):</div>
+                                    <div className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">{item.msgN1}</div>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                    if (hasReplies) {
+                      return (
                       <div>
                         <h4 className="font-medium mb-3 text-gray-800 dark:text-gray-200">
                           Menções / Respostas no grupo ({replies.length})
@@ -1470,7 +1532,9 @@ const EscalacoesPage = () => {
                           ))}
                         </div>
                       </div>
-                    ) : (
+                    );
+                    }
+                    return (
                       <div className="text-center text-gray-500 dark:text-gray-400 py-8">
                         Nenhuma resposta disponível para esta solicitação.
                       </div>

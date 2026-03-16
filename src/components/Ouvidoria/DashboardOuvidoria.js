@@ -1,6 +1,11 @@
 /**
  * VeloHub V3 - Dashboard Ouvidoria Component
- * VERSION: v2.4.1 | DATE: 2026-03-05 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.5.0 | DATE: 2026-03-16 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.5.0:
+ * - Adicionada categoria Judicial no dashboard
+ * - Adicionado card "Ped. Liberação" (solLiberacao) nos grids por tipo
+ * - Grids por tipo: N2, Reclame Aqui, Bacen, Procon, Judicial, Total
  * 
  * Mudanças v2.4.1:
  * - Opacidade do wrapping reduzida para 15%
@@ -9,7 +14,7 @@
  * - Produto: "Antecipação" exibe "Antecipação Outros Anos"; novo "Antecipação 2026"
  * 
  * Mudanças v2.3.0:
- * - Removido tipo Judicial do dashboard (apenas N2, Reclame Aqui, Bacen, Procon)
+ * - Removido tipo Judicial do dashboard (apenas N2, Reclame Aqui, Bacen, Procon) - REVERTIDO em v2.5.0
  * 
  * Mudanças v2.2.0:
  * - Adicionado card "% de Retenção" (percentual de ocorrências com pix retido)
@@ -431,7 +436,7 @@ const DashboardOuvidoria = ({ stats, loading, onRefresh }) => {
         </div>
       ) : (
         <div className="space-y-4">
-          {['N2', 'Reclame Aqui', 'Bacen', 'Procon'].map((tipo) => (
+          {['N2', 'Reclame Aqui', 'Bacen', 'Procon', 'Judicial'].map((tipo) => (
             <div
               key={tipo}
               className="p-4 rounded-xl"
@@ -440,20 +445,21 @@ const DashboardOuvidoria = ({ stats, loading, onRefresh }) => {
               <div className="text-lg font-semibold mb-3" style={{ color: '#000058' }}>
                 {tipo}
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-4">
                 <CardMetric label="Ocorrências" value={porTipo[tipo]?.ocorrencias} />
                 <CardMetric label="Em Aberto" value={porTipo[tipo]?.emAberto} />
                 <CardMetric label="Resolvido" value={porTipo[tipo]?.resolvido} />
                 <CardMetric label="Prazo Médio" value={porTipo[tipo]?.prazoMedio} suffix=" dias" />
                 <CardMetric label="CA e Protocolos" value={porTipo[tipo]?.caEProtocolos} />
-                <CardMetric label="Pix Liberado" value={porTipo[tipo]?.pixLiberado} />
-                <CardMetric label="Pix Retido" value={porTipo[tipo]?.pixRetido} />
+                <CardMetric label="Ped. Liberação" value={porTipo[tipo]?.solLiberacao} />
+                <CardMetric label="Liberados" value={porTipo[tipo]?.pixLiberado} />
+                <CardMetric label="Retidos" value={porTipo[tipo]?.pixRetido} />
                 <CardMetric label="% Retenção" value={porTipo[tipo]?.percRetencao} suffix="%" />
               </div>
             </div>
           ))}
 
-          {/* Grid Total: 2 linhas x 4 colunas */}
+          {/* Grid Total: 2 linhas x 5 colunas */}
           <div
             className="p-4 rounded-xl"
             style={{ backgroundColor: hexToRgba(CORES.Total || '#006AB9') }}
@@ -467,8 +473,9 @@ const DashboardOuvidoria = ({ stats, loading, onRefresh }) => {
               <CardMetric label="Resolvido" value={porTipo.Total?.resolvido} />
               <CardMetric label="Prazo Médio" value={porTipo.Total?.prazoMedio} suffix=" dias" />
               <CardMetric label="CA e Protocolos" value={porTipo.Total?.caEProtocolos} />
-              <CardMetric label="Pix Liberado" value={porTipo.Total?.pixLiberado} />
-              <CardMetric label="Pix Retido" value={porTipo.Total?.pixRetido} />
+              <CardMetric label="Ped. Liberação" value={porTipo.Total?.solLiberacao} />
+              <CardMetric label="Liberados" value={porTipo.Total?.pixLiberado} />
+              <CardMetric label="Retidos" value={porTipo.Total?.pixRetido} />
               <CardMetric label="% Retenção" value={porTipo.Total?.percRetencao} suffix="%" />
               <CardMetric label="Taxa de Resolução" value={porTipo.Total?.taxaResolucao} suffix="%" />
             </div>

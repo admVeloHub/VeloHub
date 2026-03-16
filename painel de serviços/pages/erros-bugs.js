@@ -1,4 +1,6 @@
 // pages/erros-bugs.js
+// VERSION: v2.0.0 | DATE: 2026-03-13 | AUTHOR: VeloHub Development Team
+// Anexos: upload via signed URL GCS (mediabank_velohub/anexos_produto)
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
 
@@ -7,18 +9,18 @@ export default function ErrosBugs() {
   const [cpf, setCpf] = useState('');
   const [tipo, setTipo] = useState('App');
   const [descricao, setDescricao] = useState('');
-  const [imagens, setImagens] = useState([]); // [{ name, type, data, preview }]
-  const [videos, setVideos] = useState([]); // [{ name, type, data, thumbnail }]
+  const [imagens, setImagens] = useState([]); // [{ nome, imagemUrl }]
+  const [videos, setVideos] = useState([]);   // [{ nome, videoUrl }]
+  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
-  const [selectedRequest, setSelectedRequest] = useState(null); // Para exibir anexos
+  const [selectedRequest, setSelectedRequest] = useState(null);
   const [showAttachmentsModal, setShowAttachmentsModal] = useState(false);
-  const [localLogs, setLocalLogs] = useState([]); // {cpf, tipo, waMessageId, status, createdAt}
+  const [localLogs, setLocalLogs] = useState([]);
   const [searchCpf, setSearchCpf] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
 
-  // cache helpers
   useEffect(() => {
     try {
       const cached = localStorage.getItem('velotax_local_logs_bugs');
@@ -30,45 +32,29 @@ export default function ErrosBugs() {
     try { localStorage.setItem('velotax_local_logs_bugs', JSON.stringify(items)); } catch {}
   };
 
-  // util para gerar thumbnail (~400px)
-  const makeThumb = (dataUrl) => new Promise((resolve) => {
-    try {
-      const img = new Image();
-      img.onload = () => {
-        const maxW = 400; const scale = Math.min(1, maxW / img.width);
-        const w = Math.round(img.width * scale); const h = Math.round(img.height * scale);
-        const c = document.createElement('canvas'); c.width = w; c.height = h;
-        const ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0, w, h);
-        resolve(c.toDataURL('image/jpeg', 0.8));
-      };
-      img.onerror = () => resolve(null);
-      img.src = dataUrl;
-    } catch { resolve(null); }
-  });
-
-  // util para gerar thumbnail de vídeo
-  const makeVideoThumb = (videoFile) => new Promise((resolve) => {
-    try {
-      const video = document.createElement('video');
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      
-      video.preload = 'metadata';
-      video.addEventListener('loadedmetadata', () => {
-        canvas.width = 320;
-        canvas.height = (canvas.width / video.videoWidth) * video.videoHeight;
-        video.currentTime = 1; // Captura frame do 1º segundo
-      });
-      
-      video.addEventListener('seeked', () => {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', 0.8));
-      });
-      
-      video.addEventListener('error', () => resolve(null));
-      video.src = URL.createObjectURL(videoFile);
-    } catch { resolve(null); }
-  });
+  // Upload para GCS via signed URL
+  const uploadToGcs = async (file, tipoAnexo) => {
+    const res = await fetch('/api/anexos-produto/get-upload-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileName: file.name,
+        contentType: file.type || (tipoAnexo === 'imagem' ? 'image/jpeg' : 'video/mp4'),
+        tipo: tipoAnexo
+      })
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'Erro ao obter URL de upload');
+    const putRes = await fetch(data.signedUrl, {
+      method: 'PUT',
+      body: file,
+      headers: { 'Content-Type': file.type || (tipoAnexo === 'imagem' ? 'image/jpeg' : 'video/mp4') }
+    });
+    if (!putRes.ok) throw new Error('Falha no upload para o servidor');
+    return tipoAnexo === 'imagem'
+      ? { nome: file.name, imagemUrl: data.publicUrl }
+      : { nome: file.name, videoUrl: data.publicUrl };
+  };
 
   // Função para abrir modal de anexos
   const openAttachmentsModal = (request) => {
@@ -140,31 +126,7 @@ export default function ErrosBugs() {
     setLoading(true);
     setMsg('');
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-    const defaultJid = process.env.NEXT_PUBLIC_DEFAULT_JID;
-
-    const legenda = montarLegenda();
-
     try {
-      // 1) Enviar via WhatsApp se configurado
-      let waMessageId = null;
-      let messageIdsArr = [];
-      if (apiUrl && defaultJid) {
-        const resp = await fetch(`${apiUrl}/send`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jid: defaultJid,
-            mensagem: montarLegenda(),
-            imagens,
-            videos
-          })
-        });
-        const d = await resp.json().catch(() => ({}));
-        waMessageId = d?.messageId || d?.key?.id || null;
-        if (Array.isArray(d?.messageIds)) messageIdsArr = d.messageIds;
-      }
-
       await fetch('/api/requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -177,34 +139,31 @@ export default function ErrosBugs() {
             cpf, 
             tipo, 
             descricao, 
-            imagens: imagens?.map(({ name, type, data, preview }) => ({ name, type, size: (data||'').length })), 
-            previews: imagens?.map(({ preview }) => preview).filter(Boolean),
-            videos: videos?.map(({ name, type, data, thumbnail }) => ({ name, type, size: (data||'').length })),
-            videoThumbnails: videos?.map(({ thumbnail }) => thumbnail).filter(Boolean),
-            messageIds: messageIdsArr 
+            imagens: imagens?.map(({ nome, imagemUrl }) => ({ nome, imagemUrl })) || [],
+            videos: videos?.map(({ nome, videoUrl }) => ({ nome, videoUrl })) || []
           },
-          agentContact: defaultJid || null,
-          waMessageId
+          agentContact: null,
+          waMessageId: null
         })
       });
 
       await fetch('/api/logs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'send_request', detail: { tipo: `Erro/Bug - ${tipo}`, cpf, waMessageId, whatsappSent: !!(apiUrl && defaultJid) } })
+        body: JSON.stringify({ action: 'send_request', detail: { tipo: `Erro/Bug - ${tipo}`, cpf, waMessageId: null, whatsappSent: false } })
       });
 
       // add to local logs cache
       const newItem = {
         cpf,
         tipo: `Erro/Bug - ${tipo}`,
-        waMessageId,
+        waMessageId: null,
         status: 'em aberto',
         createdAt: new Date().toISOString()
       };
       saveCache([newItem, ...localLogs].slice(0, 50));
 
-      setMsg(apiUrl && defaultJid ? 'Enviado e registrado com sucesso.' : 'Registrado no painel. WhatsApp não configurado.');
+      setMsg('Registrado no painel com sucesso.');
       setAgente(''); setCpf(''); setDescricao(''); setImagens([]); setVideos([]);
     } catch (err) {
       setMsg('Falha ao enviar/registrar. Tente novamente.');
@@ -274,7 +233,7 @@ export default function ErrosBugs() {
             {searchResults && searchResults.length > 0 && !searchLoading && (
               <div className="space-y-2 mt-3 max-h-64 overflow-auto">
                 {searchResults.slice(0,8).map((r) => {
-                  const imgCount = Array.isArray(r?.payload?.previews) ? r.payload.previews.length : (Array.isArray(r?.payload?.imagens) ? r.payload.imagens.length : 0);
+                  const imgCount = Array.isArray(r?.payload?.imagens) ? r.payload.imagens.length : 0;
                   const videoCount = Array.isArray(r?.payload?.videos) ? r.payload.videos.length : 0;
                   const total = imgCount + videoCount;
                   return (
@@ -345,18 +304,18 @@ export default function ErrosBugs() {
                   const imgs = items.filter(it => it.type && it.type.startsWith('image/'));
                   if (!imgs.length) return;
                   e.preventDefault();
-                  const arr = [...imagens];
-                  for (const it of imgs) {
-                    try {
+                  setUploading(true);
+                  try {
+                    for (const it of imgs) {
                       const file = it.getAsFile();
                       if (!file) continue;
-                      const dataUrl = await new Promise((ok, err) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = err; r.readAsDataURL(file); });
-                      const base64 = String(dataUrl).split(',')[1];
-                      const preview = await makeThumb(String(dataUrl));
-                      arr.push({ name: file.name || 'clipboard.png', type: file.type || 'image/png', data: base64, preview });
-                    } catch {}
+                      const item = await uploadToGcs(file, 'imagem');
+                      setImagens(prev => [...prev, item]);
+                    }
+                  } catch (err) {
+                    setMsg('Erro ao enviar imagem da área de transferência: ' + (err.message || ''));
                   }
-                  setImagens(arr);
+                  setUploading(false);
                 }}
               />
             </div>
@@ -367,41 +326,44 @@ export default function ErrosBugs() {
                 <div className="mb-2 text-black/70">Arraste e solte aqui, clique para selecionar ou cole imagens no campo de descrição</div>
                 <div className="mb-2 text-xs text-black/60">Aceitamos imagens (JPG, PNG, GIF) e vídeos (MP4, WebM, MOV) - Máx 50MB por arquivo</div>
                 <div className="flex gap-2 justify-center">
-                  <label className="inline-block px-3 py-2 rounded bg-sky-600 text-white cursor-pointer hover:bg-sky-700">
-                    Selecionar imagens
-                    <input type="file" accept="image/*" multiple onChange={async (e) => {
+                  <label className={`inline-block px-3 py-2 rounded bg-sky-600 text-white cursor-pointer hover:bg-sky-700 ${uploading ? 'opacity-60 cursor-not-allowed' : ''}`}>
+                    {uploading ? 'Enviando...' : 'Selecionar imagens'}
+                    <input type="file" accept="image/*" multiple disabled={uploading} onChange={async (e) => {
                       const files = Array.from(e.target.files || []);
-                      const arr = [];
-                      for (const f of files) {
-                        try {
-                          const dataUrl = await new Promise((ok, err) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = err; r.readAsDataURL(f); });
-                          const base64 = String(dataUrl).split(',')[1];
-                          const preview = await makeThumb(String(dataUrl));
-                          arr.push({ name: f.name, type: f.type || 'image/jpeg', data: base64, preview });
-                        } catch {}
+                      e.target.value = '';
+                      if (!files.length) return;
+                      setUploading(true);
+                      try {
+                        for (const f of files) {
+                          const item = await uploadToGcs(f, 'imagem');
+                          setImagens(prev => [...prev, item]);
+                        }
+                      } catch (err) {
+                        setMsg('Erro ao enviar imagem: ' + (err.message || ''));
                       }
-                      setImagens(prev => [...prev, ...arr]);
+                      setUploading(false);
                     }} className="hidden" />
                   </label>
-                  <label className="inline-block px-3 py-2 rounded bg-purple-600 text-white cursor-pointer hover:bg-purple-700">
-                    Selecionar vídeos
-                    <input type="file" accept="video/*" multiple onChange={async (e) => {
+                  <label className={`inline-block px-3 py-2 rounded bg-purple-600 text-white cursor-pointer hover:bg-purple-700 ${uploading ? 'opacity-60 cursor-not-allowed' : ''}`}>
+                    {uploading ? 'Enviando...' : 'Selecionar vídeos'}
+                    <input type="file" accept="video/*" multiple disabled={uploading} onChange={async (e) => {
                       const files = Array.from(e.target.files || []);
-                      const arr = [];
-                      for (const f of files) {
-                        try {
-                          // Verificar tamanho máximo (50MB)
+                      e.target.value = '';
+                      if (!files.length) return;
+                      setUploading(true);
+                      try {
+                        for (const f of files) {
                           if (f.size > 50 * 1024 * 1024) {
-                            alert(`O vídeo "${f.name}" é muito grande. Máximo permitido: 50MB`);
+                            setMsg(`O vídeo "${f.name}" é muito grande. Máximo: 50MB`);
                             continue;
                           }
-                          const dataUrl = await new Promise((ok, err) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = err; r.readAsDataURL(f); });
-                          const base64 = String(dataUrl).split(',')[1];
-                          const thumbnail = await makeVideoThumb(f);
-                          arr.push({ name: f.name, type: f.type || 'video/mp4', data: base64, thumbnail });
-                        } catch {}
+                          const item = await uploadToGcs(f, 'video');
+                          setVideos(prev => [...prev, item]);
+                        }
+                      } catch (err) {
+                        setMsg('Erro ao enviar vídeo: ' + (err.message || ''));
                       }
-                      setVideos(prev => [...prev, ...arr]);
+                      setUploading(false);
                     }} className="hidden" />
                   </label>
                 </div>
@@ -418,9 +380,9 @@ export default function ErrosBugs() {
                         {imagens.map((im, idx) => (
                           <div key={idx} className="relative group">
                             <img 
-                              src={im.preview ? im.preview : (im.data ? `data:${im.type||'image/jpeg'};base64,${im.data}` : '')} 
-                              alt={`anexo-${idx}`} 
-                              className="h-16 w-auto rounded border" 
+                              src={im.imagemUrl} 
+                              alt={im.nome} 
+                              className="h-16 w-auto rounded border object-cover" 
                             />
                             <button
                               type="button"
@@ -441,16 +403,12 @@ export default function ErrosBugs() {
                         {videos.map((vid, idx) => (
                           <div key={idx} className="relative group">
                             <div className="relative">
-                              <img 
-                                src={vid.thumbnail || ''} 
-                                alt={`video-thumb-${idx}`} 
-                                className="h-16 w-auto rounded border" 
-                              />
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded">
+                              <video src={vid.videoUrl} className="h-16 w-auto rounded border object-cover" preload="metadata" />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded pointer-events-none">
                                 <span className="text-white text-xs">▶</span>
                               </div>
                             </div>
-                            <div className="text-xs text-black/600 mt-1 max-w-32 truncate">{vid.name}</div>
+                            <div className="text-xs text-black/60 mt-1 max-w-32 truncate">{vid.nome}</div>
                             <button
                               type="button"
                               onClick={() => setVideos(prev => prev.filter((_, i) => i !== idx))}
@@ -550,24 +508,24 @@ export default function ErrosBugs() {
 
                 {/* Imagens */}
                 {(() => {
-                  const previews = selectedRequest.payload?.previews || [];
-                  if (previews.length === 0) return null;
+                  const imgs = selectedRequest.payload?.imagens || [];
+                  if (imgs.length === 0) return null;
                   return (
                     <div>
-                      <h4 className="font-medium mb-2">Imagens ({previews.length})</h4>
+                      <h4 className="font-medium mb-2">Imagens ({imgs.length})</h4>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        {previews.map((preview, idx) => (
+                        {imgs.map((im, idx) => (
                           <div key={idx} className="relative group">
                             <img
-                              src={preview}
-                              alt={`imagem-${idx}`}
+                              src={im.imagemUrl}
+                              alt={im.nome}
                               className="w-full h-32 object-cover rounded-lg border"
-                              onClick={() => window.open(preview, '_blank')}
+                              onClick={() => window.open(im.imagemUrl, '_blank')}
                               style={{ cursor: 'pointer' }}
                             />
                             <button
                               type="button"
-                              onClick={() => window.open(preview, '_blank')}
+                              onClick={() => window.open(im.imagemUrl, '_blank')}
                               className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
                             >
                               Abrir
@@ -579,37 +537,32 @@ export default function ErrosBugs() {
                   );
                 })()}
 
-                {/* Vídeos - Nota: vídeos não são armazenados no payload, apenas metadados */}
+                {/* Vídeos */}
                 {(() => {
-                  const videos = selectedRequest.payload?.videos || [];
-                  const thumbnails = selectedRequest.payload?.videoThumbnails || [];
-                  if (videos.length === 0) return null;
+                  const vids = selectedRequest.payload?.videos || [];
+                  if (vids.length === 0) return null;
                   return (
                     <div>
-                      <h4 className="font-medium mb-2">Vídeos ({videos.length})</h4>
+                      <h4 className="font-medium mb-2">Vídeos ({vids.length})</h4>
                       <div className="space-y-2">
-                        {videos.map((video, idx) => (
+                        {vids.map((vid, idx) => (
                           <div key={idx} className="flex items-center gap-3 p-3 bg-black/5 rounded-lg">
-                            <div className="relative">
-                              {thumbnails[idx] && (
-                                <img
-                                  src={thumbnails[idx]}
-                                  alt={`video-thumb-${idx}`}
-                                  className="w-20 h-14 object-cover rounded border"
-                                />
-                              )}
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded">
-                                <span className="text-white text-xs">▶</span>
-                              </div>
-                            </div>
+                            <video
+                              src={vid.videoUrl}
+                              controls
+                              className="w-40 h-24 object-cover rounded border"
+                              preload="metadata"
+                            />
                             <div className="flex-1">
-                              <div className="text-sm font-medium">{video.name}</div>
-                              <div className="text-xs text-black/60">
-                                {video.type} • {Math.round(video.size / 1024 / 1024 * 100) / 100} MB
-                              </div>
-                            </div>
-                            <div className="text-xs text-amber-600 bg-amber-100 px-2 py-1 rounded">
-                              Vídeo não disponível
+                              <div className="text-sm font-medium">{vid.nome}</div>
+                              <a
+                                href={vid.videoUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-sky-600 hover:underline"
+                              >
+                                Abrir em nova aba
+                              </a>
                             </div>
                           </div>
                         ))}
@@ -619,7 +572,7 @@ export default function ErrosBugs() {
                 })()}
 
                 {/* Mensagem se não houver anexos */}
-                {(!selectedRequest.payload?.previews?.length && !selectedRequest.payload?.videos?.length) && (
+                {(!selectedRequest.payload?.imagens?.length && !selectedRequest.payload?.videos?.length) && (
                   <div className="text-center text-black/60 py-8">
                     Nenhum anexo disponível para esta solicitação.
                   </div>

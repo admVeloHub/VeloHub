@@ -1,6 +1,14 @@
 /**
  * VeloHub V3 - ListaReclamacoes Component
- * VERSION: v1.13.0 | DATE: 2026-03-05 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.15.0 | DATE: 2026-03-16 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.15.0:
+ * - Data de exibição por tipo (dataEntrada, dataEntradaN2, dataReclam, dataProcon)
+ * - Exibição de Origem na lista quando existir (BACEN, Procon)
+ * - motivoReduzido formatado para array (join com vírgula)
+ * 
+ * Mudanças v1.14.0:
+ * - Padronização de grafias em MOTIVOS_REDUZIDOS: Abatimento de Juros, Liberação Chave Pix, Contestação de Valores, Encerramento de Conta, Exclusão de Conta, Não Recebeu Restituição
  * 
  * Mudanças v1.13.0:
  * - Exibição: "N2 & Pix" → "N2 Pix" em filtros e lista
@@ -120,12 +128,12 @@ const validarCPF = (cpf) => {
 };
 
 const MOTIVOS_REDUZIDOS = [
-  'Abatimento Juros',
-  'Abatimento Juros/Chave PIX',
+  'Abatimento de Juros',
+  'Abatimento de Juros/Chave PIX',
   'Cancelamento Conta',
   'Chave PIX',
-  'PIX/Abatimento Juros/Encerramento de conta',
-  'Chave PIX/Abatimento Juros/Prob. App',
+  'PIX/Abatimento de Juros/Encerramento de Conta',
+  'Chave PIX/Abatimento de Juros/Prob. App',
   'Chave PIX/Acesso ao App',
   'Chave PIX/Exclusão de Conta',
   'Conta',
@@ -136,11 +144,11 @@ const MOTIVOS_REDUZIDOS = [
   'Devolução à Celcoin',
   'Fraude',
   'Liquidação Antecipada',
-  'Liquidação Antecipada/Abatimento Juros',
-  'Não recebeu restituição',
-  'Não recebeu restituição/Abatimento Juros',
-  'Não recebeu restituição/Abatimento Juros/Chave PIX',
-  'Não recebeu restituição/Chave PIX',
+  'Liquidação Antecipada/Abatimento de Juros',
+  'Não Recebeu Restituição',
+  'Não Recebeu Restituição/Abatimento de Juros',
+  'Não Recebeu Restituição/Abatimento de Juros/Chave PIX',
+  'Não Recebeu Restituição/Chave PIX',
   'Probl. App/Gov',
   'Seguro Celular',
   'Seguro Divida Zero',
@@ -342,6 +350,26 @@ const ListaReclamacoes = () => {
     }
   };
 
+  /**
+   * Obter data de exibição conforme tipo (campo correto por coleção)
+   */
+  const getDataExibicao = (r) => {
+    const tipoUpper = String(r?.tipo || '').toUpperCase().trim();
+    if (tipoUpper === 'N2' || tipoUpper === 'N2 PIX' || tipoUpper === 'OUVIDORIA') return r.dataEntradaN2;
+    if (tipoUpper === 'RECLAME_AQUI' || tipoUpper === 'RECLAME AQUI' || tipoUpper === 'RECLAMEAQUI') return r.dataReclam;
+    if (tipoUpper === 'PROCON') return r.dataProcon;
+    return r.dataEntrada || r.createdAt;
+  };
+
+  /**
+   * Formatar motivoReduzido (string ou array) para exibição
+   */
+  const formatarMotivoExibicao = (motivoReduzido) => {
+    if (!motivoReduzido) return '';
+    if (Array.isArray(motivoReduzido)) return motivoReduzido.filter(Boolean).join(', ');
+    return String(motivoReduzido);
+  };
+
   const getStatusInfo = (reclamacao) => {
     if (reclamacao.Finalizado?.Resolvido === true) {
       return {
@@ -503,10 +531,13 @@ const ListaReclamacoes = () => {
                     {normalizarTipoExibicao(reclamacao.tipo)}
                   </span>
                 </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2 mb-1">
-                  <span>Data: {formatDate(reclamacao.dataEntrada || reclamacao.createdAt)}</span>
+                <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2 mb-1 flex-wrap">
+                  <span>Data: {formatDate(getDataExibicao(reclamacao))}</span>
                   {reclamacao.responsavel && <span>• Responsável: {reclamacao.responsavel}</span>}
-                  {reclamacao.motivoReduzido && <span>• {reclamacao.motivoReduzido}</span>}
+                  {reclamacao.origem && <span>• Origem: {reclamacao.origem}</span>}
+                  {reclamacao.motivoReduzido && (Array.isArray(reclamacao.motivoReduzido) ? reclamacao.motivoReduzido.length > 0 : reclamacao.motivoReduzido) && (
+                    <span>• {formatarMotivoExibicao(reclamacao.motivoReduzido)}</span>
+                  )}
                 </div>
               </div>
             ))}

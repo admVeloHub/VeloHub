@@ -1,8 +1,22 @@
 /**
  * VeloHub V3 - FormReclamacao Component
- * VERSION: v3.24.0 | DATE: 2026-03-06 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.28.0 | DATE: 2026-03-16 | AUTHOR: VeloHub Development Team
  * 
  * Componente de formulário para criação de reclamações BACEN, Ouvidoria, Reclame Aqui, Procon e Processos
+ * 
+ * Mudanças v3.28.0:
+ * - PROCON: adicionado campo Origem (valores: Procon, Consumidor.gov); incluído no payload
+ * 
+ * Mudanças v3.27.0:
+ * - BACEN: removido valor "Consumidor.Gov" do campo Origem; Prazo deixa de ser obrigatório
+ * 
+ * Mudanças v3.26.0:
+ * - BACEN: campo "Natureza" renomeado para "Origem" (label e mensagens de validação)
+ * 
+ * Mudanças v3.25.0:
+ * - MOTIVOS_REDUZIDOS: Abatimento de juros → Abatimento de Juros; Liberação chave pix → Liberação Chave Pix; Encerramento de conta → Encerramento de Conta; adicionado Portabilidade Pix
+ * - MOTIVOS_RECLAME_AQUI: adicionado Portabilidade Pix
+ * - Padronização de grafias: Abatimento de Juros, Liberação Chave Pix, Contestação de Valores, Encerramento de Conta, Exclusão de Conta, Não Recebeu Restituição
  * 
  * Mudanças v3.24.0:
  * - Removido campo oportunidade do form Reclame Aqui (não consta no schema)
@@ -187,28 +201,30 @@ const validarCPF = (cpf) => {
 
 /**
  * Opções de motivo reduzido (BACEN/N2)
- * VERSION: v1.3.2 | DATE: 2026-02-25 | Primeira letra maiúscula
+ * VERSION: v1.4.0 | DATE: 2026-03-16 | Abatimento de Juros, Liberação Chave Pix, Portabilidade Pix
  * 
  * Motivos disponíveis para formulários BACEN e N2 Pix:
- * - Abatimento de juros
+ * - Abatimento de Juros
  * - Cancelamento
  * - Cobrança
- * - Encerramento de conta
+ * - Encerramento de Conta
  * - Erro
  * - Fraude
  * - Lgpd
- * - Liberação chave pix
+ * - Liberação Chave Pix
+ * - Portabilidade Pix
  * - Superendividamento
  */
 const MOTIVOS_REDUZIDOS = [
-  'Abatimento de juros',
+  'Abatimento de Juros',
   'Cancelamento',
   'Cobrança',
-  'Encerramento de conta',
+  'Encerramento de Conta',
   'Erro',
   'Fraude',
   'Lgpd',
-  'Liberação chave pix',
+  'Liberação Chave Pix',
+  'Portabilidade Pix',
   'Superendividamento'
 ];
 
@@ -244,6 +260,7 @@ const MOTIVOS_RECLAME_AQUI = [
   'Reativação de Cadastro',
   'Dúvidas Gerais',
   'Limite baixo do Pix',
+  'Portabilidade Pix',
   'Erro E-cac'
 ];
 
@@ -466,22 +483,6 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
     };
   }, [showSaveOptions]);
 
-  // Validação condicional para prazoBacen
-  useEffect(() => {
-    if (formData.tipo === 'BACEN' && formData.origem === 'Consumidor.Gov') {
-      if (!formData.prazoBacen) {
-        setErrors(prev => ({ ...prev, prazoBacen: 'Prazo BACEN é obrigatório quando origem é Consumidor.Gov' }));
-      } else {
-        setErrors(prev => {
-          const novos = { ...prev };
-          delete novos.prazoBacen;
-          return novos;
-        });
-      }
-    }
-  }, [formData.tipo, formData.origem, formData.prazoBacen]);
-
-
   /**
    * Adicionar telefone
    */
@@ -581,12 +582,9 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
     // Validações específicas por tipo
     if (formData.tipo === 'BACEN') {
       if (!formData.dataEntrada) novosErros.dataEntrada = 'Data de entrada é obrigatória';
-      if (!formData.origem) novosErros.origem = 'Natureza é obrigatória';
+      if (!formData.origem) novosErros.origem = 'Origem é obrigatória';
       if (!formData.motivoReduzido || formData.motivoReduzido.length === 0) novosErros.motivoReduzido = 'Selecione pelo menos um motivo';
       if (!formData.motivoDetalhado) novosErros.motivoDetalhado = 'Descrição é obrigatória';
-      if (formData.origem === 'Consumidor.Gov' && !formData.prazoBacen) {
-        novosErros.prazoBacen = 'Prazo BACEN é obrigatório quando natureza é Consumidor.Gov';
-      }
     } else if (formData.tipo === 'OUVIDORIA') {
       if (!formData.dataEntradaN2) novosErros.dataEntradaN2 = 'Data entrada atendimento é obrigatória';
       if (!formData.motivoReduzido || formData.motivoReduzido.length === 0) novosErros.motivoReduzido = 'Selecione pelo menos um motivo';
@@ -599,6 +597,9 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
       if (!formData.produto) novosErros.produto = 'Produto é obrigatório';
       if (!formData.motivoReduzido || formData.motivoReduzido.length === 0) novosErros.motivoReduzido = 'Selecione pelo menos um motivo';
     } else if (formData.tipo === 'PROCON') {
+      if (!formData.origem || !['Procon', 'Consumidor.gov'].includes(formData.origem)) {
+        novosErros.origem = 'Origem é obrigatória';
+      }
       if (!formData.codigoProcon || formData.codigoProcon.length !== 16) {
         novosErros.codigoProcon = 'Código Procon deve ter 16 caracteres';
       }
@@ -760,6 +761,7 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
           ...payload,
           codigoProcon: formData.codigoProcon,
           dataProcon: formData.dataProcon,
+          origem: formData.origem,
           produto: formData.produto,
           motivoReduzido: formData.motivoReduzido,
           motivoDetalhado: formData.motivoDetalhado || '',
@@ -899,11 +901,11 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
       <div className="velohub-card">
         <h3 className="text-xl font-semibold mb-4 velohub-title">Reclamação</h3>
         
-        {/* Linha 1: Natureza | Produto | Data de entrada */}
+        {/* Linha 1: Origem | Produto | Data de entrada */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Natureza *
+              Origem *
             </label>
             <select
               value={formData.origem}
@@ -914,7 +916,6 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
               <option value="">Selecione...</option>
               <option value="Bacen Celcoin">Bacen Celcoin</option>
               <option value="Bacen Via Capital">Bacen Via Capital</option>
-              <option value="Consumidor.Gov">Consumidor.Gov</option>
             </select>
             {errors.origem && (
               <span className="text-red-500 text-xs">{errors.origem}</span>
@@ -970,14 +971,13 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
 
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Prazo {formData.origem === 'Consumidor.Gov' && <span className="text-red-500">*</span>}
+              Prazo
             </label>
             <input
               type="date"
               value={formData.prazoBacen}
               onChange={(e) => setFormData(prev => ({ ...prev, prazoBacen: e.target.value }))}
               className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              required={formData.origem === 'Consumidor.Gov'}
             />
             {errors.prazoBacen && (
               <span className="text-red-500 text-xs">{errors.prazoBacen}</span>
@@ -2067,8 +2067,27 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
         <div className="velohub-card">
           <h3 className="text-xl font-semibold mb-4 velohub-title">Reclamação</h3>
           
-          {/* Linha 1: Código Procon | Data Procon | Produto */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          {/* Linha 1: Origem | Código Procon | Data Procon | Produto */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                Origem *
+              </label>
+              <select
+                value={formData.origem}
+                onChange={(e) => setFormData(prev => ({ ...prev, origem: e.target.value }))}
+                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                required
+              >
+                <option value="">Selecione...</option>
+                <option value="Procon">Procon</option>
+                <option value="Consumidor.gov">Consumidor.gov</option>
+              </select>
+              {errors.origem && (
+                <span className="text-red-500 text-xs">{errors.origem}</span>
+              )}
+            </div>
+
             <div>
               <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
                 Código Procon (16 caracteres) *

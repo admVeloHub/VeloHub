@@ -40,8 +40,6 @@
 
 const express = require('express');
 const router = express.Router();
-const whatsappService = require('../../../services/escalacoes/whatsappService');
-const config = require('../../../config');
 
 /**
  * Inicializar rotas de solicitações
@@ -107,11 +105,10 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
         }
       });
       
-      // Normalizar campo replies para garantir que sempre seja array
+      // Normalizar campo replies (legado) e reply (novo schema) para garantir que sempre sejam arrays
       solicitacoes.forEach(s => {
-        if (!Array.isArray(s.replies)) {
-          s.replies = [];
-        }
+        if (!Array.isArray(s.replies)) s.replies = [];
+        if (!Array.isArray(s.reply)) s.reply = [];
       });
       
       // Log de replies para debug (apenas em desenvolvimento)
@@ -180,10 +177,9 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
         });
       }
 
-      // Normalizar campo replies para garantir que sempre seja array
-      if (!Array.isArray(solicitacao.replies)) {
-        solicitacao.replies = [];
-      }
+      // Normalizar campo replies (legado) e reply (novo schema) para garantir que sempre sejam arrays
+      if (!Array.isArray(solicitacao.replies)) solicitacao.replies = [];
+      if (!Array.isArray(solicitacao.reply)) solicitacao.reply = [];
 
       res.json({
         success: true,
@@ -213,7 +209,7 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
         });
       }
 
-      const { agente, cpf, tipo, payload, agentContact, waMessageId, mensagemTexto } = req.body;
+      const { agente, cpf, tipo, payload, mensagemTexto } = req.body;
 
       // Validação básica
       if (!agente || !cpf || !tipo) {
@@ -242,11 +238,7 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
         cpf: String(cpf).replace(/\D/g, ''),
         tipo: String(tipo).trim(),
         payload: payloadCompleto,
-        status: 'em aberto',
-        agentContact: agentContact || null,
-        waMessageId: waMessageId || null,
-        respondedAt: null,
-        respondedBy: null,
+        reply: [{ status: 'enviado', msgProdutos: null, msgN1: null, at: now }],
         createdAt: now,
         updatedAt: now
       };
@@ -254,84 +246,6 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
       const result = await collection.insertOne(solicitacao);
 
       console.log(`✅ Solicitação criada: ${result.insertedId}`);
-
-      // Enviar via WhatsApp se configurado E se frontend não enviou ainda
-      // Se waMessageId já foi fornecido pelo frontend, não tentar enviar novamente
-      let waMessageIdFinal = waMessageId || null;
-      let messageIdsArray = [];
-      
-      // Só tentar enviar se o frontend não enviou ainda (waMessageId não fornecido)
-      if (!waMessageId && config.WHATSAPP_API_URL && config.WHATSAPP_DEFAULT_JID && mensagemTexto) {
-        try {
-          // Extrair imagens do payload se existirem
-          const imagens = [];
-          if (payload && payload.imagens && Array.isArray(payload.imagens)) {
-            // Se payload.imagens tem previews base64, usar eles
-            if (payload.previews && Array.isArray(payload.previews)) {
-              payload.imagens.forEach((img, idx) => {
-                if (payload.previews[idx]) {
-                  // Remover prefixo data:image se existir
-                  const base64Data = String(payload.previews[idx]).replace(/^data:image\/[^;]+;base64,/, '');
-                  imagens.push({
-                    data: base64Data,
-                    type: img.type || 'image/jpeg'
-                  });
-                }
-              });
-            }
-          }
-          
-          const whatsappResult = await whatsappService.sendMessage(
-            config.WHATSAPP_DEFAULT_JID,
-            mensagemTexto,
-            imagens,
-            [],
-            {
-              cpf: solicitacao.cpf,
-              solicitacao: tipo,
-              agente: colaboradorNome
-            }
-          );
-          
-          if (whatsappResult.ok) {
-            waMessageIdFinal = whatsappResult.messageId || null;
-            messageIdsArray = whatsappResult.messageIds || [];
-            
-            // Atualizar solicitação com waMessageId e messageIds
-            if (waMessageIdFinal || messageIdsArray.length > 0) {
-              const updateData = {};
-              if (waMessageIdFinal) updateData.waMessageId = waMessageIdFinal;
-              if (messageIdsArray.length > 0) {
-                updateData['payload.messageIds'] = messageIdsArray;
-              }
-              
-              await collection.updateOne(
-                { _id: result.insertedId },
-                { $set: updateData }
-              );
-              
-              // Atualizar objeto local para resposta
-              solicitacao.waMessageId = waMessageIdFinal;
-              if (!solicitacao.payload) solicitacao.payload = {};
-              solicitacao.payload.messageIds = messageIdsArray;
-            }
-            
-            console.log(`✅ WhatsApp: Mensagem enviada com sucesso! messageId: ${waMessageIdFinal}`);
-          } else {
-            console.warn(`⚠️ WhatsApp: Falha ao enviar mensagem: ${whatsappResult.error}`);
-          }
-        } catch (whatsappError) {
-          console.error('❌ Erro ao enviar via WhatsApp (não crítico):', whatsappError);
-          // Não bloquear criação da solicitação se WhatsApp falhar
-        }
-      } else {
-        console.log('[WHATSAPP] WhatsApp não configurado ou mensagemTexto ausente - pulando envio');
-      }
-
-      // Atualizar agentContact se WhatsApp foi usado
-      if (config.WHATSAPP_DEFAULT_JID && waMessageIdFinal) {
-        solicitacao.agentContact = config.WHATSAPP_DEFAULT_JID;
-      }
 
       // Log de atividade
       if (userActivityLogger) {
@@ -342,9 +256,7 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
               solicitacaoId: result.insertedId.toString(),
               tipo,
               cpf: solicitacao.cpf,
-              colaboradorNome: colaboradorNome,
-              waMessageId: waMessageIdFinal,
-              whatsappSent: !!waMessageIdFinal
+              colaboradorNome: colaboradorNome
             }
           });
         } catch (logErr) {
@@ -683,37 +595,7 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
 
       const reply = replies[replyIndex];
 
-      // Validar que reply tem replyMessageJid
-      if (!reply.replyMessageJid) {
-        return res.status(400).json({
-          ok: false,
-          error: 'Reply não tem replyMessageJid'
-        });
-      }
-
-      // Enviar reação ✓ via API WhatsApp
-      const whatsappApiUrl = config.WHATSAPP_API_URL || 'https://carmina-peskier-balletically.ngrok-free.dev';
-      try {
-        const reactResponse = await fetch(`${whatsappApiUrl}/react`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messageId: replyMessageId,
-            jid: reply.replyMessageJid,
-            participant: reply.replyMessageParticipant || null,
-            reaction: '✅'
-          })
-        });
-
-        if (!reactResponse.ok) {
-          console.warn('[reply-confirm] Reação WhatsApp não enviada, mas continuando atualização');
-        }
-      } catch (whatsappError) {
-        console.error('[reply-confirm] Erro ao enviar reação WhatsApp:', whatsappError);
-        // Continuar mesmo se WhatsApp falhar
-      }
-
-      // Atualizar confirmedAt e confirmedBy
+      // Atualizar confirmedAt e confirmedBy (WhatsApp descontinuado - apenas atualização MongoDB)
       const confirmedAt = new Date();
       replies[replyIndex] = {
         ...reply,
@@ -746,11 +628,11 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
   });
 
   /**
-   * POST /api/escalacoes/solicitacoes/reply
-   * Receber reply/menção do WhatsApp e armazenar no campo replies
-   * Chamado pelo WhatsApp API quando alguém responde uma mensagem
+   * POST /api/escalacoes/solicitacoes/:id/reply
+   * Adicionar reply do time (Produtos ou N1) ao array reply
+   * Body: { origem: "produtos"|"n1", status: "enviado"|"feito"|"não feito", msgProdutos?: string, msgN1?: string }
    */
-  router.post('/reply', async (req, res) => {
+  router.post('/:id/reply', async (req, res) => {
     try {
       if (!client) {
         return res.status(503).json({
@@ -759,104 +641,77 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
         });
       }
 
+      const { id } = req.params;
+      const { origem, status, msgProdutos, msgN1 } = req.body || {};
+
+      // Validação
+      if (!origem || !['produtos', 'n1'].includes(String(origem).toLowerCase())) {
+        return res.status(400).json({
+          ok: false,
+          error: 'origem é obrigatório e deve ser "produtos" ou "n1"'
+        });
+      }
+
+      if (!status || !['enviado', 'feito', 'não feito'].includes(String(status))) {
+        return res.status(400).json({
+          ok: false,
+          error: 'status é obrigatório e deve ser "enviado", "feito" ou "não feito"'
+        });
+      }
+
+      const msgProd = String(msgProdutos || '').trim();
+      const msgN = String(msgN1 || '').trim();
+      if (!msgProd && !msgN) {
+        return res.status(400).json({
+          ok: false,
+          error: 'msgProdutos ou msgN1 deve ter conteúdo'
+        });
+      }
+
       await connectToMongo();
       const db = client.db('hub_escalacoes');
       const collection = db.collection('solicitacoes_tecnicas');
 
-      const { waMessageId, reactor, text, replyMessageId, replyMessageJid, replyMessageParticipant } = req.body || {};
-
-      // Validação
-      if (!waMessageId) {
-        return res.status(400).json({
-          ok: false,
-          error: 'waMessageId é obrigatório'
-        });
-      }
-
-      if (!text && !replyMessageId) {
-        return res.status(400).json({
-          ok: false,
-          error: 'text ou replyMessageId é obrigatório'
-        });
-      }
-
-      console.log('[reply] Recebendo reply:', {
-        waMessageId,
-        reactor,
-        textLength: text?.length,
-        replyMessageId,
-        replyMessageJid
+      const { ObjectId } = require('mongodb');
+      const doc = await collection.findOne({
+        _id: ObjectId.isValid(id) ? new ObjectId(id) : id
       });
 
-      // Buscar solicitação pelo waMessageId ou payload.messageIds
-      let solicitacao = await collection.findOne({ waMessageId });
-
-      // Se não encontrou, buscar em payload.messageIds (array)
-      if (!solicitacao) {
-        console.log('[reply] Não encontrado em waMessageId, buscando em payload.messageIds');
-        solicitacao = await collection.findOne({
-          'payload.messageIds': waMessageId
-        });
-      }
-
-      if (!solicitacao) {
-        console.log('[reply] ❌ Solicitação não encontrada para waMessageId:', waMessageId);
+      if (!doc) {
         return res.status(404).json({
           ok: false,
           error: 'Solicitação não encontrada'
         });
       }
 
-      console.log('[reply] ✅ Solicitação encontrada:', solicitacao._id);
+      // Normalizar array reply
+      const replyArray = Array.isArray(doc.reply) ? doc.reply : [];
 
-      // Normalizar replies para array
-      const replies = Array.isArray(solicitacao.replies) ? solicitacao.replies : [];
-
-      // Verificar se já existe reply com mesmo replyMessageId (evitar duplicatas)
-      if (replyMessageId) {
-        const existingReply = replies.find(r => String(r.replyMessageId) === String(replyMessageId));
-        if (existingReply) {
-          console.log('[reply] Reply já existe, ignorando duplicata:', replyMessageId);
-          return res.json({
-            ok: true,
-            message: 'Reply já existe',
-            replyId: replyMessageId
-          });
-        }
-      }
-
-      // Criar novo reply
-      const newReply = {
-        reactor: reactor || 'Desconhecido',
-        text: text || '',
-        at: new Date(),
-        replyMessageId: replyMessageId || null,
-        replyMessageJid: replyMessageJid || null,
-        replyMessageParticipant: replyMessageParticipant || null,
-        confirmedAt: null,
-        confirmedBy: null
+      const newEntry = {
+        status: String(status),
+        msgProdutos: origem.toLowerCase() === 'produtos' ? (msgProd || null) : null,
+        msgN1: origem.toLowerCase() === 'n1' ? (msgN || null) : null,
+        at: new Date()
       };
 
-      // Adicionar ao array de replies
-      replies.push(newReply);
+      replyArray.push(newEntry);
 
-      // Atualizar documento no MongoDB
       await collection.updateOne(
-        { _id: solicitacao._id },
+        { _id: doc._id },
         {
           $set: {
-            replies,
+            reply: replyArray,
             updatedAt: new Date()
           }
         }
       );
 
-      console.log('[reply] ✅ Reply adicionado com sucesso. Total de replies:', replies.length);
+      console.log(`[reply] ✅ Reply adicionado em ${doc._id}. Total: ${replyArray.length}`);
 
       return res.json({
         ok: true,
-        solicitacaoId: solicitacao._id.toString(),
-        repliesCount: replies.length
+        solicitacaoId: doc._id.toString(),
+        replyCount: replyArray.length
       });
     } catch (error) {
       console.error('[reply] Erro:', error);

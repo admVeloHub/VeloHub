@@ -1,0 +1,50 @@
+/**
+ * Script para corrigir CPFs que perderam zeros à esquerda
+ * Adiciona zero à esquerda para CPFs com 10 dígitos
+ */
+
+require('dotenv').config();
+const { MongoClient } = require('mongodb');
+
+const MONGODB_URI = process.env.MONGO_ENV || 'mongodb+srv://lucasgravina:nKQu8bSN6iZl8FPo@velohubcentral.od7vwts.mongodb.net/?retryWrites=true&w=majority&appName=VelohubCentral';
+
+(async () => {
+  const client = new MongoClient(MONGODB_URI);
+  await client.connect();
+  const db = client.db('hub_ouvidoria');
+  const collection = db.collection('reclamacoes_reclameAqui');
+  
+  console.log('🔍 Buscando CPFs com 10 dígitos (devem ter 11)...\n');
+  
+  // Buscar todos os documentos
+  const todosDocs = await collection.find({}).toArray();
+  
+  let corrigidos = 0;
+  const cpfsCorrigidos = [];
+  
+  for (const doc of todosDocs) {
+    if (doc.cpf && typeof doc.cpf === 'string' && doc.cpf.length === 10) {
+      const cpfCorrigido = '0' + doc.cpf;
+      console.log(`Corrigindo CPF: ${doc.cpf} → ${cpfCorrigido}`);
+      
+      await collection.updateOne(
+        { _id: doc._id },
+        { $set: { cpf: cpfCorrigido } }
+      );
+      
+      corrigidos++;
+      cpfsCorrigidos.push({ antigo: doc.cpf, novo: cpfCorrigido });
+    }
+  }
+  
+  console.log(`\n✅ Total de CPFs corrigidos: ${corrigidos}`);
+  
+  if (corrigidos > 0) {
+    console.log('\nCPFs corrigidos:');
+    cpfsCorrigidos.forEach(item => {
+      console.log(`  ${item.antigo} → ${item.novo}`);
+    });
+  }
+  
+  await client.close();
+})();

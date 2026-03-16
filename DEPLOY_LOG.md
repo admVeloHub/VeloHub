@@ -40,9 +40,97 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Atualizações Múltiplos Módulos e Scripts**
+- **Data/Hora**: 2026-02-25
+- **Tipo**: GitHub Push
+- **Arquivos Modificados**:
+  - `backend/routes/api/escalacoes/erros-bugs.js` (atualizações rotas)
+  - `backend/routes/api/escalacoes/solicitacoes.js` (atualizações rotas)
+  - `backend/routes/api/ouvidoria/dashboard.js` (atualizações rotas)
+  - `backend/routes/api/ouvidoria/relatorios.js` (atualizações rotas)
+  - `backend/server.js` (atualizações servidor)
+  - `painel de serviços/components/FormSolicitacao.jsx` (atualizações)
+  - `painel de serviços/pages/api/requests/reply-confirm.js` (atualizações API)
+  - `painel de serviços/pages/erros-bugs.js` (atualizações página)
+  - `painel de serviços/pages/painel.js` (atualizações página)
+  - `src/components/Escalacoes/ErrosBugsTab.js` (atualizações componente)
+  - `src/components/Escalacoes/FormSolicitacao.js` (atualizações componente)
+  - `src/components/Ouvidoria/AnaliseDiaria.js` (atualizações componente)
+  - `src/components/Ouvidoria/DashboardOuvidoria.js` (atualizações componente)
+  - `src/components/Ouvidoria/FormReclamacao.js` (atualizações componente)
+  - `src/components/Ouvidoria/FormReclamacaoEdit.js` (atualizações componente)
+  - `src/components/Ouvidoria/ListaReclamacoes.js` (atualizações componente)
+  - `src/components/Ouvidoria/OuvidoriaAccessGuard.js` (atualizações componente)
+  - `src/components/Ouvidoria/RelatoriosOuvidoria.js` (atualizações componente)
+  - `src/pages/EscalacoesPage.js` (atualizações página)
+  - `src/services/escalacoesApi.js` (atualizações serviço)
+  - `src/services/ouvidoriaApi.js` (atualizações serviço)
+  - `DEPLOY_LOG.md` (atualização log de deploy)
+- **Descrição**: 
+  - Atualizações em módulos Escalações, Ouvidoria e Painel de Serviços
+  - Novos scripts de migração, verificação e normalização
+- **Status**: ✅ Concluído com sucesso
+
+### **GitHub Push - Remoção bypass e bloqueio da aba Análise Diária - Módulo Ouvidoria**
+- **Data/Hora**: 2026-02-25
+- **Tipo**: GitHub Push
+- **Commit**: 82be5d4
+- **Arquivos Modificados**:
+  - `src/pages/OuvidoriaPage.js` (v1.6.0 → v1.7.0 - remoção bypass e bloqueio aba Análise Diária)
+- **Descrição**: 
+  - Removido bypass de acesso para aba "Análise Diária"
+  - Removida verificação que restringia acesso apenas para lucas.gravina@velotax.com.br
+  - Aba "Análise Diária" agora acessível para todos os usuários do módulo Ouvidoria
+  - Removida mensagem de "Acesso Restrito" que aparecia para outros usuários
+- **Status**: ✅ Concluído com sucesso
+
+### **GitHub Push - Atualização Campos Motivos e Produto - Formulários BACEN e N2 Pix**
+- **Data/Hora**: 2026-02-25
+- **Tipo**: GitHub Push
+- **Commit**: f43ba9f
+- **Arquivos Modificados**:
+  - `src/components/Ouvidoria/FormReclamacao.js` (v3.15.1 → v3.15.2 - atualização campos Motivos e Produto)
+  - `src/components/Ouvidoria/FormReclamacaoEdit.js` (v1.10.1 → v1.10.2 - atualização campos Motivos e Produto)
+  - `src/components/Ouvidoria/AnaliseDiaria.js` (atualizações)
+  - `src/components/Ouvidoria/DashboardOuvidoria.js` (atualizações)
+  - `src/components/Ouvidoria/ListaReclamacoes.js` (atualizações)
+  - `src/components/Ouvidoria/MinhasReclamacoes.js` (atualizações)
+  - `src/components/Ouvidoria/RelatoriosOuvidoria.js` (atualizações)
+  - `src/services/ouvidoriaApi.js` (atualizações)
+  - `backend/routes/api/ouvidoria/clientes.js` (atualizações rotas)
+  - `backend/routes/api/ouvidoria/dashboard.js` (atualizações rotas)
+  - `backend/routes/api/ouvidoria/reclamacoes.js` (atualizações rotas)
+  - `backend/routes/api/ouvidoria/relatorios.js` (atualizações rotas)
+  - `backend/server.js` (atualizações servidor)
+  - `backend/scripts/migrate-bacen-2025-xlsx-v2.js` (atualizações script)
+  - `backend/scripts/migrate-bacen-2026-xlsx-v2.js` (atualizações script)
+  - `backend/scripts/migrate-ouvidoria-2025-xlsx-v2.js` (atualizações script)
+  - `backend/scripts/migrate-ouvidoria-2026-xlsx-v2.js` (atualizações script)
+  - `backend/scripts/migrate-reclame-aqui-2026-xlsx.js` (atualizações script)
+  - `backend/scripts/sync-csv-to-mongodb.js` (atualizações script)
+  - `backend/scripts/sync-firebase-to-mongodb.js` (atualizações script)
+  - `painel de serviços/components/FormSolicitacao.jsx` (atualizações)
+  - `backend/scripts/contar-data-entrada-por-collection.js` (NOVO - script contagem)
+  - `backend/scripts/corrigir-schema-n2pix.js` (NOVO - script correção schema)
+  - `backend/scripts/migrate-ouvidoria-to-n2pix.js` (NOVO - script migração)
+  - `backend/scripts/migrate-pixStatus-to-pixLiberado.js` (NOVO - script migração)
+  - `backend/scripts/normalizar-datas-string-para-date.js` (NOVO - script normalização)
+  - `backend/scripts/reproduzir-filtro-relatorio.js` (NOVO - script filtro)
+  - `backend/scripts/verificar-campos-data-vazios.js` (NOVO - script verificação)
+  - `backend/scripts/verificar-datas-excluidas.js` (NOVO - script verificação)
+  - `backend/scripts/verificar-migracao-ouvidoria-n2pix.js` (NOVO - script verificação)
+- **Descrição**: 
+  - Atualizado campo Motivos (BACEN e N2 Pix) com novos valores: Abatimento de juros, Cancelamento, Cobrança, Encerramento de conta, Erro, Fraude, Lgpd, Liberação chave pix, Superendividamento
+  - Atualizado campo Produto do formulário N2 Pix com novos valores: Antecipação, Crédito pessoal, Crédito trabalhador, Cupons, Seguros
+  - Valores formatados com primeira letra maiúscula
+  - Adicionados novos scripts de migração, verificação e normalização de dados
+  - Atualizações em componentes e rotas do módulo Ouvidoria
+- **Status**: ✅ Concluído com sucesso
+
 ### **GitHub Push - Correções Modal Edição Ouvidoria: N2 Pix e Ação Judicial**
 - **Data/Hora**: 2026-03-04
 - **Tipo**: GitHub Push
+- **Commit**: f3e6190
 - **Versão**: FormReclamacaoEdit.js v1.11.0 → v1.12.0, ListaReclamacoes.js v1.11.0 → v1.12.0
 - **Arquivos Modificados**:
   - `src/components/Ouvidoria/FormReclamacaoEdit.js` (v1.12.0 - suporte completo Ação Judicial, normalização N2 Pix)

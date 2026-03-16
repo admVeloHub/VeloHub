@@ -128,6 +128,17 @@ export const solicitacoesAPI = {
     method: 'POST',
     body: JSON.stringify({ replyMessageId, confirmedBy }),
   }),
+
+  /**
+   * Adicionar reply ao array reply da solicitação (time Produtos ou N1)
+   * @param {string} solicitacaoId - ID da solicitação
+   * @param {Object} data - { origem: "produtos"|"n1", status: "enviado"|"feito"|"não feito", msgProdutos?: string, msgN1?: string }
+   * @returns {Promise<Object>} Resultado
+   */
+  addReply: (solicitacaoId, data) => apiRequest(`/escalacoes/solicitacoes/${solicitacaoId}/reply`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
 };
 
 /**
