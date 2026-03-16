@@ -112,7 +112,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { solicitacoesAPI, logsAPI } from '../../services/escalacoesApi';
-import { WHATSAPP_API_URL, WHATSAPP_DEFAULT_JID, WHATSAPP_ENDPOINT } from '../../config/api-config';
 
 /**
  * Componente de formulário para solicitações técnicas
@@ -621,90 +620,19 @@ const FormSolicitacao = ({ registrarLog }) => {
 
     const mensagemTexto = montarMensagem();
 
-    // Obter configurações do WhatsApp
-    const apiUrl = WHATSAPP_API_URL;
-    const defaultJid = WHATSAPP_DEFAULT_JID;
-    
     // CPF apenas com números (sem formatação) para a API
     const cpfApenasNumeros = String(form.cpf || '').replace(/\D/g, '');
-    
-    const payload = { 
-      jid: defaultJid, 
-      mensagem: mensagemTexto, 
-      cpf: cpfApenasNumeros, 
-      solicitacao: form.tipo, 
-      agente: agenteNorm || form.agente 
-    };
 
     try {
-      // 1) PRIMEIRO: Tentar enviar via WhatsApp se configurado (seguindo fluxo do painel de serviços)
-      let res = { ok: false };
-      let waMessageId = null;
-      
-      if (apiUrl && defaultJid) {
-        try {
-          const whatsappEndpoint = WHATSAPP_ENDPOINT;
-          console.log('📤 [FormSolicitacao] Enviando para WhatsApp API:', whatsappEndpoint);
-          console.log('📤 [FormSolicitacao] Payload:', payload);
-          
-          res = await fetch(whatsappEndpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          
-          if (res && res.ok) {
-            try {
-              const data = await res.json();
-              console.log('✅ [FormSolicitacao] Resposta do WhatsApp:', data);
-              waMessageId = data?.messageId || data?.key?.id || null;
-            } catch (err) {
-              console.error('❌ [FormSolicitacao] Erro ao parsear resposta do WhatsApp:', err);
-            }
-          } else {
-            // Tentar ler mensagem de erro
-            try {
-              const errorData = await res.json();
-              console.error('❌ [FormSolicitacao] Erro da API WhatsApp:', errorData);
-              
-              // Detectar erro específico de WhatsApp desconectado
-              const errorMessage = errorData?.error || '';
-              const isWhatsAppDisconnected = res.status === 503 && (
-                errorMessage.toLowerCase().includes('whatsapp desconectado') ||
-                errorMessage.toLowerCase().includes('whatsapp está desconectado') ||
-                errorMessage.toLowerCase().includes('websocket') ||
-                errorMessage.toLowerCase().includes('não está disponível')
-              );
-              
-              if (isWhatsAppDisconnected) {
-                console.warn('⚠️ [FormSolicitacao] WhatsApp está desconectado');
-                if (registrarLog) registrarLog('⚠️ WhatsApp está desconectado. A solicitação foi registrada no painel.');
-              } else if (res.status === 503) {
-                console.warn('⚠️ [FormSolicitacao] Serviço WhatsApp temporariamente indisponível');
-                if (registrarLog) registrarLog('⚠️ Serviço WhatsApp temporariamente indisponível. A solicitação foi registrada no painel.');
-              }
-            } catch (e) {
-              console.error('❌ [FormSolicitacao] Erro HTTP:', res.status, res.statusText);
-              if (res.status === 503) {
-                if (registrarLog) registrarLog('⚠️ Serviço WhatsApp indisponível. A solicitação foi registrada no painel.');
-              }
-            }
-          }
-        } catch (err) {
-          console.error('❌ [FormSolicitacao] Erro ao enviar via WhatsApp:', err);
-        }
-      }
-
-      // 2) DEPOIS: Criar solicitação no backend com waMessageId já obtido
-      // CPF sempre apenas números (sem formatação) para o backend também
+      // Criar solicitação no backend (WhatsApp descontinuado - replies via polling MongoDB)
       const solicitacaoData = {
         agente: agenteNorm || form.agente,
-        cpf: cpfApenasNumeros, // Usar CPF normalizado (apenas números)
+        cpf: cpfApenasNumeros,
         tipo: form.tipo,
-        payload: { ...form, cpf: cpfApenasNumeros }, // Garantir CPF normalizado no payload também
+        payload: { ...form, cpf: cpfApenasNumeros },
         mensagemTexto,
-        agentContact: defaultJid || null,
-        waMessageId: waMessageId || null,
+        agentContact: null,
+        waMessageId: null,
       };
 
       console.log('📤 [FormSolicitacao] Enviando solicitação:', {
@@ -720,7 +648,7 @@ const FormSolicitacao = ({ registrarLog }) => {
         console.log('✅ [FormSolicitacao] Solicitação criada no backend:', result);
       } catch (apiErr) {
         console.error('❌ [FormSolicitacao] Erro ao criar solicitação no backend:', apiErr);
-        throw apiErr; // Re-throw para ser capturado pelo catch externo
+        throw apiErr;
       }
 
       // Criar log
@@ -729,9 +657,7 @@ const FormSolicitacao = ({ registrarLog }) => {
           action: 'send_request',
           detail: {
             tipo: form.tipo,
-            cpf: cpfApenasNumeros, // CPF normalizado no log também
-            waMessageId,
-            whatsappSent: !!waMessageId,
+            cpf: cpfApenasNumeros,
             alteracao: form.tipo === 'Alteração de Dados Cadastrais' ? {
               infoTipo: form.infoTipo || '',
               dadoAntigo: form.dadoAntigo || '',
@@ -745,37 +671,15 @@ const FormSolicitacao = ({ registrarLog }) => {
         console.error('Erro ao criar log:', logErr);
       }
 
-      // 3) Atualizar UI/Cache baseado no resultado do WhatsApp
-      if (!apiUrl || !defaultJid) {
-        if (registrarLog) registrarLog('ℹ️ WhatsApp não configurado: apenas registrado no painel');
-        showNotification('Solicitação registrada', 'info');
-      } else if (res.ok && waMessageId) {
-        if (registrarLog) registrarLog('✅ Enviado com sucesso');
-        showNotification('Solicitação enviada', 'success');
-      } else {
-        // Mensagem mais específica baseada no status
-        let errorMessage = 'Erro desconhecido';
-        let logMessage = `❌ Erro da API: Erro ${res.status || 'desconhecido'}`;
-        
-        if (res.status === 503) {
-          errorMessage = 'WhatsApp está desconectado. A solicitação foi registrada no painel.';
-          logMessage = '⚠️ WhatsApp desconectado. Solicitação registrada no painel.';
-        } else if (res.status) {
-          errorMessage = `Erro ${res.status} ao enviar para WhatsApp. A solicitação foi registrada no painel.`;
-          logMessage = `❌ Erro ${res.status} da API WhatsApp. Solicitação registrada no painel.`;
-        }
-        
-        if (registrarLog) registrarLog(logMessage);
-        showNotification(errorMessage, 'warning');
-        notifyError('Falha ao enviar solicitação', errorMessage);
-      }
+      if (registrarLog) registrarLog('✅ Solicitação registrada');
+      showNotification('Solicitação registrada', 'success');
 
       const newItem = {
-        cpf: cpfApenasNumeros, // CPF normalizado no cache também
+        cpf: cpfApenasNumeros,
         tipo: form.tipo,
-        waMessageId,
-        status: waMessageId ? 'enviado' : 'em aberto',
-        enviado: !!waMessageId,
+        waMessageId: null,
+        status: 'enviado',
+        enviado: true,
         createdAt: new Date().toISOString(),
       };
       saveCache([newItem, ...localLogs].slice(0, 50));
@@ -1195,12 +1099,8 @@ const FormSolicitacao = ({ registrarLog }) => {
               const isDoneFail = s === 'não feito' || s === 'nao feito';
               const isDoneOk = s === 'feito';
               const sentOnly = !isDoneOk && !isDoneFail && (s === 'enviado' || l.enviado === true);
-              const colorDone1 = isDoneFail ? 'bg-red-500' : 'bg-emerald-500';
-              const colorDone2 = isDoneFail ? 'bg-red-500' : 'bg-emerald-500';
-              const colorDone3 = isDoneFail ? 'bg-red-500' : 'bg-emerald-500';
-              const bar1 = (isDoneOk || isDoneFail) ? colorDone1 : (sentOnly ? 'bg-amber-400' : 'bg-gray-300 dark:bg-gray-600');
-              const bar2 = (isDoneOk || isDoneFail) ? colorDone2 : (sentOnly ? 'bg-amber-400' : 'bg-gray-300 dark:bg-gray-600');
-              const bar3 = (isDoneOk || isDoneFail) ? colorDone3 : 'bg-gray-300 dark:bg-gray-600';
+              const bar1 = (sentOnly || isDoneOk || isDoneFail) ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600';
+              const bar2 = isDoneOk ? 'bg-emerald-500' : (isDoneFail ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-600');
               const icon = isDoneOk ? '✅' : (isDoneFail ? '❌' : (sentOnly ? '📨' : '⏳'));
               return (
                 <div
@@ -1221,7 +1121,6 @@ const FormSolicitacao = ({ registrarLog }) => {
                   <div className="mt-2 flex items-center gap-1.5" aria-label={`progresso: ${s || 'em aberto'}`}>
                     <span className={`h-1.5 w-8 rounded-full ${bar1}`}></span>
                     <span className={`h-1.5 w-8 rounded-full ${bar2}`}></span>
-                    <span className={`h-1.5 w-8 rounded-full ${bar3}`}></span>
                     <span className="text-[11px] opacity-60 ml-2 text-gray-600 dark:text-gray-400">
                       {s || 'em aberto'}
                     </span>

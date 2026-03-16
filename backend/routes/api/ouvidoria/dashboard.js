@@ -1,9 +1,13 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Dashboard
- * VERSION: v2.32.0 | DATE: 2026-03-05 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.33.0 | DATE: 2026-03-16 | AUTHOR: VeloHub Development Team
  * 
- * Mudanças v2.32.0:
- * - Removido tipo Judicial do dashboard e da contagem Total (apenas N2, Reclame Aqui, Bacen, Procon)
+ * Mudanças v2.33.0:
+ * - Corrigida lógica dos cards: solLiberacao (exato "Liberação Chave Pix"), pixLiberado (todos os motivos),
+ *   pixRetido (Liberação Chave Pix + Resolvido + pixLiberado false), percRetencao (pixRetido/solLiberacao)
+ * - Adicionada categoria Judicial (reclamacoes_judicial, campo dataEntrada)
+ * - Adicionado filtro de motivo (query param motivos, $regex case-insensitive, OR entre motivos)
+ * - Retornado solLiberacao em porTipo para card "Ped. Liberação"
  * 
  * Mudanças v2.31.0:
  * - Pix Liberado, Pix Retido e % Retenção: filtram apenas casos com motivoReduzido contendo "Liberação" e "Pix"
@@ -197,14 +201,14 @@ function normalizarMotivoParaComparacao(motivoReduzido) {
 }
 
 /**
- * Verificar se motivoReduzido contém "Liberação de Pix" (ou variações: liberação chave pix, liberação de chave pix)
+ * Verificar se motivoReduzido contém exatamente "Liberação Chave Pix" (case-insensitive)
+ * Bacen = String; RA, Procon, N2, Judicial = [String]. Tratado como array na lógica.
  * @param {string|Array<string>|undefined} motivoReduzido - Motivo reduzido
  * @returns {boolean}
  */
-function isMotivoLiberacaoPix(motivoReduzido) {
+function isMotivoLiberacaoChavePix(motivoReduzido) {
   const norm = normalizarMotivoParaComparacao(motivoReduzido);
-  return norm.includes('liberação') && norm.includes('pix') ||
-         norm.includes('liberacao') && norm.includes('pix');
+  return norm.includes('liberação chave pix') || norm.includes('liberacao chave pix');
 }
 
 /**
@@ -273,20 +277,51 @@ function criarFiltroProduto(produtos) {
 }
 
 /**
- * Mesclar filtro de data com filtro de produto
+ * Criar filtro de motivo (quando array de motivos informado)
+ * motivoReduzido: Bacen = String; RA, Procon, N2, Judicial = [String]. $regex case-insensitive, OR entre motivos.
+ * @param {Array<string>} motivos - Array de valores de motivo
+ * @returns {Object} - Filtro MongoDB ou objeto vazio
+ */
+function criarFiltroMotivo(motivos) {
+  if (!motivos || !Array.isArray(motivos) || motivos.length === 0) {
+    return {};
+  }
+  const valores = motivos.filter(m => m && String(m).trim());
+  if (valores.length === 0) return {};
+  // OR entre motivos: qualquer doc cujo motivoReduzido (string ou elem do array) match algum regex
+  const condicoes = valores.map(m => ({
+    motivoReduzido: { $regex: m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' }
+  }));
+  return { $or: condicoes };
+}
+
+/**
+ * Mesclar filtros (data, produto, motivo). Entre produto e motivo: AND.
  * @param {Object} filtroData - Filtro retornado por criarFiltroDataPorCollection
  * @param {Object} filtroProduto - Filtro retornado por criarFiltroProduto
+ * @param {Object} filtroMotivo - Filtro retornado por criarFiltroMotivo
  * @returns {Object} - Filtro combinado (MongoDB interpreta múltiplos campos como AND)
  */
-function mesclarFiltros(filtroData, filtroProduto) {
-  if (Object.keys(filtroProduto).length === 0) return filtroData;
-  return { ...filtroData, ...filtroProduto };
+function mesclarFiltros(filtroData, filtroProduto, filtroMotivo = {}) {
+  let resultado = { ...filtroData };
+  if (Object.keys(filtroProduto).length > 0) {
+    resultado = { ...resultado, ...filtroProduto };
+  }
+  if (Object.keys(filtroMotivo).length > 0) {
+    resultado = { ...resultado, ...filtroMotivo };
+  }
+  return resultado;
 }
 
 /**
  * Calcular estatísticas por tipo (para data.porTipo)
+ * Lógica conforme especificação:
+ * - solLiberacao: docs cujo motivoReduzido contém "Liberação Chave Pix"
+ * - pixLiberado: docs com pixLiberado === true (TODOS os motivos)
+ * - pixRetido: docs com motivo "Liberação Chave Pix" + Finalizado.Resolvido === true + pixLiberado === false
+ * - percRetencao: (pixRetido / solLiberacao) × 100
  * @param {Array} docs - Array de documentos da collection
- * @returns {Object} - { ocorrencias, emAberto, resolvido, prazoMedio, caEProtocolos, pixLiberado, pixRetido, percRetencao, taxaResolucao }
+ * @returns {Object} - { ocorrencias, emAberto, resolvido, prazoMedio, caEProtocolos, solLiberacao, pixLiberado, pixRetido, percRetencao, taxaResolucao }
  */
 function calcularStatsPorTipo(docs) {
   const ocorrencias = docs.length;
@@ -302,11 +337,18 @@ function calcularStatsPorTipo(docs) {
     r.procon === true ||
     (r.protocolosProcon && Array.isArray(r.protocolosProcon) && r.protocolosProcon.length > 0)
   )).length;
-  // Pix Liberado, Pix Retido e % Retenção: apenas casos com motivoReduzido = Liberação de Pix (ou variações)
-  const docsLiberacaoPix = docs.filter(r => isMotivoLiberacaoPix(r.motivoReduzido));
-  const pixLiberado = docsLiberacaoPix.filter(r => r.pixLiberado === true || ['Liberado', 'Excluído', 'Solicitada'].includes(r.pixStatus)).length;
-  const pixRetido = docsLiberacaoPix.filter(r => r.pixLiberado === false).length;
-  const percRetencao = docsLiberacaoPix.length > 0 ? Math.round((pixRetido / docsLiberacaoPix.length) * 1000) / 10 : 0;
+  // PEDIDOS LIBERAÇÃO: motivoReduzido contém exatamente "Liberação Chave Pix"
+  const solLiberacao = docs.filter(r => isMotivoLiberacaoChavePix(r.motivoReduzido)).length;
+  // LIBERADOS: pixLiberado === true (inclui TODOS os motivos)
+  const pixLiberado = docs.filter(r => r.pixLiberado === true).length;
+  // RETIDOS: motivo "Liberação Chave Pix" + Finalizado.Resolvido === true + pixLiberado === false
+  const pixRetido = docs.filter(r =>
+    isMotivoLiberacaoChavePix(r.motivoReduzido) &&
+    r.Finalizado?.Resolvido === true &&
+    r.pixLiberado === false
+  ).length;
+  // % RETENÇÃO: (pixRetido / solLiberacao) × 100. Base: apenas docs com motivo "Liberação Chave Pix"
+  const percRetencao = solLiberacao > 0 ? Math.round((pixRetido / solLiberacao) * 1000) / 10 : 0;
 
   const concluidasComData = docs.filter(r => {
     if (r.Finalizado?.Resolvido !== true) return false;
@@ -340,6 +382,7 @@ function calcularStatsPorTipo(docs) {
     resolvido,
     prazoMedio,
     caEProtocolos,
+    solLiberacao,
     pixLiberado,
     pixRetido,
     percRetencao,
@@ -413,21 +456,32 @@ const initDashboardRoutes = (client, connectToMongo) => {
           : [];
       const filtroProduto = criarFiltroProduto(produtos);
 
-      // Criar filtros específicos para cada coleção (data + produto)
-      const filtroBacen = mesclarFiltros(criarFiltroDataPorCollection('reclamacoes_bacen', dataInicio, dataFim), filtroProduto);
-      const filtroN2 = mesclarFiltros(criarFiltroDataPorCollection('reclamacoes_n2Pix', dataInicio, dataFim), filtroProduto);
-      const filtroReclameAqui = mesclarFiltros(criarFiltroDataPorCollection('reclamacoes_reclameAqui', dataInicio, dataFim), filtroProduto);
-      const filtroProcon = mesclarFiltros(criarFiltroDataPorCollection('reclamacoes_procon', dataInicio, dataFim), filtroProduto);
+      // Preparar filtro de motivo (motivos pode vir como string ou array)
+      const motivosRaw = req.query.motivos;
+      const motivos = Array.isArray(motivosRaw)
+        ? motivosRaw
+        : motivosRaw
+          ? [motivosRaw]
+          : [];
+      const filtroMotivo = criarFiltroMotivo(motivos);
 
-      // Buscar reclamações (N2, Reclame Aqui, Bacen, Procon - Judicial excluído do dashboard)
-      const [bacen, n2Pix, reclameAquiDocs, proconDocs] = await Promise.all([
+      // Criar filtros específicos para cada coleção (data + produto + motivo)
+      const filtroBacen = mesclarFiltros(criarFiltroDataPorCollection('reclamacoes_bacen', dataInicio, dataFim), filtroProduto, filtroMotivo);
+      const filtroN2 = mesclarFiltros(criarFiltroDataPorCollection('reclamacoes_n2Pix', dataInicio, dataFim), filtroProduto, filtroMotivo);
+      const filtroReclameAqui = mesclarFiltros(criarFiltroDataPorCollection('reclamacoes_reclameAqui', dataInicio, dataFim), filtroProduto, filtroMotivo);
+      const filtroProcon = mesclarFiltros(criarFiltroDataPorCollection('reclamacoes_procon', dataInicio, dataFim), filtroProduto, filtroMotivo);
+      const filtroJudicial = mesclarFiltros(criarFiltroDataPorCollection('reclamacoes_judicial', dataInicio, dataFim), filtroProduto, filtroMotivo);
+
+      // Buscar reclamações (Bacen, N2, Reclame Aqui, Procon, Judicial)
+      const [bacen, n2Pix, reclameAquiDocs, proconDocs, judicialDocs] = await Promise.all([
         db.collection('reclamacoes_bacen').find(filtroBacen).toArray(),
         db.collection('reclamacoes_n2Pix').find(filtroN2).toArray(),
         db.collection('reclamacoes_reclameAqui').find(filtroReclameAqui).toArray(),
-        db.collection('reclamacoes_procon').find(filtroProcon).toArray()
+        db.collection('reclamacoes_procon').find(filtroProcon).toArray(),
+        db.collection('reclamacoes_judicial').find(filtroJudicial).toArray()
       ]);
       
-      const todas = [...bacen, ...n2Pix, ...reclameAquiDocs, ...proconDocs];
+      const todas = [...bacen, ...n2Pix, ...reclameAquiDocs, ...proconDocs, ...judicialDocs];
       
       const hoje = new Date();
       hoje.setHours(0, 0, 0, 0);
@@ -464,8 +518,8 @@ const initDashboardRoutes = (client, connectToMongo) => {
       // Reclame Aqui
       const reclameAqui = reclameAquiDocs.length;
 
-      // Pix Liberado (pixLiberado === true ou pixStatus legado)
-      const pixLiberado = todas.filter(r => r.pixLiberado === true || ['Liberado', 'Excluído', 'Solicitada'].includes(r.pixStatus)).length;
+      // Pix Liberado: pixLiberado === true (inclui todos os motivos)
+      const pixLiberado = todas.filter(r => r.pixLiberado === true).length;
       
       // Para Cobrança (enviarParaCobranca === true)
       const paraCobranca = todas.filter(r => r.enviarParaCobranca === true).length;
@@ -572,12 +626,13 @@ const initDashboardRoutes = (client, connectToMongo) => {
         );
       }).length;
 
-      // porTipo: estatísticas por collection (Judicial excluído)
+      // porTipo: estatísticas por collection (N2, Reclame Aqui, Bacen, Procon, Judicial, Total)
       const porTipo = {
         N2: calcularStatsPorTipo(n2Pix),
         'Reclame Aqui': calcularStatsPorTipo(reclameAquiDocs),
         Bacen: calcularStatsPorTipo(bacen),
         Procon: calcularStatsPorTipo(proconDocs),
+        Judicial: calcularStatsPorTipo(judicialDocs),
         Total: calcularStatsPorTipo(todas),
       };
 
@@ -674,21 +729,31 @@ const initDashboardRoutes = (client, connectToMongo) => {
         dataFim.setHours(23, 59, 59, 999);
       }
 
-      // Criar filtros específicos para cada coleção (Judicial excluído)
-      const filtroBacen = criarFiltroDataPorCollection('reclamacoes_bacen', dataInicio, dataFim);
-      const filtroN2 = criarFiltroDataPorCollection('reclamacoes_n2Pix', dataInicio, dataFim);
-      const filtroReclameAqui = criarFiltroDataPorCollection('reclamacoes_reclameAqui', dataInicio, dataFim);
-      const filtroProcon = criarFiltroDataPorCollection('reclamacoes_procon', dataInicio, dataFim);
+      // Preparar filtros de produto e motivo (mesma lógica da rota /stats)
+      const produtosRaw = req.query.produtos;
+      const produtos = Array.isArray(produtosRaw) ? produtosRaw : (produtosRaw ? [produtosRaw] : []);
+      const filtroProduto = criarFiltroProduto(produtos);
+      const motivosRaw = req.query.motivos;
+      const motivos = Array.isArray(motivosRaw) ? motivosRaw : (motivosRaw ? [motivosRaw] : []);
+      const filtroMotivo = criarFiltroMotivo(motivos);
 
-      // Buscar reclamações (N2, Reclame Aqui, Bacen, Procon - Judicial excluído)
-      const [bacen, n2Pix, reclameAquiDocs, proconDocs] = await Promise.all([
+      // Criar filtros específicos para cada coleção (data + produto + motivo)
+      const filtroBacen = mesclarFiltros(criarFiltroDataPorCollection('reclamacoes_bacen', dataInicio, dataFim), filtroProduto, filtroMotivo);
+      const filtroN2 = mesclarFiltros(criarFiltroDataPorCollection('reclamacoes_n2Pix', dataInicio, dataFim), filtroProduto, filtroMotivo);
+      const filtroReclameAqui = mesclarFiltros(criarFiltroDataPorCollection('reclamacoes_reclameAqui', dataInicio, dataFim), filtroProduto, filtroMotivo);
+      const filtroProcon = mesclarFiltros(criarFiltroDataPorCollection('reclamacoes_procon', dataInicio, dataFim), filtroProduto, filtroMotivo);
+      const filtroJudicial = mesclarFiltros(criarFiltroDataPorCollection('reclamacoes_judicial', dataInicio, dataFim), filtroProduto, filtroMotivo);
+
+      // Buscar reclamações (Bacen, N2, Reclame Aqui, Procon, Judicial)
+      const [bacen, n2Pix, reclameAquiDocs, proconDocs, judicialDocs] = await Promise.all([
         db.collection('reclamacoes_bacen').find(filtroBacen).toArray(),
         db.collection('reclamacoes_n2Pix').find(filtroN2).toArray(),
         db.collection('reclamacoes_reclameAqui').find(filtroReclameAqui).toArray(),
-        db.collection('reclamacoes_procon').find(filtroProcon).toArray()
+        db.collection('reclamacoes_procon').find(filtroProcon).toArray(),
+        db.collection('reclamacoes_judicial').find(filtroJudicial).toArray()
       ]);
       
-      const todas = [...bacen, ...n2Pix, ...reclameAquiDocs, ...proconDocs];
+      const todas = [...bacen, ...n2Pix, ...reclameAquiDocs, ...proconDocs, ...judicialDocs];
       
       const total = todas.length; // Total = todas as 5 collections
       // Resolvidas = Finalizado.Resolvido === true
@@ -776,8 +841,8 @@ const initDashboardRoutes = (client, connectToMongo) => {
       // Reclame Aqui
       const reclameAqui = reclameAquiDocs.length;
 
-      // Pix Liberado (pixLiberado === true ou pixStatus legado)
-      const pixLiberado = todas.filter(r => r.pixLiberado === true || ['Liberado', 'Excluído', 'Solicitada'].includes(r.pixStatus)).length;
+      // Pix Liberado: pixLiberado === true (inclui todos os motivos)
+      const pixLiberado = todas.filter(r => r.pixLiberado === true).length;
       
       // Para Cobrança (enviarParaCobranca === true)
       const paraCobranca = todas.filter(r => r.enviarParaCobranca === true).length;

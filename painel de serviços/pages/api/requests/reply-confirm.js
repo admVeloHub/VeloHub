@@ -1,15 +1,13 @@
 /**
  * VeloHub - API Route: Reply Confirm
- * VERSION: v1.0.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.1.0 | DATE: 2025-03-13 | AUTHOR: VeloHub Development Team
  * 
- * Endpoint para confirmar visualização de resposta do grupo WhatsApp
+ * Endpoint para confirmar visualização de resposta
  * - Busca requisição no MongoDB
  * - Encontra reply específico no array replies
- * - Envia reação ✓ via API WhatsApp
- * - Atualiza confirmedAt e confirmedBy no reply
+ * - Atualiza confirmedAt e confirmedBy no reply (sem envio WhatsApp)
  */
 
-import { getApiUrl } from '@/lib/apiConfig';
 import { connectToMongo } from '@/lib/mongodb';
 
 export default async function handler(req, res) {
@@ -66,33 +64,7 @@ export default async function handler(req, res) {
 
     const reply = replies[replyIndex];
 
-    // Validar que reply tem replyMessageJid
-    if (!reply.replyMessageJid) {
-      return res.status(400).json({
-        ok: false,
-        error: 'Reply não tem replyMessageJid'
-      });
-    }
-
-    // Enviar reação via API WhatsApp
-    const apiUrl = getApiUrl();
-    try {
-      await fetch(`${apiUrl}/react`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messageId: replyMessageId,
-          jid: reply.replyMessageJid,
-          participant: reply.replyMessageParticipant || null,
-          reaction: '✅'
-        })
-      });
-    } catch (whatsappError) {
-      console.error('[reply-confirm] Erro ao enviar reação WhatsApp:', whatsappError);
-      // Continuar mesmo se WhatsApp falhar
-    }
-
-    // Atualizar confirmedAt e confirmedBy
+    // Atualizar confirmedAt e confirmedBy (replies inseridos pelo time não têm replyMessageJid)
     const confirmedAt = new Date();
     replies[replyIndex] = {
       ...reply,

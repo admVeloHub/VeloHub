@@ -1,6 +1,13 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.48.2 | DATE: 2026-03-03 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.49.1 | DATE: 2026-03-13 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v2.49.1:
+ * - Aumento de timeouts MongoDB (serverSelection 45s, connect 60s, socket 120s) para reduzir 503 quando banco está lento
+ *
+ * Mudanças v2.49.0:
+ * - Endpoint POST /api/anexos-produto/get-upload-url para upload via signed URL GCS
+ * - Bucket: mediabank_velohub, pasta: anexos_produto
  * 
  * Mudanças v2.48.2:
  * - MELHORIA: Tratamento específico para erro 503 (WhatsApp desconectado)
@@ -428,9 +435,9 @@ if (uri) {
   console.warn('⚠️ APIs que dependem do MongoDB não funcionarão');
 }
 const client = uri ? new MongoClient(uri, {
-  serverSelectionTimeoutMS: 15000, // 15 segundos timeout (otimizado para us-east-1)
-  connectTimeoutMS: 20000, // 20 segundos timeout
-  socketTimeoutMS: 45000, // 45 segundos timeout
+  serverSelectionTimeoutMS: 45000, // 45 segundos - aumentado para MongoDB lento
+  connectTimeoutMS: 60000,         // 60 segundos
+  socketTimeoutMS: 120000,         // 120 segundos (2 min) - operações longas
 }) : null;
 
 // Conectar ao MongoDB uma vez no início
@@ -4204,6 +4211,78 @@ REDACTED
 });
 console.log('✅ Endpoint POST /api/chat/attachments/get-upload-url registrado');
 
+// POST /api/anexos-produto/get-upload-url
+// Signed URL para upload de anexos (imagens/vídeos) no painel de serviços - Req_Prod
+// Bucket: mediabank_velohub, pasta: anexos_produto
+console.log('🔧 Registrando endpoint POST /api/anexos-produto/get-upload-url...');
+app.post('/api/anexos-produto/get-upload-url', async (req, res) => {
+  try {
+    const { fileName, contentType, tipo } = req.body;
+    if (!fileName || !contentType || !tipo) {
+      return res.status(400).json({
+        success: false,
+        error: 'fileName, contentType e tipo são obrigatórios'
+      });
+    }
+    if (!['imagem', 'video'].includes(tipo)) {
+      return res.status(400).json({
+        success: false,
+        error: 'tipo deve ser "imagem" ou "video"'
+      });
+    }
+    const validImage = contentType.startsWith('image/');
+    const validVideo = contentType.startsWith('video/');
+    if ((tipo === 'imagem' && !validImage) || (tipo === 'video' && !validVideo)) {
+      return res.status(400).json({
+        success: false,
+        error: `contentType deve corresponder ao tipo: imagem (image/*) ou video (video/*)`
+      });
+    }
+    const bucketName = process.env.GCS_BUCKET_NAME2 || 'mediabank_velohub';
+    const subfolder = tipo === 'imagem' ? 'imagens' : 'videos';
+    const uuid = require('crypto').randomUUID();
+    const sanitized = String(fileName).replace(/[^a-zA-Z0-9.-]/g, '_');
+    const filePath = `anexos_produto/${subfolder}/${uuid}_${sanitized}`;
+
+    let storage;
+    const gc = process.env.GOOGLE_CREDENTIALS;
+    const gac = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    const gcp = process.env.GCP_PROJECT_ID;
+    if (gac) {
+      storage = new Storage({ projectId: gcp, keyFilename: gac });
+    } else if (gc && gc.trim().startsWith('{')) {
+      const creds = JSON.parse(gc);
+      if (creds.private_key) creds.private_key = creds.private_key.replace(/\\n/g, '\n');
+      storage = new Storage({ projectId: creds.project_id || gcp, credentials: creds });
+    } else {
+      storage = new Storage({ projectId: gcp });
+    }
+    const bucket = storage.bucket(bucketName);
+    const file = bucket.file(filePath);
+    const [signedUrl] = await file.getSignedUrl({
+      version: 'v4',
+      action: 'write',
+      expires: Date.now() + 15 * 60 * 1000,
+      contentType
+    });
+    const publicUrl = `https://storage.googleapis.com/${bucketName}/${filePath}`;
+    res.json({
+      success: true,
+      signedUrl,
+      publicUrl,
+      filePath,
+      expiresIn: 15 * 60 * 1000
+    });
+  } catch (err) {
+    console.error('❌ [anexos-produto/get-upload-url]', err);
+    res.status(500).json({
+      success: false,
+      error: err.message || 'Erro ao gerar signed URL'
+    });
+  }
+});
+console.log('✅ Endpoint POST /api/anexos-produto/get-upload-url registrado');
+
 // POST /api/chat/attachments/confirm-upload
 // Tornar arquivo público após upload bem-sucedido
 app.post('/api/chat/attachments/confirm-upload', async (req, res) => {
@@ -6128,353 +6207,6 @@ try {
   
   // Registrar rotas ANTES de qualquer middleware estático
   app.use('/api/escalacoes/solicitacoes', solicitacoesRouter);
-  
-  // Endpoint de proxy para WhatsApp API (resolve CORS)
-  // Frontend chama /api/whatsapp/send → Backend faz proxy para ngrok
-  app.post('/api/whatsapp/send', async (req, res) => {
-    try {
-      const config = require('./config');
-      
-      // Obter URL do WhatsApp (sempre ngrok)
-      // Usa WHATSAPP_API_URL se configurado, senão usa fallback padrão do ngrok
-      let whatsappApiUrl = config.WHATSAPP_API_URL || 'https://carmina-peskier-balletically.ngrok-free.dev';
-      
-      // Validação básica da URL
-      if (!whatsappApiUrl) {
-        console.error('[WHATSAPP PROXY] ❌ WhatsApp API URL não configurada!');
-        return res.status(503).json({
-          ok: false,
-          error: 'WhatsApp API não configurada. Verifique a variável WHATSAPP_API_URL.'
-        });
-      }
-      
-      // Garantir que a URL não seja o próprio backend (evitar loop)
-      // Remover barras finais e normalizar URL
-      whatsappApiUrl = whatsappApiUrl.trim().replace(/\/+$/, '');
-      
-      const currentHost = req.get('host') || req.hostname || '';
-      const isOwnBackend = whatsappApiUrl.includes(currentHost) || 
-                          whatsappApiUrl.includes('velohub-278491073220.us-east1.run.app') ||
-                          whatsappApiUrl.includes('velohub-main-staging-278491073220.us-east1.run.app');
-      
-      if (isOwnBackend) {
-        console.error('[WHATSAPP PROXY] ❌ WhatsApp API URL aponta para o próprio backend!');
-        return res.status(503).json({
-          ok: false,
-          error: 'Configuração inválida: WhatsApp API URL não pode apontar para o próprio backend.'
-        });
-      }
-      
-      // ngrok sempre usa /send
-      const endpoint = '/send';
-      
-      // Garantir que não haja barras duplas na construção da URL
-      const targetUrl = `${whatsappApiUrl}${endpoint}`.replace(/([^:]\/)\/+/g, '$1');
-      
-      const isDevelopment = config.NODE_ENV !== 'production';
-      console.log(`[WHATSAPP PROXY] Ambiente: ${config.NODE_ENV || 'development'}`);
-      console.log(`[WHATSAPP PROXY] Modo: ${isDevelopment ? 'DESENVOLVIMENTO' : 'PRODUÇÃO'}`);
-      console.log(`[WHATSAPP PROXY] WhatsApp API URL: ${whatsappApiUrl}`);
-      console.log(`[WHATSAPP PROXY] Endpoint: ${endpoint}`);
-      console.log(`[WHATSAPP PROXY] Fazendo proxy para: ${targetUrl}`);
-      
-      if (isDevelopment && !whatsappApiUrl.includes('localhost') && !whatsappApiUrl.includes('127.0.0.1')) {
-        console.warn(`[WHATSAPP PROXY] ⚠️ ATENÇÃO: Em desenvolvimento, usando URL remota (ngrok). Certifique-se de que está acessível.`);
-      }
-      console.log(`[WHATSAPP PROXY] Payload recebido:`, {
-        jid: req.body?.jid,
-        mensagemLength: req.body?.mensagem?.length || 0,
-        imagensCount: req.body?.imagens?.length || 0
-      });
-      
-      // Fazer requisição para o WhatsApp API com timeout de 30 segundos
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
-      
-      try {
-        // #region agent log
-        fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2a44b1'},body:JSON.stringify({sessionId:'2a44b1',location:'server.js:6187',message:'BEFORE_FETCH_TO_WHATSAPP',data:{targetUrl,whatsappApiUrl,endpoint,hasBody:!!req.body,bodyKeys:Object.keys(req.body||{}),headers:{contentType:'application/json',hasNgrokHeader:whatsappApiUrl.includes('ngrok')}},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
-        
-        const response = await fetch(targetUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            // Adicionar header ngrok se necessário
-            ...(whatsappApiUrl.includes('ngrok') && { 'ngrok-skip-browser-warning': 'true' })
-          },
-          body: JSON.stringify(req.body),
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2a44b1'},body:JSON.stringify({sessionId:'2a44b1',location:'server.js:6198',message:'AFTER_FETCH_RESPONSE',data:{status:response.status,statusText:response.statusText,ok:response.ok,headers:Object.fromEntries(response.headers.entries())},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
-        
-        // Verificar se resposta foi bem-sucedida
-        if (!response.ok) {
-          const errorText = await response.text();
-          
-          // #region agent log
-          fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2a44b1'},body:JSON.stringify({sessionId:'2a44b1',location:'server.js:6202',message:'ERROR_RESPONSE_DETAILS',data:{status:response.status,errorText,errorTextLength:errorText.length,errorTextLower:errorText.toLowerCase(),containsWhatsapp:errorText.toLowerCase().includes('whatsapp'),containsDesconectado:errorText.toLowerCase().includes('desconectado'),containsDisconnected:errorText.toLowerCase().includes('disconnected'),containsWebsocket:errorText.toLowerCase().includes('websocket')},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-          // #endregion
-          
-          console.error(`[WHATSAPP PROXY] Erro do WhatsApp API: ${response.status} - ${errorText}`);
-          
-          // Tratamento específico para erro 503 (WhatsApp desconectado)
-          if (response.status === 503) {
-            const isWhatsAppDisconnected = errorText.toLowerCase().includes('whatsapp') && 
-                                          (errorText.toLowerCase().includes('desconectado') || 
-                                           errorText.toLowerCase().includes('disconnected') ||
-                                           errorText.toLowerCase().includes('websocket'));
-            
-            // #region agent log
-            fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2a44b1'},body:JSON.stringify({sessionId:'2a44b1',location:'server.js:6207',message:'503_ERROR_ANALYSIS',data:{isWhatsAppDisconnected,errorText,willReturnDisconnected:isWhatsAppDisconnected},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-            // #endregion
-            
-            if (isWhatsAppDisconnected) {
-              return res.status(503).json({
-                ok: false,
-                error: 'WhatsApp desconectado. O serviço WhatsApp não está disponível no momento.'
-              });
-            }
-            
-            return res.status(503).json({
-              ok: false,
-              error: 'Serviço WhatsApp temporariamente indisponível. Tente novamente em alguns instantes.'
-            });
-          }
-          
-          return res.status(response.status).json({
-            ok: false,
-            error: errorText || `Erro ${response.status} do WhatsApp API`
-          });
-        }
-        
-        // Retornar resposta do WhatsApp API
-        const data = await response.json();
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2a44b1'},body:JSON.stringify({sessionId:'2a44b1',location:'server.js:6232',message:'SUCCESS_RESPONSE',data:{ok:data?.ok,hasMessageId:!!data?.messageId,hasError:!!data?.error},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-        // #endregion
-        
-        console.log(`[WHATSAPP PROXY] Resposta recebida:`, data);
-        return res.json(data);
-        
-      } catch (fetchError) {
-        clearTimeout(timeoutId);
-        
-        if (fetchError.name === 'AbortError') {
-          console.error('[WHATSAPP PROXY] Timeout ao fazer proxy para WhatsApp API');
-          return res.status(504).json({
-            ok: false,
-            error: 'Timeout ao conectar com WhatsApp API'
-          });
-        }
-        
-        // Detectar tipos específicos de erro de conexão
-        const errorMessage = fetchError.message || String(fetchError);
-        const isConnectionError = errorMessage.includes('ECONNREFUSED') || 
-                              errorMessage.includes('ENOTFOUND') ||
-                              errorMessage.includes('ETIMEDOUT') ||
-                              errorMessage.includes('getaddrinfo') ||
-                              errorMessage.includes('fetch failed');
-        
-        console.error('[WHATSAPP PROXY] Erro ao fazer proxy:', {
-          name: fetchError.name,
-          message: errorMessage,
-          code: fetchError.code,
-          targetUrl,
-          whatsappApiUrl,
-          endpoint
-        });
-        
-        if (isConnectionError) {
-          const isDevelopment = config.NODE_ENV !== 'production';
-          const errorMsg = isDevelopment
-            ? `Não foi possível conectar ao WhatsApp API (${whatsappApiUrl}). Em desenvolvimento local, verifique: 1) Se o ngrok está rodando, 2) Se a URL está correta na variável WHATSAPP_API_URL, 3) Se o serviço WhatsApp está acessível através do ngrok.`
-            : `Não foi possível conectar ao WhatsApp API (${whatsappApiUrl}). Verifique se o serviço está online.`;
-          
-          return res.status(503).json({
-            ok: false,
-            error: errorMsg
-          });
-        }
-        
-        return res.status(503).json({
-          ok: false,
-          error: 'Erro ao conectar com WhatsApp API: ' + errorMessage
-        });
-      }
-    } catch (error) {
-      console.error('[WHATSAPP PROXY] Erro geral:', error);
-      return res.status(500).json({
-        ok: false,
-        error: 'Erro interno ao processar requisição WhatsApp'
-      });
-    }
-  });
-  console.log('✅ Endpoint POST /api/whatsapp/send (proxy) registrado');
-  
-  // Endpoint de compatibilidade para WhatsApp API (UPDATE PAINEL)
-  // /api/requests/reply → chama a mesma lógica de /api/escalacoes/solicitacoes/reply
-  app.post('/api/requests/reply', async (req, res) => {
-    try {
-      if (!client) {
-        return res.status(503).json({
-          ok: false,
-          error: 'MongoDB não configurado'
-        });
-      }
-
-      await connectToMongo();
-      const db = client.db('hub_escalacoes');
-      const collection = db.collection('solicitacoes_tecnicas');
-
-      const { waMessageId, reactor, text, replyMessageId, replyMessageJid, replyMessageParticipant } = req.body || {};
-
-      // Validação
-      if (!waMessageId) {
-        return res.status(400).json({
-          ok: false,
-          error: 'waMessageId é obrigatório'
-        });
-      }
-
-      if (!text && !replyMessageId) {
-        return res.status(400).json({
-          ok: false,
-          error: 'text ou replyMessageId é obrigatório'
-        });
-      }
-
-      console.log('[requests/reply] Recebendo reply (compatibilidade):', {
-        waMessageId,
-        reactor,
-        textLength: text?.length,
-        replyMessageId,
-        replyMessageJid
-      });
-
-      // Buscar primeiro em solicitacoes_tecnicas
-      let solicitacao = await collection.findOne({ waMessageId });
-      console.log(`[requests/reply] Busca em solicitacoes_tecnicas por waMessageId "${waMessageId}":`, solicitacao ? `✅ Encontrado (${solicitacao._id})` : '❌ Não encontrado');
-
-      // Se não encontrou, buscar em payload.messageIds (array)
-      if (!solicitacao) {
-        console.log('[requests/reply] Não encontrado em waMessageId, buscando em payload.messageIds');
-        solicitacao = await collection.findOne({
-          'payload.messageIds': waMessageId
-        });
-        console.log(`[requests/reply] Busca em solicitacoes_tecnicas por payload.messageIds "${waMessageId}":`, solicitacao ? `✅ Encontrado (${solicitacao._id})` : '❌ Não encontrado');
-      }
-
-      // Se não encontrou em solicitacoes_tecnicas, buscar em erros_bugs
-      let erroBug = null;
-      let isErroBug = false;
-      if (!solicitacao) {
-        console.log('[requests/reply] Não encontrado em solicitacoes_tecnicas, buscando em erros_bugs');
-        const errosBugsCollection = db.collection('erros_bugs');
-        erroBug = await errosBugsCollection.findOne({ waMessageId });
-        console.log(`[requests/reply] Busca em erros_bugs por waMessageId "${waMessageId}":`, erroBug ? `✅ Encontrado (${erroBug._id})` : '❌ Não encontrado');
-        
-        if (!erroBug) {
-          erroBug = await errosBugsCollection.findOne({
-            'payload.messageIds': waMessageId
-          });
-          console.log(`[requests/reply] Busca em erros_bugs por payload.messageIds "${waMessageId}":`, erroBug ? `✅ Encontrado (${erroBug._id})` : '❌ Não encontrado');
-        }
-        
-        if (erroBug) {
-          isErroBug = true;
-          console.log('[requests/reply] ✅ Erro/Bug encontrado:', erroBug._id, {
-            waMessageId: erroBug.waMessageId,
-            payloadMessageIds: erroBug.payload?.messageIds,
-            hasReplies: 'replies' in erroBug,
-            repliesCount: Array.isArray(erroBug.replies) ? erroBug.replies.length : 'N/A'
-          });
-        }
-      } else {
-        console.log('[requests/reply] ✅ Solicitação encontrada:', solicitacao._id, {
-          waMessageId: solicitacao.waMessageId,
-          payloadMessageIds: solicitacao.payload?.messageIds,
-          hasReplies: 'replies' in solicitacao,
-          repliesCount: Array.isArray(solicitacao.replies) ? solicitacao.replies.length : 'N/A'
-        });
-      }
-
-      if (!solicitacao && !erroBug) {
-        console.log('[requests/reply] ❌ Solicitação/Erro não encontrado para waMessageId:', waMessageId);
-        return res.status(404).json({
-          ok: false,
-          error: 'Solicitação/Erro não encontrado'
-        });
-      }
-
-      const targetDoc = isErroBug ? erroBug : solicitacao;
-      const targetCollection = isErroBug ? db.collection('erros_bugs') : collection;
-      console.log(`[requests/reply] ✅ ${isErroBug ? 'Erro/Bug' : 'Solicitação'} encontrada:`, targetDoc._id);
-
-      // Normalizar replies para array
-      const replies = Array.isArray(targetDoc.replies) ? targetDoc.replies : [];
-
-      // Verificar se já existe reply com mesmo replyMessageId (evitar duplicatas)
-      if (replyMessageId) {
-        const existingReply = replies.find(r => String(r.replyMessageId) === String(replyMessageId));
-        if (existingReply) {
-          console.log('[requests/reply] Reply já existe, ignorando duplicata:', replyMessageId);
-          return res.json({
-            ok: true,
-            message: 'Reply já existe',
-            replyId: replyMessageId
-          });
-        }
-      }
-
-      // Criar novo reply
-      const newReply = {
-        reactor: reactor || 'Desconhecido',
-        text: text || '',
-        at: new Date(),
-        replyMessageId: replyMessageId || null,
-        replyMessageJid: replyMessageJid || null,
-        replyMessageParticipant: replyMessageParticipant || null,
-        confirmedAt: null,
-        confirmedBy: null
-      };
-
-      // Adicionar ao array de replies
-      replies.push(newReply);
-
-      // Atualizar documento no MongoDB
-      await targetCollection.updateOne(
-        { _id: targetDoc._id },
-        {
-          $set: {
-            replies,
-            updatedAt: new Date()
-          }
-        }
-      );
-
-      console.log(`[requests/reply] ✅ Reply adicionado com sucesso em ${isErroBug ? 'erro/bug' : 'solicitação'}. Total de replies:`, replies.length);
-
-      return res.json({
-        ok: true,
-        [isErroBug ? 'erroBugId' : 'solicitacaoId']: targetDoc._id.toString(),
-        repliesCount: replies.length,
-        type: isErroBug ? 'erro_bug' : 'solicitacao'
-      });
-    } catch (error) {
-      console.error('[requests/reply] Erro:', error);
-      return res.status(500).json({
-        ok: false,
-        error: error.message || 'Erro ao processar reply'
-      });
-    }
-  });
   
   // Registrar router de erros/bugs com validação adicional
   if (!errosBugsRouter || typeof errosBugsRouter !== 'function') {

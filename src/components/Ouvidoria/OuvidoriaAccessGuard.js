@@ -18,20 +18,22 @@ const BYPASS_EMAILS = [];
 
 import React, { useEffect, useState } from 'react';
 import { API_BASE_URL } from '../../config/api-config';
+import { getUserSession } from '../../services/auth';
 
 /**
- * Função helper para obter email do usuário da sessão
+ * Obtém email do usuário da sessão ativa (usa mesma fonte que auth.js - velohub_user_session)
+ * Prioridade: velohub_user_session (auth atual) > veloacademy > user_session (legado)
  */
 const getUserEmail = () => {
   try {
-    const sessionData = 
+    const session = getUserSession();
+    if (session?.user?.email) return session.user.email;
+    const sessionData =
       localStorage.getItem('veloacademy_user_session') ||
-      localStorage.getItem('velohub_user_session') ||
       localStorage.getItem('user_session');
-    
     if (sessionData) {
-      const session = JSON.parse(sessionData);
-      return session?.user?.email || session?.email;
+      const parsed = JSON.parse(sessionData);
+      return parsed?.user?.email || parsed?.email;
     }
   } catch (error) {
     console.error('Erro ao obter email da sessão:', error);

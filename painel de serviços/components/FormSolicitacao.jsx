@@ -4,8 +4,6 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { toTitleCase, normStatus, normCpf } from "@/lib/utils";
 import { fetchWithTimeout } from "@/lib/fetchUtils";
-import { getApiUrl } from "@/lib/apiConfig";
-
 export default function FormSolicitacao({ registrarLog }) {
   const [form, setForm] = useState({
     agente: "",
@@ -282,52 +280,8 @@ export default function FormSolicitacao({ registrarLog }) {
 
     const mensagemTexto = montarMensagem();
 
-    const apiUrl = getApiUrl();
-    const defaultJid = process.env.NEXT_PUBLIC_DEFAULT_JID;
-    const payload = { jid: defaultJid, mensagem: mensagemTexto, cpf: form.cpf, solicitacao: form.tipo, agente: agenteNorm || form.agente };
-
     try {
-      // 1) Tentar enviar via WhatsApp se configurado (timeout 20s)
-      let res = { ok: false };
-      let waMessageId = null;
-      let whatsappTimeout = false;
-      
-      if (apiUrl && defaultJid) {
-        try {
-          res = await fetchWithTimeout(`${apiUrl}/send`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-          }, 20000);
-
-          // 2) Extrair waMessageId quando houver resposta OK
-          if (res && res.ok) {
-            try {
-              const data = await res.json();
-              waMessageId = data?.messageId || data?.key?.id || null;
-            } catch {}
-          }
-        } catch (whatsappError) {
-          console.error('[FormSolicitacao] Erro ao enviar WhatsApp:', whatsappError);
-          if (whatsappError.name === 'AbortError') {
-            whatsappTimeout = true;
-            registrarLog("⏱️ Envio para o grupo demorou; solicitação será registrada no painel");
-            toast("Envio para o grupo demorou; solicitação será registrada no painel");
-          } else {
-            const errorText = whatsappError.message || String(whatsappError);
-            // Detectar WhatsApp desconectado
-            if (/WhatsApp desconectado|desconectado/i.test(errorText)) {
-              registrarLog("⚠️ WhatsApp está reconectando. Aguarde alguns segundos e tente enviar novamente.");
-              toast.error("WhatsApp está reconectando. Aguarde alguns segundos e tente enviar novamente.");
-            } else {
-              registrarLog("❌ Erro da API WhatsApp: " + errorText);
-              toast.error("Erro ao enviar para WhatsApp: " + errorText);
-            }
-          }
-        }
-      }
-
-      // 3) Persistir SEMPRE a solicitação e o log (mesmo se WhatsApp falhar)
+      // Persistir solicitação no painel (WhatsApp descontinuado - replies via polling MongoDB)
       try {
         await fetchWithTimeout('/api/requests', {
           method: 'POST',
@@ -337,8 +291,8 @@ export default function FormSolicitacao({ registrarLog }) {
             cpf: form.cpf,
             tipo: form.tipo,
             payload: { ...form },
-            agentContact: defaultJid || null,
-            waMessageId,
+            agentContact: null,
+            waMessageId: null,
           })
         }, 15000);
       } catch (persistError) {
@@ -360,8 +314,8 @@ export default function FormSolicitacao({ registrarLog }) {
             detail: {
               tipo: form.tipo,
               cpf: form.cpf,
-              waMessageId,
-              whatsappSent: !!(apiUrl && defaultJid && res && res.ok),
+              waMessageId: null,
+              whatsappSent: false,
               exclusao:
                 form.tipo === 'Exclusão de Conta'
                   ? {
@@ -390,39 +344,25 @@ export default function FormSolicitacao({ registrarLog }) {
         // Não bloquear se log falhar
       }
 
-      // 4) Atualizar UI/Cache
-      if (!apiUrl || !defaultJid) {
-        registrarLog("ℹ️ WhatsApp não configurado: apenas registrado no painel");
-        toast.success("Solicitação registrada");
-      } else if (whatsappTimeout) {
-        // Já mostrou mensagem acima
-      } else if (res && res.ok) {
-        registrarLog("✅ Enviado com sucesso");
-        toast.success("Solicitação enviada");
-      } else if (res && !res.ok) {
-        const txt = await res.text().catch(() => 'Erro desconhecido');
-        registrarLog("❌ Erro da API: " + txt);
-        toast.error("Erro ao enviar: " + txt);
-        notifyError('Falha ao enviar solicitação', txt || 'Erro desconhecido da API');
-      }
+      // 4) Atualizar UI/Cache (WhatsApp descontinuado - apenas persistência)
+      registrarLog("✅ Registrado no painel com sucesso");
+      toast.success("Solicitação registrada");
 
-      const wasSentOK = !!(apiUrl && defaultJid && res && res.ok);
+      const wasSentOK = false; // Não há envio WhatsApp
       // Buscar o id da solicitação recém-criada
       let newItemId = null;
       try {
         const resCheck = await fetchWithTimeout('/api/requests', {}, 5000);
         if (resCheck && resCheck.ok) {
           const all = await resCheck.json();
-          const found = waMessageId
-            ? all.find(r => r.waMessageId === waMessageId)
-            : all.find(r => r.cpf === form.cpf && r.tipo === form.tipo && new Date(r.createdAt).getTime() > Date.now() - 10000);
+          const found = all.find(r => r.cpf === form.cpf && r.tipo === form.tipo && new Date(r.createdAt).getTime() > Date.now() - 10000);
           if (found) newItemId = found.id;
         }
       } catch {}
       const newItem = {
         cpf: form.cpf,
         tipo: form.tipo,
-        waMessageId,
+        waMessageId: null,
         id: newItemId,
         status: wasSentOK ? 'enviado' : 'em aberto',
         enviado: wasSentOK,
@@ -660,11 +600,11 @@ export default function FormSolicitacao({ registrarLog }) {
                                       }}
                                       className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
                                     >
-                                      Confirmar visto (✓ no WhatsApp)
+                                      Confirmar visto
                                     </button>
                                   )
                                 ) : (
-                                  <span className="opacity-60">Check no WhatsApp disponível só para respostas novas</span>
+                                  <span className="opacity-60">Disponível para respostas do time</span>
                                 )}
                               </span>
                             </div>
@@ -774,11 +714,11 @@ export default function FormSolicitacao({ registrarLog }) {
                                     }}
                                     className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
                                   >
-                                    Confirmar visto (✓ no WhatsApp)
+                                    Confirmar visto
                                   </button>
                                 )
                               ) : (
-                                <span className="opacity-60">Check no WhatsApp disponível só para respostas novas</span>
+                                <span className="opacity-60">Disponível para respostas do time</span>
                               )}
                             </span>
                           </div>

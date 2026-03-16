@@ -215,7 +215,7 @@ export default function Painel() {
         throw new Error(data.error || 'Erro ao confirmar resposta');
       }
 
-      toast.success('Confirmado! Reação ✓ enviada no WhatsApp.');
+      toast.success('Confirmado! Visualização registrada.');
       
       // Recarregar dados após confirmação
       await loadStats();
@@ -486,11 +486,11 @@ export default function Painel() {
                                               }}
                                               className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
                                             >
-                                              Confirmar visto (✓ no WhatsApp)
+                                              Confirmar visto
                                             </button>
                                           )
                                         ) : (
-                                          <span className="opacity-60">Check no WhatsApp disponível só para respostas novas</span>
+                                          <span className="opacity-60">Confirma visualização da resposta no sistema</span>
                                         )}
                                       </span>
                                     </div>
@@ -609,11 +609,11 @@ export default function Painel() {
                                                   }}
                                                   className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
                                                 >
-                                                  Confirmar visto (✓ no WhatsApp)
+                                                  Confirmar visto
                                                 </button>
                                               )
                                             ) : (
-                                              <span className="opacity-60">Check no WhatsApp disponível só para respostas novas</span>
+                                              <span className="opacity-60">Confirma visualização da resposta no sistema</span>
                                             )}
                                           </span>
                                         </div>

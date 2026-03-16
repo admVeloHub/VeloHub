@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - RelatoriosOuvidoria Component
- * VERSION: v2.10.0 | DATE: 2026-03-05 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.11.0 | DATE: 2026-03-16 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.11.0:
+ * - Padronização de grafias em MOTIVOS_CONHECIDOS: Abatimento Juros → Abatimento de Juros
  * 
  * Mudanças v2.10.0:
  * - labelsPorTipo e coresPorTipo: adicionado 'N2 PIX' para compatibilidade com API que retorna tipo 'N2 Pix'
@@ -124,7 +127,7 @@ const MOTIVOS_CONHECIDOS_FRONTEND = [
   'Crédito do Trabalhador',
   'Empréstimo Pessoal',
   'Liberação Chave Pix',
-  'Abatimento Juros',
+  'Abatimento de Juros',
   'Cancelamento Conta',
   'Devolução à Celcoin',
   'Superendividamento',
