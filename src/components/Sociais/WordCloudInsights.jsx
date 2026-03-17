@@ -1,11 +1,13 @@
 /**
  * VeloHub V3 - WordCloudInsights (Sociais)
- * VERSION: v1.0.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.1.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
  */
 
 import { useMemo, useEffect, useRef } from 'react';
-import WordCloud from 'react-wordcloud';
+import { ReactWordcloud } from '@cp949/react-wordcloud';
 import { processMessagesForWordCloud } from '../../utils/sociais/wordCloudProcessor';
+
+const COLORS = ['#1634FF', '#00d1b2', '#ffd93d', '#ff6b6b', '#6bcf7f', '#a29bfe', '#ff9f43'];
 
 const WordCloudInsights = ({ messages = [], filters = {}, onWordClick, onWordsProcessed }) => {
   const prevWordsStringRef = useRef('');
@@ -25,24 +27,20 @@ const WordCloudInsights = ({ messages = [], filters = {}, onWordClick, onWordsPr
     }
   }, [wordCloudData, onWordsProcessed]);
 
-  const colors = ['#1634FF', '#00d1b2', '#ffd93d', '#ff6b6b', '#6bcf7f', '#a29bfe', '#ff9f43'];
-  const rotation = () => {
-    const angles = [0, 0, 0, 0, 0, 45, -45, 90, -90];
-    return angles[Math.floor(Math.random() * angles.length)];
-  };
-  const options = {
-    rotations: 3,
-    rotationSteps: 2,
-    rotation,
+  const options = useMemo(() => ({
+    colors: COLORS,
     fontSizes: [20, 60],
     fontFamily: 'Arial, sans-serif',
     fontWeight: 'bold',
     scale: 'sqrt',
     spiral: 'archimedean',
     transitionDuration: 1000,
-    callbacks: { onWordClick: (word) => { if (onWordClick) onWordClick(word.text); } }
-  };
-  const getColor = (word, index) => colors[index % colors.length];
+    rotationAngles: [-45, 90],
+  }), []);
+
+  const callbacks = useMemo(() =>
+    onWordClick ? { onWordClick: (word) => onWordClick(word.text) } : undefined
+  , [onWordClick]);
 
   if (wordCloudData.length === 0) {
     return (
@@ -55,13 +53,16 @@ const WordCloudInsights = ({ messages = [], filters = {}, onWordClick, onWordsPr
     );
   }
 
-  const wordsWithColors = wordCloudData.map((word, index) => ({ ...word, color: getColor(word, index) }));
-
   return (
     <div className="chart-container">
       <h3>☁️ Nuvem de Palavras (Insights)</h3>
       <div style={{ width: '100%', height: '400px', backgroundColor: '#ffffff', borderRadius: '8px', padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', cursor: onWordClick ? 'pointer' : 'default' }}>
-        <WordCloud words={wordsWithColors} options={options} size={[800, 400]} />
+        <ReactWordcloud
+          words={wordCloudData}
+          options={options}
+          callbacks={callbacks}
+          size={[800, 400]}
+        />
       </div>
       <p style={{ marginTop: '10px', fontSize: '12px', color: '#888', textAlign: 'center' }}>
         {onWordClick ? 'Clique em uma palavra para filtrar o Feed de Atendimento' : 'Palavras mais frequentes nos textos de atendimento (stopwords removidas)'}

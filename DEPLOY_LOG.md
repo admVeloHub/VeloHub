@@ -40,6 +40,18 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - react-wordcloud → @cp949/react-wordcloud (React 18)**
+- **Data/Hora**: 2026-03-17
+- **Tipo**: GitHub Push
+- **Arquivos Modificados**:
+  - `package.json` (react-wordcloud → @cp949/react-wordcloud)
+  - `package-lock.json`
+  - `src/components/Sociais/WordCloudInsights.jsx` (v1.0.0 → v1.1.0)
+- **Descrição**: 
+  - Substituição de react-wordcloud por @cp949/react-wordcloud para compatibilidade com React 18
+  - Correção de falha no Cloud Build (ERESOLVE peer dependency conflict)
+- **Status**: ✅ Concluído com sucesso
+
 ### **GitHub Push - Módulo Sociais, Scripts Retidos e Atualizações**
 - **Data/Hora**: 2026-03-17
 - **Tipo**: GitHub Push
