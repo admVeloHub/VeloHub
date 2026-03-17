@@ -262,11 +262,22 @@ const LoginPage = ({ onLoginSuccess }) => {
           })
         });
 
-        const validateResult = await validateResponse.json();
+        const validateResult = await validateResponse.json().catch(() => ({
+          success: false,
+          error: 'Resposta inválida do servidor'
+        }));
+
+        if (!validateResponse.ok) {
+          const errMsg = validateResult.error || validateResult.message || `Erro ${validateResponse.status}`;
+          console.log('Acesso negado:', errMsg, '(status:', validateResponse.status, ')');
+          setError(errMsg);
+          setIsLoading(false);
+          return;
+        }
 
         if (!validateResult.success) {
-          console.log('Acesso negado:', validateResult.error);
-          setError(validateResult.error || 'Erro ao validar acesso');
+          console.log('Acesso negado:', validateResult.error || validateResult.message);
+          setError(validateResult.error || validateResult.message || 'Erro ao validar acesso');
           setIsLoading(false);
           return;
         }

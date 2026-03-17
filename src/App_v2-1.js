@@ -1,6 +1,10 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.12.2 | DATE: 2026-02-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.13.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.13.0:
+ * - Header: botões Reclamações e Sociais exibidos apenas para usuários com acesso
+ * - Adicionado módulo Sociais com SociaisPage e SociaisAccessGuard
  * 
  * Mudanças v2.12.2:
  * - Renomeado módulo 'Bacen & N2' para 'Reclamações' no cabeçalho e no switch case
@@ -245,6 +249,8 @@ import ChatStatusSelector from './components/ChatStatusSelector';
 import EscalacoesPage from './pages/EscalacoesPage';
 import OuvidoriaPage from './pages/OuvidoriaPage';
 import OuvidoriaAccessGuard from './components/Ouvidoria/OuvidoriaAccessGuard';
+import SociaisPage from './pages/SociaisPage';
+import SociaisAccessGuard from './components/Sociais/SociaisAccessGuard';
 import PerfilPage from './pages/PerfilPage';
 import TermosPage from './pages/TermosPage';
 import PrivacidadePage from './pages/PrivacidadePage';
@@ -418,10 +424,52 @@ const Footer = ({ isDarkMode }) => {
 
 // Componente do Cabe├ºalho
 const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
-  const navItems = ['Home', 'VeloBot', 'Artigos', 'Apoio', 'Req_Prod', 'Reclamações', 'VeloAcademy'];
+  const baseNavItems = ['Home', 'VeloBot', 'Artigos', 'Apoio', 'Req_Prod', 'Reclamações', 'Sociais', 'VeloAcademy'];
+  const [moduleAccess, setModuleAccess] = useState({ ouvidoria: false, sociais: false });
   const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
   const [userName, setUserName] = useState('Usu├írio VeloHub');
   const [userPicture, setUserPicture] = useState(null);
+
+  // Filtrar navItems com base no acesso do usuário
+  const navItems = baseNavItems.filter(item => {
+    if (item === 'Reclamações') return moduleAccess.ouvidoria;
+    if (item === 'Sociais') return moduleAccess.sociais;
+    return true;
+  });
+
+  // Buscar acessos aos módulos restritos (ouvidoria, sociais)
+  useEffect(() => {
+    const fetchModuleAccess = async () => {
+      try {
+        const session = getUserSession();
+        const email = session?.user?.email;
+        if (!email) {
+          return;
+        }
+        const sessionId = localStorage.getItem('velohub_session_id');
+        const headers = {
+          'Content-Type': 'application/json',
+          ...(sessionId && { 'x-session-id': sessionId }),
+          ...(email && { 'x-user-email': email }),
+        };
+        const [ouvidoriaRes, sociaisRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/auth/check-module-access?email=${encodeURIComponent(email)}&module=ouvidoria${sessionId ? `&sessionId=${sessionId}` : ''}`, { headers }),
+          fetch(`${API_BASE_URL}/auth/check-module-access?email=${encodeURIComponent(email)}&module=sociais${sessionId ? `&sessionId=${sessionId}` : ''}`, { headers }),
+        ]);
+        const [ouvidoriaData, sociaisData] = await Promise.all([
+          ouvidoriaRes.json(),
+          sociaisRes.json(),
+        ]);
+        setModuleAccess({
+          ouvidoria: ouvidoriaData.success && ouvidoriaData.hasAccess === true,
+          sociais: sociaisData.success && sociaisData.hasAccess === true,
+        });
+      } catch (error) {
+        console.error('Erro ao verificar acesso aos módulos:', error);
+      }
+    };
+    fetchModuleAccess();
+  }, []);
 
   // Função para buscar contagem de tickets não visualizados
   const fetchUnreadTicketsCount = async () => {
@@ -1514,6 +1562,12 @@ export default function App_v2() {
           <OuvidoriaAccessGuard>
             <OuvidoriaPage />
           </OuvidoriaAccessGuard>
+        );
+      case 'Sociais':
+        return (
+          <SociaisAccessGuard>
+            <SociaisPage />
+          </SociaisAccessGuard>
         );
       case 'Perfil':
         return <PerfilPage />;

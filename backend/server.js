@@ -237,9 +237,10 @@ const fetch = require('node-fetch');
 const { Storage } = require('@google-cloud/storage');
 // Carregar variáveis de ambiente
 // IMPORTANTE: dotenv deve ser carregado ANTES de qualquer outro módulo que use process.env
-// O arquivo de ambiente é 'env' (sem ponto), não '.env'
-const envPath = require('path').join(__dirname, 'env');
-require('dotenv').config({ path: envPath });
+// Carrega: 1) backend/env 2) backend/.env 3) .env no cwd (ex: raiz do projeto)
+require('dotenv').config({ path: path.join(__dirname, 'env') });
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+require('dotenv').config();
 
 // Log para debug - verificar se env foi carregado
 if (process.env.MONGO_ENV) {
@@ -341,6 +342,7 @@ app.use(cors({
     'https://app.velohub.velotax.com.br', // NOVO DOMÍNIO PERSONALIZADO
     process.env.CORS_ORIGIN || 'https://velohub-278491073220.us-east1.run.app',
     'http://localhost:8080', // Frontend padrão (regra estabelecida)
+    'http://127.0.0.1:8080', // localhost alternativo
     'http://localhost:3000', // Compatibilidade
     'http://localhost:5000'  // Compatibilidade
   ],
@@ -2983,6 +2985,11 @@ app.get('/api/auth/check-module-access', async (req, res) => {
       hasModuleAccess = acessos.ouvidoria === true || 
                         acessos.Ouvidoria === true || 
                         acessos.OUVIDORIA === true;
+    } else if (module === 'sociais') {
+      // Verificar acesso ao módulo Sociais (verifica variações de case)
+      hasModuleAccess = acessos.sociais === true || 
+                        acessos.Sociais === true || 
+                        acessos.SOCIAIS === true;
     } else {
       // Para outros módulos, verificar campo correspondente
       const moduleKey = module.charAt(0).toLowerCase() + module.slice(1);
@@ -6344,6 +6351,22 @@ try {
   throw error;
 }
 
+// ===== API PARA MÓDULO SOCIAIS =====
+// VERSION: v1.0.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+// Rotas: tabulation, tabulations, dashboard/metrics, dashboard/charts, rating/average, feed, analyze, report
+console.log('📋 Registrando rotas do módulo Sociais...');
+try {
+  const initSociaisRoutes = require('./routes/sociais');
+  const checkSociaisAccess = require('./middleware/sociaisAccess');
+  const sociaisAccessMiddleware = checkSociaisAccess(client, connectToMongo);
+  const sociaisRouter = initSociaisRoutes(client, connectToMongo);
+  app.use('/api/sociais', sociaisAccessMiddleware, sociaisRouter);
+  console.log('✅ Rotas do módulo Sociais registradas: /api/sociais/*');
+} catch (error) {
+  console.error('❌ Erro ao registrar rotas de Sociais:', error.message);
+  throw error;
+}
+
 // ===== API PARA MÓDULO VELOCHAT =====
 // VERSION: v2.0.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
 // 
@@ -6852,6 +6875,7 @@ app.all('*', (req, res, next) => {
     console.log(`⚠️ [CATCH-ALL] Rota da API não encontrada: ${req.method} ${req.path}`);
     return res.status(404).json({
       success: false,
+      error: 'Rota não encontrada',
       message: 'Rota da API não encontrada',
       path: req.path,
       method: req.method
@@ -6876,6 +6900,7 @@ app.all('*', (req, res, next) => {
   } else {
     res.status(404).json({
       success: false,
+      error: 'Rota não encontrada',
       message: 'Rota não encontrada',
       path: req.path,
       method: req.method

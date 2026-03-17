@@ -40,6 +40,34 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Módulo Sociais, Scripts Retidos e Atualizações**
+- **Data/Hora**: 2026-03-17
+- **Tipo**: GitHub Push
+- **Arquivos Modificados**:
+  - `backend/routes/api/ouvidoria/relatorios.js`
+  - `backend/server.js`
+  - `package.json`, `package-lock.json`
+  - `src/App_v2-1.js`
+  - `src/components/LoginPage.js`
+  - `src/components/Ouvidoria/AnaliseDiaria.js`
+  - `src/index.js`
+- **Arquivos Novos**:
+  - `backend/middleware/sociaisAccess.js`
+  - `backend/models/SociaisMetricas.js`
+  - `backend/routes/sociais.js`
+  - `backend/services/sociaisGeminiService.js`
+  - `backend/scripts/limpar-erros-bugs-antigos.js`, `listar-retidos.js`, `listar-retidos-n2-2026.js`, `retidos-n2-2026.txt`
+  - `src/components/Sociais/` (Dashboard, Feed, KeywordFilter, Reports, SociaisAccessGuard, TabulationForm, WordCloudInsights, icons)
+  - `src/pages/SociaisPage.js`
+  - `src/services/sociaisApi.js`
+  - `src/styles/sociais.css`
+  - `src/utils/sociais/` (chartExporter, excelExporter, pdfGenerator, wordCloudProcessor, wordGenerator)
+- **Descrição**: 
+  - Novo módulo Sociais com dashboard, feed, filtros, relatórios e integração Gemini
+  - Scripts de listagem e limpeza de retidos N2 2026
+  - Atualizações em Ouvidoria (AnaliseDiaria, relatorios)
+- **Status**: ✅ Concluído com sucesso
+
 ### **GitHub Push - Atualizações Múltiplos Módulos e Scripts**
 - **Data/Hora**: 2026-02-25
 - **Tipo**: GitHub Push
