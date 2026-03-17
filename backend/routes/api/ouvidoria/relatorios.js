@@ -1,6 +1,13 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Relatórios
- * VERSION: v2.21.0 | DATE: 2026-03-16 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.23.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.23.0:
+ * - Relatório Diário: adicionados tipos Reclame Aqui, Procon e Ação Judicial (chamadosPorDia, motivosPorDia)
+ * 
+ * Mudanças v2.22.0:
+ * - CORRIGIDO Relatório Diário: dataInicioDate/dataFimDate agora usam UTC explícito (T00:00:00.000Z / T23:59:59.999Z)
+ *   para evitar deslocamento de datas por timezone do servidor (ex: 2026-02-28 aparecendo quando filtro era 01-17/03)
  * 
  * Mudanças v2.21.0:
  * - Padronização de grafias em MOTIVOS_CONHECIDOS e MOTIVOS_VALIDOS: Abatimento de Juros, Liberação Chave Pix, Contestação de Valores, Encerramento de Conta, Exclusão de Conta, Não Recebeu Restituição
@@ -1512,8 +1519,8 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         });
       }
 
-      const dataInicioDate = new Date(dataInicio);
-      dataInicioDate.setHours(0, 0, 0, 0);
+      // UTC explícito para evitar deslocamento por timezone do servidor
+      const dataInicioDate = new Date(dataInicio + 'T00:00:00.000Z');
       const dataFimDate = new Date(dataFim + 'T23:59:59.999Z');
 
       const resultado = {};
@@ -1790,6 +1797,105 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
           pixRetiradoPorDia: pixRetiradoPorDiaN2,
           motivosPorDia: motivosPorDiaN2
         };
+      }
+
+      // Normalizar tipo para comparação (OUVIDORIA -> N2, PROCESSOS -> JUDICIAL)
+      const tipoNorm = String(tipo || '').toUpperCase().trim();
+      const processarReclameAqui = tipoNorm === 'RECLAME_AQUI' || tipoNorm === 'RECLAME AQUI';
+      const processarProcon = tipoNorm === 'PROCON';
+      const processarJudicial = tipoNorm === 'PROCESSOS' || tipoNorm === 'JUDICIAL' || tipoNorm === 'AÇÃO JUDICIAL' || tipoNorm === 'ACAO JUDICIAL';
+
+      if (processarReclameAqui) {
+        const reclameAquiCollection = db.collection('reclamacoes_reclameAqui');
+        const chamadosPorDiaRA = await reclameAquiCollection.aggregate([
+          { $match: { dataReclam: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } } },
+          { $addFields: { dataDate: { $cond: [{ $eq: [{ $type: '$dataReclam' }, 'date'] }, '$dataReclam', { $toDate: '$dataReclam' }] } } },
+          { $match: { dataDate: { $ne: null } } },
+          { $group: { _id: { dia: { $dateToString: { format: '%Y-%m-%d', date: '$dataDate' } } }, count: { $sum: 1 } } },
+          { $sort: { '_id.dia': 1 } }
+        ]).toArray();
+        const docsRA = await reclameAquiCollection.find({ dataReclam: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } }).toArray();
+        const diaStrRA = (d) => { if (!d) return null; const dt = d instanceof Date ? d : new Date(d); return isNaN(dt.getTime()) ? null : dt.toISOString().slice(0, 10); };
+        const motivosPorDiaRAMap = {};
+        docsRA.forEach((d) => {
+          const dia = diaStrRA(d.dataReclam);
+          if (!dia) return;
+          const motivosArr = Array.isArray(d.motivoReduzido) ? d.motivoReduzido.filter((m) => m && String(m).trim()) : d.motivoReduzido ? [String(d.motivoReduzido).trim()] : [];
+          motivosArr.forEach((m) => {
+            const motivo = String(m).trim();
+            if (!motivo) return;
+            if (!motivosPorDiaRAMap[motivo]) motivosPorDiaRAMap[motivo] = {};
+            motivosPorDiaRAMap[motivo][dia] = (motivosPorDiaRAMap[motivo][dia] || 0) + 1;
+          });
+        });
+        const motivosPorDiaRA = [];
+        Object.keys(motivosPorDiaRAMap).sort().forEach((motivo) => {
+          Object.entries(motivosPorDiaRAMap[motivo]).forEach(([dia, count]) => motivosPorDiaRA.push({ _id: { dia, motivo }, count }));
+        });
+        motivosPorDiaRA.sort((a, b) => (a._id.dia !== b._id.dia ? a._id.dia.localeCompare(b._id.dia) : a._id.motivo.localeCompare(b._id.motivo)));
+        resultado.reclameAqui = { chamadosPorDia: chamadosPorDiaRA, motivosPorDia: motivosPorDiaRA };
+      }
+
+      if (processarProcon) {
+        const proconCollection = db.collection('reclamacoes_procon');
+        const chamadosPorDiaProcon = await proconCollection.aggregate([
+          { $match: { dataProcon: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } } },
+          { $addFields: { dataDate: { $cond: [{ $eq: [{ $type: '$dataProcon' }, 'date'] }, '$dataProcon', { $toDate: '$dataProcon' }] } } },
+          { $match: { dataDate: { $ne: null } } },
+          { $group: { _id: { dia: { $dateToString: { format: '%Y-%m-%d', date: '$dataDate' } } }, count: { $sum: 1 } } },
+          { $sort: { '_id.dia': 1 } }
+        ]).toArray();
+        const docsProcon = await proconCollection.find({ dataProcon: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } }).toArray();
+        const diaStrProcon = (d) => { if (!d) return null; const dt = d instanceof Date ? d : new Date(d); return isNaN(dt.getTime()) ? null : dt.toISOString().slice(0, 10); };
+        const motivosPorDiaProconMap = {};
+        docsProcon.forEach((d) => {
+          const dia = diaStrProcon(d.dataProcon);
+          if (!dia) return;
+          const motivosArr = Array.isArray(d.motivoReduzido) ? d.motivoReduzido.filter((m) => m && String(m).trim()) : d.motivoReduzido ? [String(d.motivoReduzido).trim()] : [];
+          motivosArr.forEach((m) => {
+            const motivo = String(m).trim();
+            if (!motivo) return;
+            if (!motivosPorDiaProconMap[motivo]) motivosPorDiaProconMap[motivo] = {};
+            motivosPorDiaProconMap[motivo][dia] = (motivosPorDiaProconMap[motivo][dia] || 0) + 1;
+          });
+        });
+        const motivosPorDiaProcon = [];
+        Object.keys(motivosPorDiaProconMap).sort().forEach((motivo) => {
+          Object.entries(motivosPorDiaProconMap[motivo]).forEach(([dia, count]) => motivosPorDiaProcon.push({ _id: { dia, motivo }, count }));
+        });
+        motivosPorDiaProcon.sort((a, b) => (a._id.dia !== b._id.dia ? a._id.dia.localeCompare(b._id.dia) : a._id.motivo.localeCompare(b._id.motivo)));
+        resultado.procon = { chamadosPorDia: chamadosPorDiaProcon, motivosPorDia: motivosPorDiaProcon };
+      }
+
+      if (processarJudicial) {
+        const judicialCollection = db.collection('reclamacoes_judicial');
+        const chamadosPorDiaJudicial = await judicialCollection.aggregate([
+          { $match: { dataEntrada: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } } },
+          { $addFields: { dataDate: { $cond: [{ $eq: [{ $type: '$dataEntrada' }, 'date'] }, '$dataEntrada', { $toDate: '$dataEntrada' }] } } },
+          { $match: { dataDate: { $ne: null } } },
+          { $group: { _id: { dia: { $dateToString: { format: '%Y-%m-%d', date: '$dataDate' } } }, count: { $sum: 1 } } },
+          { $sort: { '_id.dia': 1 } }
+        ]).toArray();
+        const docsJudicial = await judicialCollection.find({ dataEntrada: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } }).toArray();
+        const diaStrJudicial = (d) => { if (!d) return null; const dt = d instanceof Date ? d : new Date(d); return isNaN(dt.getTime()) ? null : dt.toISOString().slice(0, 10); };
+        const motivosPorDiaJudicialMap = {};
+        docsJudicial.forEach((d) => {
+          const dia = diaStrJudicial(d.dataEntrada);
+          if (!dia) return;
+          const motivosArr = Array.isArray(d.motivoReduzido) ? d.motivoReduzido.filter((m) => m && String(m).trim()) : d.motivoReduzido ? [String(d.motivoReduzido).trim()] : [];
+          motivosArr.forEach((m) => {
+            const motivo = String(m).trim();
+            if (!motivo) return;
+            if (!motivosPorDiaJudicialMap[motivo]) motivosPorDiaJudicialMap[motivo] = {};
+            motivosPorDiaJudicialMap[motivo][dia] = (motivosPorDiaJudicialMap[motivo][dia] || 0) + 1;
+          });
+        });
+        const motivosPorDiaJudicial = [];
+        Object.keys(motivosPorDiaJudicialMap).sort().forEach((motivo) => {
+          Object.entries(motivosPorDiaJudicialMap[motivo]).forEach(([dia, count]) => motivosPorDiaJudicial.push({ _id: { dia, motivo }, count }));
+        });
+        motivosPorDiaJudicial.sort((a, b) => (a._id.dia !== b._id.dia ? a._id.dia.localeCompare(b._id.dia) : a._id.motivo.localeCompare(b._id.motivo)));
+        resultado.judicial = { chamadosPorDia: chamadosPorDiaJudicial, motivosPorDia: motivosPorDiaJudicial };
       }
 
       console.log(`✅ Relatório diário gerado para período ${dataInicio} a ${dataFim}, tipo: ${tipo || 'todos'}`);

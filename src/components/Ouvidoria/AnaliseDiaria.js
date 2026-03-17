@@ -1,6 +1,14 @@
 /**
  * VeloHub V3 - AnaliseDiaria Component
- * VERSION: v2.4.0 | DATE: 2026-03-16 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.6.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.6.0:
+ * - Adicionadas opções Reclame Aqui, Procon e Ação Judicial ao filtro de tipo
+ * - Tabelas Número de Chamados e Motivos para os novos tipos (mesma estrutura de N2)
+ * 
+ * Mudanças v2.5.0:
+ * - CORRIGIDO: formatarData usa parsing direto de YYYY-MM-DD para evitar deslocamento de 1 dia por timezone
+ *   (new Date('2026-03-01') = UTC midnight → em pt-BR virava 28/02; agora exibe 01/03 corretamente)
  * 
  * Mudanças v2.4.0:
  * - Padronização de grafias em MOTIVOS_REDUZIDOS: Abatimento de Juros, Liberação Chave Pix, Contestação de Valores, Encerramento de Conta, Exclusão de Conta, Não Recebeu Restituição
@@ -216,12 +224,19 @@ const AnaliseDiaria = () => {
   }, [dataInicio, dataFim]);
 
   /**
-   * Formatar data para exibição
+   * Formatar data para exibição (DD/MM/YYYY)
+   * Usa parsing direto de YYYY-MM-DD para evitar deslocamento de timezone:
+   * new Date('2026-03-01') = UTC midnight → em pt-BR vira 28/02 (1 dia antes)
    */
   const formatarData = (dataString) => {
     if (!dataString) return '';
     try {
-      const data = new Date(dataString);
+      const match = String(dataString).match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (match) {
+        const [, y, m, d] = match;
+        return `${d}/${m}/${y}`;
+      }
+      const data = new Date(dataString + 'T12:00:00');
       return data.toLocaleDateString('pt-BR');
     } catch {
       return dataString;
@@ -462,6 +477,112 @@ const AnaliseDiaria = () => {
     return { tabela, dias };
   }, [dadosDiarios, gerarDiasNoPeriodo]);
 
+  /** Processadores para Reclame Aqui, Procon e Ação Judicial (chamadosPorDia + motivosPorDia) */
+  const processarChamadosReclameAqui = useMemo(() => {
+    const dados = dadosDiarios?.reclameAqui;
+    if (!dados?.chamadosPorDia) return null;
+    const dias = gerarDiasNoPeriodo;
+    const valores = dias.map(dia => {
+      const item = dados.chamadosPorDia.find(d => d._id.dia === dia);
+      return item ? item.count : 0;
+    });
+    return { valores, dias, total: valores.reduce((s, v) => s + v, 0) };
+  }, [dadosDiarios?.reclameAqui, gerarDiasNoPeriodo]);
+
+  const processarMotivosReclameAqui = useMemo(() => {
+    const dados = dadosDiarios?.reclameAqui;
+    if (!dados) return null;
+    const dias = gerarDiasNoPeriodo;
+    const dadosParaProcessar = dados.motivosPorDia || [];
+    const motivosAgrupados = new Map();
+    dadosParaProcessar.forEach(item => {
+      if (!item._id?.motivo || !item._id?.dia) return;
+      const motivo = item._id.motivo;
+      const dia = item._id.dia;
+      const count = item.count || 0;
+      if (!motivosAgrupados.has(motivo)) motivosAgrupados.set(motivo, { motivo, contagensPorDia: new Map() });
+      const grupo = motivosAgrupados.get(motivo);
+      grupo.contagensPorDia.set(dia, (grupo.contagensPorDia.get(dia) || 0) + count);
+    });
+    const tabela = Array.from(motivosAgrupados.values())
+      .map(grupo => {
+        const valores = dias.map(dia => grupo.contagensPorDia.get(dia) || 0);
+        return { motivo: grupo.motivo, valores, total: valores.reduce((s, v) => s + v, 0) };
+      })
+      .sort((a, b) => String(a.motivo || '').localeCompare(String(b.motivo || '')));
+    return { tabela, dias };
+  }, [dadosDiarios?.reclameAqui, gerarDiasNoPeriodo]);
+
+  const processarChamadosProcon = useMemo(() => {
+    const dados = dadosDiarios?.procon;
+    if (!dados?.chamadosPorDia) return null;
+    const dias = gerarDiasNoPeriodo;
+    const valores = dias.map(dia => {
+      const item = dados.chamadosPorDia.find(d => d._id.dia === dia);
+      return item ? item.count : 0;
+    });
+    return { valores, dias, total: valores.reduce((s, v) => s + v, 0) };
+  }, [dadosDiarios?.procon, gerarDiasNoPeriodo]);
+
+  const processarMotivosProcon = useMemo(() => {
+    const dados = dadosDiarios?.procon;
+    if (!dados) return null;
+    const dias = gerarDiasNoPeriodo;
+    const dadosParaProcessar = dados.motivosPorDia || [];
+    const motivosAgrupados = new Map();
+    dadosParaProcessar.forEach(item => {
+      if (!item._id?.motivo || !item._id?.dia) return;
+      const motivo = item._id.motivo;
+      const dia = item._id.dia;
+      const count = item.count || 0;
+      if (!motivosAgrupados.has(motivo)) motivosAgrupados.set(motivo, { motivo, contagensPorDia: new Map() });
+      const grupo = motivosAgrupados.get(motivo);
+      grupo.contagensPorDia.set(dia, (grupo.contagensPorDia.get(dia) || 0) + count);
+    });
+    const tabela = Array.from(motivosAgrupados.values())
+      .map(grupo => {
+        const valores = dias.map(dia => grupo.contagensPorDia.get(dia) || 0);
+        return { motivo: grupo.motivo, valores, total: valores.reduce((s, v) => s + v, 0) };
+      })
+      .sort((a, b) => String(a.motivo || '').localeCompare(String(b.motivo || '')));
+    return { tabela, dias };
+  }, [dadosDiarios?.procon, gerarDiasNoPeriodo]);
+
+  const processarChamadosJudicial = useMemo(() => {
+    const dados = dadosDiarios?.judicial;
+    if (!dados?.chamadosPorDia) return null;
+    const dias = gerarDiasNoPeriodo;
+    const valores = dias.map(dia => {
+      const item = dados.chamadosPorDia.find(d => d._id.dia === dia);
+      return item ? item.count : 0;
+    });
+    return { valores, dias, total: valores.reduce((s, v) => s + v, 0) };
+  }, [dadosDiarios?.judicial, gerarDiasNoPeriodo]);
+
+  const processarMotivosJudicial = useMemo(() => {
+    const dados = dadosDiarios?.judicial;
+    if (!dados) return null;
+    const dias = gerarDiasNoPeriodo;
+    const dadosParaProcessar = dados.motivosPorDia || [];
+    const motivosAgrupados = new Map();
+    dadosParaProcessar.forEach(item => {
+      if (!item._id?.motivo || !item._id?.dia) return;
+      const motivo = item._id.motivo;
+      const dia = item._id.dia;
+      const count = item.count || 0;
+      if (!motivosAgrupados.has(motivo)) motivosAgrupados.set(motivo, { motivo, contagensPorDia: new Map() });
+      const grupo = motivosAgrupados.get(motivo);
+      grupo.contagensPorDia.set(dia, (grupo.contagensPorDia.get(dia) || 0) + count);
+    });
+    const tabela = Array.from(motivosAgrupados.values())
+      .map(grupo => {
+        const valores = dias.map(dia => grupo.contagensPorDia.get(dia) || 0);
+        return { motivo: grupo.motivo, valores, total: valores.reduce((s, v) => s + v, 0) };
+      })
+      .sort((a, b) => String(a.motivo || '').localeCompare(String(b.motivo || '')));
+    return { tabela, dias };
+  }, [dadosDiarios?.judicial, gerarDiasNoPeriodo]);
+
   return (
     <div>
       {/* Filtros */}
@@ -501,7 +622,10 @@ const AnaliseDiaria = () => {
               className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
             >
               <option value="BACEN">BACEN</option>
-              <option value="N2">N2</option>
+              <option value="N2">N2 Pix</option>
+              <option value="RECLAME_AQUI">Reclame Aqui</option>
+              <option value="PROCON">Procon</option>
+              <option value="PROCESSOS">Ação Judicial</option>
             </select>
           </div>
 
@@ -760,9 +884,234 @@ const AnaliseDiaria = () => {
         </>
       )}
 
-      {!dadosDiarios && (
+      {/* Tabelas Reclame Aqui */}
+      {tipo === 'RECLAME_AQUI' && dadosDiarios?.reclameAqui && (
+        <>
+          {processarChamadosReclameAqui && (
+            <div className="container-secondary mb-6">
+              <h3 className="text-lg font-semibold mb-4">Número de Chamados</h3>
+              <div className="overflow-x-auto" style={{ width: '100%', maxWidth: '100%' }}>
+                <table className="border-collapse" style={{ minWidth: 'max-content', width: '100%' }}>
+                  <thead>
+                    <tr>
+                      {processarChamadosReclameAqui.dias.map(dia => (
+                        <th key={dia} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
+                          {formatarData(dia)}
+                        </th>
+                      ))}
+                      <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      {processarChamadosReclameAqui.valores.map((valor, idx) => (
+                        <td key={idx} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm whitespace-nowrap">
+                          {valor}
+                        </td>
+                      ))}
+                      <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-semibold">
+                        {processarChamadosReclameAqui.total}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          {processarMotivosReclameAqui && (
+            <div className="container-secondary mb-6">
+              <h3 className="text-lg font-semibold mb-4">Motivos</h3>
+              <div className="overflow-x-auto" style={{ width: '100%', maxWidth: '100%' }}>
+                <table className="border-collapse" style={{ minWidth: 'max-content', width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left text-sm font-medium">Motivo</th>
+                      {processarMotivosReclameAqui.dias.map(dia => (
+                        <th key={dia} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
+                          {formatarData(dia)}
+                        </th>
+                      ))}
+                      <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {processarMotivosReclameAqui.tabela.map((linha, index) => (
+                      <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm">{linha.motivo}</td>
+                        {linha.valores.map((valor, idx) => (
+                          <td key={idx} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm whitespace-nowrap">
+                            {valor}
+                          </td>
+                        ))}
+                        <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-semibold">
+                          {linha.total}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Tabelas Procon */}
+      {tipo === 'PROCON' && dadosDiarios?.procon && (
+        <>
+          {processarChamadosProcon && (
+            <div className="container-secondary mb-6">
+              <h3 className="text-lg font-semibold mb-4">Número de Chamados</h3>
+              <div className="overflow-x-auto" style={{ width: '100%', maxWidth: '100%' }}>
+                <table className="border-collapse" style={{ minWidth: 'max-content', width: '100%' }}>
+                  <thead>
+                    <tr>
+                      {processarChamadosProcon.dias.map(dia => (
+                        <th key={dia} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
+                          {formatarData(dia)}
+                        </th>
+                      ))}
+                      <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      {processarChamadosProcon.valores.map((valor, idx) => (
+                        <td key={idx} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm whitespace-nowrap">
+                          {valor}
+                        </td>
+                      ))}
+                      <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-semibold">
+                        {processarChamadosProcon.total}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          {processarMotivosProcon && (
+            <div className="container-secondary mb-6">
+              <h3 className="text-lg font-semibold mb-4">Motivos</h3>
+              <div className="overflow-x-auto" style={{ width: '100%', maxWidth: '100%' }}>
+                <table className="border-collapse" style={{ minWidth: 'max-content', width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left text-sm font-medium">Motivo</th>
+                      {processarMotivosProcon.dias.map(dia => (
+                        <th key={dia} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
+                          {formatarData(dia)}
+                        </th>
+                      ))}
+                      <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {processarMotivosProcon.tabela.map((linha, index) => (
+                      <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm">{linha.motivo}</td>
+                        {linha.valores.map((valor, idx) => (
+                          <td key={idx} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm whitespace-nowrap">
+                            {valor}
+                          </td>
+                        ))}
+                        <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-semibold">
+                          {linha.total}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Tabelas Ação Judicial */}
+      {tipo === 'PROCESSOS' && dadosDiarios?.judicial && (
+        <>
+          {processarChamadosJudicial && (
+            <div className="container-secondary mb-6">
+              <h3 className="text-lg font-semibold mb-4">Número de Chamados</h3>
+              <div className="overflow-x-auto" style={{ width: '100%', maxWidth: '100%' }}>
+                <table className="border-collapse" style={{ minWidth: 'max-content', width: '100%' }}>
+                  <thead>
+                    <tr>
+                      {processarChamadosJudicial.dias.map(dia => (
+                        <th key={dia} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
+                          {formatarData(dia)}
+                        </th>
+                      ))}
+                      <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      {processarChamadosJudicial.valores.map((valor, idx) => (
+                        <td key={idx} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm whitespace-nowrap">
+                          {valor}
+                        </td>
+                      ))}
+                      <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-semibold">
+                        {processarChamadosJudicial.total}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          {processarMotivosJudicial && (
+            <div className="container-secondary mb-6">
+              <h3 className="text-lg font-semibold mb-4">Motivos</h3>
+              <div className="overflow-x-auto" style={{ width: '100%', maxWidth: '100%' }}>
+                <table className="border-collapse" style={{ minWidth: 'max-content', width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left text-sm font-medium">Motivo</th>
+                      {processarMotivosJudicial.dias.map(dia => (
+                        <th key={dia} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
+                          {formatarData(dia)}
+                        </th>
+                      ))}
+                      <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {processarMotivosJudicial.tabela.map((linha, index) => (
+                      <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm">{linha.motivo}</td>
+                        {linha.valores.map((valor, idx) => (
+                          <td key={idx} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm whitespace-nowrap">
+                            {valor}
+                          </td>
+                        ))}
+                        <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-semibold">
+                          {linha.total}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {(!dadosDiarios ||
+        (tipo === 'BACEN' && !dadosDiarios?.bacen) ||
+        (tipo === 'N2' && !dadosDiarios?.n2) ||
+        (tipo === 'RECLAME_AQUI' && !dadosDiarios?.reclameAqui) ||
+        (tipo === 'PROCON' && !dadosDiarios?.procon) ||
+        (tipo === 'PROCESSOS' && !dadosDiarios?.judicial)) && (
         <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded border border-gray-200 dark:border-gray-600 text-center py-12">
-          <p className="text-gray-600 dark:text-gray-400">Selecione o período e o tipo, depois clique em "Gerar Análise"</p>
+          <p className="text-gray-600 dark:text-gray-400">
+            {!dadosDiarios
+              ? 'Selecione o período e o tipo, depois clique em "Gerar Análise"'
+              : 'Clique em "Gerar Análise" para carregar os dados do tipo selecionado'}
+          </p>
         </div>
       )}
     </div>
