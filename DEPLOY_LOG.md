@@ -40,6 +40,20 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Atualizações Ouvidoria, Sociais e dateUtils**
+- **Data/Hora**: 2026-03-17
+- **Tipo**: GitHub Push
+- **Arquivos Modificados**:
+  - `backend/routes/api/ouvidoria/reclamacoes.js`
+  - `src/components/Ouvidoria/` (AnaliseDiaria, FormReclamacao, FormReclamacaoEdit, HistoricoCliente, ListaReclamacoes, MinhasReclamacoes)
+  - `src/components/Sociais/Dashboard.jsx`
+  - `src/services/ouvidoriaApi.js`
+  - `src/styles/sociais.css`
+- **Arquivos Novos**:
+  - `src/utils/dateUtils.js`
+- **Descrição**: Atualizações em módulos Ouvidoria e Sociais, utilitário de datas
+- **Status**: ✅ Concluído com sucesso
+
 ### **GitHub Push - react-wordcloud → @cp949/react-wordcloud (React 18)**
 - **Data/Hora**: 2026-03-17
 - **Tipo**: GitHub Push

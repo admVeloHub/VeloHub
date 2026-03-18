@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - MinhasReclamacoes Component
- * VERSION: v1.7.0 | DATE: 2026-03-05 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.8.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.8.0:
+ * - Data exibida: usa formatDateRegistro (data do registro, sem adaptação de fuso)
  * 
  * Mudanças v1.7.0:
  * - dataEntradaAtendimento → dataEntradaN2 (schema LISTA_SCHEMAS.rb: apenas dataEntradaN2)
@@ -33,6 +36,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { reclamacoesAPI } from '../../services/ouvidoriaApi';
+import { formatDateRegistro } from '../../utils/dateUtils';
 import toast from 'react-hot-toast';
 
 const MinhasReclamacoes = ({ colaboradorNome, userEmail }) => {
@@ -75,19 +79,6 @@ const MinhasReclamacoes = ({ colaboradorNome, userEmail }) => {
     if (!cpf) return '-';
     const cleaned = cpf.replace(/\D/g, '');
     return cleaned.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-  };
-
-  /**
-   * Formatar data
-   */
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('pt-BR');
-    } catch {
-      return dateString;
-    }
   };
 
   /**
@@ -148,7 +139,7 @@ const MinhasReclamacoes = ({ colaboradorNome, userEmail }) => {
                 </span>
               </div>
               <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2 mb-1">
-                <span>Data: {formatDate(reclamacao.dataEntrada || reclamacao.dataEntradaN2 || reclamacao.createdAt)}</span>
+                <span>Data: {formatDateRegistro(reclamacao.dataEntrada || reclamacao.dataEntradaN2 || reclamacao.createdAt)}</span>
                 {reclamacao.motivoReduzido && <span>• {reclamacao.motivoReduzido}</span>}
               </div>
             </div>
@@ -215,7 +206,7 @@ const MinhasReclamacoes = ({ colaboradorNome, userEmail }) => {
                     <div className="grid grid-cols-3 gap-4 text-base text-gray-800 dark:text-gray-200">
                       <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                         <strong className="text-sm text-gray-600 dark:text-gray-400 block mb-1">Data Entrada:</strong>
-                        <span style={{ color: 'var(--cor-texto-principal)' }}>{formatDate(selectedReclamacao.dataEntrada || selectedReclamacao.dataEntradaAtendimento || selectedReclamacao.createdAt)}</span>
+                        <span style={{ color: 'var(--cor-texto-principal)' }}>{formatDateRegistro(selectedReclamacao.dataEntrada || selectedReclamacao.dataEntradaAtendimento || selectedReclamacao.createdAt)}</span>
                       </div>
                       <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                         <strong className="text-sm text-gray-600 dark:text-gray-400 block mb-1">Tipo:</strong>

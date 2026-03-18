@@ -1,6 +1,16 @@
 /**
  * VeloHub V3 - ListaReclamacoes Component
- * VERSION: v1.15.0 | DATE: 2026-03-16 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.18.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.18.0:
+ * - Adicionados filtros por Data Início, Data Fim e Motivo
+ * - Backend e client-side (getByCpf/getByColaborador) suportam os novos filtros
+ * 
+ * Mudanças v1.17.0:
+ * - Unificado: usa formatDateRegistro (utils/dateUtils) - data do registro sem adaptação de fuso
+ * 
+ * Mudanças v1.16.0:
+ * - CORRIGIDO formatDate: exibe data registrada sem adaptação de fuso (evita deslocamento por timezone)
  * 
  * Mudanças v1.15.0:
  * - Data de exibição por tipo (dataEntrada, dataEntradaN2, dataReclam, dataProcon)
@@ -87,6 +97,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { reclamacoesAPI, colaboradoresAPI, anexosAPI } from '../../services/ouvidoriaApi';
 import FormReclamacaoEdit from './FormReclamacaoEdit';
+import { formatDateRegistro } from '../../utils/dateUtils';
 import toast from 'react-hot-toast';
 
 /**
@@ -165,11 +176,17 @@ const ListaReclamacoes = () => {
     tipo: '',
     cpf: '',
     colaboradorNome: '',
+    dataInicio: '',
+    dataFim: '',
+    motivo: '',
   });
   const [filtrosAplicados, setFiltrosAplicados] = useState({
     tipo: '',
     cpf: '',
     colaboradorNome: '',
+    dataInicio: '',
+    dataFim: '',
+    motivo: '',
   });
   const [selectedReclamacao, setSelectedReclamacao] = useState(null);
   const [paginacao, setPaginacao] = useState({
@@ -213,10 +230,38 @@ const ListaReclamacoes = () => {
    * Limpar filtros
    */
   const limparFiltros = () => {
-    const filtrosLimpos = { tipo: '', cpf: '', colaboradorNome: '' };
+    const filtrosLimpos = { tipo: '', cpf: '', colaboradorNome: '', dataInicio: '', dataFim: '', motivo: '' };
     setFiltros(filtrosLimpos);
     setFiltrosAplicados(filtrosLimpos);
     setPaginacao(prev => ({ ...prev, page: 1 }));
+  };
+
+  /**
+   * Aplicar filtros de data e motivo (client-side para getByCpf/getByColaborador)
+   */
+  const aplicarFiltrosDataEMotivo = (dados, filtros) => {
+    let resultado = dados;
+    if (filtros.dataInicio || filtros.dataFim) {
+      const inicio = filtros.dataInicio ? new Date(filtros.dataInicio + 'T00:00:00.000Z').getTime() : 0;
+      const fim = filtros.dataFim ? new Date(filtros.dataFim + 'T23:59:59.999Z').getTime() : Infinity;
+      resultado = resultado.filter(r => {
+        const dataVal = getDataExibicao(r);
+        if (!dataVal) return false;
+        const dt = dataVal instanceof Date ? dataVal : new Date(dataVal);
+        const ts = dt.getTime();
+        return !isNaN(ts) && ts >= inicio && ts <= fim;
+      });
+    }
+    if (filtros.motivo && String(filtros.motivo).trim()) {
+      const motivoFiltro = String(filtros.motivo).trim();
+      resultado = resultado.filter(r => {
+        const m = r.motivoReduzido;
+        if (!m) return false;
+        if (Array.isArray(m)) return m.some(v => String(v || '').trim() === motivoFiltro);
+        return String(m).trim() === motivoFiltro;
+      });
+    }
+    return resultado;
   };
 
   /**
@@ -257,7 +302,7 @@ const ListaReclamacoes = () => {
         // Para busca por CPF, não usar paginação (resultado já filtrado)
         let dados = resultado.data || resultado || [];
         
-        // Aplicar filtros adicionais
+        // Aplicar filtros adicionais (tipo, data, motivo)
         if (filtrosAplicados.tipo) {
           dados = dados.filter(r => {
             const tipoNormalizado = normalizarTipoExibicao(r.tipo);
@@ -265,6 +310,7 @@ const ListaReclamacoes = () => {
             return tipoNormalizado === filtroNormalizado;
           });
         }
+        dados = aplicarFiltrosDataEMotivo(dados, filtrosAplicados);
 
         setReclamacoes(dados);
         setPaginacao(prev => ({ ...prev, total: dados.length, totalPages: 1 }));
@@ -273,7 +319,7 @@ const ListaReclamacoes = () => {
         // Para busca por colaborador, não usar paginação (resultado já filtrado)
         let dados = resultado.data || resultado || [];
         
-        // Aplicar filtros adicionais
+        // Aplicar filtros adicionais (tipo, data, motivo)
         if (filtrosAplicados.tipo) {
           dados = dados.filter(r => {
             const tipoNormalizado = normalizarTipoExibicao(r.tipo);
@@ -281,6 +327,7 @@ const ListaReclamacoes = () => {
             return tipoNormalizado === filtroNormalizado;
           });
         }
+        dados = aplicarFiltrosDataEMotivo(dados, filtrosAplicados);
 
         setReclamacoes(dados);
         setPaginacao(prev => ({ ...prev, total: dados.length, totalPages: 1 }));
@@ -293,7 +340,10 @@ const ListaReclamacoes = () => {
         
         // Adicionar filtros como query params
         if (filtrosAplicados.tipo) params.tipo = filtrosAplicados.tipo;
-        
+        if (filtrosAplicados.dataInicio) params.dataInicio = filtrosAplicados.dataInicio;
+        if (filtrosAplicados.dataFim) params.dataFim = filtrosAplicados.dataFim;
+        if (filtrosAplicados.motivo) params.motivo = filtrosAplicados.motivo;
+
         resultado = await reclamacoesAPI.getAll(params);
         
         const dados = resultado.data || [];
@@ -335,19 +385,6 @@ const ListaReclamacoes = () => {
     if (!cpf) return '-';
     const cleaned = cpf.replace(/\D/g, '');
     return cleaned.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-  };
-
-  /**
-   * Formatar data
-   */
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('pt-BR');
-    } catch {
-      return dateString;
-    }
   };
 
   /**
@@ -454,6 +491,46 @@ const ListaReclamacoes = () => {
             </select>
           </div>
 
+          <div className="flex-1 min-w-[150px]">
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              Data Início
+            </label>
+            <input
+              type="date"
+              value={filtros.dataInicio}
+              onChange={(e) => setFiltros(prev => ({ ...prev, dataInicio: e.target.value }))}
+              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+            />
+          </div>
+
+          <div className="flex-1 min-w-[150px]">
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              Data Fim
+            </label>
+            <input
+              type="date"
+              value={filtros.dataFim}
+              onChange={(e) => setFiltros(prev => ({ ...prev, dataFim: e.target.value }))}
+              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+            />
+          </div>
+
+          <div className="flex-1 min-w-[180px]">
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              Motivo
+            </label>
+            <select
+              value={filtros.motivo}
+              onChange={(e) => setFiltros(prev => ({ ...prev, motivo: e.target.value }))}
+              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+            >
+              <option value="">Todos</option>
+              {MOTIVOS_REDUZIDOS.map((mot, idx) => (
+                <option key={idx} value={mot}>{mot}</option>
+              ))}
+            </select>
+          </div>
+
           <div className="flex gap-2">
             <button
               onClick={aplicarFiltros}
@@ -532,7 +609,7 @@ const ListaReclamacoes = () => {
                   </span>
                 </div>
                 <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2 mb-1 flex-wrap">
-                  <span>Data: {formatDate(getDataExibicao(reclamacao))}</span>
+                  <span>Data: {formatDateRegistro(getDataExibicao(reclamacao))}</span>
                   {reclamacao.responsavel && <span>• Responsável: {reclamacao.responsavel}</span>}
                   {reclamacao.origem && <span>• Origem: {reclamacao.origem}</span>}
                   {reclamacao.motivoReduzido && (Array.isArray(reclamacao.motivoReduzido) ? reclamacao.motivoReduzido.length > 0 : reclamacao.motivoReduzido) && (

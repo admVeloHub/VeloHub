@@ -11,6 +11,7 @@
  * - BACEN: removido valor "Consumidor.Gov" do campo Origem; Prazo deixa de ser obrigatório
  * 
  * Mudanças v3.26.0:
+commit e push
  * - BACEN: campo "Natureza" renomeado para "Origem" (label e mensagens de validação)
  * 
  * Mudanças v3.25.0:
@@ -135,6 +136,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { reclamacoesAPI, anexosAPI } from '../../services/ouvidoriaApi';
+import { formatDateRegistro } from '../../utils/dateUtils';
 import toast from 'react-hot-toast';
 
 /**
@@ -2026,7 +2028,7 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
                         </div>
                         {protocolo.createdAt && (
                           <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Criado em: {new Date(protocolo.createdAt).toLocaleDateString('pt-BR')}
+                            Criado em: {formatDateRegistro(protocolo.createdAt)}
                           </div>
                         )}
                       </div>
@@ -3499,7 +3501,7 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
                           </p>
                           <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                             Data Reclamação: <span className="font-normal">
-                              {registro.dataReclam ? new Date(registro.dataReclam).toLocaleDateString('pt-BR') : 'N/A'}
+                              {registro.dataReclam ? formatDateRegistro(registro.dataReclam) : 'N/A'}
                             </span>
                           </p>
                           <p className="text-sm font-medium text-gray-700 dark:text-gray-300">

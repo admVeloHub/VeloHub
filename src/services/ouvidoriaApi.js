@@ -129,6 +129,9 @@ export const reclamacoesAPI = {
     if (params.page) query.append('page', params.page);
     if (params.limit) query.append('limit', params.limit);
     if (params.tipo) query.append('tipo', params.tipo);
+    if (params.dataInicio) query.append('dataInicio', params.dataInicio);
+    if (params.dataFim) query.append('dataFim', params.dataFim);
+    if (params.motivo) query.append('motivo', params.motivo);
     const queryString = query.toString();
     return apiRequest(`/ouvidoria/reclamacoes${queryString ? `?${queryString}` : ''}`);
   },

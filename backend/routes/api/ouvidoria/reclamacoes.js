@@ -1,6 +1,10 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Reclamações
- * VERSION: v2.13.0 | DATE: 2026-03-05 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.14.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.14.0:
+ * - GET /reclamacoes: adicionados filtros dataInicio, dataFim e motivo (motivoReduzido)
+ * - Filtro de data usa campo correto por coleção (dataEntrada, dataEntradaN2, dataReclam, dataProcon)
  * 
  * Mudanças v2.13.0:
  * - Exibição: tipo retornado como 'N2 Pix' (antes 'Ouvidoria'/'N2') em listagens e getById
@@ -292,15 +296,48 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
       const db = client.db('hub_ouvidoria');
 
       // Filtros opcionais
-      const { cpf, colaboradorNome, tipo, page = '1', limit = '20' } = req.query;
-      const filter = {};
-      
+      const { cpf, colaboradorNome, tipo, dataInicio, dataFim, motivo, page = '1', limit = '20' } = req.query;
+
+      const baseFilter = {};
       if (cpf) {
-        filter.cpf = { $regex: String(cpf).replace(/\D/g, ''), $options: 'i' };
+        baseFilter.cpf = { $regex: String(cpf).replace(/\D/g, ''), $options: 'i' };
       }
       if (colaboradorNome) {
-        filter.responsavel = { $regex: String(colaboradorNome), $options: 'i' };
+        baseFilter.responsavel = { $regex: String(colaboradorNome), $options: 'i' };
       }
+      if (motivo && String(motivo).trim()) {
+        baseFilter.motivoReduzido = String(motivo).trim();
+      }
+
+      const dataInicioDate = dataInicio ? new Date(String(dataInicio) + 'T00:00:00.000Z') : null;
+      const dataFimDate = dataFim ? new Date(String(dataFim) + 'T23:59:59.999Z') : null;
+
+      const criarFiltroDataPorCollection = (collectionName) => {
+        if (!dataInicioDate || !dataFimDate) return {};
+        if (collectionName === 'reclamacoes_n2Pix') {
+          return { $or: [{ dataEntradaN2: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } }, { dataEntradaN2: { $exists: true, $ne: null, $type: 'string', $gte: dataInicio, $lte: dataFim } }] };
+        }
+        if (collectionName === 'reclamacoes_bacen' || collectionName === 'reclamacoes_judicial') {
+          return { $or: [{ dataEntrada: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } }, { dataEntrada: { $exists: true, $ne: null, $type: 'string', $gte: dataInicio, $lte: dataFim } }] };
+        }
+        if (collectionName === 'reclamacoes_reclameAqui') {
+          return { $or: [{ dataReclam: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } }, { dataReclam: { $exists: true, $ne: null, $type: 'string', $gte: dataInicio, $lte: dataFim } }] };
+        }
+        if (collectionName === 'reclamacoes_procon') {
+          return { $or: [{ dataProcon: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } }, { dataProcon: { $exists: true, $ne: null, $type: 'string', $gte: dataInicio, $lte: dataFim } }] };
+        }
+        return { createdAt: { $gte: dataInicioDate, $lte: dataFimDate } };
+      };
+
+      const mesclarFilter = (collectionName) => {
+        const f = { ...baseFilter };
+        const dataFiltro = criarFiltroDataPorCollection(collectionName);
+        if (Object.keys(dataFiltro).length > 0) {
+          f.$and = f.$and || [];
+          f.$and.push(dataFiltro);
+        }
+        return f;
+      };
 
       // Parâmetros de paginação
       const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -313,7 +350,13 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
       if (tipo) {
         const tipoUpper = String(tipo).toUpperCase().trim();
         const collection = getCollectionByType(db, tipo);
-        
+        const collectionName = tipoUpper === 'BACEN' ? 'reclamacoes_bacen'
+          : (tipoUpper === 'N2' || tipoUpper === 'N2 PIX' || tipoUpper === 'OUVIDORIA') ? 'reclamacoes_n2Pix'
+          : (tipoUpper === 'RECLAME AQUI' || tipoUpper === 'RECLAME_AQUI' || tipoUpper === 'RECLAMEAQUI') ? 'reclamacoes_reclameAqui'
+          : tipoUpper === 'PROCON' ? 'reclamacoes_procon'
+          : 'reclamacoes_judicial';
+        const filter = mesclarFilter(collectionName);
+
         // Buscar na coleção específica
         totalCount = await collection.countDocuments(filter);
         reclamacoes = await collection
@@ -342,11 +385,11 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
       } else {
         // Buscar em todas as coleções (5 collections - reclamacoes_ouvidoria descontinuada/renomeada para n2Pix)
         const [bacen, n2Pix, reclameAqui, procon, judicial] = await Promise.all([
-          db.collection('reclamacoes_bacen').find(filter).toArray(),
-          db.collection('reclamacoes_n2Pix').find(filter).toArray(),
-          db.collection('reclamacoes_reclameAqui').find(filter).toArray(),
-          db.collection('reclamacoes_procon').find(filter).toArray(),
-          db.collection('reclamacoes_judicial').find(filter).toArray()
+          db.collection('reclamacoes_bacen').find(mesclarFilter('reclamacoes_bacen')).toArray(),
+          db.collection('reclamacoes_n2Pix').find(mesclarFilter('reclamacoes_n2Pix')).toArray(),
+          db.collection('reclamacoes_reclameAqui').find(mesclarFilter('reclamacoes_reclameAqui')).toArray(),
+          db.collection('reclamacoes_procon').find(mesclarFilter('reclamacoes_procon')).toArray(),
+          db.collection('reclamacoes_judicial').find(mesclarFilter('reclamacoes_judicial')).toArray()
         ]);
         
         // Adicionar tipo aos resultados (n2Pix inclui N2 e OUVIDORIA - collection unificada)

@@ -96,6 +96,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { relatoriosAPI } from '../../services/ouvidoriaApi';
+import { formatDateRegistro } from '../../utils/dateUtils';
 import toast from 'react-hot-toast';
 
 /** Naturezas (origem, schema 471) - NÃO confundir com Motivos (motivoReduzido, schema 475) */
@@ -222,26 +223,6 @@ const AnaliseDiaria = () => {
     
     return dias;
   }, [dataInicio, dataFim]);
-
-  /**
-   * Formatar data para exibição (DD/MM/YYYY)
-   * Usa parsing direto de YYYY-MM-DD para evitar deslocamento de timezone:
-   * new Date('2026-03-01') = UTC midnight → em pt-BR vira 28/02 (1 dia antes)
-   */
-  const formatarData = (dataString) => {
-    if (!dataString) return '';
-    try {
-      const match = String(dataString).match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if (match) {
-        const [, y, m, d] = match;
-        return `${d}/${m}/${y}`;
-      }
-      const data = new Date(dataString + 'T12:00:00');
-      return data.toLocaleDateString('pt-BR');
-    } catch {
-      return dataString;
-    }
-  };
 
   /**
    * Processar dados de Natureza por dia (BACEN)
@@ -674,7 +655,7 @@ const AnaliseDiaria = () => {
                       <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left text-sm font-medium">Natureza</th>
                       {processarNaturezaBacen.dias.map(dia => (
                         <th key={dia} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
-                          {formatarData(dia)}
+                          {formatDateRegistro(dia, '')}
                         </th>
                       ))}
                       <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">Total</th>
@@ -711,7 +692,7 @@ const AnaliseDiaria = () => {
                       <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left text-sm font-medium">Natureza</th>
                       {processarPixRetiradoBacen.dias.map(dia => (
                         <th key={dia} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
-                          {formatarData(dia)}
+                          {formatDateRegistro(dia, '')}
                         </th>
                       ))}
                       <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">Total</th>
@@ -748,7 +729,7 @@ const AnaliseDiaria = () => {
                       <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left text-sm font-medium">Motivo</th>
                       {processarMotivosBacen.dias.map(dia => (
                         <th key={dia} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
-                          {formatarData(dia)}
+                          {formatDateRegistro(dia, '')}
                         </th>
                       ))}
                       <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">Total</th>
@@ -789,7 +770,7 @@ const AnaliseDiaria = () => {
                     <tr>
                       {processarChamadosN2.dias.map(dia => (
                         <th key={dia} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
-                          {formatarData(dia)}
+                          {formatDateRegistro(dia, '')}
                         </th>
                       ))}
                       <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">Total</th>
@@ -822,7 +803,7 @@ const AnaliseDiaria = () => {
                     <tr>
                       {processarPixRetiradoN2.dias.map(dia => (
                         <th key={dia} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
-                          {formatarData(dia)}
+                          {formatDateRegistro(dia, '')}
                         </th>
                       ))}
                       <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">Total</th>
@@ -856,7 +837,7 @@ const AnaliseDiaria = () => {
                       <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left text-sm font-medium">Motivo</th>
                       {processarMotivosN2.dias.map(dia => (
                         <th key={dia} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
-                          {formatarData(dia)}
+                          {formatDateRegistro(dia, '')}
                         </th>
                       ))}
                       <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">Total</th>
@@ -896,7 +877,7 @@ const AnaliseDiaria = () => {
                     <tr>
                       {processarChamadosReclameAqui.dias.map(dia => (
                         <th key={dia} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
-                          {formatarData(dia)}
+                          {formatDateRegistro(dia, '')}
                         </th>
                       ))}
                       <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">Total</th>
@@ -928,7 +909,7 @@ const AnaliseDiaria = () => {
                       <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left text-sm font-medium">Motivo</th>
                       {processarMotivosReclameAqui.dias.map(dia => (
                         <th key={dia} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
-                          {formatarData(dia)}
+                          {formatDateRegistro(dia, '')}
                         </th>
                       ))}
                       <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">Total</th>
@@ -968,7 +949,7 @@ const AnaliseDiaria = () => {
                     <tr>
                       {processarChamadosProcon.dias.map(dia => (
                         <th key={dia} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
-                          {formatarData(dia)}
+                          {formatDateRegistro(dia, '')}
                         </th>
                       ))}
                       <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">Total</th>
@@ -1000,7 +981,7 @@ const AnaliseDiaria = () => {
                       <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left text-sm font-medium">Motivo</th>
                       {processarMotivosProcon.dias.map(dia => (
                         <th key={dia} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
-                          {formatarData(dia)}
+                          {formatDateRegistro(dia, '')}
                         </th>
                       ))}
                       <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">Total</th>
@@ -1040,7 +1021,7 @@ const AnaliseDiaria = () => {
                     <tr>
                       {processarChamadosJudicial.dias.map(dia => (
                         <th key={dia} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
-                          {formatarData(dia)}
+                          {formatDateRegistro(dia, '')}
                         </th>
                       ))}
                       <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">Total</th>
@@ -1072,7 +1053,7 @@ const AnaliseDiaria = () => {
                       <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left text-sm font-medium">Motivo</th>
                       {processarMotivosJudicial.dias.map(dia => (
                         <th key={dia} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
-                          {formatarData(dia)}
+                          {formatDateRegistro(dia, '')}
                         </th>
                       ))}
                       <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">Total</th>
