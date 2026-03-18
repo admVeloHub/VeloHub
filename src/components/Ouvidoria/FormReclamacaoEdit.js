@@ -125,6 +125,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { reclamacoesAPI, anexosAPI } from '../../services/ouvidoriaApi';
+import { formatDateRegistro } from '../../utils/dateUtils';
 import toast from 'react-hot-toast';
 
 // Importar funções auxiliares e constantes do FormReclamacao
@@ -1956,7 +1957,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                         <span className="text-xs text-gray-500 dark:text-gray-400">{protocolo.nome || 'Sem nome'}</span>
                       </div>
                       <div className="text-sm text-gray-600 dark:text-gray-400">CPF: {protocolo.cpf ? `${protocolo.cpf.substring(0, 3)}***${protocolo.cpf.substring(9)}` : 'N/A'}</div>
-                      {protocolo.createdAt && <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Criado em: {new Date(protocolo.createdAt).toLocaleDateString('pt-BR')}</div>}
+                      {protocolo.createdAt && <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Criado em: {formatDateRegistro(protocolo.createdAt)}</div>}
                     </div>
                     <button className="text-blue-600 dark:text-blue-400">{protocoloExpandido === index ? '▼' : '▶'}</button>
                   </div>
@@ -3334,7 +3335,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                         </p>
                         <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                           Data Reclamação: <span className="font-normal">
-                            {registro.dataReclam ? new Date(registro.dataReclam).toLocaleDateString('pt-BR') : 'N/A'}
+                            {registro.dataReclam ? formatDateRegistro(registro.dataReclam) : 'N/A'}
                           </span>
                         </p>
                         <p className="text-sm font-medium text-gray-700 dark:text-gray-300">

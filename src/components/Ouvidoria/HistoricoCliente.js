@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Histórico Cliente Component
- * VERSION: v1.4.0 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.5.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.5.0:
+ * - Data exibida: usa formatDateRegistro (data do registro, sem adaptação de fuso)
  * 
  * Mudanças v1.4.0:
  * - Adicionada máscara progressiva de CPF no campo de busca
@@ -21,6 +24,7 @@
  */
 
 import React from 'react';
+import { formatDateRegistro } from '../../utils/dateUtils';
 
 const HistoricoCliente = ({ searchCpf, setSearchCpf, searchResults, searchLoading, onSearch, onRefresh }) => {
   /**
@@ -42,19 +46,6 @@ const HistoricoCliente = ({ searchCpf, setSearchCpf, searchResults, searchLoadin
     if (!cpf) return '';
     const cleaned = cpf.replace(/\D/g, '');
     return cleaned.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-  };
-
-  /**
-   * Formatar data
-   */
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('pt-BR');
-    } catch {
-      return dateString;
-    }
   };
 
   /**
@@ -183,7 +174,7 @@ const HistoricoCliente = ({ searchCpf, setSearchCpf, searchResults, searchLoadin
                   {item.tipo || 'Reclamação'}
                 </div>
                 <div className="text-xs text-gray-600 dark:text-gray-400">
-                  Data: {formatDate(item.dataEntrada || item.createdAt)}
+                  Data: {formatDateRegistro(item.dataEntrada || item.createdAt)}
                 </div>
                 <div className="text-xs text-gray-600 dark:text-gray-400">
                   Status: {item.Finalizado?.Resolvido === true ? 'Resolvido' : 'Em Andamento'}
