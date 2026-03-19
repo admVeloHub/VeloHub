@@ -40,6 +40,22 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Backend Ouvidoria, Chatbot, Scripts Diagnóstico e Asset**
+- **Data/Hora**: 2026-03-17
+- **Tipo**: GitHub Push
+- **Arquivos Modificados**:
+  - `backend/routes/api/ouvidoria/dashboard.js`, `reclamacoes.js`
+  - `backend/server.js`
+  - `backend/services/chatbot/aiService.js`
+  - `src/components/Chatbot.js`
+  - `src/components/Ouvidoria/ListaReclamacoes.js`
+  - `src/services/ouvidoriaApi.js`
+- **Arquivos Novos**:
+  - `backend/scripts/diagnostico-prazo-medio.js`, `diagnostico-retidos-reclame-aqui.js`, `investigar-createdAt-antes.js`, `verificar-datas-excel-vs-mongo.js`
+  - `public/telef.png`
+- **Descrição**: Atualizações backend Ouvidoria, Chatbot AI, scripts de diagnóstico e asset telef
+- **Status**: ✅ Concluído com sucesso
+
 ### **GitHub Push - Atualizações Ouvidoria, Sociais e dateUtils**
 - **Data/Hora**: 2026-03-17
 - **Tipo**: GitHub Push

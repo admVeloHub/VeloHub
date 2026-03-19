@@ -1,6 +1,12 @@
 /**
  * VeloHub V3 - Chatbot Component
- * VERSION: v1.10.4 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.10.6 | DATE: 2025-03-18 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.10.6:
+ * - Botão WhatsApp substituído por botão atendimento telefônico (ícone telef.png, formatType: telefone)
+ * 
+ * Mudanças v1.10.5:
+ * - Novo fluxo email: payload com nomeOperador (primeiro nome da sessão) e inteligencia (conteúdo a formatar)
  * 
  * Mudanças v1.10.4:
  * - Atualizada lista de serviços online: adicionados Clube Velotax e Divida Zero
@@ -241,28 +247,47 @@ const Chatbot = ({ prompt }) => {
     // Função para chamar o botão IA com formatação específica
     const handleAIButton = async (question, botPerguntaResponse, articleContent, formatType = 'conversational') => {
         try {
+            // Para formatação email: obter primeiro nome do operador em sessão
+            let nomeOperador = '';
+            if (formatType === 'email') {
+                try {
+                    const session = getUserSession();
+                    const fullName = session?.user?.name || session?.colaboradorNome || '';
+                    nomeOperador = fullName.trim().split(/\s+/)[0] || '';
+                } catch (e) {
+                    console.warn('⚠️ AI Button: Erro ao obter nome do operador:', e);
+                }
+            }
+
             console.log('🤖 AI Button: Enviando solicitação para resposta conversacional');
             console.log('🤖 AI Button: Dados sendo enviados:', {
                 question: question ? 'presente' : 'ausente',
                 botPerguntaResponse: botPerguntaResponse ? 'presente' : 'ausente',
                 articleContent: articleContent ? 'presente' : 'ausente',
                 userId: userId || 'não fornecido',
-                sessionId: sessionId || 'não fornecido'
+                sessionId: sessionId || 'não fornecido',
+                formatType,
+                ...(formatType === 'email' && { nomeOperador: nomeOperador || 'não informado' })
             });
-            
+
+            const payload = {
+                question,
+                botPerguntaResponse,
+                articleContent,
+                userId,
+                sessionId,
+                formatType
+            };
+            if (formatType === 'email') {
+                payload.nomeOperador = nomeOperador;
+            }
+
             const response = await fetch(`${API_BASE_URL}/chatbot/ai-response`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    question: question,
-                    botPerguntaResponse: botPerguntaResponse,
-                    articleContent: articleContent,
-                    userId: userId,
-                    sessionId: sessionId,
-                    formatType: formatType
-                })
+                body: JSON.stringify(payload)
             });
 
             if (!response.ok) {
@@ -853,16 +878,16 @@ const Chatbot = ({ prompt }) => {
                                             )}
                                         </div>
                                         
-                                        {/* Botões IA - WhatsApp e E-mail */}
+                                        {/* Botões IA - Telefone e E-mail */}
                                         {msg.sender === 'bot' && msg.originalQuestion && (
                                             <div className="flex gap-2">
                                                 <button 
-                                                    onClick={() => handleAIButton(msg.originalQuestion, msg.botPerguntaResponse, msg.articleContent, 'whatsapp')}
-                                                    title="Formatação para WhatsApp"
+                                                    onClick={() => handleAIButton(msg.originalQuestion, msg.botPerguntaResponse, msg.articleContent, 'telefone')}
+                                                    title="Formatação para atendimento telefônico"
                                                 >
                                                     <img 
-                                                        src="/wpp logo.png" 
-                                                        alt="WhatsApp" 
+                                                        src="/telef.png" 
+                                                        alt="Atendimento telefônico" 
                                                         style={{ width: '20px', height: '20px' }}
                                                     />
                                                 </button>

@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Reclamações
- * VERSION: v2.14.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.15.0 | DATE: 2026-03-19 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.15.0:
+ * - GET /reclamacoes: adicionado filtro status (resolvido / em_andamento) via Finalizado.Resolvido
  * 
  * Mudanças v2.14.0:
  * - GET /reclamacoes: adicionados filtros dataInicio, dataFim e motivo (motivoReduzido)
@@ -296,7 +299,7 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
       const db = client.db('hub_ouvidoria');
 
       // Filtros opcionais
-      const { cpf, colaboradorNome, tipo, dataInicio, dataFim, motivo, page = '1', limit = '20' } = req.query;
+      const { cpf, colaboradorNome, tipo, dataInicio, dataFim, motivo, status, page = '1', limit = '20' } = req.query;
 
       const baseFilter = {};
       if (cpf) {
@@ -307,6 +310,14 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
       }
       if (motivo && String(motivo).trim()) {
         baseFilter.motivoReduzido = String(motivo).trim();
+      }
+      if (status && String(status).trim()) {
+        const statusVal = String(status).trim().toLowerCase();
+        if (statusVal === 'resolvido') {
+          baseFilter['Finalizado.Resolvido'] = true;
+        } else if (statusVal === 'em_andamento' || statusVal === 'emandamento') {
+          baseFilter['Finalizado.Resolvido'] = { $ne: true };
+        }
       }
 
       const dataInicioDate = dataInicio ? new Date(String(dataInicio) + 'T00:00:00.000Z') : null;

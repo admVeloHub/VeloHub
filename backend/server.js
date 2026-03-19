@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.49.1 | DATE: 2026-03-13 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.49.2 | DATE: 2026-03-18 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v2.49.2:
+ * - Fluxo email ai-response: payload estruturado com nomeOperador e inteligencia para persona/template
  *
  * Mudanças v2.49.1:
  * - Aumento de timeouts MongoDB (serverSelection 45s, connect 60s, socket 120s) para reduzir 503 quando banco está lento
@@ -2270,7 +2273,7 @@ app.post('/api/chatbot/activity', async (req, res) => {
 // API do Botão IA - Resposta Conversacional
 app.post('/api/chatbot/ai-response', async (req, res) => {
   try {
-    const { question, botPerguntaResponse, articleContent, userId, sessionId, formatType } = req.body;
+    const { question, botPerguntaResponse, articleContent, userId, sessionId, formatType, nomeOperador } = req.body;
 
     // Debug: Log dos dados recebidos
     console.log('🔍 AI Response Debug - Dados recebidos:', {
@@ -2279,7 +2282,8 @@ app.post('/api/chatbot/ai-response', async (req, res) => {
       articleContent: articleContent ? 'presente' : 'ausente',
       userId: userId || 'não fornecido',
       sessionId: sessionId || 'não fornecido',
-      formatType: formatType || 'conversational'
+      formatType: formatType || 'conversational',
+      ...(formatType === 'email' && { nomeOperador: nomeOperador || 'não informado' })
     });
 
     if (!question || !botPerguntaResponse) {
@@ -2305,10 +2309,21 @@ app.post('/api/chatbot/ai-response', async (req, res) => {
     }
 
     // Construir contexto para a IA
-    let context = `Resposta do Bot_perguntas: ${botPerguntaResponse}`;
-    
-    if (articleContent) {
-      context += `\n\nConteúdo do artigo relacionado: ${articleContent}`;
+    let context;
+    if (formatType === 'email') {
+      // Fluxo email: payload estruturado com nomeOperador e inteligencia
+      const inteligencia = [botPerguntaResponse, articleContent].filter(Boolean).join('\n\n');
+      context = `## PAYLOAD FORNECIDO
+
+- **Nome do Operador:** ${nomeOperador || 'não informado'}
+- **Inteligência (conteúdo a formatar):** ${inteligencia}
+
+Use APENAS a inteligência acima para desenvolver o e-mail conforme o template da persona.`;
+    } else {
+      context = `Resposta do Bot_perguntas: ${botPerguntaResponse}`;
+      if (articleContent) {
+        context += `\n\nConteúdo do artigo relacionado: ${articleContent}`;
+      }
     }
 
     // Obter ou criar sessão se disponível

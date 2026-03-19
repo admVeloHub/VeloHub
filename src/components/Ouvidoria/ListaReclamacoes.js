@@ -1,6 +1,14 @@
 /**
  * VeloHub V3 - ListaReclamacoes Component
- * VERSION: v1.18.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.20.0 | DATE: 2026-03-19 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.20.0:
+ * - Etiquetas fixas na borda superior dos campos (evita sobreposição com preview de data)
+ * - Reduzido espaço vazio: gap-2, padding compacto, min-width 110px
+ * 
+ * Mudanças v1.19.0:
+ * - Adicionado filtro por Status do chamado (Em Andamento / Resolvido)
+ * - Backend e client-side (getByCpf/getByColaborador) suportam o filtro de status
  * 
  * Mudanças v1.18.0:
  * - Adicionados filtros por Data Início, Data Fim e Motivo
@@ -179,6 +187,7 @@ const ListaReclamacoes = () => {
     dataInicio: '',
     dataFim: '',
     motivo: '',
+    status: '',
   });
   const [filtrosAplicados, setFiltrosAplicados] = useState({
     tipo: '',
@@ -187,6 +196,7 @@ const ListaReclamacoes = () => {
     dataInicio: '',
     dataFim: '',
     motivo: '',
+    status: '',
   });
   const [selectedReclamacao, setSelectedReclamacao] = useState(null);
   const [paginacao, setPaginacao] = useState({
@@ -230,7 +240,7 @@ const ListaReclamacoes = () => {
    * Limpar filtros
    */
   const limparFiltros = () => {
-    const filtrosLimpos = { tipo: '', cpf: '', colaboradorNome: '', dataInicio: '', dataFim: '', motivo: '' };
+    const filtrosLimpos = { tipo: '', cpf: '', colaboradorNome: '', dataInicio: '', dataFim: '', motivo: '', status: '' };
     setFiltros(filtrosLimpos);
     setFiltrosAplicados(filtrosLimpos);
     setPaginacao(prev => ({ ...prev, page: 1 }));
@@ -259,6 +269,15 @@ const ListaReclamacoes = () => {
         if (!m) return false;
         if (Array.isArray(m)) return m.some(v => String(v || '').trim() === motivoFiltro);
         return String(m).trim() === motivoFiltro;
+      });
+    }
+    if (filtros.status && String(filtros.status).trim()) {
+      const statusVal = String(filtros.status).trim().toLowerCase();
+      resultado = resultado.filter(r => {
+        const resolvido = r.Finalizado?.Resolvido === true;
+        if (statusVal === 'resolvido') return resolvido;
+        if (statusVal === 'em_andamento' || statusVal === 'emandamento') return !resolvido;
+        return true;
       });
     }
     return resultado;
@@ -343,6 +362,7 @@ const ListaReclamacoes = () => {
         if (filtrosAplicados.dataInicio) params.dataInicio = filtrosAplicados.dataInicio;
         if (filtrosAplicados.dataFim) params.dataFim = filtrosAplicados.dataFim;
         if (filtrosAplicados.motivo) params.motivo = filtrosAplicados.motivo;
+        if (filtrosAplicados.status) params.status = filtrosAplicados.status;
 
         resultado = await reclamacoesAPI.getAll(params);
         
@@ -430,111 +450,123 @@ const ListaReclamacoes = () => {
 
   return (
     <div>
-      {/* Filtros */}
-      <div className="velohub-card mb-6">
-        <div className="flex items-end gap-3 flex-wrap">
+      {/* Filtros - etiquetas flutuantes */}
+      <div className="velohub-card mb-6 pt-2 pb-4 px-4">
+        <div className="flex items-end gap-2 flex-wrap">
+          {(() => {
+            const floatLabel = (label) => {
+              return (
+                <label className="absolute left-2.5 top-0 -translate-y-1/2 text-[10px] px-1 pointer-events-none text-gray-500 dark:text-gray-400 bg-[var(--cor-card)] dark:bg-[#323a42]">
+                  {label}
+                </label>
+              );
+            };
+            const inputBase = 'w-full border border-gray-400 dark:border-gray-500 rounded px-2.5 pt-3 pb-1.5 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white';
+            const selectBase = 'w-full border border-gray-400 dark:border-gray-500 rounded px-2.5 pt-3 pb-1.5 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white';
+            return (
+              <>
+                <div className="relative flex-1 min-w-[110px]">
+                  {floatLabel('Tipo')}
+                  <select
+                    id="filtro-tipo"
+                    value={filtros.tipo}
+                    onChange={(e) => setFiltros(prev => ({ ...prev, tipo: e.target.value }))}
+                    className={selectBase}
+                  >
+                    <option value="">Todos</option>
+                    <option value="BACEN">BACEN</option>
+                    <option value="N2">N2 Pix</option>
+                    <option value="Reclame Aqui">Reclame Aqui</option>
+                    <option value="Procon">Procon</option>
+                    <option value="PROCESSOS">Ação Judicial</option>
+                  </select>
+                </div>
 
-          <div className="flex-1 min-w-[150px]">
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Tipo
-            </label>
-            <select
-              value={filtros.tipo}
-              onChange={(e) => {
-                setFiltros(prev => ({ ...prev, tipo: e.target.value }));
-              }}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="">Todos</option>
-              <option value="BACEN">BACEN</option>
-              <option value="N2">N2 Pix</option>
-              <option value="Reclame Aqui">Reclame Aqui</option>
-              <option value="Procon">Procon</option>
-              <option value="PROCESSOS">Ação Judicial</option>
-            </select>
-          </div>
+                <div className="relative flex-1 min-w-[110px]">
+                  {floatLabel('CPF')}
+                  <input
+                    id="filtro-cpf"
+                    type="text"
+                    value={filtros.cpf}
+                    onChange={(e) => {
+                      const formatted = formatCPFInput(e.target.value);
+                      setFiltros(prev => ({ ...prev, cpf: formatted }));
+                    }}
+                    className={inputBase}
+                    maxLength={14}
+                  />
+                </div>
 
-          <div className="flex-1 min-w-[150px]">
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              CPF
-            </label>
-            <input
-              type="text"
-              value={filtros.cpf}
-              onChange={(e) => {
-                const formatted = formatCPFInput(e.target.value);
-                setFiltros(prev => ({ ...prev, cpf: formatted }));
-              }}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              placeholder="000.000.000-00"
-              maxLength={14}
-            />
-          </div>
+                <div className="relative flex-1 min-w-[110px]">
+                  {floatLabel('Colaborador')}
+                  <select
+                    id="filtro-colab"
+                    value={filtros.colaboradorNome}
+                    onChange={(e) => setFiltros(prev => ({ ...prev, colaboradorNome: e.target.value }))}
+                    className={selectBase}
+                  >
+                    <option value="">Todos</option>
+                    {colaboradores.map((colab, index) => (
+                      <option key={index} value={colab.nome}>{colab.nome}</option>
+                    ))}
+                  </select>
+                </div>
 
-          <div className="flex-1 min-w-[150px]">
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Colaborador
-            </label>
-            <select
-              value={filtros.colaboradorNome}
-              onChange={(e) => {
-                setFiltros(prev => ({ ...prev, colaboradorNome: e.target.value }));
-              }}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="">Todos</option>
-              {colaboradores.map((colab, index) => (
-                <option key={index} value={colab.nome}>
-                  {colab.nome}
-                </option>
-              ))}
-            </select>
-          </div>
+                <div className="relative flex-1 min-w-[110px]">
+                  {floatLabel('Data Início')}
+                  <input
+                    id="filtro-data-inicio"
+                    type="date"
+                    value={filtros.dataInicio}
+                    onChange={(e) => setFiltros(prev => ({ ...prev, dataInicio: e.target.value }))}
+                    className={inputBase}
+                  />
+                </div>
 
-          <div className="flex-1 min-w-[150px]">
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Data Início
-            </label>
-            <input
-              type="date"
-              value={filtros.dataInicio}
-              onChange={(e) => setFiltros(prev => ({ ...prev, dataInicio: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            />
-          </div>
+                <div className="relative flex-1 min-w-[110px]">
+                  {floatLabel('Data Fim')}
+                  <input
+                    id="filtro-data-fim"
+                    type="date"
+                    value={filtros.dataFim}
+                    onChange={(e) => setFiltros(prev => ({ ...prev, dataFim: e.target.value }))}
+                    className={inputBase}
+                  />
+                </div>
 
-          <div className="flex-1 min-w-[150px]">
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Data Fim
-            </label>
-            <input
-              type="date"
-              value={filtros.dataFim}
-              onChange={(e) => setFiltros(prev => ({ ...prev, dataFim: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            />
-          </div>
+                <div className="relative flex-1 min-w-[130px]">
+                  {floatLabel('Motivo')}
+                  <select
+                    id="filtro-motivo"
+                    value={filtros.motivo}
+                    onChange={(e) => setFiltros(prev => ({ ...prev, motivo: e.target.value }))}
+                    className={selectBase}
+                  >
+                    <option value="">Todos</option>
+                    {MOTIVOS_REDUZIDOS.map((mot, idx) => (
+                      <option key={idx} value={mot}>{mot}</option>
+                    ))}
+                  </select>
+                </div>
 
-          <div className="flex-1 min-w-[180px]">
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Motivo
-            </label>
-            <select
-              value={filtros.motivo}
-              onChange={(e) => setFiltros(prev => ({ ...prev, motivo: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="">Todos</option>
-              {MOTIVOS_REDUZIDOS.map((mot, idx) => (
-                <option key={idx} value={mot}>{mot}</option>
-              ))}
-            </select>
-          </div>
+                <div className="relative flex-1 min-w-[110px]">
+                  {floatLabel('Status')}
+                  <select
+                    id="filtro-status"
+                    value={filtros.status}
+                    onChange={(e) => setFiltros(prev => ({ ...prev, status: e.target.value }))}
+                    className={selectBase}
+                  >
+                    <option value="">Todos</option>
+                    <option value="em_andamento">Em Andamento</option>
+                    <option value="resolvido">Resolvido</option>
+                  </select>
+                </div>
 
-          <div className="flex gap-2">
-            <button
-              onClick={aplicarFiltros}
-              className="text-sm px-4 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700"
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={aplicarFiltros}
+                    className="text-sm px-3 py-1.5 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700"
               style={{
                 borderColor: '#006AB9',
                 color: '#006AB9',
@@ -550,12 +582,12 @@ const ListaReclamacoes = () => {
                 e.target.style.color = '#006AB9';
                 e.target.style.borderColor = '#006AB9';
               }}
-            >
-              Filtrar
-            </button>
-            <button
-              onClick={limparFiltros}
-              className="text-sm px-4 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700"
+                  >
+                    Filtrar
+                  </button>
+                  <button
+                    onClick={limparFiltros}
+                    className="text-sm px-3 py-1.5 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700"
               style={{
                 borderColor: '#006AB9',
                 color: '#006AB9',
@@ -571,10 +603,13 @@ const ListaReclamacoes = () => {
                 e.target.style.color = '#006AB9';
                 e.target.style.borderColor = '#006AB9';
               }}
-            >
-              Limpar
-            </button>
-          </div>
+                  >
+                    Limpar
+                  </button>
+                </div>
+              </>
+            );
+          })()}
         </div>
       </div>
 
