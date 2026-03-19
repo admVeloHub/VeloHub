@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Ouvidoria API Service
- * VERSION: v2.5.0 | DATE: 2026-03-16 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.6.0 | DATE: 2026-03-19 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.6.0:
+ * - Adicionado parâmetro status em getAll de reclamacoesAPI
  * 
  * Mudanças v2.5.0:
  * - Adicionado parâmetro motivos (array) em getStats e getMetricas do dashboardAPI
@@ -132,6 +135,7 @@ export const reclamacoesAPI = {
     if (params.dataInicio) query.append('dataInicio', params.dataInicio);
     if (params.dataFim) query.append('dataFim', params.dataFim);
     if (params.motivo) query.append('motivo', params.motivo);
+    if (params.status) query.append('status', params.status);
     const queryString = query.toString();
     return apiRequest(`/ouvidoria/reclamacoes${queryString ? `?${queryString}` : ''}`);
   },

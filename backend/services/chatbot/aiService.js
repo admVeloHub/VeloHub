@@ -3,6 +3,9 @@
 // VERSION: v2.6.8 | DATE: 2025-01-10 | AUTHOR: Lucas Gravina - VeloHub Development Team
 // VERSION: v2.7.0 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
 // VERSION: v2.7.1 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v2.7.2 | DATE: 2025-03-18 | AUTHOR: VeloHub Development Team
+// Mudanças v2.7.2: Corrigido caractere extra no template getEmailPersona; payload nomeOperador/inteligencia via contexto
+// Mudanças v2.7.3: getWhatsAppPersona renomeado para getTelefonePersona; formatType 'telefone' para atendimento telefônico
 // OTIMIZAÇÃO: Handshake inteligente com ping HTTP + TTL 3min + testes paralelos
 const { OpenAI } = require('openai');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
@@ -54,18 +57,18 @@ class AIService {
    * @param {string} userId - ID do usuário
    * @param {string} email - Email do usuário
    * @param {Object} searchResults - Resultados da busca híbrida (opcional)
-   * @param {string} formatType - Tipo de formatação (conversational, whatsapp, email)
+   * @param {string} formatType - Tipo de formatação (conversational, telefone, email)
    * @param {string} primaryAI - IA primária definida pelo handshake ('OpenAI' ou 'Gemini')
    * @returns {Promise<Object>} Resposta com provider usado
    */
   async generateResponse(question, context = "", sessionHistory = [], userId = null, email = null, searchResults = null, formatType = 'conversational', primaryAI = 'OpenAI') {
     try {
-      console.log(`🤖 AI Service: Gerando resposta para usuário ${userId || 'anônimo'} - Primária: ${primaryAI}`);
+      console.log('AI Service: Gerando resposta para usuario', userId || 'anonimo', '- Primaria:', primaryAI);
       
       // 1. TENTAR IA PRIMÁRIA (definida pelo handshake)
       if (primaryAI === 'OpenAI' && this.isOpenAIConfigured()) {
         try {
-          console.log(`🤖 AI Service: Tentando OpenAI (primária) para usuário ${userId || 'anônimo'}`);
+          console.log('AI Service: Tentando OpenAI (primaria) para usuario', userId || 'anonimo');
           const response = await this._generateWithOpenAI(question, context, sessionHistory, userId, email, searchResults, formatType);
           return {
             response: response,
@@ -74,11 +77,11 @@ class AIService {
             success: true
           };
         } catch (openaiError) {
-          console.warn('⚠️ AI Service: OpenAI falhou, tentando Gemini fallback:', openaiError.message);
+          console.warn('AI Service: OpenAI falhou, tentando Gemini fallback:', openaiError.message);
         }
       } else if (primaryAI === 'Gemini' && this.isGeminiConfigured()) {
         try {
-          console.log(`🤖 AI Service: Tentando Gemini (primária) para usuário ${userId || 'anônimo'}`);
+          console.log('AI Service: Tentando Gemini (primaria) para usuario', userId || 'anonimo');
           const response = await this._generateWithGemini(question, context, sessionHistory, userId, email, searchResults, formatType);
           return {
             response: response,
@@ -87,14 +90,14 @@ class AIService {
             success: true
           };
         } catch (geminiError) {
-          console.warn('⚠️ AI Service: Gemini falhou, tentando OpenAI fallback:', geminiError.message);
+          console.warn('AI Service: Gemini falhou, tentando OpenAI fallback:', geminiError.message);
         }
       }
 
       // 2. FALLBACK PARA IA SECUNDÁRIA
       if (primaryAI === 'OpenAI' && this.isGeminiConfigured()) {
         try {
-          console.log(`🤖 AI Service: Usando Gemini (fallback) para usuário ${userId || 'anônimo'}`);
+          console.log('AI Service: Usando Gemini (fallback) para usuario', userId || 'anonimo');
           const response = await this._generateWithGemini(question, context, sessionHistory, userId, email, searchResults, formatType);
           return {
             response: response,
@@ -103,11 +106,11 @@ class AIService {
             success: true
           };
         } catch (geminiError) {
-          console.error('❌ AI Service: Gemini também falhou:', geminiError.message);
+          console.error('AI Service: Gemini tambem falhou:', geminiError.message);
         }
       } else if (primaryAI === 'Gemini' && this.isOpenAIConfigured()) {
         try {
-          console.log(`🤖 AI Service: Usando OpenAI (fallback) para usuário ${userId || 'anônimo'}`);
+          console.log('AI Service: Usando OpenAI (fallback) para usuario', userId || 'anonimo');
           const response = await this._generateWithOpenAI(question, context, sessionHistory, userId, email, searchResults, formatType);
           return {
             response: response,
@@ -116,7 +119,7 @@ class AIService {
             success: true
           };
         } catch (openaiError) {
-          console.error('❌ AI Service: OpenAI também falhou:', openaiError.message);
+          console.error('AI Service: OpenAI tambem falhou:', openaiError.message);
         }
       }
 
@@ -124,7 +127,7 @@ class AIService {
       throw new Error('Nenhuma API de IA disponível');
       
     } catch (error) {
-      console.error('❌ AI Service Error:', error.message);
+      console.error('AI Service Error:', error.message);
       
       // 4. FALLBACK PARA RESPOSTA PADRÃO
       return {
@@ -142,69 +145,40 @@ class AIService {
    * @returns {string} Persona formatada
    */
   getPersona() {
-    return `# VELOBOT - ASSISTENTE OFICIAL VELOTAX
-
-## IDENTIDADE
-- Nome: VeloBot
-- Empresa: Velotax
-- Função: Assistente de atendimento ao cliente
-- Tom: Profissional, direto, prestativo, conversacional, solidário.
-
-## COMPORTAMENTO
-- Responda APENAS com a informação solicitada
-- Seja direto, sem preâmbulos ou confirmações
-- Use português brasileiro claro e objetivo
-- As interações esperadas são de chunho textual, sem adicionar informações genéricas, criadas, ou realizar pesquisas externas.
-- Apenas os conhecimentos fornecidos são válidos. Não invente informações.
-- NÃO use conhecimento externo ou associações que não estejam nos dados fornecidos.
-- Se a resposta contiver muitos termos técnicos, simplifique para um nível de fácil compreensão.
-- Se não souber, diga: "Não encontrei essa informação na base de conhecimento disponível"
-
-## FONTES DE INFORMAÇÃO
-- Base de dados: Bot_perguntas (MongoDB)
-- Artigos: Documentação interna
-- Prioridade: Informação sólida > IA generativa
-
-## FORMATO DE RESPOSTA
-- Direto ao ponto
-- Sem "Entendi", "Compreendo", etc.
-- Máximo 200 palavras
-- Foco na solução prática`;
+    return '# VELOBOT - ASSISTENTE OFICIAL VELOTAX\n\n## IDENTIDADE\n- Nome: VeloBot\n- Empresa: Velotax\n- Funcao: Assistente de atendimento ao cliente\n- Tom: Profissional, direto, prestativo, conversacional, solidario.\n\n## COMPORTAMENTO\n- Responda APENAS com a informacao solicitada\n- Seja direto, sem preambulos ou confirmacoes\n- Use portugues brasileiro claro e objetivo\n- As interacoes esperadas sao de chunho textual, sem adicionar informacoes genericas, criadas, ou realizar pesquisas externas.\n- Apenas os conhecimentos fornecidos sao validos. Nao invente informacoes.\n- NAO use conhecimento externo ou associacoes que nao estejam nos dados fornecidos.\n- Se a resposta contiver muitos termos tecnicos, simplifique para um nivel de facil compreensao.\n- Se nao souber, diga: "Nao encontrei essa informacao na base de conhecimento disponivel"\n\n## FONTES DE INFORMACAO\n- Base de dados: Bot_perguntas (MongoDB)\n- Artigos: Documentacao interna\n- Prioridade: Informacao solida > IA generativa\n\n## FORMATO DE RESPOSTA\n- Direto ao ponto\n- Sem "Entendi", "Compreendo", etc.\n- Maximo 200 palavras\n- Foco na solucao pratica';
   }
 
   /**
-   * Obtém a persona para formatação WhatsApp
-   * @returns {string} Persona formatada para WhatsApp
+   * Obtém a persona para formatação atendimento telefônico
+   * @returns {string} Persona formatada para atendimento via telefone
    */
-  getWhatsAppPersona() {
-    return `# VELOBOT - REFORMULADOR WHATSAPP
+  getTelefonePersona() {
+    return `# VELOBOT - REFORMULADOR TELEFONE
 
 ## IDENTIDADE
 - Nome: VeloBot
 - Empresa: Velotax
-- Função: Reformulador de respostas para WhatsApp
-- Tom: Informal, amigável, direto, com emojis
+- Função: Você é o ASSISTENTE DE ATENDIMENTO VELOTAX VIA TELEFONE. Sua função é transformar rascunhos internos em comunicações profissionais, empáticas e claras, focadas no atendimento claro e engajado com o cliente, gerando interesse a adesão ao produto.
+- Tom: Informal, amigável, direto, COMERCIAL, INTERESSADO.
 
 ## COMPORTAMENTO
-- Reformule a resposta para o formato WhatsApp
-- Use linguagem informal e amigável
+- Reformule a resposta para o formato de atendimento ao cliente via TELEFONE.
+- Use linguagem SIMPLES E AMIGAVEL, VISANDO GERAR INTERESSE E ADESÃO AO PRODUTO.
 - Seja conciso e direto
 - Use quebras de linha para facilitar leitura
-- Evite jargões técnicos complexos
-- Use abreviações comuns do WhatsApp quando apropriado
+- NÃO USAR jargões técnicos complexos
+- Não use expressões genéricas como "Entendi que você quer saber sobre o produto X", "Entendi que você quer falar sobre o serviço Y", etc.
 
-## FORMATO WHATSAPP
-- Máximo 150 palavras
-- Quebras de linha frequentes
-- Emojis estratégicos
-- Linguagem coloquial
-- Foco na praticidade
 
-## ESTRUTURA
-- Saudação informal (se apropriado)
-- Informação principal
-- Detalhes importantes
-- Encerramento amigável`;
+TRAVA DE SEGURANÇA (PRODUTOS E SERVIÇOS)
+Você só pode adequar respostas relacionadas aos produtos oficiais do Velotax.
+1. NATUREZA DO VELOTAX: O Velotax ainda não é um banco, mas oferece uma conta digital específica para clientes que solicitam a antecipação.
+2. FUNCIONALIDADES DA CONTA:
+   - É possível receber e transferir valores via Pix.
+   - O Pix pode ser realizado para contas de terceiros.
+   - A chave de recebimento dessa conta é obrigatoriamente e exclusivamente o CPF do titular.
+- PRODUTOS PERMITIDOS: [Empréstimo Pessoal, Antecipação do Imposto de Renda, Seguro Celular, Seguro Pessoal].
+- PRODUTOS PROIBIDOS: Nunca mencione ou confirme suporte para produtos que não oferecemos (ex: Compra/venda direta de ativos, Cartão de Débito, Investimentos em Bolsa, Antecipação de FGTS, Antecipação de salário, Antecipação de conta de luz, Antecipação do décimo terceiro, etc).`;
   }
 
   /**
@@ -212,56 +186,65 @@ class AIService {
    * @returns {string} Persona formatada para E-mail
    */
   getEmailPersona() {
-    return `# VELOBOT - REFORMULADOR E-MAIL FORMAL
+    return `# VELOBOT - REFORMULADOR E-MAIL
 
 ## IDENTIDADE
 - Nome: VeloBot
 - Empresa: Velotax
-- Função: Reformulador de respostas para E-mail formal
-- Tom: Profissional, formal, estruturado, cortês
+- Função: Você é o "Especialista em Sucesso do Cliente" e "Guardião da Marca" do Velotax. Sua função é transformar rascunhos internos em comunicações profissionais, empáticas e claras, focadas no atendimento B2C (e-mail e ticket).
+- Tom: Empático, Profissional, claro, cortês, comercial.
+
+TRAVA DE SEGURANÇA (PRODUTOS E SERVIÇOS)
+Você só pode formalizar respostas relacionadas aos produtos oficiais do Velotax.
+1. NATUREZA DO VELOTAX: O Velotax ainda não é um banco, mas oferece uma conta digital específica para clientes que solicitam a antecipação.
+2. FUNCIONALIDADES DA CONTA:
+   - É possível receber e transferir valores via Pix.
+   - O Pix pode ser realizado para contas de terceiros.
+   - A chave de recebimento dessa conta é obrigatoriamente e exclusivamente o CPF do titular.
+- PRODUTOS PERMITIDOS: [Empréstimo Pessoal, Antecipação do Imposto de Renda, Seguro Celular, Seguro Pessoal].
+- PRODUTOS PROIBIDOS: Nunca mencione ou confirme suporte para produtos que não oferecemos (ex: Compra/venda direta de ativos, Cartão de Débito, Investimentos em Bolsa, Antecipação de FGTS, Antecipação de salário, Antecipação de conta de luz, Antecipação do décimo terceiro, etc).
 
 ## COMPORTAMENTO
-- Reformule a resposta para o formato de e-mail formal
-- Use linguagem profissional e cortês
+- Reformule a resposta para o formato de e-mail de atendimento ao cliente.
+- Use linguagem simples, profissional e cortês
 - Estruture a informação de forma clara e organizada
-- Use títulos e subtítulos quando apropriado
 - Seja detalhado mas objetivo
 - Mantenha tom respeitoso e profissional
+- Obtenha [Nome do Operador] no campo do payload com essa informação: {nome do operador}
+- obtenha [inteligencia] no campo do payload com essa informação: {inteligencia}
+Toda resposta DEVE seguir rigorosamente este template:
 
-## FORMATO E-MAIL FORMAL
-- Máximo 300 palavras
-- Estrutura clara com títulos
-- Linguagem formal e cortês
-- Detalhamento apropriado
-- Foco na completude da informação
+Olá, [Nome do Cliente], tudo bem?
 
-## ESTRUTURA
-- Saudação formal
-- Assunto/contexto
-- Informação principal estruturada
-- Detalhes relevantes
-- Encerramento cortês
-- Assinatura da empresa`;
+[Espaçamento entre linhas e parágrafos de 1,5]
+
+Eu sou [Nome do Operador] do Atendimento Velotax.
+
+{Desenvolvimento da resposta formalizada - baseada APENAS na [inteligencia] fornecida}
+
+Atenciosamente,
+
+[Nome do Operador]`;
   }
 
   /**
    * Obtém a persona baseada no tipo de formatação
-   * @param {string} formatType - Tipo de formatação (conversational, whatsapp, email)
+   * @param {string} formatType - Tipo de formatação (conversational, telefone, email)
    * @returns {string} Persona apropriada
    */
   _getPersonaByFormat(formatType) {
-    console.log(`🔍 Persona Debug: formatType recebido: "${formatType}"`);
-    
+    console.log('Persona Debug: formatType recebido:', formatType);
+
     switch (formatType) {
-      case 'whatsapp':
-        console.log('🔍 Persona Debug: Selecionando persona WhatsApp');
-        return this.getWhatsAppPersona();
+      case 'telefone':
+        console.log('Persona Debug: Selecionando persona atendimento telefonico');
+        return this.getTelefonePersona();
       case 'email':
-        console.log('🔍 Persona Debug: Selecionando persona E-mail');
+        console.log('Persona Debug: Selecionando persona E-mail');
         return this.getEmailPersona();
       case 'conversational':
       default:
-        console.log('🔍 Persona Debug: Selecionando persona conversacional (padrão)');
+        console.log('Persona Debug: Selecionando persona conversacional (padrao)');
         return this.getPersona();
     }
   }
@@ -278,38 +261,19 @@ class AIService {
     const persona = this.getPersona();
     
     // 2. PERGUNTA DO USUÁRIO
-    const userQuestion = `Pergunta: "${question}"`;
+    const userQuestion = 'Pergunta: "' + question + '"';
     
     // 3. PALAVRAS-CHAVE E SINÔNIMOS RELEVANTES (apenas os relevantes)
     const relevantKeywords = filteredData.map((item, index) => {
-      return `${index + 1}. ${item.pergunta}
-   Palavras-chave: ${item.palavrasChave}
-   Sinônimos: ${item.sinonimos}`;
+      return (index + 1) + '. ' + item.pergunta + '\n   Palavras-chave: ' + item.palavrasChave + '\n   Sinonimos: ' + item.sinonimos;
     }).join('\n\n');
-    
+
     // 4. CONTEXTO DA SESSÃO (se houver)
-    const context = sessionHistory.length > 0 
-      ? `\n\nContexto da conversa:\n${sessionHistory.slice(-3).map(msg => `- ${msg.role}: ${msg.content}`).join('\n')}`
+    const context = sessionHistory.length > 0
+      ? '\n\nContexto da conversa:\n' + sessionHistory.slice(-3).map(msg => '- ' + msg.role + ': ' + msg.content).join('\n')
       : '';
-    
-    return `${persona}
 
-${userQuestion}
-
-Dados relevantes:
-${relevantKeywords}${context}
-
-## TAREFA
-Analise a pergunta do usuário e identifique qual(is) opção(ões) se aplica(m):
-
-**CRITÉRIOS:**
-- Se houver 1 opção que responde bem a pergunta: retorne apenas esse número
-- Se houver múltiplas opções que podem responder a pergunta: retorne todos os números separados por vírgula
-- Se NENHUMA opção se aplica: sugira a que considerou mais apoximada ou relevante. 
-
-**IMPORTANTE:** Seja prático. Se a pergunta pode ser respondida por uma das opções, inclua-a.
-
-## RESPOSTA:`;
+    return persona + '\n\n' + userQuestion + '\n\nDados relevantes:\n' + relevantKeywords + context + '\n\n## TAREFA\nAnalise a pergunta do usuario e identifique qual(is) opcao(oes) se aplica(m):\n\n**CRITERIOS:**\n- Se houver 1 opcao que responde bem a pergunta: retorne apenas esse numero\n- Se houver multiplas opcoes que podem responder a pergunta: retorne todos os numeros separados por virgula\n- Se NENHUMA opcao se aplica: sugira a que considerou mais apoximada ou relevante.\n\n**IMPORTANTE:** Seja pratico. Se a pergunta pode ser respondida por uma das opcoes, inclua-a.\n\n## RESPOSTA:';
   }
 
   /**
@@ -322,23 +286,23 @@ Analise a pergunta do usuário e identifique qual(is) opção(ões) se aplica(m)
    */
   async analyzeQuestionWithAI(question, filteredData, sessionHistory = [], primaryAI = 'OpenAI') {
     try {
-      console.log(`🤖 AI Analyzer: Analisando pergunta: "${question}"`);
-      console.log(`🔍 AI Analyzer: ${filteredData.length} perguntas relevantes para análise`);
+      console.log('AI Analyzer: Analisando pergunta:', question);
+      console.log('AI Analyzer:', filteredData.length, 'perguntas relevantes para analise');
       
       // Criar prompt otimizado
       const analysisPrompt = this.createOptimizedPrompt(question, filteredData, sessionHistory);
       
-      console.log(`📝 AI Analyzer: Tamanho do prompt: ${analysisPrompt.length} caracteres`);
+      console.log('AI Analyzer: Tamanho do prompt:', analysisPrompt.length, 'caracteres');
 
       let response = '';
       let aiProvider = '';
 
-      console.log(`🤖 AI Analyzer: Usando IA primária do handshake: ${primaryAI}`);
+      console.log('AI Analyzer: Usando IA primaria do handshake:', primaryAI);
 
       // 1. TENTAR IA PRIMÁRIA (definida pelo handshake)
       if (primaryAI === 'OpenAI' && this.isOpenAIConfigured()) {
         try {
-          console.log('🤖 AI Analyzer: Tentando OpenAI (primária)...');
+          console.log('AI Analyzer: Tentando OpenAI (primaria)...');
           const openai = this._initializeOpenAI();
           
           const completion = await openai.chat.completions.create({
@@ -350,42 +314,42 @@ Analise a pergunta do usuário e identifique qual(is) opção(ões) se aplica(m)
           
           response = completion.choices[0].message.content.trim();
           aiProvider = 'OpenAI';
-          console.log('✅ AI Analyzer: OpenAI respondeu com sucesso');
+          console.log('AI Analyzer: OpenAI respondeu com sucesso');
         } catch (openaiError) {
-          console.error('❌ AI Analyzer: OpenAI falhou:', openaiError.message);
+          console.error('AI Analyzer: OpenAI falhou:', openaiError.message);
         }
       } else if (primaryAI === 'Gemini' && this.isGeminiConfigured()) {
         try {
-          console.log('🤖 AI Analyzer: Tentando Gemini (primária)...');
+          console.log('AI Analyzer: Tentando Gemini (primaria)...');
           const gemini = this._initializeGemini();
           const model = gemini.getGenerativeModel({ model: this.geminiModel });
           
           const result = await model.generateContent(analysisPrompt);
           response = result.response.text().trim();
           aiProvider = 'Gemini';
-          console.log('✅ AI Analyzer: Gemini respondeu com sucesso');
+          console.log('AI Analyzer: Gemini respondeu com sucesso');
         } catch (geminiError) {
-          console.error('❌ AI Analyzer: Gemini falhou:', geminiError.message);
+          console.error('AI Analyzer: Gemini falhou:', geminiError.message);
         }
       }
 
       // 2. FALLBACK PARA IA SECUNDÁRIA
       if (!response && primaryAI === 'OpenAI' && this.isGeminiConfigured()) {
         try {
-          console.log('🤖 AI Analyzer: Tentando Gemini como fallback...');
+          console.log('AI Analyzer: Tentando Gemini como fallback...');
           const gemini = this._initializeGemini();
           const model = gemini.getGenerativeModel({ model: this.geminiModel });
           
           const result = await model.generateContent(analysisPrompt);
           response = result.response.text().trim();
           aiProvider = 'Gemini';
-          console.log('✅ AI Analyzer: Gemini respondeu com sucesso (fallback)');
+          console.log('AI Analyzer: Gemini respondeu com sucesso (fallback)');
         } catch (geminiError) {
-          console.error('❌ AI Analyzer: Gemini também falhou:', geminiError.message);
+          console.error('AI Analyzer: Gemini tambem falhou:', geminiError.message);
         }
       } else if (!response && primaryAI === 'Gemini' && this.isOpenAIConfigured()) {
         try {
-          console.log('🤖 AI Analyzer: Tentando OpenAI como fallback...');
+          console.log('AI Analyzer: Tentando OpenAI como fallback...');
           const openai = this._initializeOpenAI();
           
           const completion = await openai.chat.completions.create({
@@ -397,15 +361,15 @@ Analise a pergunta do usuário e identifique qual(is) opção(ões) se aplica(m)
           
           response = completion.choices[0].message.content.trim();
           aiProvider = 'OpenAI';
-          console.log('✅ AI Analyzer: OpenAI respondeu com sucesso (fallback)');
+          console.log('AI Analyzer: OpenAI respondeu com sucesso (fallback)');
         } catch (openaiError) {
-          console.error('❌ AI Analyzer: OpenAI também falhou:', openaiError.message);
+          console.error('AI Analyzer: OpenAI tambem falhou:', openaiError.message);
         }
       }
 
       // 3. SE AMBOS FALHARAM - USAR PESQUISA SIMPLES POR FILTRO NO MONGO COMO FALLBACK
       if (!response) {
-        console.log('❌ AI Analyzer: Ambas IAs falharam - usando pesquisa simples por filtro no MongoDB como fallback');
+        console.log('AI Analyzer: Ambas IAs falharam - usando pesquisa simples por filtro no MongoDB como fallback');
         // Retornar todas as opções filtradas para pesquisa simples
         return { 
           relevantOptions: filteredData, 
@@ -415,12 +379,12 @@ Analise a pergunta do usuário e identifique qual(is) opção(ões) se aplica(m)
         };
       }
       
-      console.log(`🤖 AI Analyzer: Resposta da IA: "${response}"`);
-      console.log(`🔍 AI Analyzer: Tamanho da resposta: ${response.length} caracteres`);
+      console.log('AI Analyzer: Resposta da IA:', response);
+      console.log('AI Analyzer: Tamanho da resposta:', response.length, 'caracteres');
       
       // Verificar se a IA retornou "NENHUM" (sem matches) - agora menos provável
       if (response.toUpperCase().includes('NENHUM') || response.trim() === '') {
-        console.log('❌ AI Analyzer: IA retornou NENHUM - usando primeira opção como fallback');
+        console.log('AI Analyzer: IA retornou NENHUM - usando primeira opcao como fallback');
         // Em vez de retornar vazio, usar a primeira opção como fallback
         return { 
           relevantOptions: [filteredData[0]], 
@@ -433,7 +397,7 @@ Analise a pergunta do usuário e identifique qual(is) opção(ões) se aplica(m)
       // Extrair números da resposta
       const relevantIndices = response.match(/\d+/g);
       if (!relevantIndices || relevantIndices.length === 0) {
-        console.log('❌ AI Analyzer: Nenhum número encontrado - usando primeira opção como fallback');
+        console.log('AI Analyzer: Nenhum numero encontrado - usando primeira opcao como fallback');
         // Em vez de retornar vazio, usar a primeira opção como fallback
         return { 
           relevantOptions: [filteredData[0]], 
@@ -446,7 +410,7 @@ Analise a pergunta do usuário e identifique qual(is) opção(ões) se aplica(m)
       // Converter para índices reais (subtrair 1)
       const indices = relevantIndices.map(num => parseInt(num) - 1).filter(idx => idx >= 0 && idx < filteredData.length);
       
-      console.log(`✅ AI Analyzer: ${indices.length} opções relevantes identificadas: ${indices.join(', ')}`);
+      console.log('AI Analyzer:', indices.length, 'opcoes relevantes identificadas:', indices.join(', '));
       
       // Se apenas 1 opção relevante, não precisa de esclarecimento
       if (indices.length === 1) {
@@ -469,7 +433,7 @@ Analise a pergunta do usuário e identifique qual(is) opção(ões) se aplica(m)
       };
 
     } catch (error) {
-      console.error('❌ AI Analyzer Error:', error.message);
+      console.error('AI Analyzer Error:', error.message);
       return { relevantOptions: [], needsClarification: false, error: error.message, hasData: true };
     }
   }
@@ -478,7 +442,7 @@ Analise a pergunta do usuário e identifique qual(is) opção(ões) se aplica(m)
    * Gera resposta usando Gemini (IA PRIMÁRIA)
    */
   async _generateWithGemini(question, context, sessionHistory, userId, email, searchResults = null, formatType = 'conversational') {
-    console.log(`🔍 Gemini Debug: formatType recebido: "${formatType}"`);
+    console.log('Gemini Debug: formatType recebido:', formatType);
     
     const gemini = this._initializeGemini();
     if (!gemini) {
@@ -489,19 +453,19 @@ Analise a pergunta do usuário e identifique qual(is) opção(ões) se aplica(m)
     
     // Construir prompt completo (system + user) otimizado para Gemini
     const systemPrompt = this._getPersonaByFormat(formatType);
-    console.log(`🔍 Gemini Debug: Persona selecionada para formatType "${formatType}"`);
+    console.log('Gemini Debug: Persona selecionada para formatType', formatType);
 
     const userPrompt = this.buildOptimizedPrompt(question, context, sessionHistory, searchResults);
     
     // Combinar system + user prompt para Gemini
-    const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
+    const fullPrompt = systemPrompt + '\n\n' + userPrompt;
     
-    console.log(`🤖 Gemini: Processando pergunta para usuário ${userId || 'anônimo'}`);
+    console.log('Gemini: Processando pergunta para usuario', userId || 'anonimo');
     
     const result = await model.generateContent(fullPrompt);
     const response = result.response.text();
     
-    console.log(`✅ Gemini: Resposta gerada com sucesso (${response.length} caracteres)`);
+    console.log('Gemini: Resposta gerada com sucesso', response.length, 'caracteres');
     
     return response;
   }
@@ -518,7 +482,7 @@ Analise a pergunta do usuário e identifique qual(is) opção(ões) se aplica(m)
     // Construir prompt otimizado (baseado no chatbot Vercel)
     const prompt = this.buildOptimizedPrompt(question, context, sessionHistory, searchResults);
     
-    console.log(`🤖 OpenAI: Processando pergunta para usuário ${userId || 'anônimo'}`);
+    console.log('OpenAI: Processando pergunta para usuario', userId || 'anonimo');
     
     const completion = await openai.chat.completions.create({
       model: this.openaiModel,
@@ -541,7 +505,7 @@ Analise a pergunta do usuário e identifique qual(is) opção(ões) se aplica(m)
 
     const response = completion.choices[0].message.content;
     
-    console.log(`✅ OpenAI: Resposta gerada com sucesso (${response.length} caracteres)`);
+    console.log('OpenAI: Resposta gerada com sucesso', response.length, 'caracteres');
     
     return response;
   }
@@ -553,40 +517,29 @@ Analise a pergunta do usuário e identifique qual(is) opção(ões) se aplica(m)
    * @returns {string} Contexto estruturado
    */
   buildStructuredContext(searchResults, sessionHistory) {
-    let context = `## CONTEXTO DA CONSULTA\n\n`;
-    
-    // Informação principal (Bot_perguntas)
-    if (searchResults && searchResults.botPergunta) {
-      context += `### INFORMAÇÃO PRINCIPAL
-**Pergunta:** ${searchResults.botPergunta.pergunta}
-**Resposta:** ${searchResults.botPergunta.resposta}
-**Relevância:** ${searchResults.botPergunta.relevanceScore || 'N/A'}/10
-**Fonte:** Bot_perguntas (MongoDB)
+    let context = '## CONTEXTO DA CONSULTA\n\n';
 
-`;
+    if (searchResults && searchResults.botPergunta) {
+      context += '### INFORMACAO PRINCIPAL\n**Pergunta:** ' + searchResults.botPergunta.pergunta +
+        '\n**Resposta:** ' + searchResults.botPergunta.resposta +
+        '\n**Relevancia:** ' + (searchResults.botPergunta.relevanceScore || 'N/A') + '/10\n**Fonte:** Bot_perguntas (MongoDB)\n\n';
     }
-    
-    // Artigos relacionados
+
     if (searchResults && searchResults.articles && searchResults.articles.length > 0) {
-      context += `### ARTIGOS RELACIONADOS\n`;
+      context += '### ARTIGOS RELACIONADOS\n';
       searchResults.articles.forEach((article, index) => {
-        context += `${index + 1}. **${article.title}**
-   - Relevância: ${article.relevanceScore || 'N/A'}/10
-   - Conteúdo: ${article.content.substring(0, 150)}...
-   
-`;
+        context += (index + 1) + '. **' + article.title + '**\n   - Relevancia: ' + (article.relevanceScore || 'N/A') + '/10\n   - Conteudo: ' + article.content.substring(0, 150) + '...\n\n';
       });
     }
-    
-    // Histórico da sessão
+
     if (sessionHistory && sessionHistory.length > 0) {
-      context += `### HISTÓRICO DA CONVERSA\n`;
+      context += '### HISTORICO DA CONVERSA\n';
       sessionHistory.slice(-3).forEach(h => {
-        context += `- ${h.role}: ${h.content}\n`;
+        context += '- ' + h.role + ': ' + h.content + '\n';
       });
-      context += `\n`;
+      context += '\n';
     }
-    
+
     return context;
   }
 
@@ -599,29 +552,13 @@ Analise a pergunta do usuário e identifique qual(is) opção(ões) se aplica(m)
    * @returns {string} Prompt formatado
    */
   buildOptimizedPrompt(question, context, sessionHistory, searchResults = null) {
-    // Usar contexto estruturado se searchResults estiver disponível
-    const structuredContext = searchResults ? 
-      this.buildStructuredContext(searchResults, sessionHistory) : 
-      `### CONTEXTO DA BASE DE CONHECIMENTO
-${context || "Nenhum contexto específico encontrado."}
+    const structuredContext = searchResults ?
+      this.buildStructuredContext(searchResults, sessionHistory) :
+      '### CONTEXTO DA BASE DE CONHECIMENTO\n' + (context || 'Nenhum contexto especifico encontrado.') +
+      '\n\n### HISTORICO DE CONVERSA\n' + (sessionHistory.length > 0 ? sessionHistory.map(h => h.role + ': ' + h.content).join('\n') : 'Primeira pergunta da sessao.');
 
-### HISTÓRICO DE CONVERSA
-${sessionHistory.length > 0 ? 
-  sessionHistory.map(h => `${h.role}: ${h.content}`).join("\n") : 
-  'Primeira pergunta da sessão.'}`;
-
-    return `${structuredContext}
-## PERGUNTA ATUAL
-**Usuário:** ${question}
-
-## INSTRUÇÕES
-- Use APENAS as informações do contexto acima
-- Se a pergunta for sobre crédito, foco em prazos e processos
-- Se for sobre documentos, liste exatamente o que é necessário
-- Se for sobre prazos, seja específico com datas e tempos
-- Se não houver informação suficiente, diga claramente
-
-## RESPOSTA:`;
+    return structuredContext + '\n## PERGUNTA ATUAL\n**Usuario:** ' + question +
+      '\n\n## INSTRUCOES\n- Use APENAS as informacoes do contexto acima\n- Se a pergunta for sobre credito, foco em prazos e processos\n- Se for sobre documentos, liste exatamente o que e necessario\n- Se for sobre prazos, seja especifico com datas e tempos\n- Se nao houver informacao suficiente, diga claramente\n\n## RESPOSTA:';
   }
 
   /**
@@ -682,7 +619,7 @@ ${sessionHistory.length > 0 ?
   isOpenAIConfigured() {
     const configured = !!config.OPENAI_API_KEY && config.OPENAI_API_KEY !== 'your_openai_api_key_here';
     if (!configured) {
-      console.warn('⚠️ AI Service: OpenAI não configurado - OPENAI_API_KEY ausente ou inválida');
+      console.warn('AI Service: OpenAI nao configurado - OPENAI_API_KEY ausente ou invalida');
     }
     return configured;
   }
@@ -694,7 +631,7 @@ ${sessionHistory.length > 0 ?
   isGeminiConfigured() {
     const configured = !!config.GEMINI_API_KEY && config.GEMINI_API_KEY !== 'your_gemini_api_key_here';
     if (!configured) {
-      console.warn('⚠️ AI Service: Gemini não configurado - GEMINI_API_KEY ausente ou inválida');
+      console.warn('AI Service: Gemini nao configurado - GEMINI_API_KEY ausente ou invalida');
     }
     return configured;
   }
@@ -734,7 +671,7 @@ ${sessionHistory.length > 0 ?
   _isCacheValid() {
     // Cache inválido se não há dados ou timestamp
     if (!this.statusCache.data || !this.statusCache.timestamp) {
-      console.log('⚠️ AI Service: Cache inválido - dados ou timestamp ausentes');
+      console.log('AI Service: Cache invalido - dados ou timestamp ausentes');
       return false;
     }
     
@@ -744,7 +681,7 @@ ${sessionHistory.length > 0 ?
     const isValid = cacheAge < this.statusCache.ttl;
     
     if (!isValid) {
-      console.log(`⚠️ AI Service: Cache expirado - idade: ${Math.round(cacheAge / 1000)}s, TTL: ${this.statusCache.ttl / 1000}s`);
+      console.log('AI Service: Cache expirado - idade:', Math.round(cacheAge / 1000), 's, TTL:', this.statusCache.ttl / 1000, 's');
     }
     
     return isValid;
@@ -763,8 +700,8 @@ ${sessionHistory.length > 0 ?
       
       const response = await fetch('https://api.openai.com/v1/models', {
         method: 'HEAD',
-        headers: { 
-          'Authorization': `Bearer ${config.OPENAI_API_KEY}`,
+        headers: {
+          'Authorization': 'Bearer ' + config.OPENAI_API_KEY,
           'User-Agent': 'VeloHub-Bot/1.0'
         },
         signal: controller.signal
@@ -774,17 +711,17 @@ ${sessionHistory.length > 0 ?
       const isAvailable = response.ok;
       
       if (isAvailable) {
-        console.log('✅ OpenAI: Ping HTTP bem-sucedido');
+        console.log('OpenAI: Ping HTTP bem-sucedido');
       } else {
-        console.warn(`⚠️ OpenAI: Ping HTTP falhou - Status: ${response.status}`);
+        console.warn('OpenAI: Ping HTTP falhou - Status:', response.status);
       }
       
       return isAvailable;
     } catch (error) {
       if (error.name === 'AbortError') {
-        console.warn('⚠️ OpenAI: Ping HTTP timeout (2s)');
+        console.warn('OpenAI: Ping HTTP timeout (2s)');
       } else {
-        console.warn('⚠️ OpenAI: Ping HTTP failed:', error.message);
+        console.warn('OpenAI: Ping HTTP failed:', error.message);
       }
       return false;
     }
@@ -814,17 +751,17 @@ ${sessionHistory.length > 0 ?
       const isAvailable = response.ok;
       
       if (isAvailable) {
-        console.log('✅ Gemini: Ping HTTP bem-sucedido');
+        console.log('Gemini: Ping HTTP bem-sucedido');
       } else {
-        console.warn(`⚠️ Gemini: Ping HTTP falhou - Status: ${response.status}`);
+        console.warn('Gemini: Ping HTTP falhou - Status:', response.status);
       }
       
       return isAvailable;
     } catch (error) {
       if (error.name === 'AbortError') {
-        console.warn('⚠️ Gemini: Ping HTTP timeout (2s)');
+        console.warn('Gemini: Ping HTTP timeout (2s)');
       } else {
-        console.warn('⚠️ Gemini: Ping HTTP failed:', error.message);
+        console.warn('Gemini: Ping HTTP failed:', error.message);
       }
       return false;
     }
@@ -837,11 +774,11 @@ ${sessionHistory.length > 0 ?
   async testConnectionIntelligent() {
     // Verificar cache primeiro (TTL 3min)
     if (this._isCacheValid()) {
-      console.log('✅ AI Service: Usando cache de status das IAs (TTL 3min)');
+      console.log('AI Service: Usando cache de status das IAs (TTL 3min)');
       return this.statusCache.data;
     }
     
-    console.log('🔍 AI Service: Testando conexões das IAs (ping HTTP inteligente)');
+    console.log('AI Service: Testando conexoes das IAs (ping HTTP inteligente)');
     const startTime = Date.now();
     
     const results = {
@@ -865,10 +802,10 @@ ${sessionHistory.length > 0 ?
       const endTime = Date.now();
       const duration = endTime - startTime;
       
-      console.log(`⚡ AI Service: Handshake inteligente concluído em ${duration}ms`);
+      console.log('AI Service: Handshake inteligente concluido em', duration, 'ms');
       
     } catch (error) {
-      console.error('❌ AI Service: Erro no handshake inteligente:', error.message);
+      console.error('AI Service: Erro no handshake inteligente:', error.message);
     }
     
     // Atualizar cache (TTL 3min)
@@ -881,11 +818,11 @@ ${sessionHistory.length > 0 ?
       const fallbackAI = results.openai.available && results.gemini.available ? 'Gemini' : 
                         results.gemini.available && results.openai.available ? 'OpenAI' : null;
       
-      console.log(`✅ AI Service: Cache atualizado (TTL 3min) - Primária: ${primaryAI}${fallbackAI ? `, Fallback: ${fallbackAI}` : ''}`);
+      console.log('AI Service: Cache atualizado (TTL 3min) - Primaria:', primaryAI, fallbackAI ? ', Fallback: ' + fallbackAI : '');
     } else {
-      console.error('❌ AI Service: NENHUMA API DE IA DISPONÍVEL - Verificar configuração das chaves');
-      console.error('❌ AI Service: OpenAI configurado:', this.isOpenAIConfigured());
-      console.error('❌ AI Service: Gemini configurado:', this.isGeminiConfigured());
+      console.error('AI Service: NENHUMA API DE IA DISPONIVEL - Verificar configuracao das chaves');
+      console.error('AI Service: OpenAI configurado:', this.isOpenAIConfigured());
+      console.error('AI Service: Gemini configurado:', this.isGeminiConfigured());
     }
 
     return results;
@@ -898,11 +835,11 @@ ${sessionHistory.length > 0 ?
   async testConnection() {
     // Verificar cache primeiro
     if (this._isCacheValid()) {
-      console.log('✅ AI Service: Usando cache de status das IAs');
+      console.log('AI Service: Usando cache de status das IAs');
       return this.statusCache.data;
     }
     
-    console.log('🔍 AI Service: Testando conexões das IAs (cache expirado ou inexistente)');
+    console.log('AI Service: Testando conexoes das IAs (cache expirado ou inexistente)');
     const results = {
       openai: { available: false, model: this.openaiModel, priority: 'primary' },
       gemini: { available: false, model: this.geminiModel, priority: 'fallback' },
@@ -920,10 +857,10 @@ ${sessionHistory.length > 0 ?
             max_tokens: 10,
           });
           results.openai.available = true;
-          console.log('✅ OpenAI: Conexão testada com sucesso');
+          console.log('OpenAI: Conexao testada com sucesso');
         }
       } catch (error) {
-        console.error('❌ OpenAI: Erro no teste de conexão:', error.message);
+        console.error('OpenAI: Erro no teste de conexao:', error.message);
       }
     }
 
@@ -935,10 +872,10 @@ ${sessionHistory.length > 0 ?
           const model = gemini.getGenerativeModel({ model: this.geminiModel });
           const result = await model.generateContent("Teste de conexão");
           results.gemini.available = true;
-          console.log('✅ Gemini: Conexão testada com sucesso');
+          console.log('Gemini: Conexao testada com sucesso');
         }
       } catch (error) {
-        console.error('❌ Gemini: Erro no teste de conexão:', error.message);
+        console.error('Gemini: Erro no teste de conexao:', error.message);
       }
     }
 
@@ -954,11 +891,11 @@ ${sessionHistory.length > 0 ?
       const fallbackAI = results.openai.available && results.gemini.available ? 'Gemini' : 
                         results.gemini.available && results.openai.available ? 'OpenAI' : null;
       
-      console.log(`✅ AI Service: Cache atualizado - Primária: ${primaryAI}${fallbackAI ? `, Fallback: ${fallbackAI}` : ''}`);
+      console.log('AI Service: Cache atualizado - Primaria:', primaryAI, fallbackAI ? ', Fallback: ' + fallbackAI : '');
     } else {
-      console.error('❌ AI Service: NENHUMA API DE IA DISPONÍVEL - Verificar configuração das chaves');
-      console.error('❌ AI Service: OpenAI configurado:', this.isOpenAIConfigured());
-      console.error('❌ AI Service: Gemini configurado:', this.isGeminiConfigured());
+      console.error('AI Service: NENHUMA API DE IA DISPONIVEL - Verificar configuracao das chaves');
+      console.error('AI Service: OpenAI configurado:', this.isOpenAIConfigured());
+      console.error('AI Service: Gemini configurado:', this.isGeminiConfigured());
     }
 
     return results;

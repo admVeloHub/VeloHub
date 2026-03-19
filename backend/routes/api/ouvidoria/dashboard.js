@@ -314,16 +314,46 @@ function mesclarFiltros(filtroData, filtroProduto, filtroMotivo = {}) {
 }
 
 /**
+ * Obter data de início para cálculo de prazo (data de entrada da ocorrência)
+ * Usa o campo correto por collection; fallback para createdAt se ausente.
+ * @param {Object} doc - Documento da reclamação
+ * @param {string} collectionName - Nome da collection (reclamacoes_bacen, reclamacoes_n2Pix, etc.)
+ * @returns {Date|null} - Data de início ou null
+ */
+function getDataInicioPrazo(doc, collectionName) {
+  let data = null;
+  if (collectionName === 'reclamacoes_reclameAqui') data = doc.dataReclam;
+  else if (collectionName === 'reclamacoes_n2Pix') data = doc.dataEntradaN2;
+  else if (collectionName === 'reclamacoes_procon') data = doc.dataProcon;
+  else if (collectionName === 'reclamacoes_bacen' || collectionName === 'reclamacoes_judicial') data = doc.dataEntrada;
+  if (!data) data = doc.createdAt;
+  return data ? new Date(data) : null;
+}
+
+/**
+ * Obter data de início para doc de array misto (Total) - infere pelo campo existente
+ */
+function getDataInicioPrazoMixed(doc) {
+  if (doc.dataReclam) return new Date(doc.dataReclam);
+  if (doc.dataEntradaN2) return new Date(doc.dataEntradaN2);
+  if (doc.dataProcon) return new Date(doc.dataProcon);
+  if (doc.dataEntrada) return new Date(doc.dataEntrada);
+  return doc.createdAt ? new Date(doc.createdAt) : null;
+}
+
+/**
  * Calcular estatísticas por tipo (para data.porTipo)
  * Lógica conforme especificação:
  * - solLiberacao: docs cujo motivoReduzido contém "Liberação Chave Pix"
  * - pixLiberado: docs com pixLiberado === true (TODOS os motivos)
  * - pixRetido: docs com motivo "Liberação Chave Pix" + Finalizado.Resolvido === true + pixLiberado === false
  * - percRetencao: (pixRetido / solLiberacao) × 100
+ * - prazoMedio: usa data de entrada (não createdAt) para início do prazo
  * @param {Array} docs - Array de documentos da collection
+ * @param {string} collectionName - Nome da collection para obter campo de data de entrada correto
  * @returns {Object} - { ocorrencias, emAberto, resolvido, prazoMedio, caEProtocolos, solLiberacao, pixLiberado, pixRetido, percRetencao, taxaResolucao }
  */
-function calcularStatsPorTipo(docs) {
+function calcularStatsPorTipo(docs, collectionName) {
   const ocorrencias = docs.length;
   const emAberto = docs.filter(r => !r.Finalizado || r.Finalizado.Resolvido !== true).length;
   const resolvido = docs.filter(r => r.Finalizado?.Resolvido === true).length;
@@ -350,10 +380,12 @@ function calcularStatsPorTipo(docs) {
   // % RETENÇÃO: (pixRetido / solLiberacao) × 100. Base: apenas docs com motivo "Liberação Chave Pix"
   const percRetencao = solLiberacao > 0 ? Math.round((pixRetido / solLiberacao) * 1000) / 10 : 0;
 
+  // Prazo Médio: usa data de entrada (dataEntrada, dataEntradaN2, dataReclam, dataProcon) - não createdAt
+  const dataCampoInicio = collectionName || '';
   const concluidasComData = docs.filter(r => {
     if (r.Finalizado?.Resolvido !== true) return false;
-    if (!r.createdAt || !r.Finalizado?.dataResolucao) return false;
-    const inicio = new Date(r.createdAt);
+    const inicio = getDataInicioPrazo(r, dataCampoInicio);
+    if (!inicio || !r.Finalizado?.dataResolucao) return false;
     const fim = new Date(r.Finalizado.dataResolucao);
     if (isNaN(inicio.getTime()) || isNaN(fim.getTime())) return false;
     if (fim < inicio) return false;
@@ -366,7 +398,7 @@ function calcularStatsPorTipo(docs) {
   let prazoMedio = 0;
   if (concluidasComData.length > 0) {
     const somaDias = concluidasComData.reduce((acc, r) => {
-      const inicio = new Date(r.createdAt);
+      const inicio = getDataInicioPrazo(r, dataCampoInicio);
       const fim = new Date(r.Finalizado.dataResolucao);
       const diffMs = fim.getTime() - inicio.getTime();
       return acc + (diffMs / (1000 * 60 * 60 * 24));
@@ -628,12 +660,12 @@ const initDashboardRoutes = (client, connectToMongo) => {
 
       // porTipo: estatísticas por collection (N2, Reclame Aqui, Bacen, Procon, Judicial, Total)
       const porTipo = {
-        N2: calcularStatsPorTipo(n2Pix),
-        'Reclame Aqui': calcularStatsPorTipo(reclameAquiDocs),
-        Bacen: calcularStatsPorTipo(bacen),
-        Procon: calcularStatsPorTipo(proconDocs),
-        Judicial: calcularStatsPorTipo(judicialDocs),
-        Total: calcularStatsPorTipo(todas),
+        N2: calcularStatsPorTipo(n2Pix, 'reclamacoes_n2Pix'),
+        'Reclame Aqui': calcularStatsPorTipo(reclameAquiDocs, 'reclamacoes_reclameAqui'),
+        Bacen: calcularStatsPorTipo(bacen, 'reclamacoes_bacen'),
+        Procon: calcularStatsPorTipo(proconDocs, 'reclamacoes_procon'),
+        Judicial: calcularStatsPorTipo(judicialDocs, 'reclamacoes_judicial'),
+        Total: calcularStatsPorTipoComMixed(todas),
       };
 
       const stats = {
