@@ -40,6 +40,19 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Backend scripts, dashboard, ESLint e smoke test**
+- **Data/Hora**: 2026-03-19
+- **Tipo**: GitHub Push
+- **Arquivos Modificados**:
+  - `backend/package.json`, `package-lock.json`
+  - `backend/routes/api/ouvidoria/dashboard.js`
+  - `backend/scripts/` (limpar-erros-bugs-antigos, listar-motivos-unicos-n2pix, update-reclameaqui-from-excel, verificar-motivos-n2pix)
+- **Arquivos Novos**:
+  - `backend/.eslintrc.json`
+  - `backend/scripts/smoke-ouvidoria-dashboard.js`
+- **Descrição**: Atualizações scripts backend, dashboard Ouvidoria, ESLint e smoke test
+- **Status**: ✅ Concluído com sucesso
+
 ### **GitHub Push - Backend Ouvidoria e Server**
 - **Data/Hora**: 2026-03-17
 - **Tipo**: GitHub Push

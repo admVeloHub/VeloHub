@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Dashboard
- * VERSION: v2.33.0 | DATE: 2026-03-16 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.33.1 | DATE: 2026-03-19 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.33.1:
+ * - Corrigido HTTP 500 em GET /stats: função calcularStatsPorTipoComMixed era referenciada mas não existia (ReferenceError)
  * 
  * Mudanças v2.33.0:
  * - Corrigida lógica dos cards: solLiberacao (exato "Liberação Chave Pix"), pixLiberado (todos os motivos),
@@ -399,6 +402,74 @@ function calcularStatsPorTipo(docs, collectionName) {
   if (concluidasComData.length > 0) {
     const somaDias = concluidasComData.reduce((acc, r) => {
       const inicio = getDataInicioPrazo(r, dataCampoInicio);
+      const fim = new Date(r.Finalizado.dataResolucao);
+      const diffMs = fim.getTime() - inicio.getTime();
+      return acc + (diffMs / (1000 * 60 * 60 * 24));
+    }, 0);
+    prazoMedio = parseFloat((somaDias / concluidasComData.length).toFixed(1));
+  }
+
+  const taxaResolucao = ocorrencias > 0 ? Math.round((resolvido / ocorrencias) * 1000) / 10 : 0;
+
+  return {
+    ocorrencias,
+    emAberto,
+    resolvido,
+    prazoMedio,
+    caEProtocolos,
+    solLiberacao,
+    pixLiberado,
+    pixRetido,
+    percRetencao,
+    taxaResolucao,
+  };
+}
+
+/**
+ * Igual a calcularStatsPorTipo, mas para array misto (todas as collections): prazo usa getDataInicioPrazoMixed.
+ * @param {Array} docs - Documentos agregados de várias collections
+ * @returns {Object} - Mesmo shape que calcularStatsPorTipo
+ */
+function calcularStatsPorTipoComMixed(docs) {
+  const ocorrencias = docs.length;
+  const emAberto = docs.filter(r => !r.Finalizado || r.Finalizado.Resolvido !== true).length;
+  const resolvido = docs.filter(r => r.Finalizado?.Resolvido === true).length;
+  const caEProtocolos = docs.filter(r => (
+    r.acionouCentral === true ||
+    (r.protocolosCentral && Array.isArray(r.protocolosCentral) && r.protocolosCentral.length > 0) ||
+    r.n2SegundoNivel === true ||
+    (r.protocolosN2 && Array.isArray(r.protocolosN2) && r.protocolosN2.length > 0) ||
+    r.reclameAqui === true ||
+    (r.protocolosReclameAqui && Array.isArray(r.protocolosReclameAqui) && r.protocolosReclameAqui.length > 0) ||
+    r.procon === true ||
+    (r.protocolosProcon && Array.isArray(r.protocolosProcon) && r.protocolosProcon.length > 0)
+  )).length;
+  const solLiberacao = docs.filter(r => isMotivoLiberacaoChavePix(r.motivoReduzido)).length;
+  const pixLiberado = docs.filter(r => r.pixLiberado === true).length;
+  const pixRetido = docs.filter(r =>
+    isMotivoLiberacaoChavePix(r.motivoReduzido) &&
+    r.Finalizado?.Resolvido === true &&
+    r.pixLiberado === false
+  ).length;
+  const percRetencao = solLiberacao > 0 ? Math.round((pixRetido / solLiberacao) * 1000) / 10 : 0;
+
+  const concluidasComData = docs.filter(r => {
+    if (r.Finalizado?.Resolvido !== true) return false;
+    const inicio = getDataInicioPrazoMixed(r);
+    if (!inicio || !r.Finalizado?.dataResolucao) return false;
+    const fim = new Date(r.Finalizado.dataResolucao);
+    if (isNaN(inicio.getTime()) || isNaN(fim.getTime())) return false;
+    if (fim < inicio) return false;
+    const diffMs = fim.getTime() - inicio.getTime();
+    const dias = diffMs / (1000 * 60 * 60 * 24);
+    if (dias < 0 || dias > 365) return false;
+    return true;
+  });
+
+  let prazoMedio = 0;
+  if (concluidasComData.length > 0) {
+    const somaDias = concluidasComData.reduce((acc, r) => {
+      const inicio = getDataInicioPrazoMixed(r);
       const fim = new Date(r.Finalizado.dataResolucao);
       const diffMs = fim.getTime() - inicio.getTime();
       return acc + (diffMs / (1000 * 60 * 60 * 24));

@@ -1,22 +1,24 @@
 /**
  * Script de Atualização: Base Reclame Aqui (XLSX) → MongoDB reclamacoes_reclameAqui
- * VERSION: v1.0.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.2.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
  * 
- * Mapeamento de colunas Excel → Schema MongoDB:
- * - Coluna A → cpf
- * - Buscar CPF nas collections Bacen e N2Pix:
- *   - Se encontrado no Bacen: nome (do Bacen), bacen: true, protocolosBacen e protocolosReclameAqui (se houver)
- *   - Se encontrado no N2Pix: nome (do N2Pix), n2SegundoNivel: true, protocolosN2 (se houver)
- * - Coluna D → responsavel
- * - Coluna L → cpfRepetido
- * - Coluna B → idEntrada
- * - Coluna C → dataReclam
- * - Coluna H → motivoReduzido (array)
- * - Coluna K → passivelNotaMais (TRUE = true, vazio = false)
- * - Coluna J → pixLiberado (TRUE = true, vazio = false)
- * - Coluna I → acionouCentral (não é FALSE e vazio = true)
- * - Coluna E → createdAt
- * - Coluna F → Finalizado.Resolvido (se preenchida = true), Finalizado.dataResolucao = F
+ * Arquivo: dados procon/ATUALIZAÇÃO RA.xlsx (sem linha de cabeçalho)
+ * 
+ * Mapeamento de colunas Excel → Schema MongoDB (LISTA_SCHEMAS.rb):
+ * - A → cpf
+ * - B → idEntrada
+ * - C → dataReclam
+ * - D → createdAt
+ * - E → Finalizado.dataResolucao (se preenchida: Resolvido = true)
+ * - F → responsavel
+ * - G → produto
+ * - H → motivoReduzido (array)
+ * - I → pixLiberado (TRUE = true, vazio = false)
+ * - J → acionouCentral (não é FALSE e vazio = true)
+ * - K → passivelNotaMais (TRUE = true, vazio = false)
+ * - L → cpfRepetido
+ * 
+ * Enriquecimento: busca CPF em Bacen/N2Pix para nome, bacen, n2, protocolos (inalterado)
  * - updatedAt = data de hoje
  * 
  * Uso:
@@ -38,7 +40,7 @@ const COLLECTION_NAME = 'reclamacoes_reclameAqui';
 const DRY_RUN = process.argv.includes('--dry-run');
 
 // Caminho do arquivo XLSX
-const XLSX_PATH = path.join(__dirname, '../../../dados procon/RA.xlsx');
+const XLSX_PATH = path.join(__dirname, '../../../dados procon/ATUALIZAÇÃO RA.xlsx');
 
 /**
  * Converter data do Excel ou string para Date
@@ -330,11 +332,10 @@ function lerXLSXPorColunas(caminhoArquivo) {
       } else {
         // Para coluna A (CPF), usar valor formatado (cell.w) se disponível para preservar zeros à esquerda
         // Caso contrário, usar valor bruto (cell.v)
-        if (C === 0 && cell.w) {
-          // Coluna A (CPF): usar valor formatado para preservar zeros à esquerda
+        if ((C === 0 || C === 1) && cell.w) {
+          // A (CPF) e B (idEntrada): formatado preserva zeros à esquerda em números
           row.push(cell.w);
         } else {
-          // Outras colunas: usar valor normal
           row.push(cell.v);
         }
       }
@@ -359,40 +360,32 @@ function lerXLSXPorColunas(caminhoArquivo) {
       continue; // Pular linhas vazias
     }
     
-    // Mapear colunas (índices baseados em 0: A=0, B=1, C=2, D=3, E=4, F=5, G=6, H=7, I=8, J=9, K=10, L=11)
+    // Mapear colunas (índices: A=0 … L=11) — alinhado a LISTA_SCHEMAS reclamacoes_reclameAqui
     const registro = {
-      // Coluna A (índice 0) → cpf (já vem formatado com zeros à esquerda se disponível)
+      // A → cpf
       cpf: normalizarCPF(row[0]),
-      
-      // Coluna B (índice 1) → idEntrada
-      idEntrada: row[1] ? String(row[1]).trim() : '',
-      
-      // Coluna C (índice 2) → dataReclam
+      // B → idEntrada
+      idEntrada: row[1] ? String(row[1]).replace(/\D/g, '').trim() || String(row[1]).trim() : '',
+      // C → dataReclam
       dataReclam: parseData(row[2]),
-      
-      // Coluna D (índice 3) → responsavel
-      responsavel: row[3] ? normalizarNome(String(row[3]).trim()) : '',
-      
-      // Coluna E (índice 4) → createdAt
-      createdAt: parseData(row[4]),
-      
-      // Coluna F (índice 5) → Finalizado.dataResolucao (se preenchida, Finalizado.Resolvido = true)
-      finalizadoResolvido: row[5] ? true : false,
-      finalizadoDataResolucao: row[5] ? parseData(row[5]) : null,
-      
-      // Coluna H (índice 7) → motivoReduzido (array)
+      // D → createdAt
+      createdAt: parseData(row[3]),
+      // E → Finalizado.dataResolucao
+      finalizadoResolvido: row[4] ? true : false,
+      finalizadoDataResolucao: row[4] ? parseData(row[4]) : null,
+      // F → responsavel
+      responsavel: row[5] ? normalizarNome(String(row[5]).trim()) : '',
+      // G → produto
+      produto: row[6] ? String(row[6]).trim() : '',
+      // H → motivoReduzido
       motivoReduzido: converterMotivoReduzido(row[7]),
-      
-      // Coluna I (índice 8) → acionouCentral (não é FALSE e vazio = true)
-      acionouCentral: converterAcionouCentral(row[8]),
-      
-      // Coluna J (índice 9) → pixLiberado (TRUE = true, vazio = false)
-      pixLiberado: converterPixLiberado(row[9]),
-      
-      // Coluna K (índice 10) → passivelNotaMais (TRUE = true, vazio = false)
+      // I → pixLiberado
+      pixLiberado: converterPixLiberado(row[8]),
+      // J → acionouCentral
+      acionouCentral: converterAcionouCentral(row[9]),
+      // K → passivelNotaMais
       passivelNotaMais: converterBoolean(row[10], false),
-      
-      // Coluna L (índice 11) → cpfRepetido
+      // L → cpfRepetido
       cpfRepetido: row[11] ? String(row[11]).trim() : '',
       
       // Campos que serão preenchidos após busca nas collections Bacen e N2Pix
@@ -526,6 +519,7 @@ async function processarAtualizacoes() {
           cpf: registro.cpf,
           nome: registro.nome,
           responsavel: registro.responsavel,
+          produto: registro.produto,
           cpfRepetido: registro.cpfRepetido,
           idEntrada: registro.idEntrada,
           dataReclam: registro.dataReclam,
@@ -574,9 +568,11 @@ async function processarAtualizacoes() {
                 $set: {
                   nome: documento.nome,
                   responsavel: documento.responsavel,
+                  produto: documento.produto,
                   cpfRepetido: documento.cpfRepetido,
                   idEntrada: documento.idEntrada,
                   dataReclam: documento.dataReclam,
+                  createdAt: documento.createdAt,
                   motivoReduzido: documento.motivoReduzido,
                   passivelNotaMais: documento.passivelNotaMais,
                   pixLiberado: documento.pixLiberado,
