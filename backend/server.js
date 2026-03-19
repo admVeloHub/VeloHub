@@ -1,6 +1,10 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.49.2 | DATE: 2026-03-18 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.49.3 | DATE: 2026-03-19 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v2.49.3:
+ * - VeloBot: Tabulação exibida passa a ser sempre do mesmo documento da resposta
+ * - Usa aiAnalysis.relevantOptions[0].tabulacao quando IA identifica 1 opção perfeita (não mais botPerguntasData[0])
  *
  * Mudanças v2.49.2:
  * - Fluxo email ai-response: payload estruturado com nomeOperador e inteligencia para persona/template
@@ -2080,6 +2084,19 @@ app.post('/api/chatbot/ask', async (req, res) => {
       articlesUsed: articlesData.slice(0, 3).map(a => a._id)
     });
 
+    // Preparar tabulação: garantir que seja do MESMO documento da resposta
+    // - Se IA identificou 1 opção perfeita: usar aiAnalysis.relevantOptions[0] (documento correto)
+    // - Se fallback bot_perguntas: usar botPerguntasData[0]
+    // - Se resposta só de artigos ou sem match: null
+    let tabulacaoFinal = null;
+    if (shouldUseLocalFallback()) {
+      tabulacaoFinal = FALLBACK_FOR_LOCAL_TESTING.tabulacao;
+    } else if (aiAnalysis && aiAnalysis.relevantOptions && aiAnalysis.relevantOptions.length === 1) {
+      tabulacaoFinal = aiAnalysis.relevantOptions[0].tabulacao || null;
+    } else if (botPerguntasData.length > 0) {
+      tabulacaoFinal = botPerguntasData[0].tabulacao || null;
+    }
+
     // Preparar resposta final otimizada
     const responseData = {
       success: true,
@@ -2088,7 +2105,7 @@ app.post('/api/chatbot/ask', async (req, res) => {
       source: responseSource,
       aiProvider: aiProvider,
       sessionId: session.id,
-      tabulacao: shouldUseLocalFallback() ? FALLBACK_FOR_LOCAL_TESTING.tabulacao : (botPerguntasData.length > 0 ? botPerguntasData[0].tabulacao : null),
+      tabulacao: tabulacaoFinal,
       articles: articlesData.slice(0, 3).map(article => ({
         id: article._id,
         _id: article._id,
