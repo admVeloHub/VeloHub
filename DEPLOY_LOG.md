@@ -40,6 +40,15 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Backend Ouvidoria e Server**
+- **Data/Hora**: 2026-03-17
+- **Tipo**: GitHub Push
+- **Arquivos Modificados**:
+  - `backend/routes/api/ouvidoria/reclamacoes.js`
+  - `backend/server.js`
+- **Descrição**: Atualizações em rotas Ouvidoria e servidor
+- **Status**: ✅ Concluído com sucesso
+
 ### **GitHub Push - Backend Ouvidoria, Chatbot, Scripts Diagnóstico e Asset**
 - **Data/Hora**: 2026-03-17
 - **Tipo**: GitHub Push
