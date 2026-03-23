@@ -1,7 +1,13 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Dashboard
- * VERSION: v2.33.1 | DATE: 2026-03-19 | AUTHOR: VeloHub Development Team
- * 
+ * VERSION: v2.33.3 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v2.33.3:
+ * - Comentários dos cards solLiberacao alinhados ao match case-insensitive (canônico: Liberação chave pix)
+ *
+ * Mudanças v2.33.2:
+ * - Comentário: canônico de motivo liberação chave pix alinhado a sentence case ("Liberação chave pix")
+ *
  * Mudanças v2.33.1:
  * - Corrigido HTTP 500 em GET /stats: função calcularStatsPorTipoComMixed era referenciada mas não existia (ReferenceError)
  * 
@@ -204,7 +210,7 @@ function normalizarMotivoParaComparacao(motivoReduzido) {
 }
 
 /**
- * Verificar se motivoReduzido contém exatamente "Liberação Chave Pix" (case-insensitive)
+ * Verificar se motivoReduzido contém liberação de chave pix (case-insensitive; canônico: "Liberação chave pix")
  * Bacen = String; RA, Procon, N2, Judicial = [String]. Tratado como array na lógica.
  * @param {string|Array<string>|undefined} motivoReduzido - Motivo reduzido
  * @returns {boolean}
@@ -347,7 +353,7 @@ function getDataInicioPrazoMixed(doc) {
 /**
  * Calcular estatísticas por tipo (para data.porTipo)
  * Lógica conforme especificação:
- * - solLiberacao: docs cujo motivoReduzido contém "Liberação Chave Pix"
+ * - solLiberacao: docs cujo motivoReduzido contém liberação chave pix (case-insensitive)
  * - pixLiberado: docs com pixLiberado === true (TODOS os motivos)
  * - pixRetido: docs com motivo "Liberação Chave Pix" + Finalizado.Resolvido === true + pixLiberado === false
  * - percRetencao: (pixRetido / solLiberacao) × 100
@@ -370,7 +376,7 @@ function calcularStatsPorTipo(docs, collectionName) {
     r.procon === true ||
     (r.protocolosProcon && Array.isArray(r.protocolosProcon) && r.protocolosProcon.length > 0)
   )).length;
-  // PEDIDOS LIBERAÇÃO: motivoReduzido contém exatamente "Liberação Chave Pix"
+  // PEDIDOS LIBERAÇÃO: motivoReduzido contém liberação chave pix (case-insensitive)
   const solLiberacao = docs.filter(r => isMotivoLiberacaoChavePix(r.motivoReduzido)).length;
   // LIBERADOS: pixLiberado === true (inclui TODOS os motivos)
   const pixLiberado = docs.filter(r => r.pixLiberado === true).length;

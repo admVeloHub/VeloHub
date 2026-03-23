@@ -40,6 +40,19 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Ouvidoria, scripts de update e normalização**
+- **Data/Hora**: 2026-03-19
+- **Tipo**: GitHub Push
+- **Arquivos Modificados**:
+  - `backend/routes/api/ouvidoria/` (dashboard, reclamacoes, relatorios)
+  - `backend/scripts/` (limpar-reclameaqui, normalizar-motivos-capitalizacao, update-bacen-from-excel, update-n2pix-from-excel, update-procon-from-excel, update-reclameaqui-from-excel)
+  - `src/components/Ouvidoria/` (AnaliseDiaria, FormReclamacao, FormReclamacaoEdit, ListaReclamacoes, RelatoriosOuvidoria)
+- **Arquivos Novos**:
+  - `backend/scripts/atualizar-nome-reclameaqui-desde-csv.js`, `enriquecer-nome-reclameaqui-outras-fontes.js`
+  - `backend/utils/motivoReduzidoNormalize.js`
+- **Descrição**: Atualizações Ouvidoria (rotas, componentes), scripts de update Excel e normalização Reclame Aqui
+- **Status**: ✅ Concluído com sucesso
+
 ### **GitHub Push - Sociais, Ouvidoria e scripts**
 - **Data/Hora**: 2026-03-19
 - **Tipo**: GitHub Push

@@ -1,7 +1,10 @@
 /**
  * Script de Atualização: Base Bacen (XLSX) → MongoDB reclamacoes_bacen
- * VERSION: v1.4.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
- * 
+ * VERSION: v1.5.0 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v1.5.0:
+ * - motivoReduzido via utils/motivoReduzidoNormalize.js (renomeações + sentence case pt-BR)
+ *
  * Mudanças v1.4.0:
  * - CORRIGIDO: Função converterPixLiberado() melhorada para aceitar boolean, número, string e null/undefined
  * - Agora processa corretamente valores da coluna W (pixLiberado) da planilha Excel
@@ -53,6 +56,7 @@ const { MongoClient } = require('mongodb');
 const path = require('path');
 const XLSX = require('xlsx');
 const fs = require('fs');
+const { normalizarMotivosDeCelula } = require(path.join(__dirname, '../utils/motivoReduzidoNormalize'));
 
 // Configuração MongoDB
 const MONGODB_URI = process.env.MONGO_ENV || 'mongodb+srv://REDACTED';
@@ -148,47 +152,10 @@ function normalizarNome(nome) {
 }
 
 /**
- * Normalizar motivo individual: capitalização correta
- * - "Chave Pix" → "Liberação Chave Pix"
- * - "Liberação chave pix" → "Liberação Chave Pix"
- * - "Abatimento de juros" → "Abatimento de Juros"
- */
-function normalizarMotivoIndividual(motivo) {
-  if (!motivo || typeof motivo !== 'string') return '';
-  
-  const motivoTrim = motivo.trim();
-  const lower = motivoTrim.toLowerCase();
-  
-  if (lower === 'chave pix') {
-    return 'Liberação Chave Pix';
-  }
-  if (lower === 'liberação chave pix' || lower === 'liberacao chave pix') {
-    return 'Liberação Chave Pix';
-  }
-  if (lower === 'abatimento de juros' || lower === 'abatimento de juro') {
-    return 'Abatimento de Juros';
-  }
-  
-  return motivoTrim;
-}
-
-/**
- * Converter motivoReduzido para array (pode ter múltiplos valores separados)
- * Normaliza "Chave Pix" → "Liberação Chave Pix"
+ * Converter motivoReduzido (coluna J) para array — padrão ouvidoria (motivoReduzidoNormalize)
  */
 function converterMotivoReduzido(motivoStr) {
-  if (!motivoStr || typeof motivoStr !== 'string') {
-    return [];
-  }
-  
-  // Dividir por vírgula, ponto e vírgula, ou barra
-  const motivos = motivoStr
-    .split(/[,;\/]/)
-    .map(m => m.trim())
-    .filter(m => m.length > 0)
-    .map(m => normalizarMotivoIndividual(m)); // Normalizar cada motivo
-  
-  return motivos;
+  return normalizarMotivosDeCelula(motivoStr);
 }
 
 /**

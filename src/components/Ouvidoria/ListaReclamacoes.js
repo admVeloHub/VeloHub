@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - ListaReclamacoes Component
- * VERSION: v1.20.0 | DATE: 2026-03-19 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.21.0 | DATE: 2026-03-19 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.21.0:
+ * - MOTIVOS_REDUZIDOS (BACEN/N2/Procon), MOTIVOS_ACAO_JUDICIAL, MOTIVOS_RECLAME_AQUI: alinhados a FormReclamacao; MOTIVOS_FILTRO_LISTA = união das 3 listas
  * 
  * Mudanças v1.20.0:
  * - Etiquetas fixas na borda superior dos campos (evita sobreposição com preview de data)
@@ -146,35 +149,58 @@ const validarCPF = (cpf) => {
   return cleaned.length === 11;
 };
 
-const MOTIVOS_REDUZIDOS = [
-  'Abatimento de Juros',
-  'Abatimento de Juros/Chave PIX',
-  'Cancelamento Conta',
-  'Chave PIX',
-  'PIX/Abatimento de Juros/Encerramento de Conta',
-  'Chave PIX/Abatimento de Juros/Prob. App',
-  'Chave PIX/Acesso ao App',
-  'Chave PIX/Exclusão de Conta',
-  'Conta',
-  'Contestação de Valores',
-  'Credito do Trabalhador',
-  'Credito Pessoal',
-  'Cupons Velotax',
-  'Devolução à Celcoin',
-  'Fraude',
-  'Liquidação Antecipada',
-  'Liquidação Antecipada/Abatimento de Juros',
-  'Não Recebeu Restituição',
-  'Não Recebeu Restituição/Abatimento de Juros',
-  'Não Recebeu Restituição/Abatimento de Juros/Chave PIX',
-  'Não Recebeu Restituição/Chave PIX',
-  'Probl. App/Gov',
-  'Seguro Celular',
-  'Seguro Divida Zero',
-  'Seguro Prestamista',
-  'Seguro Saude',
-  'Superendividamento'
+/**
+ * União de todos os motivos (FormReclamacao) para filtro único na lista.
+ * Mantido alinhado com FormReclamacao/FormReclamacaoEdit.
+ */
+const MOTIVOS_REDUZIDOS = [ /* BACEN, N2 Pix, Procon */
+  'Liberação chave pix',
+  'Portabilidade pix',
+  'Abatimento de juros',
+  'Cancelamento até 7 dias',
+  'Cancelamento superior a 7 dias',
+  'Em cobrança',
+  'Alega fraude',
+  'Erro app',
+  'Encerramento cta celcoin',
+  'Encerramento cta app',
+  'Superendividamento',
 ];
+const MOTIVOS_ACAO_JUDICIAL = [
+  'Juros',
+  'Chave pix',
+  'Restituição BB',
+  'Relatório',
+  'Repetição indébito',
+  'Superendividamento',
+  'Desconhece contratação',
+];
+const MOTIVOS_RECLAME_AQUI = [
+  'Liberação chave pix',
+  'Portabilidade chave pix',
+  'Cancelamento/ estorno',
+  'Cancelamento até 7 dias',
+  'Cancelamento superior a 7 dias',
+  'Abatimento de juros',
+  'Em cobrança',
+  'Encerramento cta celcoin',
+  'Encerramento cta app',
+  'Erro app',
+  'Erro gov',
+  'Alega fraude',
+  'Juros abusivos',
+  'Sem margem',
+  'Valor minimo para contratação',
+  'Desativada - não considerar reclamação',
+  'Reativação de cadastro',
+  'Dúvidas gerais',
+  'Limite baixo do pix',
+  'Alteração cadastral',
+  'Dívida prescrita',
+  'Seguro acidente',
+  'Dúvidas sobre restituição',
+];
+const MOTIVOS_FILTRO_LISTA = [...new Set([...MOTIVOS_REDUZIDOS, ...MOTIVOS_ACAO_JUDICIAL, ...MOTIVOS_RECLAME_AQUI])];
 
 const ListaReclamacoes = () => {
   const [reclamacoes, setReclamacoes] = useState([]);
@@ -543,7 +569,7 @@ const ListaReclamacoes = () => {
                     className={selectBase}
                   >
                     <option value="">Todos</option>
-                    {MOTIVOS_REDUZIDOS.map((mot, idx) => (
+                    {MOTIVOS_FILTRO_LISTA.map((mot, idx) => (
                       <option key={idx} value={mot}>{mot}</option>
                     ))}
                   </select>

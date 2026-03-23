@@ -1,6 +1,7 @@
 /**
  * Script para limpar/esvaziar a collection reclamacoes_reclameAqui
- * VERSION: v1.0.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.1 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * v1.0.1: reexecução para readequações Reclame Aqui
  */
 
 require('dotenv').config();

@@ -1,7 +1,10 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Reclamações
- * VERSION: v2.15.0 | DATE: 2026-03-19 | AUTHOR: VeloHub Development Team
- * 
+ * VERSION: v2.16.0 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v2.16.0:
+ * - POST/PUT: motivoReduzido persistido via utils/motivoReduzidoNormalize (sentence case pt-BR + renomeações)
+ *
  * Mudanças v2.15.0:
  * - GET /reclamacoes: adicionado filtro status (resolvido / em_andamento) via Finalizado.Resolvido
  * 
@@ -84,8 +87,10 @@
  */
 
 const express = require('express');
+const path = require('path');
 const router = express.Router();
 const { ObjectId } = require('mongodb');
+const { normalizarCampoMotivoReduzido } = require(path.join(__dirname, '../../../utils/motivoReduzidoNormalize'));
 
 /** Lista de campos que devem ser Date (não string) */
 const CAMPOS_DATA = [
@@ -111,6 +116,18 @@ const parsearDataParaDate = (valor) => {
  * Normaliza campos de data no objeto: converte strings para Date
  * Para OUVIDORIA/N2: dataEntradaAtendimento (legado do form) → dataEntradaN2 (schema oficial)
  */
+/**
+ * Se o objeto tiver a chave motivoReduzido, substitui pelo array canônico (não altera outras chaves).
+ * @param {Record<string, unknown>} alvo
+ */
+const aplicarMotivoReduzidoNormalizado = (alvo) => {
+  if (!alvo || typeof alvo !== 'object') return alvo;
+  if (!Object.prototype.hasOwnProperty.call(alvo, 'motivoReduzido')) return alvo;
+  const { motivos } = normalizarCampoMotivoReduzido(alvo.motivoReduzido);
+  alvo.motivoReduzido = motivos;
+  return alvo;
+};
+
 const normalizarCamposDataParaDate = (obj) => {
   const result = { ...obj };
   // Mapear dataEntradaAtendimento → dataEntradaN2 (schema LISTA_SCHEMAS.rb tem apenas dataEntradaN2)
@@ -592,11 +609,13 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
 
       // Preparar documento (remover tipo do documento pois já está na coleção)
       const { tipo, ...dadosSemTipo } = dados;
-      const documento = normalizarCamposDataParaDate({
-        ...dadosSemTipo,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      const documento = aplicarMotivoReduzidoNormalizado(
+        normalizarCamposDataParaDate({
+          ...dadosSemTipo,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+      );
 
       const resultado = await collection.insertOne(documento);
 
@@ -700,10 +719,12 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
       const { tipo: tipoRemovido, ...dadosSemTipo } = dados;
       
       // Atualizar documento (normalizar datas para Date)
-      const updateDoc = normalizarCamposDataParaDate({
-        ...dadosSemTipo,
-        updatedAt: new Date(),
-      });
+      const updateDoc = aplicarMotivoReduzidoNormalizado(
+        normalizarCamposDataParaDate({
+          ...dadosSemTipo,
+          updatedAt: new Date(),
+        })
+      );
 
       const resultado = await collection.updateOne(
         { _id: new ObjectId(id) },
