@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Reports (Sociais)
- * VERSION: v1.0.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.1.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v1.1.0:
+ * - Gráfico de sentimento no PDF: barras empilhadas (Positivo azul, Neutro amarelo, Negativo vermelho)
  */
 
 import { useState } from 'react';
@@ -8,7 +11,7 @@ import { DownloadOutlined, RocketLaunchOutlined } from '@mui/icons-material';
 import { getTabulations, getChartData, generateReport } from '../../services/sociaisApi';
 import { downloadReportPDF } from '../../utils/sociais/pdfGenerator';
 import { downloadReportWord } from '../../utils/sociais/wordGenerator';
-import { generateDashboardChartsImages, generateSentimentPieChart } from '../../utils/sociais/chartExporter';
+import { generateDashboardChartsImages, generateSentimentStackedBarChart } from '../../utils/sociais/chartExporter';
 
 const Reports = () => {
   const [report, setReport] = useState('');
@@ -86,7 +89,7 @@ const Reports = () => {
       const sentimentData = calculateSentimentByNetwork(data);
       if (sentimentData.length > 0) {
         try {
-          const sentimentChart = await generateSentimentPieChart(sentimentData);
+          const sentimentChart = await generateSentimentStackedBarChart(sentimentData);
           setSentimentChartImage(sentimentChart);
         } catch (e) {
           setSentimentChartImage(null);
