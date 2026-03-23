@@ -40,6 +40,18 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Sociais, Ouvidoria e scripts**
+- **Data/Hora**: 2026-03-19
+- **Tipo**: GitHub Push
+- **Arquivos Modificados**:
+  - `backend/routes/sociais.js`, `backend/services/sociaisGeminiService.js`
+  - `backend/scripts/` (limpar-erros-bugs-antigos, listar-motivos-unicos-n2pix, verificar-motivos-n2pix)
+  - `src/components/Ouvidoria/` (FormReclamacao, FormReclamacaoEdit)
+  - `src/components/Sociais/Reports.jsx`
+  - `src/utils/sociais/` (chartExporter, pdfGenerator)
+- **Descrição**: Atualizações módulos Sociais, Ouvidoria e scripts backend
+- **Status**: ✅ Concluído com sucesso
+
 ### **GitHub Push - Backend scripts, dashboard, ESLint e smoke test**
 - **Data/Hora**: 2026-03-19
 - **Tipo**: GitHub Push

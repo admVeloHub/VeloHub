@@ -1,9 +1,11 @@
 /**
  * VeloHub V3 - Rotas do Módulo Sociais
- * VERSION: v1.0.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.1.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v1.1.0:
+ * - stripReportPreamble no fallback Groq; prompts sem preâmbulos
  *
  * Rotas para tabulação, dashboard, feed, análise IA e relatórios.
- * Adaptado do natralha para usar client e connectToMongo do VeloHub.
  */
 
 const express = require('express');
@@ -185,22 +187,25 @@ function initSociaisRoutes(client, connectToMongo) {
                     return `${idx + 1}. ${JSON.stringify(item)}`;
                   }).join('\n')
                 : String(data).substring(0, 4000);
-              const prompt = `Contexto: Você é um Especialista em Customer Experience e Data Analytics. Transforme os dados em Relatório Executivo em Markdown.
+              const prompt = `Transforme os dados em Relatório Executivo em Markdown. IMPORTANTE: Retorne APENAS o conteúdo do relatório, sem preâmbulos. Comece direto com "# Relatório Executivo de CX".
 
 DADOS COLETADOS:\nTotal: ${Array.isArray(data) ? data.length : 0}\n${dataSummary}
 
-ESTRUTURA: # Relatório Executivo de CX | ## 1. Visão Geral | ## 2. Insights | ## 3. Análise | ## 4. Pontos de Atrito | ## 5. Action Plan | ## 6. Conclusão`;
+ESTRUTURA OBRIGATÓRIA: # Relatório Executivo de CX | ## 1. Visão Geral | ## 2. Insights | ## 3. Análise | ## 4. Pontos de Atrito | ## 5. Action Plan | ## 6. Conclusão`;
               const completion = await groq.chat.completions.create({
                 messages: [
-                  { role: 'system', content: 'Você é consultor sênior de CX. Escreva relatórios executivos em Markdown.' },
+                  { role: 'system', content: 'Você escreve relatórios executivos em Markdown. Nunca inclua preâmbulos como "Com certeza" ou "Como especialista". Comece sempre com "# Relatório Executivo de CX".' },
                   { role: 'user', content: prompt }
                 ],
                 model: 'llama-3.1-8b-instant',
                 temperature: 0.7,
                 max_tokens: 4000
               });
-              const groqReport = completion.choices[0]?.message?.content || '';
-              if (groqReport) result = { success: true, data: groqReport, source: 'groq' };
+              let groqReport = completion.choices[0]?.message?.content || '';
+              if (groqReport) {
+                groqReport = sociaisGeminiService.stripReportPreamble(groqReport.trim());
+                result = { success: true, data: groqReport, source: 'groq' };
+              }
             }
           } catch (groqError) {
             console.warn('⚠️ [sociais] Groq fallback falhou:', groqError.message);

@@ -1,6 +1,18 @@
 /**
  * VeloHub V3 - FormReclamacaoEdit Component
- * VERSION: v1.26.0 | DATE: 2026-03-16 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.28.0 | DATE: 2026-03-19 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.28.0:
+ * - MOTIVOS_REDUZIDOS (BACEN/N2/Procon): igual FormReclamacao v3.30; legado ao carregar edição
+ * 
+ * Mudanças v1.27.2:
+ * - Reclame Aqui: "Desativada - Não considerar Reclamação" + legado sem hífen ao carregar
+ * 
+ * Mudanças v1.27.1:
+ * - Reclame Aqui: ordem — Encerramento cta App logo após Encerramento cta Celcoin (alinhado FormReclamacao v3.29.1)
+ * 
+ * Mudanças v1.27.0:
+ * - Reclame Aqui (MOTIVOS_RECLAME_AQUI): alinhado ao FormReclamacao v3.29; normalização de rótulos legados ao carregar edição
  * 
  * Mudanças v1.26.0:
  * - PROCON: Motivo usa MOTIVOS_REDUZIDOS (alinhado com FormReclamacao e schema)
@@ -166,33 +178,37 @@ const validarCPF = (cpf) => {
 };
 
 /**
- * Opções de motivo reduzido (BACEN/N2)
- * VERSION: v1.4.0 | DATE: 2026-03-16 | Abatimento de Juros, Liberação Chave Pix, Portabilidade Pix
- * 
- * Motivos disponíveis para formulários BACEN e N2 Pix:
- * - Abatimento de Juros
- * - Cancelamento
- * - Cobrança
- * - Encerramento de Conta
- * - Erro
- * - Fraude
- * - Lgpd
- * - Liberação Chave Pix
- * - Portabilidade Pix
- * - Superendividamento
+ * Opções de motivo reduzido (BACEN / N2 Pix / Procon)
+ * VERSION: v2.0.0 | DATE: 2026-03-19 | Igual FormReclamacao.js
  */
 const MOTIVOS_REDUZIDOS = [
-  'Abatimento de Juros',
-  'Cancelamento',
-  'Cobrança',
-  'Encerramento de Conta',
-  'Erro',
-  'Fraude',
-  'Lgpd',
   'Liberação Chave Pix',
   'Portabilidade Pix',
-  'Superendividamento'
+  'Abatimento de Juros',
+  'Cancelamento até 7 dias',
+  'Cancelamento superior a 7 dias',
+  'Em cobrança',
+  'Alega fraude',
+  'Erro App',
+  'Encerramento cta Celcoin',
+  'Encerramento cta App',
+  'Superendividamento',
 ];
+
+/** Rótulos antigos (BACEN/N2/Procon) → novos ao carregar edição */
+const LEGADO_MOTIVO_REDUZIDOS = {
+  Cobrança: 'Em cobrança',
+  Fraude: 'Alega fraude',
+  Erro: 'Erro App',
+  'Encerramento de Conta': 'Encerramento cta Celcoin',
+  Lgpd: 'Encerramento cta App',
+  LGPD: 'Encerramento cta App',
+};
+
+const normalizarMotivosReduzidosAoCarregar = (motivos) => {
+  if (!Array.isArray(motivos)) return motivos;
+  return motivos.map((m) => LEGADO_MOTIVO_REDUZIDOS[m] || m);
+};
 
 /**
  * Opções de motivo para Ação Judicial (múltipla escolha)
@@ -212,23 +228,45 @@ const MOTIVOS_ACAO_JUDICIAL = [
  */
 const MOTIVOS_RECLAME_AQUI = [
   'Liberação Chave Pix',
+  'Portabilidade Chave Pix',
   'Cancelamento/ Estorno',
+  'Cancelamento até 7 dias',
+  'Cancelamento superior a 7 dias',
   'Abatimento de Juros',
-  'Cobrança',
-  'Encerramento de Conta Celcoin',
-  'Erro',
-  'Fraude',
-  'LGPD',
+  'Em cobrança',
+  'Encerramento cta Celcoin',
+  'Encerramento cta App',
+  'Erro App',
+  'Erro Gov',
+  'Alega fraude',
   'Juros Abusivos',
   'Sem Margem',
   'Valor Minimo para contratação',
-  'Desativada Não considerar Reclamação',
+  'Desativada - Não considerar Reclamação',
   'Reativação de Cadastro',
   'Dúvidas Gerais',
   'Limite baixo do Pix',
-  'Portabilidade Pix',
-  'Erro E-cac'
+  'Alteração cadastral',
+  'Dívida prescrita',
+  'Seguro acidente',
+  'Dúvidas sobre restituição',
 ];
+
+/** Rótulos antigos do RA → novos (apenas ao carregar edição; não altera schema no banco até salvar) */
+const LEGADO_MOTIVO_RECLAME_AQUI = {
+  Cobrança: 'Em cobrança',
+  Fraude: 'Alega fraude',
+  Erro: 'Erro App',
+  'Encerramento de Conta Celcoin': 'Encerramento cta Celcoin',
+  LGPD: 'Encerramento cta App',
+  'Portabilidade Pix': 'Portabilidade Chave Pix',
+  'Desativada Não considerar Reclamação': 'Desativada - Não considerar Reclamação',
+};
+
+const normalizarMotivosReclameAquiAoCarregar = (motivos) => {
+  if (!Array.isArray(motivos)) return motivos;
+  return motivos.map((m) => LEGADO_MOTIVO_RECLAME_AQUI[m] || m);
+};
 
 /**
  * Converter dados da reclamação para formData
@@ -284,9 +322,18 @@ const converterParaFormData = (reclamacao) => {
     produto: reclamacao.produto || '',
     anexos: reclamacao.anexos || [],
     prazoBacen: formatarDataInput(reclamacao.prazoBacen),
-    motivoReduzido: Array.isArray(reclamacao.motivoReduzido) 
-      ? reclamacao.motivoReduzido 
-      : (reclamacao.motivoReduzido ? [reclamacao.motivoReduzido] : []),
+    motivoReduzido: (() => {
+      const arr = Array.isArray(reclamacao.motivoReduzido)
+        ? [...reclamacao.motivoReduzido]
+        : (reclamacao.motivoReduzido ? [reclamacao.motivoReduzido] : []);
+      if (tipoNormalizado === 'RECLAME_AQUI') {
+        return normalizarMotivosReclameAquiAoCarregar(arr);
+      }
+      if (tipoNormalizado === 'BACEN' || tipoNormalizado === 'OUVIDORIA' || tipoNormalizado === 'PROCON') {
+        return normalizarMotivosReduzidosAoCarregar(arr);
+      }
+      return arr;
+    })(),
     motivoDetalhado: reclamacao.motivoDetalhado || '',
     
     // Campos OUVIDORIA (schema: dataEntradaN2)

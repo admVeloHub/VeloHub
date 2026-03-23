@@ -1,6 +1,13 @@
 /**
  * VeloHub V3 - PDF Generator (Sociais)
- * VERSION: v1.0.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.2.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v1.2.0:
+ * - Relatório: divisão em múltiplas páginas (imagem longa split com offset negativo)
+ * - Gráfico de sentimento somente após relatório completo
+ *
+ * Mudanças v1.1.0:
+ * - Gráfico de sentimento no PDF: altura ajustada (95mm) para barras empilhadas
  */
 
 let jsPDFCache = null;
@@ -110,6 +117,7 @@ export const generateReportPDF = async (reportMarkdown, chartImages = null, sent
     }
   }
   if (currentSection.length > 0) sections.push({ content: currentSection.join('\n'), pageBreak: false });
+  const contentHeightPerPage = pageHeight - (margin * 2);
   for (let i = 0; i < sections.length; i++) {
     const section = sections[i];
     if (section.pageBreak && i > 0) { pdf.addPage(); yPosition = margin; continue; }
@@ -123,11 +131,28 @@ export const generateReportPDF = async (reportMarkdown, chartImages = null, sent
     try {
       const canvasResult = await canvas(tempDiv, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
       const imgData = canvasResult.toDataURL('image/png');
-      const imgWidth = maxWidth;
-      const imgHeight = (canvasResult.height * imgWidth) / canvasResult.width;
-      if (i > 0) checkNewPage(imgHeight);
-      pdf.addImage(imgData, 'PNG', margin, yPosition, imgWidth, imgHeight);
-      yPosition += imgHeight + 10;
+      const imgWidthPdf = maxWidth;
+      const imgHeightPdf = (canvasResult.height * imgWidthPdf) / canvasResult.width;
+      const firstPageContentHeight = pageHeight - yPosition - margin;
+      if (imgHeightPdf <= firstPageContentHeight) {
+        pdf.addImage(imgData, 'PNG', margin, yPosition, imgWidthPdf, imgHeightPdf);
+        yPosition += imgHeightPdf + 10;
+      } else {
+        const remainingAfterFirst = imgHeightPdf - firstPageContentHeight;
+        const totalPagesNeeded = 1 + Math.ceil(remainingAfterFirst / contentHeightPerPage);
+        for (let p = 0; p < totalPagesNeeded; p++) {
+          if (p > 0) {
+            pdf.addPage();
+            yPosition = margin;
+          }
+          const sliceStart = p === 0 ? 0 : firstPageContentHeight + (p - 1) * contentHeightPerPage;
+          const yOffset = -sliceStart;
+          pdf.addImage(imgData, 'PNG', margin, yPosition + yOffset, imgWidthPdf, imgHeightPdf);
+          if (p === 0) yPosition += firstPageContentHeight;
+          else yPosition = margin + Math.min(contentHeightPerPage, imgHeightPdf - sliceStart);
+        }
+        yPosition += 10;
+      }
     } catch (e) {
       const textLines = pdf.splitTextToSize(removeCitationCodes(section.content), maxWidth);
       textLines.forEach(l => { checkNewPage(7); pdf.text(l, margin, yPosition); yPosition += 7; });
@@ -135,11 +160,11 @@ export const generateReportPDF = async (reportMarkdown, chartImages = null, sent
     document.body.removeChild(tempDiv);
   }
   if (sentimentChartImage?.dataUrl) {
-    checkNewPage(100);
+    checkNewPage(110);
     yPosition += 10;
     if (sentimentChartImage.dataUrl.startsWith('data:image')) {
-      pdf.addImage(sentimentChartImage.dataUrl, 'PNG', margin, yPosition, maxWidth, 80);
-      yPosition += 90;
+      pdf.addImage(sentimentChartImage.dataUrl, 'PNG', margin, yPosition, maxWidth, 95);
+      yPosition += 105;
     }
   }
   const totalPages = pdf.internal.pages.length - 1;

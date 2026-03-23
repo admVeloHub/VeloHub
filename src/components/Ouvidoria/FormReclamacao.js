@@ -1,8 +1,20 @@
 /**
  * VeloHub V3 - FormReclamacao Component
- * VERSION: v3.28.0 | DATE: 2026-03-16 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.30.0 | DATE: 2026-03-19 | AUTHOR: VeloHub Development Team
  * 
  * Componente de formulário para criação de reclamações BACEN, Ouvidoria, Reclame Aqui, Procon e Processos
+ * 
+ * Mudanças v3.30.0:
+ * - MOTIVOS_REDUZIDOS (BACEN / N2 / Procon): ordem e rótulos alinhados à especificação (Cancelamento em duas opções; renomeações; Lgpd → Encerramento cta App)
+ * 
+ * Mudanças v3.29.2:
+ * - Reclame Aqui: motivo "Desativada - Não considerar Reclamação" (hífen)
+ * 
+ * Mudanças v3.29.1:
+ * - Reclame Aqui: ordem — Encerramento cta App logo após Encerramento cta Celcoin
+ * 
+ * Mudanças v3.29.0:
+ * - Reclame Aqui (MOTIVOS_RECLAME_AQUI): novos motivos; removido Erro E-cac; renomeações; Liberação Chave Pix e Portabilidade Chave Pix no topo
  * 
  * Mudanças v3.28.0:
  * - PROCON: adicionado campo Origem (valores: Procon, Consumidor.gov); incluído no payload
@@ -11,7 +23,6 @@
  * - BACEN: removido valor "Consumidor.Gov" do campo Origem; Prazo deixa de ser obrigatório
  * 
  * Mudanças v3.26.0:
-commit e push
  * - BACEN: campo "Natureza" renomeado para "Origem" (label e mensagens de validação)
  * 
  * Mudanças v3.25.0:
@@ -202,32 +213,24 @@ const validarCPF = (cpf) => {
 
 
 /**
- * Opções de motivo reduzido (BACEN/N2)
- * VERSION: v1.4.0 | DATE: 2026-03-16 | Abatimento de Juros, Liberação Chave Pix, Portabilidade Pix
- * 
- * Motivos disponíveis para formulários BACEN e N2 Pix:
- * - Abatimento de Juros
- * - Cancelamento
- * - Cobrança
- * - Encerramento de Conta
- * - Erro
- * - Fraude
- * - Lgpd
- * - Liberação Chave Pix
- * - Portabilidade Pix
- * - Superendividamento
+ * Opções de motivo reduzido (BACEN / N2 Pix / Procon)
+ * VERSION: v2.0.0 | DATE: 2026-03-19 | Alinhado lista operacional BACEN
+ *
+ * Ordem: Liberação Chave Pix e Portabilidade Pix no topo; depois Abatimento, cancelamentos (7 dias),
+ * Em cobrança, Alega fraude, Erro App, encerramentos cta, Superendividamento.
  */
 const MOTIVOS_REDUZIDOS = [
-  'Abatimento de Juros',
-  'Cancelamento',
-  'Cobrança',
-  'Encerramento de Conta',
-  'Erro',
-  'Fraude',
-  'Lgpd',
   'Liberação Chave Pix',
   'Portabilidade Pix',
-  'Superendividamento'
+  'Abatimento de Juros',
+  'Cancelamento até 7 dias',
+  'Cancelamento superior a 7 dias',
+  'Em cobrança',
+  'Alega fraude',
+  'Erro App',
+  'Encerramento cta Celcoin',
+  'Encerramento cta App',
+  'Superendividamento',
 ];
 
 /**
@@ -248,22 +251,28 @@ const MOTIVOS_ACAO_JUDICIAL = [
  */
 const MOTIVOS_RECLAME_AQUI = [
   'Liberação Chave Pix',
+  'Portabilidade Chave Pix',
   'Cancelamento/ Estorno',
+  'Cancelamento até 7 dias',
+  'Cancelamento superior a 7 dias',
   'Abatimento de Juros',
-  'Cobrança',
-  'Encerramento de Conta Celcoin',
-  'Erro',
-  'Fraude',
-  'LGPD',
+  'Em cobrança',
+  'Encerramento cta Celcoin',
+  'Encerramento cta App',
+  'Erro App',
+  'Erro Gov',
+  'Alega fraude',
   'Juros Abusivos',
   'Sem Margem',
   'Valor Minimo para contratação',
-  'Desativada Não considerar Reclamação',
+  'Desativada - Não considerar Reclamação',
   'Reativação de Cadastro',
   'Dúvidas Gerais',
   'Limite baixo do Pix',
-  'Portabilidade Pix',
-  'Erro E-cac'
+  'Alteração cadastral',
+  'Dívida prescrita',
+  'Seguro acidente',
+  'Dúvidas sobre restituição',
 ];
 
 const FormReclamacao = ({ responsavel, onSuccess }) => {
