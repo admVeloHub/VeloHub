@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.2 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.3 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,16 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - Script Ouvidoria: normalizar produto Empréstimo Pessoal**
+- **Data/Hora**: 2026-03-23
+- **Tipo**: GitHub Push
+- **Arquivos Modificados**:
+  - `DEPLOY_LOG.md`
+- **Arquivos Novos**:
+  - `backend/scripts/normalizar-produto-emprestimo-pessoal.js` (v1.0.1 — conexão apenas via `MONGO_ENV`, sem credenciais no código)
+- **Descrição**: Script para normalizar valores de `produto` nas coleções de reclamações (BACEN, N2Pix, Procon, Reclame Aqui, Judicial) para o canônico "Empréstimo Pessoal"; suporta `--dry-run`
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - Escalações: paridade Erros/Bugs e sidebar unificada**
 - **Data/Hora**: 2026-03-23
