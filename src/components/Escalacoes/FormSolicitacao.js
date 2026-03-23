@@ -1,7 +1,19 @@
 /**
  * VeloHub V3 - FormSolicitacao Component (Escalações Module)
- * VERSION: v1.15.2 | DATE: 2026-03-03 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.15.5 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
+ * 
+ * Mudanças v1.15.5:
+ * - Log local e refresh: anexa array reply do Mongo quando disponível (sidebar / destaque msg Produtos)
+ * - Novo envio: persiste reply inicial retornado pelo create no item do cache
+ * 
+ * Mudanças v1.15.4:
+ * - Espaçamento do form levemente reduzido (space-y) e bloco do botão Enviar sem folga extra no fim
+ * 
+ * Mudanças v1.15.3:
+ * - Logs de envio renderizados na sidebar da EscalacoesPage (prop onLocalLogsChange)
+ * - forwardRef + useImperativeHandle: refreshLocalLogs() para botão "Atualizar agora" na sidebar
+ * - Persistência de requestId no cache local (ID da solicitação) para abrir modal de respostas
  * 
  * Mudanças v1.15.2:
  * - MELHORIA: Melhorado tratamento de erro 503 para detectar WhatsApp desconectado
@@ -109,15 +121,16 @@
  * - Adicionada formatação automática de telefone (XX)91234-5678 nos campos dadoAntigo e dadoNovo
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { createPortal } from 'react-dom';
 import { solicitacoesAPI, logsAPI } from '../../services/escalacoesApi';
 
 /**
  * Componente de formulário para solicitações técnicas
  * @param {Function} registrarLog - Função para registrar logs
+ * @param {Function} [onLocalLogsChange] - Callback com array de logs locais (sidebar Req_Prod)
  */
-const FormSolicitacao = ({ registrarLog }) => {
+const FormSolicitacao = forwardRef(function FormSolicitacao({ registrarLog, onLocalLogsChange }, ref) {
   const [form, setForm] = useState({
     agente: '',
     cpf: '',
@@ -184,7 +197,11 @@ const FormSolicitacao = ({ registrarLog }) => {
   useEffect(() => {
     try {
       const cached = localStorage.getItem('velotax_local_logs');
-      if (cached) setLocalLogs(JSON.parse(cached));
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setLocalLogs(parsed);
+        onLocalLogsChange?.(parsed);
+      }
       const agent = localStorage.getItem('velotax_agent');
       if (agent) setForm((prev) => ({ ...prev, agente: toTitleCase(agent) }));
     } catch (err) {
@@ -224,6 +241,7 @@ const FormSolicitacao = ({ registrarLog }) => {
    */
   const saveCache = (items) => {
     setLocalLogs(items);
+    onLocalLogsChange?.(items);
     try {
       localStorage.setItem('velotax_local_logs', JSON.stringify(items));
     } catch (err) {
@@ -252,24 +270,35 @@ const FormSolicitacao = ({ registrarLog }) => {
   };
 
   /**
-   * Atualizar status dos logs localmente
+   * Atualizar status dos logs localmente (exposto à sidebar via ref)
    */
-  const refreshNow = async () => {
+  const refreshLocalLogs = useCallback(async () => {
     if (!localLogs.length) return;
     try {
       const all = await solicitacoesAPI.getAll();
       const requests = Array.isArray(all.data) ? all.data : [];
-      const updated = localLogs.map(item => {
+      const updated = localLogs.map((item) => {
         const match = item.waMessageId
-          ? requests.find(r => r.waMessageId === item.waMessageId)
-          : requests.find(r => r.cpf === item.cpf && r.tipo === item.tipo);
-        return match ? { ...item, status: match.status } : item;
+          ? requests.find((r) => r.waMessageId === item.waMessageId)
+          : requests.find((r) => r.cpf === item.cpf && r.tipo === item.tipo);
+        if (!match) return item;
+        const rid = match._id != null ? String(match._id) : match.id != null ? String(match.id) : item.requestId;
+        return {
+          ...item,
+          status: match.status,
+          requestId: item.requestId || rid || undefined,
+          reply: Array.isArray(match.reply) ? match.reply : item.reply,
+        };
       });
       saveCache(updated);
     } catch (err) {
       console.error('Erro ao atualizar logs:', err);
     }
-  };
+  }, [localLogs]);
+
+  useImperativeHandle(ref, () => ({
+    refreshLocalLogs,
+  }), [refreshLocalLogs]);
 
   /**
    * Formatar telefone no formato (XX)91234-5678 (celular brasileiro - 11 dígitos)
@@ -388,11 +417,17 @@ const FormSolicitacao = ({ registrarLog }) => {
       try {
         const all = await solicitacoesAPI.getAll();
         const requests = Array.isArray(all.data) ? all.data : [];
-        const updated = localLogs.map(item => {
+        const updated = localLogs.map((item) => {
           const match = item.waMessageId
-            ? requests.find(r => r.waMessageId === item.waMessageId)
-            : requests.find(r => r.cpf === item.cpf && r.tipo === item.tipo);
-          return match ? { ...item, status: match.status } : item;
+            ? requests.find((r) => r.waMessageId === item.waMessageId)
+            : requests.find((r) => r.cpf === item.cpf && r.tipo === item.tipo);
+          if (!match) return item;
+          const rid = match._id != null ? String(match._id) : match.id != null ? String(match.id) : item.requestId;
+          return {
+            ...item,
+            status: match.status,
+            requestId: item.requestId || rid || undefined,
+          };
         });
         saveCache(updated);
       } catch (err) {
@@ -674,13 +709,22 @@ const FormSolicitacao = ({ registrarLog }) => {
       if (registrarLog) registrarLog('✅ Solicitação registrada');
       showNotification('Solicitação registrada', 'success');
 
+      const created = result?.data;
+      const requestId =
+        created?._id != null
+          ? String(created._id)
+          : created?.id != null
+            ? String(created.id)
+            : undefined;
       const newItem = {
+        requestId,
         cpf: cpfApenasNumeros,
         tipo: form.tipo,
         waMessageId: null,
         status: 'enviado',
         enviado: true,
         createdAt: new Date().toISOString(),
+        reply: Array.isArray(created?.reply) ? created.reply : undefined,
       };
       saveCache([newItem, ...localLogs].slice(0, 50));
 
@@ -764,7 +808,7 @@ const FormSolicitacao = ({ registrarLog }) => {
             enviar(e);
           }
         }}
-        className="space-y-5 relative"
+        className="space-y-4 relative pb-0"
         aria-busy={loading}
         aria-live="polite"
       >
@@ -1031,7 +1075,7 @@ const FormSolicitacao = ({ registrarLog }) => {
           />
         </div>
 
-        <div className="flex items-center justify-end gap-4">
+        <div className="flex items-center justify-end gap-4 mt-1 mb-0">
           <button
             disabled={loading}
             className={`bg-blue-600 text-white font-medium px-5 py-2 rounded-lg hover:bg-blue-700 transition-all duration-200 inline-flex items-center gap-2 ${
@@ -1054,7 +1098,7 @@ const FormSolicitacao = ({ registrarLog }) => {
         </div>
 
         {buscaResultados && buscaResultados.length > 0 && (
-          <div className="bg-gray-50 dark:bg-gray-800 backdrop-blur p-4 rounded-xl border border-gray-200 dark:border-gray-700 mt-4">
+          <div className="bg-gray-50 dark:bg-gray-800 backdrop-blur p-4 rounded-xl border border-gray-200 dark:border-gray-700 mt-3">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-sky-500 to-emerald-500" />
               <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
@@ -1084,53 +1128,6 @@ const FormSolicitacao = ({ registrarLog }) => {
           </div>
         )}
 
-        {/* Logs de Envio */}
-        <div className="bg-gray-50 dark:bg-gray-800 backdrop-blur p-4 rounded-xl border border-gray-200 dark:border-gray-700 mt-4">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-sky-500 to-emerald-500" />
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Logs de Envio</h2>
-          </div>
-          {(!localLogs || localLogs.length === 0) && (
-            <div className="text-gray-600 dark:text-gray-400">Nenhum log ainda.</div>
-          )}
-          <div className="space-y-2 max-h-56 overflow-auto pr-1">
-            {localLogs.map((l, idx) => {
-              const s = String(l.status || '').toLowerCase();
-              const isDoneFail = s === 'não feito' || s === 'nao feito';
-              const isDoneOk = s === 'feito';
-              const sentOnly = !isDoneOk && !isDoneFail && (s === 'enviado' || l.enviado === true);
-              const bar1 = (sentOnly || isDoneOk || isDoneFail) ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600';
-              const bar2 = isDoneOk ? 'bg-emerald-500' : (isDoneFail ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-600');
-              const icon = isDoneOk ? '✅' : (isDoneFail ? '❌' : (sentOnly ? '📨' : '⏳'));
-              return (
-                <div
-                  key={idx}
-                  className="p-3 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">{icon}</span>
-                      <span className="text-sm text-gray-800 dark:text-gray-200">
-                        {l.cpf} — {l.tipo}
-                      </span>
-                    </div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400">
-                      {new Date(l.createdAt).toLocaleString()}
-                    </div>
-                  </div>
-                  <div className="mt-2 flex items-center gap-1.5" aria-label={`progresso: ${s || 'em aberto'}`}>
-                    <span className={`h-1.5 w-8 rounded-full ${bar1}`}></span>
-                    <span className={`h-1.5 w-8 rounded-full ${bar2}`}></span>
-                    <span className="text-[11px] opacity-60 ml-2 text-gray-600 dark:text-gray-400">
-                      {s || 'em aberto'}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
         {loading && (
           <div
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
@@ -1150,7 +1147,9 @@ const FormSolicitacao = ({ registrarLog }) => {
       </form>
     </>
   );
-};
+});
+
+FormSolicitacao.displayName = 'FormSolicitacao';
 
 export default FormSolicitacao;
 

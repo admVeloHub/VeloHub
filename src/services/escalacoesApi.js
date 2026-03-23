@@ -1,6 +1,12 @@
 /**
  * VeloHub V3 - Escalações API Service
- * VERSION: v1.2.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.4.0 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.4.0:
+ * - errosBugsAPI: getById, addReply, cancelarRegistro (POST .../erros-bugs/:id/reply)
+ * 
+ * Mudanças v1.3.0:
+ * - cancelarSolicitacao(id) → POST .../reply com cancelarSolicitacao: true
  * 
  * Mudanças v1.2.0:
  * - Adicionado método confirmarResposta para confirmar visualização de respostas do WhatsApp
@@ -139,6 +145,16 @@ export const solicitacoesAPI = {
     method: 'POST',
     body: JSON.stringify(data),
   }),
+
+  /**
+   * Cancelar solicitação: acrescenta em reply { status: "Cancelado", msgProdutos: null, msgN1: null, at }
+   * @param {string} solicitacaoId - ID da solicitação
+   * @returns {Promise<Object>} Resultado
+   */
+  cancelarSolicitacao: (solicitacaoId) => apiRequest(`/escalacoes/solicitacoes/${solicitacaoId}/reply`, {
+    method: 'POST',
+    body: JSON.stringify({ cancelarSolicitacao: true }),
+  }),
 };
 
 /**
@@ -167,6 +183,31 @@ export const errosBugsAPI = {
    * @returns {Promise<Array>} Lista de erros/bugs
    */
   getByCpf: (cpf) => apiRequest(`/escalacoes/erros-bugs?cpf=${cpf}`),
+
+  /**
+   * Buscar erro/bug por ID
+   * @param {string} id
+   * @returns {Promise<Object>}
+   */
+  getById: (id) => apiRequest(`/escalacoes/erros-bugs/${id}`),
+
+  /**
+   * Adicionar item ao array reply (origem produtos | n1)
+   */
+  addReply: (id, data) =>
+    apiRequest(`/escalacoes/erros-bugs/${id}/reply`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  /**
+   * Cancelar: novo item em reply com status Cancelado (mesmo body que solicitações)
+   */
+  cancelarRegistro: (id) =>
+    apiRequest(`/escalacoes/erros-bugs/${id}/reply`, {
+      method: 'POST',
+      body: JSON.stringify({ cancelarSolicitacao: true }),
+    }),
 };
 
 /**

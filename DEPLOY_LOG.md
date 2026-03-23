@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.1 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.2 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,22 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - Escalações: paridade Erros/Bugs e sidebar unificada**
+- **Data/Hora**: 2026-03-23
+- **Tipo**: GitHub Push
+- **Arquivos Modificados**:
+  - `backend/routes/api/escalacoes/erros-bugs.js`
+  - `backend/routes/api/escalacoes/solicitacoes.js`
+  - `src/components/Escalacoes/ErrosBugsTab.js`
+  - `src/components/Escalacoes/FormSolicitacao.js`
+  - `src/pages/EscalacoesPage.js`
+  - `src/services/escalacoesApi.js`
+  - `DEPLOY_LOG.md`
+- **Arquivos Novos**:
+  - `src/utils/escalacoesModalHelpers.js`
+- **Descrição**: Paridade da aba Erros/Bugs com Solicitações (rotas/API de reply e cancelamento onde aplicável, modal e fluxo alinhados), sidebar única “Busca e acompanhamento” com altura sincronizada ao card principal (ResizeObserver), helpers compartilhados para modal/status Produtos
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - Ouvidoria, scripts de update e normalização**
 - **Data/Hora**: 2026-03-19

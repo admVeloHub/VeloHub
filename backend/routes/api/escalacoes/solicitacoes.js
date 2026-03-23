@@ -1,6 +1,12 @@
 /**
  * VeloHub V3 - Escalações API Routes - Solicitações Técnicas
- * VERSION: v1.6.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.7.1 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.7.1:
+ * - Documentação: POST /:id/reply com origem "produtos" grava msgProdutos + msgN1 null + at; origem "n1" o inverso (comportamento já existente)
+ * 
+ * Mudanças v1.7.0:
+ * - POST /:id/reply aceita cancelarSolicitacao: true → $push em reply { status: "Cancelado", msgProdutos: null, msgN1: null, at }
  * 
  * Mudanças v1.6.0:
  * - Normalização do campo replies em GET / e GET /:id para garantir que sempre seja array
@@ -629,8 +635,10 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
 
   /**
    * POST /api/escalacoes/solicitacoes/:id/reply
-   * Adicionar reply do time (Produtos ou N1) ao array reply
-   * Body: { origem: "produtos"|"n1", status: "enviado"|"feito"|"não feito", msgProdutos?: string, msgN1?: string }
+   * Adicionar item ao array reply OU cancelar solicitação
+   * Body cancelar: { cancelarSolicitacao: true } → { status: "Cancelado", msgProdutos: null, msgN1: null, at }
+   * Body reply: { origem: "produtos"|"n1", status: "enviado"|"feito"|"não feito", msgProdutos?: string, msgN1?: string }
+   * origem "produtos": persiste msgProdutos (texto), msgN1 null, at = agora | origem "n1": msgN1 (texto), msgProdutos null, at = agora
    */
   router.post('/:id/reply', async (req, res) => {
     try {
@@ -642,9 +650,42 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
       }
 
       const { id } = req.params;
-      const { origem, status, msgProdutos, msgN1 } = req.body || {};
+      const body = req.body || {};
+      const { origem, status, msgProdutos, msgN1 } = body;
 
-      // Validação
+      await connectToMongo();
+      const db = client.db('hub_escalacoes');
+      const collection = db.collection('solicitacoes_tecnicas');
+      const { ObjectId } = require('mongodb');
+      const filterId = ObjectId.isValid(id) ? new ObjectId(id) : id;
+
+      // Cancelar solicitação: novo item em reply (status Cancelado, mensagens null)
+      if (body.cancelarSolicitacao === true || body.cancelarSolicitacao === 'true') {
+        const doc = await collection.findOne({ _id: filterId });
+        if (!doc) {
+          return res.status(404).json({ ok: false, error: 'Solicitação não encontrada' });
+        }
+        const replyArray = Array.isArray(doc.reply) ? [...doc.reply] : [];
+        const cancelEntry = {
+          status: 'Cancelado',
+          msgProdutos: null,
+          msgN1: null,
+          at: new Date()
+        };
+        replyArray.push(cancelEntry);
+        await collection.updateOne(
+          { _id: doc._id },
+          { $set: { reply: replyArray, updatedAt: new Date() } }
+        );
+        console.log(`[reply] 🛑 Solicitação cancelada em ${doc._id}`);
+        return res.json({
+          ok: true,
+          solicitacaoId: doc._id.toString(),
+          replyCount: replyArray.length
+        });
+      }
+
+      // Validação — reply N1 / Produtos
       if (!origem || !['produtos', 'n1'].includes(String(origem).toLowerCase())) {
         return res.status(400).json({
           ok: false,
@@ -668,14 +709,7 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
         });
       }
 
-      await connectToMongo();
-      const db = client.db('hub_escalacoes');
-      const collection = db.collection('solicitacoes_tecnicas');
-
-      const { ObjectId } = require('mongodb');
-      const doc = await collection.findOne({
-        _id: ObjectId.isValid(id) ? new ObjectId(id) : id
-      });
+      const doc = await collection.findOne({ _id: filterId });
 
       if (!doc) {
         return res.status(404).json({

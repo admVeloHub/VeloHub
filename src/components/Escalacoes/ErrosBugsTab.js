@@ -1,6 +1,13 @@
 /**
  * VeloHub V3 - ErrosBugsTab Component
- * VERSION: v1.25.0 | DATE: 2026-03-13 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.27.0 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.27.0:
+ * - Sidebar unificada (paridade Solicitações): um painel “Busca e acompanhamento”, CPF+Buscar+Atualizar, scroll único com resultados da busca + envios recentes; altura da sidebar = card principal (ResizeObserver)
+ * 
+ * Mudanças v1.26.0:
+ * - Paridade com aba Solicitações: modal (cabeçalho status, grid 3 colunas, diálogo reply, N1+Cancelar, altura), API reply/cancelar, sidebar consulta com borda se msg Produtos não lida
+ * - Status do card e logs derivados de reply[] (getStatusChamado); cache local com requestId/reply após refresh/criação
  * 
  * Mudanças v1.25.0:
  * - Migração de anexos: base64 → upload via signed URL GCS (mediabank_velohub/anexos_produto)
@@ -152,10 +159,21 @@
  * - Implementada atualização automática a cada 3 minutos
  */
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useRef, useMemo } from 'react';
 import { errosBugsAPI, logsAPI, solicitacoesAPI } from '../../services/escalacoesApi';
 import { API_BASE_URL } from '../../config/api-config';
 import toast from 'react-hot-toast';
+import {
+  STORAGE_PROD_READ_ERROS_BUGS,
+  getStatusChamado,
+  lastProdutosReplyAtMs,
+  setProdutosReadMs,
+  hasUnreadProdutosInReplies,
+  buildProdutosN1Dialogue,
+  statusChamadoBadgeClass,
+  buildModalExtraPayloadCells,
+  ModalInfoGridCell,
+} from '../../utils/escalacoesModalHelpers';
 
 /**
  * Componente de aba para Erros/Bugs
@@ -197,6 +215,27 @@ const ErrosBugsTab = () => {
       });
     }
   }, [selectedRepliesRequest?._id, selectedRepliesRequest?.tipo]);
+
+  const [modalN1Draft, setModalN1Draft] = useState('');
+  const [modalSalvarN1Loading, setModalSalvarN1Loading] = useState(false);
+  const [modalCancelarRegLoading, setModalCancelarRegLoading] = useState(false);
+  const [prodReadEpoch, setProdReadEpoch] = useState(0);
+
+  useEffect(() => {
+    setModalN1Draft('');
+  }, [selectedRepliesRequest?._id, selectedRepliesRequest?.id]);
+
+  useEffect(() => {
+    const doc = selectedRepliesRequest;
+    if (!doc) return;
+    const id = doc._id ?? doc.id;
+    if (id == null || id === '') return;
+    const t = lastProdutosReplyAtMs(doc.reply);
+    if (t > 0) {
+      setProdutosReadMs(String(id), t, STORAGE_PROD_READ_ERROS_BUGS);
+      setProdReadEpoch((e) => e + 1);
+    }
+  }, [selectedRepliesRequest]);
   
   const [searchCpf, setSearchCpf] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
@@ -223,6 +262,7 @@ const ErrosBugsTab = () => {
       throw error;
     }
   };
+
   const [statsLoading, setStatsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [errosBugsRaw, setErrosBugsRaw] = useState([]);
@@ -231,6 +271,27 @@ const ErrosBugsTab = () => {
   const [loadError, setLoadError] = useState(null);
   const isLoadingRef = useRef(false); // Proteção contra requisições simultâneas
   const isMountedRef = useRef(true); // Controle de montagem do componente
+  const errosBugsMainCardRef = useRef(null);
+  const [errosBugsSidebarHeightPx, setErrosBugsSidebarHeightPx] = useState(null);
+
+  useLayoutEffect(() => {
+    const el = errosBugsMainCardRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    const sync = () => {
+      const h = el.offsetHeight;
+      if (h > 0) setErrosBugsSidebarHeightPx(h);
+    };
+    sync();
+    const ro = new ResizeObserver(() => {
+      sync();
+    });
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+    };
+  }, []);
 
   /**
    * Normalizar nome do agente (Title Case, espaços simples)
@@ -395,14 +456,19 @@ const ErrosBugsTab = () => {
         }
       }).length;
 
-      const pendingCount = list.filter(item => {
-        const status = String(item?.status || '').toLowerCase();
+      const pendingCount = list.filter((item) => {
+        const status = String(getStatusChamado(item) || '').toLowerCase();
         return status === 'em aberto' || status === 'enviado';
       }).length;
 
-      const doneCount = list.filter(item => {
-        const status = String(item?.status || '').toLowerCase();
-        return status === 'feito' || status === 'não feito' || status === 'nao feito';
+      const doneCount = list.filter((item) => {
+        const status = String(getStatusChamado(item) || '').toLowerCase();
+        return (
+          status === 'feito' ||
+          status === 'não feito' ||
+          status === 'nao feito' ||
+          status === 'cancelado'
+        );
       }).length;
 
       setStats({
@@ -699,6 +765,107 @@ const ErrosBugsTab = () => {
     }
   };
 
+  const atualizarErroBugNoModal = async (docId) => {
+    const id = docId || selectedRepliesRequest?._id || selectedRepliesRequest?.id;
+    if (!id) return;
+    try {
+      const res = await errosBugsAPI.getById(id);
+      if (res?.success && res?.data) setSelectedRepliesRequest(res.data);
+    } catch (err) {
+      console.error('[ErrosBugsTab] atualizarErroBugNoModal:', err);
+    }
+  };
+
+  const abrirModalDesdeLogLocal = async (logItem) => {
+    const lid = logItem?.requestId;
+    try {
+      if (lid) {
+        const result = await errosBugsAPI.getById(lid);
+        if (result?.success && result?.data) {
+          setSelectedRepliesRequest(result.data);
+          return;
+        }
+      }
+      const arr = Array.isArray(errosBugsRaw) ? errosBugsRaw : [];
+      const match = logItem?.waMessageId
+        ? arr.find((r) => r.waMessageId === logItem.waMessageId)
+        : arr.find((r) => r.cpf === logItem.cpf && String(r.tipo || '').startsWith('Erro/Bug'));
+      if (match) {
+        setSelectedRepliesRequest(match);
+        return;
+      }
+      toast.error('Não foi possível carregar este registro. Atualize os logs ou busque por CPF.');
+    } catch (err) {
+      console.error('[ErrosBugsTab] abrirModalDesdeLogLocal:', err);
+      toast.error(err.message || 'Erro ao abrir detalhes');
+    }
+  };
+
+  const handleModalSalvarRespostaN1 = async () => {
+    const texto = String(modalN1Draft || '').trim();
+    if (!texto) {
+      toast.error('Digite a resposta do N1 antes de salvar.');
+      return;
+    }
+    const id = selectedRepliesRequest?._id || selectedRepliesRequest?.id;
+    if (!id) return;
+    setModalSalvarN1Loading(true);
+    try {
+      await errosBugsAPI.addReply(id, {
+        origem: 'n1',
+        status: 'enviado',
+        msgProdutos: null,
+        msgN1: texto,
+      });
+      await atualizarErroBugNoModal(id);
+      setModalN1Draft('');
+      toast.success('Resposta N1 registrada.');
+      await loadStats();
+      if (searchCpf) await buscarCpf();
+    } catch (err) {
+      console.error('[ErrosBugsTab] handleModalSalvarRespostaN1:', err);
+      toast.error(err.message || 'Erro ao salvar resposta');
+    } finally {
+      setModalSalvarN1Loading(false);
+    }
+  };
+
+  const handleModalCancelarRegistro = async () => {
+    if (!window.confirm('Cancelar este registro? O status será gravado como Cancelado no histórico.')) {
+      return;
+    }
+    const id = selectedRepliesRequest?._id || selectedRepliesRequest?.id;
+    if (!id) return;
+    setModalCancelarRegLoading(true);
+    try {
+      await errosBugsAPI.cancelarRegistro(id);
+      await atualizarErroBugNoModal(id);
+      toast.success('Registro cancelado.');
+      await loadStats();
+      if (searchCpf) await buscarCpf();
+    } catch (err) {
+      console.error('[ErrosBugsTab] handleModalCancelarRegistro:', err);
+      toast.error(err.message || 'Erro ao cancelar');
+    } finally {
+      setModalCancelarRegLoading(false);
+    }
+  };
+
+  const sidebarConsultaUnread = useMemo(() => {
+    for (const r of searchResults || []) {
+      const id = r._id ?? r.id;
+      if (id != null && id !== '' && hasUnreadProdutosInReplies(String(id), r.reply, STORAGE_PROD_READ_ERROS_BUGS)) {
+        return true;
+      }
+    }
+    for (const l of localLogs || []) {
+      if (l?.requestId && Array.isArray(l.reply)) {
+        if (hasUnreadProdutosInReplies(String(l.requestId), l.reply, STORAGE_PROD_READ_ERROS_BUGS)) return true;
+      }
+    }
+    return false;
+  }, [searchResults, localLogs, prodReadEpoch]);
+
   /**
    * Atualizar status dos logs locais e estatísticas
    */
@@ -708,11 +875,19 @@ const ErrosBugsTab = () => {
     try {
       const result = await errosBugsAPI.getAll();
       const all = Array.isArray(result.data) ? result.data : [];
-      const updated = localLogs.map(item => {
+      const updated = localLogs.map((item) => {
         const match = item.waMessageId
-          ? all.find(r => r.waMessageId === item.waMessageId)
-          : all.find(r => r.cpf === item.cpf && String(r.tipo || '').startsWith('Erro/Bug'));
-        return match ? { ...item, status: match.status } : item;
+          ? all.find((r) => r.waMessageId === item.waMessageId)
+          : all.find((r) => r.cpf === item.cpf && String(r.tipo || '').startsWith('Erro/Bug'));
+        if (!match) return item;
+        const rid =
+          match._id != null ? String(match._id) : match.id != null ? String(match.id) : item.requestId;
+        return {
+          ...item,
+          status: getStatusChamado(match),
+          requestId: item.requestId || rid || undefined,
+          reply: Array.isArray(match.reply) ? match.reply : item.reply,
+        };
       });
       saveCache(updated);
     } catch (err) {
@@ -815,12 +990,21 @@ const ErrosBugsTab = () => {
       }
 
       // 4) Adicionar ao cache local
+      const created = result?.data;
+      const requestId =
+        created?._id != null
+          ? String(created._id)
+          : created?.id != null
+            ? String(created.id)
+            : undefined;
       const newItem = {
+        requestId,
         cpf: cpfApenasNumeros,
         tipo: `Erro/Bug - ${tipo}`,
         waMessageId: null,
-        status: 'enviado',
-        createdAt: new Date().toISOString()
+        status: getStatusChamado(created) || 'enviado',
+        createdAt: new Date().toISOString(),
+        reply: Array.isArray(created?.reply) ? created.reply : undefined,
       };
       saveCache([newItem, ...localLogs].slice(0, 50));
 
@@ -849,7 +1033,7 @@ const ErrosBugsTab = () => {
   };
 
   return (
-    <div className="flex gap-8">
+    <div className="flex gap-8 items-start">
       {loading && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 p-8 rounded-xl">
@@ -861,8 +1045,12 @@ const ErrosBugsTab = () => {
         </div>
       )}
 
-      {/* Container Principal */}
-      <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 hover:-translate-y-0.5 transition-transform" style={{ minHeight: 'calc(100vh - 200px)' }}>
+      {/* Card principal: altura de referência para a sidebar (ResizeObserver) */}
+      <div
+        ref={errosBugsMainCardRef}
+        className="flex-1 min-w-0 bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 hover:-translate-y-0.5 transition-transform"
+        style={{ minHeight: 'calc(100vh - 200px)' }}
+      >
         {/* Cards de Estatísticas + Campo Agente + Botão Atualizar */}
         <div className="mb-6 flex items-center justify-between gap-3 relative">
           <div
@@ -1281,82 +1469,113 @@ const ErrosBugsTab = () => {
       </form>
       </div>
 
-      {/* Container de Sidebars */}
-      <div className="flex flex-col gap-4 w-[400px] flex-shrink-0" style={{ minHeight: 'calc(100vh - 200px)' }}>
-        {/* Sidebar Superior - Consulta de CPF */}
-        <div className="w-[400px] h-[400px] flex-shrink-0 bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 hover:-translate-y-0.5 transition-transform flex flex-col overflow-hidden">
-          <div className="flex items-center gap-2 mb-3 flex-shrink-0">
-            <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-sky-500 to-emerald-500" />
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-              Consulta de CPF
+      {/* Sidebar única: altura = card principal; busca CPF + envios recentes (paridade Solicitações) */}
+      <div
+        className={`w-[400px] flex-shrink-0 self-start flex flex-col min-h-0 rounded-2xl hover:-translate-y-0.5 transition-transform ${
+          sidebarConsultaUnread ? 'p-[2px]' : ''
+        }`}
+        style={{
+          ...(sidebarConsultaUnread
+            ? {
+                background:
+                  'linear-gradient(135deg, #006AB9 0%, #FACC15 42%, #1D4ED8 100%)',
+              }
+            : {}),
+          ...(errosBugsSidebarHeightPx != null && errosBugsSidebarHeightPx > 0
+            ? { height: errosBugsSidebarHeightPx }
+            : {}),
+        }}
+        aria-label={
+          sidebarConsultaUnread
+            ? 'Busca e acompanhamento: há resposta do time Produtos não lida'
+            : 'Busca e acompanhamento'
+        }
+      >
+        <div
+          className={`flex flex-col flex-1 min-h-0 overflow-hidden bg-white dark:bg-gray-800 shadow-lg p-4 ${
+            sidebarConsultaUnread ? 'rounded-[14px]' : 'rounded-2xl'
+          }`}
+        >
+          <div className="flex items-center gap-2 mb-2 flex-shrink-0">
+            <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-sky-500 to-emerald-500 flex-shrink-0" />
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 leading-tight">
+              Busca e acompanhamento
             </h2>
           </div>
+          <div className="text-xs text-gray-600 dark:text-gray-400 mb-2 flex-shrink-0">
+            Agente: {selectedAgent || 'Selecione um agente'}
+          </div>
+
           <div
             className="flex flex-col gap-2 flex-shrink-0"
             aria-busy={searchLoading}
             aria-live="polite"
           >
-            <div className="flex items-end gap-2">
-              <div className="flex-1">
-                <label className="text-sm text-gray-700 dark:text-gray-300 mb-1 block">CPF</label>
-                <input
-                  className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                  placeholder="Digite o CPF"
-                  value={searchCpf}
-                  onChange={(e) => setSearchCpf(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      buscarCpf();
-                    }
-                  }}
-                />
-              </div>
-              <div className="flex flex-col">
-                <div className="h-5"></div>
-                <button
-                  type="button"
-                  onClick={buscarCpf}
-                  className="bg-blue-600 text-white px-3 py-2 rounded-lg inline-flex items-center justify-center gap-2 transition-all duration-200 hover:bg-blue-700"
-                  disabled={searchLoading}
-                >
-              {searchLoading ? (
-                <>
-                  <svg
-                    className="animate-spin h-4 w-4"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  Buscando...
-                </>
-              ) : (
-                'Buscar'
-              )}
-                </button>
-              </div>
+            <div className="flex flex-wrap gap-2 items-stretch">
+              <input
+                className="min-w-0 flex-1 basis-[160px] border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                placeholder="Digite o CPF"
+                aria-label="CPF para busca"
+                value={searchCpf}
+                onChange={(e) => setSearchCpf(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    buscarCpf();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={buscarCpf}
+                className="bg-blue-600 text-white px-3 py-2 rounded-lg inline-flex items-center justify-center gap-2 transition-all duration-200 hover:bg-blue-700 flex-shrink-0"
+                disabled={searchLoading}
+              >
+                {searchLoading ? (
+                  <>
+                    <svg
+                      className="animate-spin h-4 w-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    Buscando...
+                  </>
+                ) : (
+                  'Buscar'
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => refreshNow()}
+                disabled={statsLoading}
+                className="text-xs px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700/90 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 flex-shrink-0 disabled:opacity-60"
+              >
+                {statsLoading ? 'Atualizando…' : 'Atualizar'}
+              </button>
             </div>
           </div>
-          {searchCpf && (
-            <div className="text-sm text-gray-600 dark:text-gray-400 mt-2 flex-shrink-0">
-              {searchResults.length} registro(s) encontrado(s)
-            </div>
-          )}
-          <div className="mt-3 flex-1 overflow-y-auto overflow-x-hidden pr-1 min-h-0">
+
+          <div className="mt-2 flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1 space-y-2">
+            {searchCpf && (
+              <div className="text-sm text-gray-600 dark:text-gray-400 sticky top-0 bg-white dark:bg-gray-800 py-1 z-[1]">
+                {searchResults.length} registro(s) nesta busca
+              </div>
+            )}
             {searchLoading && (
               <div className="space-y-2">
                 {[...Array(4)].map((_, i) => (
@@ -1376,18 +1595,26 @@ const ErrosBugsTab = () => {
             {searchResults && searchResults.length > 0 && !searchLoading && (
               <div className="space-y-2">
                 {searchResults.map((r) => {
-                  const imgCount = Array.isArray(r?.payload?.imagens) ? r.payload.imagens.length : (Array.isArray(r?.payload?.previews) ? r.payload.previews.length : 0);
+                  const imgCount = Array.isArray(r?.payload?.imagens)
+                    ? r.payload.imagens.length
+                    : Array.isArray(r?.payload?.previews)
+                      ? r.payload.previews.length
+                      : 0;
                   const videoCount = Array.isArray(r?.payload?.videos) ? r.payload.videos.length : 0;
                   const total = imgCount + videoCount;
                   const repliesList = Array.isArray(r.replies) ? r.replies : [];
-                  // Remover prefixo "Erro/Bug - " do tipo
-                  const tipoLimpo = String(r.tipo || '').replace(/^Erro\/Bug\s*-\s*/i, '').trim() || r.tipo || '—';
-                  // Formatar data e hora separadamente
+                  const replyArr = Array.isArray(r.reply) ? r.reply : [];
+                  const totalReplyEvents = replyArr.length + repliesList.length;
+                  const tipoLimpo =
+                    String(r.tipo || '')
+                      .replace(/^Erro\/Bug\s*-\s*/i, '')
+                      .trim() || r.tipo || '—';
                   const dataHora = r.createdAt ? new Date(r.createdAt) : null;
                   const dataFormatada = dataHora ? dataHora.toLocaleDateString('pt-BR') : '—';
-                  const horaFormatada = dataHora ? dataHora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—';
+                  const horaFormatada = dataHora
+                    ? dataHora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                    : '—';
                   const handleCardClick = (e) => {
-                    // Se o clique foi em um botão ou link, não fazer nada
                     if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
                       return;
                     }
@@ -1402,9 +1629,8 @@ const ErrosBugsTab = () => {
                       hasReplies: Array.isArray(r.replies),
                       repliesCount: Array.isArray(r.replies) ? r.replies.length : 0,
                       replies: r.replies,
-                      allKeys: Object.keys(r)
+                      allKeys: Object.keys(r),
                     });
-                    // SEMPRE abrir modal quando card é clicado
                     setSelectedRepliesRequest(r);
                   };
                   return (
@@ -1413,10 +1639,14 @@ const ErrosBugsTab = () => {
                       role="button"
                       tabIndex={0}
                       onClick={handleCardClick}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCardClick(e); } }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleCardClick(e);
+                        }
+                      }}
                       className="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
                     >
-                      {/* Primeira linha: [Tipo] [CPF] */}
                       <div className="flex items-center gap-2 mb-2">
                         <span className="font-medium text-gray-800 dark:text-gray-200 text-sm">
                           {tipoLimpo}
@@ -1424,35 +1654,31 @@ const ErrosBugsTab = () => {
                         <span className="font-bold text-gray-800 dark:text-gray-200 text-sm">
                           {r.cpf || '—'}
                         </span>
-                        {repliesList.length > 0 && (
+                        {totalReplyEvents > 0 && (
                           <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                            {repliesList.length} resposta{repliesList.length !== 1 ? 's' : ''}
+                            {totalReplyEvents} resposta{totalReplyEvents !== 1 ? 's' : ''}
                           </span>
                         )}
                       </div>
-                      {/* Segunda linha: [agente] [data] [hora] [Status] */}
                       <div className="flex items-center gap-2 flex-wrap mb-2">
                         <span className="text-xs text-gray-600 dark:text-gray-400">
                           {r.colaboradorNome || r.agente || '—'}
                         </span>
+                        <span className="text-xs text-gray-600 dark:text-gray-400">{dataFormatada}</span>
+                        <span className="text-xs text-gray-600 dark:text-gray-400">{horaFormatada}</span>
                         <span className="text-xs text-gray-600 dark:text-gray-400">
-                          {dataFormatada}
-                        </span>
-                        <span className="text-xs text-gray-600 dark:text-gray-400">
-                          {horaFormatada}
-                        </span>
-                        <span className="text-xs text-gray-600 dark:text-gray-400">
-                          {r.status || '—'}
+                          {getStatusChamado(r)}
                         </span>
                       </div>
-                      {/* Terceira linha: [Anexos] [ver anexos] */}
                       {total > 0 && (
-                        <div className="flex items-center gap-2" onClick={(e) => {
-                          // Se há respostas, não bloquear o clique do card (permitir abrir modal de respostas)
-                          if (repliesList.length === 0) {
-                            e.stopPropagation();
-                          }
-                        }}>
+                        <div
+                          className="flex items-center gap-2"
+                          onClick={(e) => {
+                            if (repliesList.length === 0) {
+                              e.stopPropagation();
+                            }
+                          }}
+                        >
                           <span className="text-xs text-gray-600 dark:text-gray-400">
                             Anexos: {imgCount > 0 ? `${imgCount} img` : ''}
                             {imgCount > 0 && videoCount > 0 ? ' + ' : ''}
@@ -1462,18 +1688,21 @@ const ErrosBugsTab = () => {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              // Se há respostas, não abrir modal de anexos (priorizar respostas)
                               if (repliesList.length === 0) {
                                 openAttachmentsModal(r);
                               }
                             }}
                             className={`text-xs px-2 py-1 rounded transition-colors ${
-                              repliesList.length > 0 
-                                ? 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' 
+                              repliesList.length > 0
+                                ? 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                                 : 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800'
                             }`}
                             disabled={repliesList.length > 0}
-                            title={repliesList.length > 0 ? 'Clique no card para ver respostas' : 'Ver anexos'}
+                            title={
+                              repliesList.length > 0
+                                ? 'Clique no card para ver respostas'
+                                : 'Ver anexos'
+                            }
                           >
                             Ver anexos
                           </button>
@@ -1484,67 +1713,95 @@ const ErrosBugsTab = () => {
                 })}
               </div>
             )}
-          </div>
-        </div>
 
-        {/* Sidebar Inferior - Histórico do Agente */}
-        <div className="w-[400px] bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 hover:-translate-y-0.5 transition-transform flex flex-col" style={{ height: '280px' }}>
-          <div className="mb-4 flex-shrink-0">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-sky-500 to-emerald-500" />
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-                Histórico do agente
-              </h2>
-            </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              {selectedAgent || 'Selecione um agente'}
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto pr-1 min-h-0">
-            {(!localLogs || localLogs.length === 0) && (
-              <div className="text-sm opacity-70 text-gray-600 dark:text-gray-400 text-center py-8">
-                Nenhum registro.
-              </div>
-            )}
             {localLogs && localLogs.length > 0 && (
               <div className="space-y-2">
                 {localLogs.map((l, idx) => {
                   const s = String(l.status || '').toLowerCase();
-                  const badge =
-                    s === 'feito'
-                      ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-200'
-                      : s === 'não feito' || s === 'nao feito'
-                      ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200'
-                      : s === 'enviado'
-                      ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200';
-                  const created = l.createdAt
-                    ? new Date(l.createdAt).toLocaleString()
-                    : '—';
+                  const isCancelado = s === 'cancelado';
+                  const isDoneFail = s === 'não feito' || s === 'nao feito';
+                  const isDoneOk = s === 'feito';
+                  const sentOnly =
+                    !isDoneOk &&
+                    !isDoneFail &&
+                    !isCancelado &&
+                    (s === 'enviado' || l.enviado === true);
+                  const bar1 = isCancelado
+                    ? 'bg-slate-400 dark:bg-slate-600'
+                    : sentOnly || isDoneOk || isDoneFail
+                      ? 'bg-blue-500'
+                      : 'bg-gray-300 dark:bg-gray-600';
+                  const bar2 = isCancelado
+                    ? 'bg-slate-500 dark:bg-slate-500'
+                    : isDoneOk
+                      ? 'bg-emerald-500'
+                      : isDoneFail
+                        ? 'bg-red-500'
+                        : 'bg-gray-300 dark:bg-gray-600';
+                  const icon = isCancelado
+                    ? '🛑'
+                    : isDoneOk
+                      ? '✅'
+                      : isDoneFail
+                        ? '❌'
+                        : sentOnly
+                          ? '📨'
+                          : '⏳';
+                  const logKey = l.requestId || l.waMessageId || `log-${idx}-${String(l.createdAt)}`;
+                  const openFromLog = (e) => {
+                    if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+                    e.preventDefault();
+                    abrirModalDesdeLogLocal(l);
+                  };
                   return (
                     <div
-                      key={idx}
-                      className="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600"
+                      key={`envio-${logKey}`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={openFromLog}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          openFromLog(e);
+                        }
+                      }}
+                      className="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:border-blue-300 dark:hover:border-blue-500 transition-colors"
                     >
-                      <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">
-                        {l.tipo} — {l.cpf || '—'}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-xl flex-shrink-0">{icon}</span>
+                          <span className="text-sm text-gray-800 dark:text-gray-200 truncate">
+                            {l.cpf || '—'} — {l.tipo}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-gray-600 dark:text-gray-400 flex-shrink-0 text-right">
+                          {l.createdAt ? new Date(l.createdAt).toLocaleString() : '—'}
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2 mb-1">
-                        <span>Status:</span>
-                        <span
-                          className={`px-2 py-0.5 rounded text-[11px] font-medium ${badge}`}
-                        >
-                          {s || '—'}
+                      <div
+                        className="mt-2 flex items-center gap-1.5"
+                        aria-label={`progresso: ${s || 'em aberto'}`}
+                      >
+                        <span className={`h-1.5 w-8 rounded-full ${bar1}`} />
+                        <span className={`h-1.5 w-8 rounded-full ${bar2}`} />
+                        <span className="text-[11px] opacity-60 ml-2 text-gray-600 dark:text-gray-400">
+                          {l.status || s || 'em aberto'}
                         </span>
-                      </div>
-                      <div className="text-[11px] text-gray-600 dark:text-gray-400">
-                        <div>Aberto: {created}</div>
                       </div>
                     </div>
                   );
                 })}
               </div>
             )}
+
+            {!searchLoading &&
+              (!searchResults || searchResults.length === 0) &&
+              (!localLogs || localLogs.length === 0) &&
+              !String(searchCpf || '').trim() && (
+                <div className="text-sm text-gray-600 dark:text-gray-400 py-8 text-center">
+                  Busque por CPF ou envie um erro/bug; os itens aparecem aqui.
+                </div>
+              )}
           </div>
         </div>
       </div>
@@ -1577,7 +1834,7 @@ const ErrosBugsTab = () => {
                       <strong>Agente:</strong> {selectedRequest.colaboradorNome || selectedRequest.agente || '—'}
                     </div>
                     <div>
-                      <strong>Status:</strong> {selectedRequest.status || '—'}
+                      <strong>Status:</strong> {getStatusChamado(selectedRequest)}
                     </div>
                     <div>
                       <strong>Descrição:</strong> {selectedRequest.payload?.descricao || '—'}
@@ -1811,7 +2068,7 @@ const ErrosBugsTab = () => {
         </div>
       )}
 
-      {/* Modal de Visualização de Respostas */}
+      {/* Modal de Visualização de Respostas (paridade com aba Solicitações) */}
       {selectedRepliesRequest && (
         <div 
           className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4"
@@ -1822,32 +2079,54 @@ const ErrosBugsTab = () => {
           }}
         >
           <div 
-            className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl max-h-[90vh] w-full overflow-hidden shadow-2xl"
+            className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl w-full min-h-[72vh] max-h-[96vh] overflow-hidden shadow-2xl flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 border-b border-gray-200 dark:border-gray-600 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-                Respostas - {selectedRepliesRequest.tipo} - {selectedRepliesRequest.cpf}
-              </h3>
+            <div className="p-4 border-b border-gray-200 dark:border-gray-600 flex items-center justify-between gap-3 flex-shrink-0">
+              <div className="min-w-0 flex-1 pr-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 leading-snug">
+                  Respostas — {selectedRepliesRequest.tipo || '—'} — {selectedRepliesRequest.cpf || '—'}
+                </h3>
+                <span className="text-gray-300 dark:text-gray-600 select-none hidden sm:inline" aria-hidden>|</span>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                    Status do chamado
+                  </span>
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusChamadoBadgeClass(
+                      getStatusChamado(selectedRepliesRequest)
+                    )}`}
+                  >
+                    {getStatusChamado(selectedRepliesRequest)}
+                  </span>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => setSelectedRepliesRequest(null)}
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 text-2xl leading-none transition-colors"
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 text-2xl leading-none transition-colors flex-shrink-0"
                 aria-label="Fechar"
               >
                 ×
               </button>
             </div>
-            <div className="p-4 overflow-auto max-h-[calc(90vh-80px)]">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4">
               <div className="space-y-4">
-                {/* Informações básicas */}
                 <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-                  <div className="text-sm space-y-1 text-gray-800 dark:text-gray-200">
-                    <div><strong>CPF:</strong> {selectedRepliesRequest.cpf || '—'}</div>
-                    <div><strong>Agente:</strong> {selectedRepliesRequest.colaboradorNome || selectedRepliesRequest.agente || '—'}</div>
-                    <div><strong>Status:</strong> {selectedRepliesRequest.status || '—'}</div>
-                    <div><strong>Tipo:</strong> {selectedRepliesRequest.tipo || '—'}</div>
-                    <div><strong>Data:</strong> {selectedRepliesRequest.createdAt ? new Date(selectedRepliesRequest.createdAt).toLocaleString('pt-BR') : '—'}</div>
+                  <div className="grid grid-cols-3 gap-x-3 gap-y-3">
+                    <ModalInfoGridCell label="CPF" value={selectedRepliesRequest.cpf || '—'} />
+                    <ModalInfoGridCell label="Tipo" value={selectedRepliesRequest.tipo || '—'} />
+                    <ModalInfoGridCell
+                      label="Data"
+                      value={
+                        selectedRepliesRequest.createdAt
+                          ? new Date(selectedRepliesRequest.createdAt).toLocaleString('pt-BR')
+                          : '—'
+                      }
+                    />
+                    {buildModalExtraPayloadCells(selectedRepliesRequest).map((c) => (
+                      <ModalInfoGridCell key={c.key} label={c.label} value={c.value} />
+                    ))}
                   </div>
                 </div>
 
@@ -1933,99 +2212,212 @@ const ErrosBugsTab = () => {
                   }
                   return null;
                 })()}
-                
-                {/* Lista de respostas */}
+
+                {(() => {
+                  const replyArray = Array.isArray(selectedRepliesRequest.reply) ? selectedRepliesRequest.reply : [];
+                  const replies = Array.isArray(selectedRepliesRequest.replies) ? selectedRepliesRequest.replies : [];
+                  const hasReply = replyArray.length > 0;
+                  const hasReplies = replies.length > 0;
+
+                  if (hasReply) {
+                    const dialogue = buildProdutosN1Dialogue(replyArray);
+                    return (
+                      <div>
+                        <h4 className="font-medium mb-3 text-gray-800 dark:text-gray-200">
+                          Respostas do time
+                          {dialogue.length > 0 && (
+                            <span className="text-gray-500 dark:text-gray-400 font-normal text-sm ml-1">
+                              ({dialogue.length}{' '}
+                              {dialogue.length === 1 ? 'mensagem' : 'mensagens'})
+                            </span>
+                          )}
+                        </h4>
+                        {dialogue.length === 0 ? (
+                          <div className="text-sm text-gray-500 dark:text-gray-400 py-4 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-dashed border-gray-200 dark:border-gray-600">
+                            Ainda não há mensagens de Produtos ou N1 registradas neste chamado (apenas eventos de status, se houver).
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {dialogue.map((b) => {
+                              if (b.role === 'produtos') {
+                                return (
+                                  <div key={b.key} className="flex justify-start">
+                                    <div className="max-w-[min(100%,28rem)] rounded-xl px-3 py-2.5 border-l-4 border-[#006AB9] bg-sky-50 dark:bg-sky-950/35 dark:border-sky-500 shadow-sm">
+                                      <div className="text-xs font-semibold text-[#006AB9] dark:text-sky-300 mb-1">
+                                        Time Produtos
+                                      </div>
+                                      <div className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
+                                        {b.text}
+                                      </div>
+                                      {b.at ? (
+                                        <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1.5">{b.at}</div>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              if (b.role === 'n1') {
+                                return (
+                                  <div key={b.key} className="flex justify-end">
+                                    <div className="max-w-[min(100%,28rem)] rounded-xl px-3 py-2.5 border-r-4 border-amber-500 bg-amber-50 dark:bg-amber-950/35 dark:border-amber-400 shadow-sm">
+                                      <div className="text-xs font-semibold text-amber-800 dark:text-amber-200 mb-1 text-right">
+                                        N1
+                                      </div>
+                                      <div className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words text-left">
+                                        {b.text}
+                                      </div>
+                                      {b.at ? (
+                                        <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1.5 text-left">{b.at}</div>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <div key={b.key} className="flex justify-center">
+                                  <div className="text-xs text-center text-gray-600 dark:text-gray-400 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
+                                    {b.text}
+                                    {b.at ? <span className="block text-[10px] text-gray-500 mt-0.5">{b.at}</span> : null}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  if (hasReplies) return null;
+                  return (
+                    <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+                      Nenhuma resposta disponível para este registro.
+                    </div>
+                  );
+                })()}
+
                 {(() => {
                   const replies = Array.isArray(selectedRepliesRequest.replies) ? selectedRepliesRequest.replies : [];
-                  // Log apenas quando há replies (para debug)
-                  if (replies.length > 0 && process.env.NODE_ENV === 'development') {
-                    console.log('[ErrosBugsTab Modal] Replies encontradas:', {
-                      requestId: selectedRepliesRequest._id || selectedRepliesRequest.id,
-                      repliesCount: replies.length
-                    });
-                  }
-                  return replies.length > 0 ? (
+                  if (replies.length === 0) return null;
+                  return (
                     <div>
                       <h4 className="font-medium mb-3 text-gray-800 dark:text-gray-200">
                         Menções / Respostas no grupo ({replies.length})
                       </h4>
                       <div className="space-y-3">
                         {[...replies].reverse().map((rep, i) => (
-                        <div key={i} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
-                          <div className="flex items-start justify-between gap-3 mb-2">
-                            <div className="font-semibold text-gray-800 dark:text-gray-200">
-                              {rep.reactor || '—'}
-                            </div>
-                            {rep.at && (
-                              <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                                {new Date(rep.at).toLocaleString('pt-BR')}
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words mb-3">
-                            {(rep.text || '—').trim() || '—'}
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                              {rep.replyMessageId ? (
-                                rep.confirmedAt ? (
-                                  <span className="text-emerald-600 dark:text-emerald-400">
-                                    ✓ Confirmado{rep.confirmedBy ? ` por ${rep.confirmedBy}` : ''}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-500 dark:text-gray-400">
-                                    Aguardando confirmação
-                                  </span>
-                                )
-                              ) : (
-                                <span className="text-gray-500 dark:text-gray-400">
-                                  Check no WhatsApp disponível só para respostas novas
+                          <div key={i} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
+                            <div className="flex items-start justify-between gap-3 mb-2">
+                              <div className="font-semibold text-gray-800 dark:text-gray-200">
+                                {rep.reactor || '—'}
+                              </div>
+                              {rep.at && (
+                                <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                  {new Date(rep.at).toLocaleString('pt-BR')}
                                 </span>
                               )}
-                            </span>
-                            {rep.replyMessageId && !rep.confirmedAt && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  confirmarResposta(
-                                    selectedRepliesRequest._id || selectedRepliesRequest.id,
-                                    rep.replyMessageId,
-                                    agente
-                                  ).then(() => {
-                                    // Atualizar o request no modal
-                                    const updatedReplies = selectedRepliesRequest.replies.map(r => 
-                                      r.replyMessageId === rep.replyMessageId 
-                                        ? { ...r, confirmedAt: new Date(), confirmedBy: agente }
-                                        : r
-                                    );
-                                    setSelectedRepliesRequest({
-                                      ...selectedRepliesRequest,
-                                      replies: updatedReplies
+                            </div>
+                            <div className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words mb-3">
+                              {(rep.text || '—').trim() || '—'}
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                {rep.replyMessageId ? (
+                                  rep.confirmedAt ? (
+                                    <span className="text-emerald-600 dark:text-emerald-400">
+                                      ✓ Confirmado{rep.confirmedBy ? ` por ${rep.confirmedBy}` : ''}
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-500 dark:text-gray-400">
+                                      Aguardando confirmação
+                                    </span>
+                                  )
+                                ) : (
+                                  <span className="text-gray-500 dark:text-gray-400">
+                                    Check no WhatsApp disponível só para respostas novas
+                                  </span>
+                                )}
+                              </span>
+                              {rep.replyMessageId && !rep.confirmedAt && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    confirmarResposta(
+                                      selectedRepliesRequest._id || selectedRepliesRequest.id,
+                                      rep.replyMessageId,
+                                      selectedAgent || agente
+                                    ).then(() => {
+                                      const updatedReplies = (selectedRepliesRequest.replies || []).map((r) =>
+                                        r.replyMessageId === rep.replyMessageId
+                                          ? { ...r, confirmedAt: new Date(), confirmedBy: selectedAgent || agente }
+                                          : r
+                                      );
+                                      setSelectedRepliesRequest({
+                                        ...selectedRepliesRequest,
+                                        replies: updatedReplies,
+                                      });
+                                      buscarCpf();
+                                    }).catch(() => {
+                                      toast.error('Falha ao confirmar');
                                     });
-                                    // Recarregar busca
-                                    buscarCpf();
-                                  }).catch(() => {
-                                    toast.error('Falha ao confirmar');
-                                  });
-                                }}
-                                className="px-3 py-1.5 rounded bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-200 dark:hover:bg-emerald-800 transition-colors text-sm"
-                              >
-                                Confirmar visto (✓ no WhatsApp)
-                              </button>
-                            )}
+                                  }}
+                                  className="px-3 py-1.5 rounded bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-200 dark:hover:bg-emerald-800 transition-colors text-sm"
+                                >
+                                  Confirmar visto (✓ no WhatsApp)
+                                </button>
+                              )}
+                            </div>
                           </div>
-                        </div>
                         ))}
                       </div>
-                    </div>
-                  ) : (
-                    <div className="text-center text-gray-500 dark:text-gray-400 py-8">
-                      Nenhuma resposta disponível para esta solicitação.
                     </div>
                   );
                 })()}
               </div>
             </div>
+            {(() => {
+              const cancelada = getStatusChamado(selectedRepliesRequest) === 'Cancelado';
+              const bloqueado = modalSalvarN1Loading || modalCancelarRegLoading;
+              return (
+                <div className="border-t border-gray-200 dark:border-gray-600 p-4 flex-shrink-0 bg-gray-50 dark:bg-gray-900/30">
+                  <label htmlFor="erros-modal-n1-resposta" className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">
+                    Resposta N1
+                  </label>
+                  <textarea
+                    id="erros-modal-n1-resposta"
+                    rows={2}
+                    className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 text-sm text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500 resize-y min-h-[44px] disabled:opacity-60"
+                    placeholder="Digite a mensagem do agente N1…"
+                    value={modalN1Draft}
+                    onChange={(e) => setModalN1Draft(e.target.value)}
+                    disabled={cancelada || bloqueado}
+                  />
+                  {cancelada && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      Este registro está cancelado; não é possível nova resposta ou novo cancelamento.
+                    </p>
+                  )}
+                  <div className="flex justify-between items-center gap-3 mt-4">
+                    <button
+                      type="button"
+                      onClick={handleModalCancelarRegistro}
+                      disabled={cancelada || bloqueado}
+                      className="text-sm px-4 py-2 rounded-lg border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {modalCancelarRegLoading ? 'Cancelando…' : 'Cancelar Solicitação'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleModalSalvarRespostaN1}
+                      disabled={cancelada || bloqueado}
+                      className="text-sm px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {modalSalvarN1Loading ? 'Salvando…' : 'Salvar'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
