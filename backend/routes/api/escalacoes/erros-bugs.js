@@ -1,7 +1,11 @@
 /**
  * VeloHub V3 - Escalações API Routes - Erros/Bugs
- * VERSION: v1.8.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.9.0 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
  * Branch: main (recuperado de escalacoes)
+ * 
+ * Mudanças v1.9.0:
+ * - POST /:id/reply — mesmo contrato que solicitações (N1/Produtos + cancelarSolicitacao); coleção erros_bugs
+ * - GET / e GET /:id — normalização de reply[] (array vazio se ausente)
  * 
  * Mudanças v1.8.0:
  * - Adicionada normalização do campo replies em GET / e GET /:id para garantir que sempre seja array
@@ -219,10 +223,13 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
         }
       });
       
-      // Normalizar campo replies para garantir que sempre seja array
+      // Normalizar campos replies e reply para garantir que sempre sejam arrays
       errosBugs.forEach(eb => {
         if (!Array.isArray(eb.replies)) {
           eb.replies = [];
+        }
+        if (!Array.isArray(eb.reply)) {
+          eb.reply = [];
         }
       });
       
@@ -290,9 +297,12 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
         });
       }
 
-      // Normalizar campo replies para garantir que sempre seja array
+      // Normalizar campos replies e reply para garantir que sempre sejam arrays
       if (!Array.isArray(erroBug.replies)) {
         erroBug.replies = [];
+      }
+      if (!Array.isArray(erroBug.reply)) {
+        erroBug.reply = [];
       }
 
       res.json({
@@ -301,6 +311,125 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
       });
     } catch (error) {
       handleError(req, res, error, 'Erro ao buscar erro/bug');
+    }
+  });
+
+  /**
+   * POST /api/escalacoes/erros-bugs/:id/reply
+   * Adicionar item ao array reply OU cancelar (status Cancelado em reply)
+   * Body: igual a POST /solicitacoes/:id/reply (cancelarSolicitacao, origem produtos|n1, etc.)
+   */
+  router.post('/:id/reply', async (req, res) => {
+    try {
+      setCorsHeaders(req, res);
+      if (!client) {
+        return res.status(503).json({
+          ok: false,
+          error: 'MongoDB não configurado'
+        });
+      }
+
+      const { id } = req.params;
+      const body = req.body || {};
+      const { origem, status, msgProdutos, msgN1 } = body;
+
+      await connectToMongo();
+      const db = client.db('hub_escalacoes');
+      const collection = db.collection('erros_bugs');
+      const { ObjectId } = require('mongodb');
+      const filterId = ObjectId.isValid(id) ? new ObjectId(id) : id;
+
+      if (body.cancelarSolicitacao === true || body.cancelarSolicitacao === 'true') {
+        const doc = await collection.findOne({ _id: filterId });
+        if (!doc) {
+          return res.status(404).json({ ok: false, error: 'Erro/Bug não encontrado' });
+        }
+        const replyArray = Array.isArray(doc.reply) ? [...doc.reply] : [];
+        const cancelEntry = {
+          status: 'Cancelado',
+          msgProdutos: null,
+          msgN1: null,
+          at: new Date()
+        };
+        replyArray.push(cancelEntry);
+        await collection.updateOne(
+          { _id: doc._id },
+          { $set: { reply: replyArray, updatedAt: new Date() } }
+        );
+        console.log(`[erros-bugs reply] 🛑 Registro cancelado em ${doc._id}`);
+        return res.json({
+          ok: true,
+          documentId: doc._id.toString(),
+          replyCount: replyArray.length
+        });
+      }
+
+      if (!origem || !['produtos', 'n1'].includes(String(origem).toLowerCase())) {
+        return res.status(400).json({
+          ok: false,
+          error: 'origem é obrigatório e deve ser "produtos" ou "n1"'
+        });
+      }
+
+      if (!status || !['enviado', 'feito', 'não feito'].includes(String(status))) {
+        return res.status(400).json({
+          ok: false,
+          error: 'status é obrigatório e deve ser "enviado", "feito" ou "não feito"'
+        });
+      }
+
+      const msgProd = String(msgProdutos || '').trim();
+      const msgN = String(msgN1 || '').trim();
+      if (!msgProd && !msgN) {
+        return res.status(400).json({
+          ok: false,
+          error: 'msgProdutos ou msgN1 deve ter conteúdo'
+        });
+      }
+
+      const doc = await collection.findOne({ _id: filterId });
+
+      if (!doc) {
+        return res.status(404).json({
+          ok: false,
+          error: 'Erro/Bug não encontrado'
+        });
+      }
+
+      const replyArray = Array.isArray(doc.reply) ? doc.reply : [];
+
+      const newEntry = {
+        status: String(status),
+        msgProdutos: origem.toLowerCase() === 'produtos' ? (msgProd || null) : null,
+        msgN1: origem.toLowerCase() === 'n1' ? (msgN || null) : null,
+        at: new Date()
+      };
+
+      replyArray.push(newEntry);
+
+      await collection.updateOne(
+        { _id: doc._id },
+        {
+          $set: {
+            reply: replyArray,
+            updatedAt: new Date()
+          }
+        }
+      );
+
+      console.log(`[erros-bugs reply] ✅ Reply adicionado em ${doc._id}. Total: ${replyArray.length}`);
+
+      return res.json({
+        ok: true,
+        documentId: doc._id.toString(),
+        replyCount: replyArray.length
+      });
+    } catch (error) {
+      console.error('[erros-bugs reply] Erro:', error);
+      return res.status(500).json({
+        ok: false,
+        error: error.message || 'Erro ao processar reply'
+      });
     }
   });
 

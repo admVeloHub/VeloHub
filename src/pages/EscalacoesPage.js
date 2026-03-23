@@ -1,6 +1,76 @@
 /**
  * VeloHub V3 - EscalacoesPage (Escalações Module)
- * VERSION: v1.11.0 | DATE: 2025-02-10 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.14.8 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.14.8:
+ * - Helpers do modal / reply / msgProdutos lidos extraídos para `utils/escalacoesModalHelpers.js` (reuso Erros/Bugs)
+ * 
+ * Mudanças v1.14.7:
+ * - Modal de respostas: altura maior (min-h ~72vh, max-h 96vh)
+ * 
+ * Mudanças v1.14.6:
+ * - Modal: payload 100% dinâmico — só chaves com valor relevante (sem mapa fixo de campos); booleanos só se true; Agente só se preenchido
+ * 
+ * Mudanças v1.14.5:
+ * - Modal: bloco de dados em grid 3 colunas — 1ª linha CPF, Tipo, Data; demais campos do payload nas linhas seguintes
+ * 
+ * Mudanças v1.14.4:
+ * - Modal: removido subtítulo abaixo de “Respostas do time”
+ * 
+ * Mudanças v1.14.3:
+ * - Modal: status do chamado na mesma linha do título no cabeçalho (flex-wrap em telas estreitas)
+ * 
+ * Mudanças v1.14.2:
+ * - Modal: textarea N1 com metade da altura (rows/min-height); rótulos sem sufixo “(Atendimento)”
+ * 
+ * Mudanças v1.14.1:
+ * - Modal: status do chamado no cabeçalho; seção “Respostas do time” como diálogo Produtos × N1 (msgProdutos / msgN1), sem repetir status por item
+ * 
+ * Mudanças v1.14.0:
+ * - Sidebar “Busca e acompanhamento”: borda em gradiente azul/amarelo quando há msgProdutos não lida (marca leitura em localStorage ao abrir o modal)
+ * - Documentação em código: reply do time Produtos = msgProdutos preenchido, msgN1 null, at (API já gravava assim)
+ * 
+ * Mudanças v1.13.0:
+ * - Modal de acompanhamento: textarea N1 + Salvar (reply enviado/msgN1) e Cancelar Solicitação (reply Cancelado)
+ * - getStatusChamado reconhece último reply com status Cancelado
+ * 
+ * Mudanças v1.12.11:
+ * - Sidebar: limite inferior alinhado ao card principal — altura da sidebar = altura do card (ResizeObserver), items-start, sem esticar o card
+ * 
+ * Mudanças v1.12.10:
+ * - (Revertido em v1.12.11) stretch flex que alterava o comportamento desejado
+ * 
+ * Mudanças v1.12.9:
+ * - Removido título “Formulário de Solicitação” acima do FormSolicitacao
+ * 
+ * Mudanças v1.12.8:
+ * - Seletor de abas (Solicitações / Erros-Bugs / Calculadora) centralizado horizontalmente
+ * 
+ * Mudanças v1.12.7:
+ * - Removido rótulo “CPF” acima do campo de busca na sidebar (placeholder + aria-label mantidos)
+ * 
+ * Mudanças v1.12.6:
+ * - Linha formulário + sidebar com items-start (evita esticar a coluna principal à altura da sidebar — fim da “sobra” após Enviar)
+ * - Padding inferior do card principal e margem do bloco do formulário reduzidos
+ * 
+ * Mudanças v1.12.5:
+ * - Sidebar: uma única área de rolagem com resultados da busca e logs em sequência; CPF + Buscar + Atualizar na mesma linha
+ * 
+ * Mudanças v1.12.4:
+ * - Removidos rótulos "Busca por CPF" e "Envios recentes" na sidebar (mantidos campo, listas e Atualizar agora)
+ * 
+ * Mudanças v1.12.3:
+ * - Removida linha divisória (border) entre resultados da busca e envios recentes na sidebar
+ * 
+ * Mudanças v1.12.2:
+ * - Sidebar com um só cabeçalho de destaque; CPF e envios como subseções (sem segundo “quadro” visual)
+ * 
+ * Mudanças v1.12.1:
+ * - Sidebar única: Consulta de CPF e Log de envio no mesmo painel (seções com divisor)
+ * 
+ * Mudanças v1.12.0:
+ * - Removido quadro "Histórico do agente" (redundante com busca CPF e logs locais)
+ * - Logs de envio exibidos na sidebar; clique no card abre modal de respostas (GET por ID ou match em cache)
  * 
  * Mudanças v1.11.0:
  * - Adicionados logs de debug no modal para rastrear replies recebidas
@@ -76,7 +146,7 @@
  * - Adicionado sistema de abas (Solicitações e Erros/Bugs)
  */
 
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import FormSolicitacao from '../components/Escalacoes/FormSolicitacao';
 import ErrosBugsTab from '../components/Escalacoes/ErrosBugsTab';
@@ -85,22 +155,17 @@ import ChatStatusSelector from '../components/ChatStatusSelector';
 import { solicitacoesAPI } from '../services/escalacoesApi';
 import { API_BASE_URL } from '../config/api-config';
 import toast from 'react-hot-toast';
-
-/**
- * Obtém o status do chamado a partir do array reply.
- * Se reply vazio ou inexistente → "em aberto"
- * Caso contrário → status do último elemento (enviado | feito | não feito)
- * @param {Object} solicitacao - Objeto da solicitação
- * @returns {string}
- */
-const getStatusChamado = (solicitacao) => {
-  const reply = Array.isArray(solicitacao?.reply) ? solicitacao.reply : [];
-  if (reply.length === 0) return 'enviado';
-  const last = reply[reply.length - 1];
-  const s = String(last?.status || '').toLowerCase();
-  if (['enviado', 'feito', 'não feito', 'nao feito'].includes(s)) return s === 'nao feito' ? 'não feito' : s;
-  return 'enviado';
-};
+import {
+  STORAGE_PROD_READ_SOLICITACOES,
+  getStatusChamado,
+  lastProdutosReplyAtMs,
+  setProdutosReadMs,
+  hasUnreadProdutosInReplies,
+  buildProdutosN1Dialogue,
+  statusChamadoBadgeClass,
+  buildModalExtraPayloadCells,
+  ModalInfoGridCell,
+} from '../utils/escalacoesModalHelpers';
 
 /**
  * Componente Calculadora de Restituição
@@ -229,17 +294,17 @@ const EscalacoesPage = () => {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [requestsRaw, setRequestsRaw] = useState([]);
   const [selectedAgent, setSelectedAgent] = useState('');
-  const [agentHistory, setAgentHistory] = useState([]);
-  const [agentHistoryLoading, setAgentHistoryLoading] = useState(false);
-  const [agentHistoryLimit, setAgentHistoryLimit] = useState(50);
+  const [sidebarLocalLogs, setSidebarLocalLogs] = useState([]);
+  const formSolicitacaoRef = useRef(null);
+  /** Altura do card principal (aba Solicitações) para igualar base da sidebar sem flex stretch */
+  const solicitacoesMainCardRef = useRef(null);
+  const [solicitacoesSidebarHeightPx, setSolicitacoesSidebarHeightPx] = useState(null);
   const prevRequestsRef = useRef([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [backendUrl, setBackendUrl] = useState('');
   const [replies, setReplies] = useState([]);
   const [myAgent, setMyAgent] = useState('');
   // Estados para controlar expansão de cards com replies
-  const [expandedSearchKeys, setExpandedSearchKeys] = useState(new Set());
-  const [expandedAgentCards, setExpandedAgentCards] = useState(new Set());
   // Estado para modal de respostas
   const [selectedRepliesRequest, setSelectedRepliesRequest] = useState(null);
   // Estado para formulário de adicionar reply
@@ -247,10 +312,55 @@ const EscalacoesPage = () => {
   const [addReplyStatus, setAddReplyStatus] = useState('enviado');
   const [addReplyText, setAddReplyText] = useState('');
   const [addReplyLoading, setAddReplyLoading] = useState(false);
+  const [modalN1Draft, setModalN1Draft] = useState('');
+  const [modalSalvarN1Loading, setModalSalvarN1Loading] = useState(false);
+  const [modalCancelarSolicLoading, setModalCancelarSolicLoading] = useState(false);
+  /** Força recálculo do destaque da sidebar após marcar leitura de msgProdutos (localStorage) */
+  const [prodReadEpoch, setProdReadEpoch] = useState(0);
   
   // Debug: monitorar mudanças no estado do modal
   useEffect(() => {
     console.log('[EscalacoesPage] selectedRepliesRequest mudou:', selectedRepliesRequest);
+  }, [selectedRepliesRequest]);
+
+  // Igualar altura da sidebar à do card do formulário (bases alinhadas; conteúdo extra rola dentro da sidebar)
+  useLayoutEffect(() => {
+    if (activeTab !== 'solicitacoes') {
+      setSolicitacoesSidebarHeightPx(null);
+      return;
+    }
+    const el = solicitacoesMainCardRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    const sync = () => {
+      const h = el.offsetHeight;
+      if (h > 0) setSolicitacoesSidebarHeightPx(h);
+    };
+    sync();
+    const ro = new ResizeObserver(() => {
+      sync();
+    });
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+    };
+  }, [activeTab]);
+
+  useEffect(() => {
+    setModalN1Draft('');
+  }, [selectedRepliesRequest?._id, selectedRepliesRequest?.id]);
+
+  useEffect(() => {
+    const doc = selectedRepliesRequest;
+    if (!doc) return;
+    const id = doc._id ?? doc.id;
+    if (id == null || id === '') return;
+    const t = lastProdutosReplyAtMs(doc.reply);
+    if (t > 0) {
+      setProdutosReadMs(String(id), t, STORAGE_PROD_READ_SOLICITACOES);
+      setProdReadEpoch((e) => e + 1);
+    }
   }, [selectedRepliesRequest]);
   
   // Estados do sidebar direito com chat
@@ -287,10 +397,6 @@ const EscalacoesPage = () => {
         // Recarregar busca se houver CPF pesquisado
         if (searchCpf) {
           buscarCpf();
-        }
-        // Recarregar histórico do agente se houver agente selecionado
-        if (selectedAgent) {
-          carregarHistoricoAgente(selectedAgent);
         }
       } else {
         throw new Error(result?.error || 'Erro ao confirmar resposta');
@@ -752,52 +858,33 @@ const EscalacoesPage = () => {
     }
   }, [requestsRaw, selectedAgent]);
 
-  // Carregar histórico do agente
-  useEffect(() => {
-    const load = async () => {
-      if (!selectedAgent) {
-        setAgentHistory([]);
+  /**
+   * Abrir modal de respostas a partir de um item do log de envio (sidebar)
+   */
+  const abrirModalDesdeLogLocal = async (logItem) => {
+    const lid = logItem?.requestId;
+    try {
+      if (lid) {
+        const result = await solicitacoesAPI.getById(lid);
+        const doc = result?.data;
+        if (doc) {
+          setSelectedRepliesRequest(doc);
+          return;
+        }
+      }
+      const arr = Array.isArray(requestsRaw) ? requestsRaw : [];
+      const match = logItem?.waMessageId
+        ? arr.find((r) => r.waMessageId === logItem.waMessageId)
+        : arr.find((r) => r.cpf === logItem.cpf && r.tipo === logItem.tipo);
+      if (match) {
+        setSelectedRepliesRequest(match);
         return;
       }
-      setAgentHistoryLoading(true);
-      try {
-        const result = await solicitacoesAPI.getByAgente(selectedAgent);
-        const list = Array.isArray(result.data) ? result.data : [];
-        const filtered = list
-          .filter((r) => norm(r?.colaboradorNome || r?.agente || '') === norm(selectedAgent))
-          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        setAgentHistory(filtered);
-      } catch (err) {
-        console.error('Erro ao carregar histórico:', err);
-        setAgentHistory([]);
-      }
-      setAgentHistoryLoading(false);
-    };
-    load();
-    setAgentHistoryLimit(100);
-  }, [selectedAgent]);
-
-  /**
-   * Carregar histórico do agente
-   */
-  const carregarHistoricoAgente = async (agenteNome) => {
-    if (!agenteNome) {
-      setAgentHistory([]);
-      return;
-    }
-    setAgentHistoryLoading(true);
-    try {
-      const result = await solicitacoesAPI.getByAgente(agenteNome);
-      const list = Array.isArray(result.data) ? result.data : [];
-      const filtered = list
-        .filter((r) => norm(r?.colaboradorNome || r?.agente || '') === norm(agenteNome))
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      setAgentHistory(filtered);
+      toast.error('Não foi possível carregar esta solicitação. Use "Atualizar agora" nos logs ou busque por CPF.');
     } catch (err) {
-      console.error('Erro ao carregar histórico:', err);
-      setAgentHistory([]);
+      console.error('[EscalacoesPage] abrirModalDesdeLogLocal:', err);
+      toast.error(err.message || 'Erro ao abrir detalhes da solicitação');
     }
-    setAgentHistoryLoading(false);
   };
 
   /**
@@ -827,6 +914,82 @@ const EscalacoesPage = () => {
     setSearchLoading(false);
   };
 
+  const atualizarSolicitacaoNoModal = async (solicitacaoId) => {
+    const id = solicitacaoId || selectedRepliesRequest?._id || selectedRepliesRequest?.id;
+    if (!id) return;
+    try {
+      const res = await solicitacoesAPI.getById(id);
+      if (res?.data) setSelectedRepliesRequest(res.data);
+    } catch (err) {
+      console.error('[EscalacoesPage] atualizarSolicitacaoNoModal:', err);
+    }
+  };
+
+  const handleModalSalvarRespostaN1 = async () => {
+    const texto = String(modalN1Draft || '').trim();
+    if (!texto) {
+      toast.error('Digite a resposta do N1 antes de salvar.');
+      return;
+    }
+    const id = selectedRepliesRequest?._id || selectedRepliesRequest?.id;
+    if (!id) return;
+    setModalSalvarN1Loading(true);
+    try {
+      await solicitacoesAPI.addReply(id, {
+        origem: 'n1',
+        status: 'enviado',
+        msgProdutos: null,
+        msgN1: texto,
+      });
+      await atualizarSolicitacaoNoModal(id);
+      setModalN1Draft('');
+      toast.success('Resposta N1 registrada.');
+      await loadStats();
+      if (searchCpf) await buscarCpf();
+    } catch (err) {
+      console.error('[EscalacoesPage] handleModalSalvarRespostaN1:', err);
+      toast.error(err.message || 'Erro ao salvar resposta');
+    } finally {
+      setModalSalvarN1Loading(false);
+    }
+  };
+
+  const handleModalCancelarSolicitacao = async () => {
+    if (!window.confirm('Cancelar esta solicitação? O status será gravado como Cancelado no histórico.')) {
+      return;
+    }
+    const id = selectedRepliesRequest?._id || selectedRepliesRequest?.id;
+    if (!id) return;
+    setModalCancelarSolicLoading(true);
+    try {
+      await solicitacoesAPI.cancelarSolicitacao(id);
+      await atualizarSolicitacaoNoModal(id);
+      toast.success('Solicitação cancelada.');
+      await loadStats();
+      if (searchCpf) await buscarCpf();
+    } catch (err) {
+      console.error('[EscalacoesPage] handleModalCancelarSolicitacao:', err);
+      toast.error(err.message || 'Erro ao cancelar solicitação');
+    } finally {
+      setModalCancelarSolicLoading(false);
+    }
+  };
+
+  const sidebarProdutosUnread = useMemo(() => {
+    for (const r of searchResults || []) {
+      const id = r._id ?? r.id;
+      if (id != null && id !== '' && hasUnreadProdutosInReplies(String(id), r.reply, STORAGE_PROD_READ_SOLICITACOES)) {
+        return true;
+      }
+    }
+    for (const l of sidebarLocalLogs || []) {
+      if (l?.requestId && Array.isArray(l.reply)) {
+        if (hasUnreadProdutosInReplies(String(l.requestId), l.reply, STORAGE_PROD_READ_SOLICITACOES)) return true;
+      }
+    }
+    return false;
+  }, [searchResults, sidebarLocalLogs, prodReadEpoch]);
+
   return (
     <div className="w-full py-12" style={{paddingLeft: '20px', paddingRight: '20px'}}>
         <div 
@@ -841,7 +1004,7 @@ const EscalacoesPage = () => {
             {/* Sistema de Abas */}
             <div className="mb-8" style={{marginTop: '-15px'}}>
           {/* Abas */}
-          <div className="flex justify-start mb-2" style={{gap: '2rem'}}>
+          <div className="flex justify-center flex-wrap mb-2" style={{ gap: '2rem' }}>
             <button
               onClick={() => setActiveTab('solicitacoes')}
               className={`px-6 py-3 text-2xl font-semibold transition-colors duration-200 ${activeTab === 'solicitacoes' ? '' : 'opacity-50'}`}
@@ -877,9 +1040,12 @@ const EscalacoesPage = () => {
 
         {/* Conteúdo baseado na aba ativa */}
         {activeTab === 'solicitacoes' && (
-          <div className="flex gap-8">
-          {/* Conteúdo Principal */}
-          <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 hover:-translate-y-0.5 transition-transform">
+          <div className="flex gap-8 items-start">
+          {/* Card principal: define a altura de referência; sidebar copia via ResizeObserver (bases alinhadas) */}
+          <div
+            ref={solicitacoesMainCardRef}
+            className="flex-1 min-w-0 bg-white dark:bg-gray-800 rounded-2xl shadow-lg pt-6 px-6 pb-4 hover:-translate-y-0.5 transition-transform"
+          >
             <div className="mb-6 flex items-center justify-between gap-3 relative">
               <div
                 className="grid grid-cols-3 gap-3 w-full max-w-xl"
@@ -975,97 +1141,122 @@ const EscalacoesPage = () => {
               </div>
             </div>
 
-            {/* Formulário de Solicitação */}
-            <div className="mb-4">
-              <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">
-                Formulário de Solicitação
-              </h2>
-              <FormSolicitacao registrarLog={registrarLog} />
-            </div>
+            <FormSolicitacao
+              ref={formSolicitacaoRef}
+              registrarLog={registrarLog}
+              onLocalLogsChange={setSidebarLocalLogs}
+            />
           </div>
 
-          {/* Container de Sidebars */}
-          <div className="flex flex-col gap-4 w-[400px] flex-shrink-0">
-            {/* Sidebar Superior - Consulta de CPF */}
-            <div className="w-[400px] h-[400px] flex-shrink-0 bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 hover:-translate-y-0.5 transition-transform flex flex-col overflow-hidden">
-              <div className="flex items-center gap-2 mb-3 flex-shrink-0">
-                <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-sky-500 to-emerald-500" />
-                <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-                  Consulta de CPF
+          {/* Sidebar: altura = card principal (rodapés alinhados); não aumenta o card */}
+          <div
+            className={`w-[400px] flex-shrink-0 self-start flex flex-col min-h-0 rounded-2xl hover:-translate-y-0.5 transition-transform ${
+              sidebarProdutosUnread ? 'p-[2px]' : ''
+            }`}
+            style={{
+              ...(sidebarProdutosUnread
+                ? {
+                    background:
+                      'linear-gradient(135deg, #006AB9 0%, #FACC15 42%, #1D4ED8 100%)',
+                  }
+                : {}),
+              ...(solicitacoesSidebarHeightPx != null && solicitacoesSidebarHeightPx > 0
+                ? { height: solicitacoesSidebarHeightPx }
+                : {}),
+            }}
+            aria-label={
+              sidebarProdutosUnread
+                ? 'Busca e acompanhamento: há resposta do time Produtos não lida'
+                : 'Busca e acompanhamento'
+            }
+          >
+            <div
+              className={`flex flex-col flex-1 min-h-0 overflow-hidden bg-white dark:bg-gray-800 shadow-lg p-4 ${
+                sidebarProdutosUnread ? 'rounded-[14px]' : 'rounded-2xl'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-2 flex-shrink-0">
+                <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-sky-500 to-emerald-500 flex-shrink-0" />
+                <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 leading-tight">
+                  Busca e acompanhamento
                 </h2>
               </div>
+
               <div
                 className="flex flex-col gap-2 flex-shrink-0"
                 aria-busy={searchLoading}
                 aria-live="polite"
               >
-                <div className="flex items-end gap-2">
-                  <div className="flex-1">
-                    <label className="text-sm text-gray-700 dark:text-gray-300 mb-1 block">CPF</label>
-                    <input
-                      className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                      placeholder="Digite o CPF"
-                      value={searchCpf}
-                      onChange={(e) => {
-                        setSearchCpf(e.target.value);
-                        if (searchCpfError) setSearchCpfError('');
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          buscarCpf();
-                        }
-                      }}
-                    />
-                    {searchCpfError && (
-                      <div className="mt-1 text-xs text-red-600">{searchCpfError}</div>
+                <div className="flex flex-wrap gap-2 items-stretch">
+                  <input
+                    className="min-w-0 flex-1 basis-[160px] border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                    placeholder="Digite o CPF"
+                    aria-label="CPF para busca"
+                    value={searchCpf}
+                    onChange={(e) => {
+                      setSearchCpf(e.target.value);
+                      if (searchCpfError) setSearchCpfError('');
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        buscarCpf();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={buscarCpf}
+                    className="bg-blue-600 text-white px-3 py-2 rounded-lg inline-flex items-center justify-center gap-2 transition-all duration-200 hover:bg-blue-700 flex-shrink-0"
+                    disabled={searchLoading}
+                  >
+                    {searchLoading ? (
+                      <>
+                        <svg
+                          className="animate-spin h-4 w-4"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          />
+                        </svg>
+                        Buscando...
+                      </>
+                    ) : (
+                      'Buscar'
                     )}
-                  </div>
-                  <div className="flex flex-col">
-                    <div className="h-5"></div>
-                    <button
-                      type="button"
-                      onClick={buscarCpf}
-                      className="bg-blue-600 text-white px-3 py-2 rounded-lg inline-flex items-center justify-center gap-2 transition-all duration-200 hover:bg-blue-700"
-                      disabled={searchLoading}
-                    >
-                  {searchLoading ? (
-                    <>
-                      <svg
-                        className="animate-spin h-4 w-4"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      Buscando...
-                    </>
-                  ) : (
-                    'Buscar'
-                  )}
-                    </button>
-                  </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => formSolicitacaoRef.current?.refreshLocalLogs?.()}
+                    className="text-xs px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700/90 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 flex-shrink-0"
+                  >
+                    Atualizar
+                  </button>
                 </div>
+                {searchCpfError && (
+                  <div className="text-xs text-red-600">{searchCpfError}</div>
+                )}
               </div>
-              {searchCpf && (
-                <div className="text-sm text-gray-600 dark:text-gray-400 mt-2 flex-shrink-0">
-                  {searchResults.length} registro(s) encontrado(s)
-                </div>
-              )}
-              <div className="mt-3 flex-1 overflow-y-auto overflow-x-hidden pr-1 min-h-0">
+
+              <div className="mt-2 flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1 space-y-2">
+                {searchCpf && (
+                  <div className="text-sm text-gray-600 dark:text-gray-400 sticky top-0 bg-white dark:bg-gray-800 py-1 z-[1]">
+                    {searchResults.length} registro(s) nesta busca
+                  </div>
+                )}
                 {searchLoading && (
                   <div className="space-y-2">
                     {[...Array(4)].map((_, i) => (
@@ -1111,7 +1302,7 @@ const EscalacoesPage = () => {
                       };
                       return (
                         <div
-                          key={requestId}
+                          key={`cpf-${requestId}`}
                           role="button"
                           tabIndex={0}
                           onClick={handleCardClick}
@@ -1159,121 +1350,69 @@ const EscalacoesPage = () => {
                     })}
                   </div>
                 )}
-              </div>
-            </div>
-
-            {/* Sidebar Inferior - Histórico do Agente */}
-            <div className="w-[400px] bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 hover:-translate-y-0.5 transition-transform flex flex-col" style={{ height: '280px' }}>
-            <div className="mb-4 flex-shrink-0">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-sky-500 to-emerald-500" />
-                <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-                  Histórico do agente
-                </h2>
-              </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                {selectedAgent || 'Selecione um agente'}
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto pr-1 min-h-0">
-            {agentHistoryLoading && (
-              <div className="space-y-2" aria-busy={true} aria-live="polite">
-                {[...Array(5)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 flex flex-col gap-2 animate-pulse"
-                  >
-                    <div className="h-4 w-full bg-gray-200 dark:bg-gray-600 rounded" />
-                    <div className="h-3 w-2/3 bg-gray-200 dark:bg-gray-600 rounded" />
-                  </div>
-                ))}
-              </div>
-            )}
-            {!agentHistoryLoading && agentHistory.length === 0 && (
-              <div className="text-sm opacity-70 text-gray-600 dark:text-gray-400 text-center py-8">
-                Nenhum registro.
-              </div>
-            )}
-            {!agentHistoryLoading && agentHistory.length > 0 && (
-              <div className="space-y-2">
-                {agentHistory.slice(0, agentHistoryLimit).map((r) => {
-                  const s = String(getStatusChamado(r) || '').toLowerCase();
-                  const badge =
-                    s === 'feito'
-                      ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-200'
-                      : s === 'não feito' || s === 'nao feito'
-                      ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200'
-                      : s === 'enviado'
-                      ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200';
-                  const created = r.createdAt
-                    ? new Date(r.createdAt).toLocaleString()
-                    : '—';
-                  const concluded =
-                    (s === 'feito' || s === 'não feito' || s === 'nao feito') && r.updatedAt
-                      ? new Date(r.updatedAt).toLocaleString()
-                      : null;
-                  const repliesList = Array.isArray(r.replies) ? r.replies : [];
-                  const handleCardClick = (e) => {
-                    // Se o clique foi em um botão ou link, não fazer nada
-                    if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
-                      return;
-                    }
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('[EscalacoesPage Histórico] Card clicado - SEMPRE abrir modal:', r);
-                    // SEMPRE abrir modal quando card é clicado
-                    setSelectedRepliesRequest(r);
-                  };
-                  return (
-                    <div
-                      key={r._id || r.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={handleCardClick}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCardClick(e); } }}
-                      className="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
-                    >
-                      <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1 flex items-center gap-2 flex-wrap">
-                        <span>
-                          {r.tipo} — {r.cpf}
-                        </span>
-                        {repliesList.length > 0 && (
-                          <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                            {repliesList.length} resposta{repliesList.length !== 1 ? 's' : ''}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2 mb-1">
-                        <span>Status:</span>
-                        <span
-                          className={`px-2 py-0.5 rounded text-[11px] font-medium ${badge}`}
+                {sidebarLocalLogs && sidebarLocalLogs.length > 0 && (
+                  <div className="space-y-2">
+                    {sidebarLocalLogs.map((l, idx) => {
+                      const s = String(l.status || '').toLowerCase();
+                      const isDoneFail = s === 'não feito' || s === 'nao feito';
+                      const isDoneOk = s === 'feito';
+                      const sentOnly = !isDoneOk && !isDoneFail && (s === 'enviado' || l.enviado === true);
+                      const bar1 = (sentOnly || isDoneOk || isDoneFail) ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600';
+                      const bar2 = isDoneOk ? 'bg-emerald-500' : (isDoneFail ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-600');
+                      const icon = isDoneOk ? '✅' : (isDoneFail ? '❌' : (sentOnly ? '📨' : '⏳'));
+                      const logKey = l.requestId || l.waMessageId || `log-${idx}-${String(l.createdAt)}`;
+                      const open = (e) => {
+                        if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+                        e.preventDefault();
+                        abrirModalDesdeLogLocal(l);
+                      };
+                      return (
+                        <div
+                          key={`envio-${logKey}`}
+                          role="button"
+                          tabIndex={0}
+                          onClick={open}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              open(e);
+                            }
+                          }}
+                          className="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:border-blue-300 dark:hover:border-blue-500 transition-colors"
                         >
-                          {s || '—'}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-gray-600 dark:text-gray-400">
-                        <div>Aberto: {created}</div>
-                        {concluded && <div>Concluído: {concluded}</div>}
-                      </div>
-                    </div>
-                  );
-                })}
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-xl flex-shrink-0">{icon}</span>
+                              <span className="text-sm text-gray-800 dark:text-gray-200 truncate">
+                                {l.cpf} — {l.tipo}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-gray-600 dark:text-gray-400 flex-shrink-0 text-right">
+                              {l.createdAt ? new Date(l.createdAt).toLocaleString() : '—'}
+                            </div>
+                          </div>
+                          <div className="mt-2 flex items-center gap-1.5" aria-label={`progresso: ${s || 'em aberto'}`}>
+                            <span className={`h-1.5 w-8 rounded-full ${bar1}`} />
+                            <span className={`h-1.5 w-8 rounded-full ${bar2}`} />
+                            <span className="text-[11px] opacity-60 ml-2 text-gray-600 dark:text-gray-400">
+                              {s || 'em aberto'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {!searchLoading &&
+                  (!searchResults || searchResults.length === 0) &&
+                  (!sidebarLocalLogs || sidebarLocalLogs.length === 0) &&
+                  !String(searchCpf || '').trim() && (
+                  <div className="text-sm text-gray-600 dark:text-gray-400 py-8 text-center">
+                    Busque por CPF ou envie uma solicitação; os itens aparecem aqui.
+                  </div>
+                )}
               </div>
-            )}
             </div>
-            {agentHistory.length > agentHistoryLimit && (
-              <div className="mt-3 text-center flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setAgentHistoryLimit((n) => n + 50)}
-                  className="text-sm px-3 py-1 rounded border hover:opacity-90 transition-all duration-200 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-                >
-                  Carregar mais ({agentHistory.length - agentHistoryLimit} restantes)
-                </button>
-              </div>
-            )}
-          </div>
           </div>
         </div>
         )}
@@ -1302,32 +1441,60 @@ const EscalacoesPage = () => {
             }}
           >
             <div 
-              className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl max-h-[90vh] w-full overflow-hidden shadow-2xl"
+              className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl w-full min-h-[72vh] max-h-[96vh] overflow-hidden shadow-2xl flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-4 border-b border-gray-200 dark:border-gray-600 flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-                  Respostas - {selectedRepliesRequest.tipo || '—'} - {selectedRepliesRequest.cpf || '—'}
-                </h3>
+              <div className="p-4 border-b border-gray-200 dark:border-gray-600 flex items-center justify-between gap-3 flex-shrink-0">
+                <div className="min-w-0 flex-1 pr-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 leading-snug">
+                    Respostas — {selectedRepliesRequest.tipo || '—'} — {selectedRepliesRequest.cpf || '—'}
+                  </h3>
+                  <span
+                    className="text-gray-300 dark:text-gray-600 select-none hidden sm:inline"
+                    aria-hidden
+                  >
+                    |
+                  </span>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                      Status do chamado
+                    </span>
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusChamadoBadgeClass(
+                        getStatusChamado(selectedRepliesRequest)
+                      )}`}
+                    >
+                      {getStatusChamado(selectedRepliesRequest)}
+                    </span>
+                  </div>
+                </div>
                 <button
                   type="button"
                   onClick={() => setSelectedRepliesRequest(null)}
-                  className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 text-2xl leading-none transition-colors"
+                  className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 text-2xl leading-none transition-colors flex-shrink-0"
                   aria-label="Fechar"
                 >
                   ×
                 </button>
               </div>
-              <div className="p-4 overflow-auto max-h-[calc(90vh-80px)]">
+              <div className="flex-1 min-h-0 overflow-y-auto p-4">
                 <div className="space-y-4">
-                  {/* Informações básicas */}
+                  {/* Informações: 1ª linha fixa CPF | Tipo | Data; demais células = só chaves do payload com valor relevante (grid 3 colunas) */}
                   <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-                    <div className="text-sm space-y-1 text-gray-800 dark:text-gray-200">
-                      <div><strong>CPF:</strong> {selectedRepliesRequest.cpf || '—'}</div>
-                      <div><strong>Agente:</strong> {selectedRepliesRequest.colaboradorNome || selectedRepliesRequest.agente || '—'}</div>
-                      <div><strong>Status:</strong> {getStatusChamado(selectedRepliesRequest)}</div>
-                      <div><strong>Tipo:</strong> {selectedRepliesRequest.tipo || '—'}</div>
-                      <div><strong>Data:</strong> {selectedRepliesRequest.createdAt ? new Date(selectedRepliesRequest.createdAt).toLocaleString('pt-BR') : '—'}</div>
+                    <div className="grid grid-cols-3 gap-x-3 gap-y-3">
+                      <ModalInfoGridCell label="CPF" value={selectedRepliesRequest.cpf || '—'} />
+                      <ModalInfoGridCell label="Tipo" value={selectedRepliesRequest.tipo || '—'} />
+                      <ModalInfoGridCell
+                        label="Data"
+                        value={
+                          selectedRepliesRequest.createdAt
+                            ? new Date(selectedRepliesRequest.createdAt).toLocaleString('pt-BR')
+                            : '—'
+                        }
+                      />
+                      {buildModalExtraPayloadCells(selectedRepliesRequest).map((c) => (
+                        <ModalInfoGridCell key={c.key} label={c.label} value={c.value} />
+                      ))}
                     </div>
                   </div>
 
@@ -1416,43 +1583,70 @@ const EscalacoesPage = () => {
                     const hasReply = replyArray.length > 0;
                     const hasReplies = replies.length > 0;
                     if (hasReply) {
+                      const dialogue = buildProdutosN1Dialogue(replyArray);
                       return (
                         <div>
                           <h4 className="font-medium mb-3 text-gray-800 dark:text-gray-200">
-                            Respostas do time ({replyArray.length})
+                            Respostas do time
+                            {dialogue.length > 0 && (
+                              <span className="text-gray-500 dark:text-gray-400 font-normal text-sm ml-1">
+                                ({dialogue.length}{' '}
+                                {dialogue.length === 1 ? 'mensagem' : 'mensagens'})
+                              </span>
+                            )}
                           </h4>
-                          <div className="space-y-3">
-                            {replyArray.map((item, i) => (
-                              <div key={i} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                    (item.status || '').toLowerCase() === 'feito' ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-200' :
-                                    (item.status || '').toLowerCase() === 'não feito' || (item.status || '').toLowerCase() === 'nao feito' ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200' :
-                                    'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200'
-                                  }`}>
-                                    {item.status || '—'}
-                                  </span>
-                                  {item.at && (
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                                      {new Date(item.at).toLocaleString('pt-BR')}
-                                    </span>
-                                  )}
-                                </div>
-                                {item.msgProdutos && (
-                                  <div className="mb-2">
-                                    <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Time Produtos:</div>
-                                    <div className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">{item.msgProdutos}</div>
+                          {dialogue.length === 0 ? (
+                            <div className="text-sm text-gray-500 dark:text-gray-400 py-4 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-dashed border-gray-200 dark:border-gray-600">
+                              Ainda não há mensagens de Produtos ou N1 registradas neste chamado (apenas eventos de status, se houver).
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              {dialogue.map((b) => {
+                                if (b.role === 'produtos') {
+                                  return (
+                                    <div key={b.key} className="flex justify-start">
+                                      <div className="max-w-[min(100%,28rem)] rounded-xl px-3 py-2.5 border-l-4 border-[#006AB9] bg-sky-50 dark:bg-sky-950/35 dark:border-sky-500 shadow-sm">
+                                        <div className="text-xs font-semibold text-[#006AB9] dark:text-sky-300 mb-1">
+                                          Time Produtos
+                                        </div>
+                                        <div className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
+                                          {b.text}
+                                        </div>
+                                        {b.at ? (
+                                          <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1.5">{b.at}</div>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                if (b.role === 'n1') {
+                                  return (
+                                    <div key={b.key} className="flex justify-end">
+                                      <div className="max-w-[min(100%,28rem)] rounded-xl px-3 py-2.5 border-r-4 border-amber-500 bg-amber-50 dark:bg-amber-950/35 dark:border-amber-400 shadow-sm">
+                                        <div className="text-xs font-semibold text-amber-800 dark:text-amber-200 mb-1 text-right">
+                                          N1
+                                        </div>
+                                        <div className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words text-left">
+                                          {b.text}
+                                        </div>
+                                        {b.at ? (
+                                          <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1.5 text-left">{b.at}</div>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  <div key={b.key} className="flex justify-center">
+                                    <div className="text-xs text-center text-gray-600 dark:text-gray-400 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
+                                      {b.text}
+                                      {b.at ? <span className="block text-[10px] text-gray-500 mt-0.5">{b.at}</span> : null}
+                                    </div>
                                   </div>
-                                )}
-                                {item.msgN1 && (
-                                  <div>
-                                    <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Time N1 (Atendimento):</div>
-                                    <div className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">{item.msgN1}</div>
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       );
                     }
@@ -1517,7 +1711,7 @@ const EscalacoesPage = () => {
                                       });
                                       // Recarregar dados
                                       buscarCpf();
-                                      carregarHistoricoAgente(selectedAgent);
+                                      loadStats();
                                     }).catch(() => {
                                       toast.error('Falha ao confirmar');
                                     });
@@ -1542,6 +1736,47 @@ const EscalacoesPage = () => {
                   })()}
                 </div>
               </div>
+              {(() => {
+                const cancelada = getStatusChamado(selectedRepliesRequest) === 'Cancelado';
+                const bloqueado = modalSalvarN1Loading || modalCancelarSolicLoading;
+                return (
+                  <div className="border-t border-gray-200 dark:border-gray-600 p-4 flex-shrink-0 bg-gray-50 dark:bg-gray-900/30">
+                    <label htmlFor="modal-n1-resposta" className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">
+                      Resposta N1
+                    </label>
+                    <textarea
+                      id="modal-n1-resposta"
+                      rows={2}
+                      className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 text-sm text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500 resize-y min-h-[44px] disabled:opacity-60"
+                      placeholder="Digite a mensagem do agente N1…"
+                      value={modalN1Draft}
+                      onChange={(e) => setModalN1Draft(e.target.value)}
+                      disabled={cancelada || bloqueado}
+                    />
+                    {cancelada && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Esta solicitação está cancelada; não é possível nova resposta ou novo cancelamento.</p>
+                    )}
+                    <div className="flex justify-between items-center gap-3 mt-4">
+                      <button
+                        type="button"
+                        onClick={handleModalCancelarSolicitacao}
+                        disabled={cancelada || bloqueado}
+                        className="text-sm px-4 py-2 rounded-lg border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {modalCancelarSolicLoading ? 'Cancelando…' : 'Cancelar Solicitação'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleModalSalvarRespostaN1}
+                        disabled={cancelada || bloqueado}
+                        className="text-sm px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {modalSalvarN1Loading ? 'Salvando…' : 'Salvar'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}
