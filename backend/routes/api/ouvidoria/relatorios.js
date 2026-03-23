@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Relatórios
- * VERSION: v2.23.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.24.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.24.0:
+ * - MOTIVOS_CONHECIDOS e MOTIVOS_VALIDOS: padrão Xxxxx xxxxx xxxx (sentence case)
  * 
  * Mudanças v2.23.0:
  * - Relatório Diário: adicionados tipos Reclame Aqui, Procon e Ação Judicial (chamadosPorDia, motivosPorDia)
@@ -173,25 +176,29 @@ const { ObjectId } = require('mongodb');
 
 /**
  * Lista de motivos conhecidos para dividir strings concatenadas
+ * Padrão: Xxxxx xxxxx xxxx (sentence case)
  * Ordenada por tamanho (maior primeiro) para melhor matching
  */
 const MOTIVOS_CONHECIDOS = [
-  'Não Recebeu Restituição',
-  'Liquidação Antecipada',
-  'Encerramento de Conta',
-  'Exclusão de Conta',
-  'Bloqueio de Conta',
-  'Contestação de Valores',
-  'Crédito do Trabalhador',
-  'Empréstimo Pessoal',
-  'Liberação Chave Pix',
-  'Abatimento de Juros',
-  'Cancelamento Conta',
+  'Não recebeu restituição',
+  'Liquidação antecipada',
+  'Liberação chave pix',
+  'Encerramento de conta',
+  'Exclusão de conta',
+  'Bloqueio de conta',
+  'Contestação de valores',
+  'Crédito do trabalhador',
+  'Empréstimo pessoal',
+  'Abatimento de juros',
+  'Cancelamento conta',
   'Devolução à Celcoin',
   'Superendividamento',
   'Portabilidade',
   'Empréstimo',
-  'Chave Pix',
+  'Chave pix',
+  'Em cobrança',
+  'Alega fraude',
+  'Erro app',
   'Fraude',
   'Conta'
 ].sort((a, b) => b.length - a.length); // Ordenar por tamanho (maior primeiro)
@@ -1525,35 +1532,23 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
 
       const resultado = {};
 
-      // Lista de motivos válidos (não naturezas) - usada em BACEN e N2 para motivosPorDia
+      // Lista de motivos válidos (não naturezas) - referência; motivosPorDia usa dados do banco
       const MOTIVOS_VALIDOS = [
-        'Abatimento de Juros',
-        'Abatimento de Juros/Chave PIX',
-        'Cancelamento Conta',
-        'Chave PIX',
-        'PIX/Abatimento de Juros/Encerramento de Conta',
-        'Chave PIX/Abatimento de Juros/Prob. App',
-        'Chave PIX/Acesso ao App',
-        'Chave PIX/Exclusão de Conta',
-        'Conta',
-        'Contestação de Valores',
-        'Credito do Trabalhador',
-        'Credito Pessoal',
-        'Cupons Velotax',
-        'Devolução à Celcoin',
-        'Fraude',
-        'Liquidação Antecipada',
-        'Liquidação Antecipada/Abatimento de Juros',
-        'Não Recebeu Restituição',
-        'Não Recebeu Restituição/Abatimento de Juros',
-        'Não Recebeu Restituição/Abatimento de Juros/Chave PIX',
-        'Não Recebeu Restituição/Chave PIX',
-        'Probl. App/Gov',
-        'Seguro Celular',
-        'Seguro Divida Zero',
-        'Seguro Prestamista',
-        'Seguro Saude',
-        'Superendividamento'
+        'Abatimento de juros',
+        'Liberação chave pix',
+        'Portabilidade pix',
+        'Cancelamento até 7 dias',
+        'Cancelamento superior a 7 dias',
+        'Em cobrança',
+        'Alega fraude',
+        'Erro app',
+        'Encerramento cta celcoin',
+        'Encerramento cta app',
+        'Superendividamento',
+        'Liquidação antecipada',
+        'Não recebeu restituição',
+        'Chave pix',
+        'Conta'
       ];
 
       if (!tipo || tipo === 'BACEN') {

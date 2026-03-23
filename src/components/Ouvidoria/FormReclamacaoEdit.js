@@ -182,27 +182,30 @@ const validarCPF = (cpf) => {
  * VERSION: v2.0.0 | DATE: 2026-03-19 | Igual FormReclamacao.js
  */
 const MOTIVOS_REDUZIDOS = [
-  'Liberação Chave Pix',
-  'Portabilidade Pix',
-  'Abatimento de Juros',
+  'Liberação chave pix',
+  'Portabilidade pix',
+  'Abatimento de juros',
   'Cancelamento até 7 dias',
   'Cancelamento superior a 7 dias',
   'Em cobrança',
   'Alega fraude',
-  'Erro App',
-  'Encerramento cta Celcoin',
-  'Encerramento cta App',
+  'Erro app',
+  'Encerramento cta celcoin',
+  'Encerramento cta app',
   'Superendividamento',
 ];
 
 /** Rótulos antigos (BACEN/N2/Procon) → novos ao carregar edição */
 const LEGADO_MOTIVO_REDUZIDOS = {
   Cobrança: 'Em cobrança',
+  'Em Cobrança': 'Em cobrança',
   Fraude: 'Alega fraude',
-  Erro: 'Erro App',
-  'Encerramento de Conta': 'Encerramento cta Celcoin',
-  Lgpd: 'Encerramento cta App',
-  LGPD: 'Encerramento cta App',
+  'Alega Fraude': 'Alega fraude',
+  Erro: 'Erro app',
+  'Erro App': 'Erro app',
+  'Encerramento de Conta': 'Encerramento cta celcoin',
+  Lgpd: 'Encerramento cta app',
+  LGPD: 'Encerramento cta app',
 };
 
 const normalizarMotivosReduzidosAoCarregar = (motivos) => {
@@ -215,37 +218,37 @@ const normalizarMotivosReduzidosAoCarregar = (motivos) => {
  */
 const MOTIVOS_ACAO_JUDICIAL = [
   'Juros',
-  'Chave Pix',
+  'Chave pix',
   'Restituição BB',
   'Relatório',
-  'Repetição Indébito',
+  'Repetição indébito',
   'Superendividamento',
-  'Desconhece Contratação'
+  'Desconhece contratação'
 ];
 
 /**
  * Opções de motivo para Reclame Aqui (múltipla escolha)
  */
 const MOTIVOS_RECLAME_AQUI = [
-  'Liberação Chave Pix',
-  'Portabilidade Chave Pix',
-  'Cancelamento/ Estorno',
+  'Liberação chave pix',
+  'Portabilidade chave pix',
+  'Cancelamento/ estorno',
   'Cancelamento até 7 dias',
   'Cancelamento superior a 7 dias',
-  'Abatimento de Juros',
+  'Abatimento de juros',
   'Em cobrança',
-  'Encerramento cta Celcoin',
-  'Encerramento cta App',
-  'Erro App',
-  'Erro Gov',
+  'Encerramento cta celcoin',
+  'Encerramento cta app',
+  'Erro app',
+  'Erro gov',
   'Alega fraude',
-  'Juros Abusivos',
-  'Sem Margem',
-  'Valor Minimo para contratação',
-  'Desativada - Não considerar Reclamação',
-  'Reativação de Cadastro',
-  'Dúvidas Gerais',
-  'Limite baixo do Pix',
+  'Juros abusivos',
+  'Sem margem',
+  'Valor minimo para contratação',
+  'Desativada - não considerar reclamação',
+  'Reativação de cadastro',
+  'Dúvidas gerais',
+  'Limite baixo do pix',
   'Alteração cadastral',
   'Dívida prescrita',
   'Seguro acidente',
@@ -255,12 +258,28 @@ const MOTIVOS_RECLAME_AQUI = [
 /** Rótulos antigos do RA → novos (apenas ao carregar edição; não altera schema no banco até salvar) */
 const LEGADO_MOTIVO_RECLAME_AQUI = {
   Cobrança: 'Em cobrança',
+  'Em Cobrança': 'Em cobrança',
   Fraude: 'Alega fraude',
-  Erro: 'Erro App',
-  'Encerramento de Conta Celcoin': 'Encerramento cta Celcoin',
-  LGPD: 'Encerramento cta App',
-  'Portabilidade Pix': 'Portabilidade Chave Pix',
-  'Desativada Não considerar Reclamação': 'Desativada - Não considerar Reclamação',
+  'Alega Fraude': 'Alega fraude',
+  Erro: 'Erro app',
+  'Erro App': 'Erro app',
+  'Encerramento de Conta Celcoin': 'Encerramento cta celcoin',
+  LGPD: 'Encerramento cta app',
+  'Portabilidade Pix': 'Portabilidade chave pix',
+  'Desativada Não considerar Reclamação': 'Desativada - não considerar reclamação',
+  'Desativada Não Considerar Reclamação': 'Desativada - não considerar reclamação',
+  'Valor Minimo para contratação': 'Valor minimo para contratação',
+  'Valor Minimo Para Contratação': 'Valor minimo para contratação',
+  'Limite baixo do Pix': 'Limite baixo do pix',
+  'Limite Baixo Do Pix': 'Limite baixo do pix',
+  'Alteração cadastral': 'Alteração cadastral',
+  'Alteração Cadastral': 'Alteração cadastral',
+  'Dívida prescrita': 'Dívida prescrita',
+  'Dívida Prescrita': 'Dívida prescrita',
+  'Seguro acidente': 'Seguro acidente',
+  'Seguro Acidente': 'Seguro acidente',
+  'Dúvidas sobre restituição': 'Dúvidas sobre restituição',
+  'Dúvidas Sobre Restituição': 'Dúvidas sobre restituição',
 };
 
 const normalizarMotivosReclameAquiAoCarregar = (motivos) => {

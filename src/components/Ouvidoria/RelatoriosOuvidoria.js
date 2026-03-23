@@ -1,6 +1,11 @@
 /**
  * VeloHub V3 - RelatoriosOuvidoria Component
- * VERSION: v2.11.0 | DATE: 2026-03-16 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.12.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.12.0:
+ * - MOTIVOS_CONHECIDOS_FRONTEND e normalizarMotivoParaAgrupamento: padrão Xxxxx xxxxx xxxx (sentence case)
+ * - Alinhado a motivoReduzidoNormalize e formulários (Em cobrança, Alega fraude, Liberação chave pix, etc.)
+ * - Removido tratamento obsoleto "Retirar Chave PIX Cpf" (banco já normalizado)
  * 
  * Mudanças v2.11.0:
  * - Padronização de grafias em MOTIVOS_CONHECIDOS: Abatimento Juros → Abatimento de Juros
@@ -115,25 +120,29 @@ ChartJS.register(
 
 /**
  * Lista de motivos conhecidos para dividir strings concatenadas
+ * Padrão: Xxxxx xxxxx xxxx (sentence case)
  * Ordenada por tamanho (maior primeiro) para melhor matching
  */
 const MOTIVOS_CONHECIDOS_FRONTEND = [
-  'Não Recebeu Restituição',
-  'Liquidação Antecipada',
-  'Encerramento de Conta',
-  'Exclusão de Conta',
-  'Bloqueio de Conta',
-  'Contestação de Valores',
-  'Crédito do Trabalhador',
-  'Empréstimo Pessoal',
-  'Liberação Chave Pix',
-  'Abatimento de Juros',
-  'Cancelamento Conta',
+  'Não recebeu restituição',
+  'Liquidação antecipada',
+  'Liberação chave pix',
+  'Encerramento de conta',
+  'Exclusão de conta',
+  'Bloqueio de conta',
+  'Contestação de valores',
+  'Crédito do trabalhador',
+  'Empréstimo pessoal',
+  'Abatimento de juros',
+  'Cancelamento conta',
   'Devolução à Celcoin',
   'Superendividamento',
   'Portabilidade',
   'Empréstimo',
-  'Chave Pix',
+  'Chave pix',
+  'Em cobrança',
+  'Alega fraude',
+  'Erro app',
   'Fraude',
   'Conta'
 ].sort((a, b) => b.length - a.length);
@@ -148,23 +157,6 @@ const dividirMotivoConcatenado = (motivo) => {
   if (!motivoTrim) return [];
   
   const motivoLower = motivoTrim.toLowerCase();
-  
-  // Casos especiais conhecidos que precisam ser divididos
-  if (motivoLower.includes('retirar') && motivoLower.includes('chave') && motivoLower.includes('pix')) {
-    // "Retirar Chave PIX Cpf" → ["Retirar", "Chave Pix"]
-    const partes = [];
-    if (motivoLower.includes('retirar')) {
-      partes.push('Retirar');
-    }
-    if (motivoLower.includes('chave') && motivoLower.includes('pix')) {
-      partes.push('Chave Pix');
-    }
-    if (motivoLower.includes('cpf') && !partes.includes('CPF')) {
-      // CPF geralmente não é um motivo separado, mas se aparecer sozinho, manter
-      // Por enquanto, não adicionar CPF como motivo separado
-    }
-    return partes.length > 0 ? partes : [motivoTrim];
-  }
   
   // Verificar se é um motivo conhecido completo
   for (const motivoConhecido of MOTIVOS_CONHECIDOS_FRONTEND) {
@@ -312,63 +304,67 @@ const normalizarMotivoParaAgrupamento = (motivo) => {
   // Incluir casos onde apenas "pix" ou "PIX" aparece sozinho
   if (motivoLower === 'chave pix' || motivoLower === 'chavepix' || motivoLower === 'chave pix cpf' || 
       motivoLower === 'pix' || motivoLower.trim() === 'pix') {
-    return 'Chave Pix';
+    return 'Chave pix';
   }
   
   if (motivoLower === 'liberação chave pix' || motivoLower === 'liberação de chave pix') {
-    return 'Liberação Chave Pix';
+    return 'Liberação chave pix';
   }
   
-  // "Retirar Chave PIX Cpf" já é tratado na função dividirMotivoConcatenado
-  // Não precisa fazer nada especial aqui
-  
   if (motivoLower.includes('crédito pessoal') && motivoLower.includes('indisponível')) {
-    return 'Crédito Pessoal Indisponível';
+    return 'Crédito pessoal indisponível';
   }
   
   if (motivoLower.includes('juros') && motivoLower.includes('abusivos')) {
-    return 'Juros Abusivos';
+    return 'Juros abusivos';
   }
   
   if (motivoLower.includes('dívida') && motivoLower.includes('prescrita')) {
-    return 'Dívida Prescrita';
+    return 'Dívida prescrita';
   }
   
   if (motivoLower.includes('dúvidas') && motivoLower.includes('restituição')) {
-    return 'Dúvidas Restituição';
+    return 'Dúvidas sobre restituição';
   }
   
   if (motivoLower.includes('dúvidas') && motivoLower.includes('crédito pessoal')) {
-    return 'Dúvidas Crédito Pessoal';
+    return 'Dúvidas crédito pessoal';
   }
   
   if (motivoLower.includes('alteração') && motivoLower.includes('cadastral')) {
-    return 'Alteração Cadastral';
+    return 'Alteração cadastral';
   }
   
   if (motivoLower.includes('estorno') && motivoLower.includes('plano')) {
-    return 'Estorno de Plano';
+    return 'Estorno de plano';
   }
   
   if (motivoLower.includes('restituição') && motivoLower.includes('2')) {
-    return 'Restituição 2° Lote';
+    return 'Restituição 2° lote';
   }
   
   if (motivoLower.includes('restituição') && motivoLower.includes('1')) {
-    // Normalizar "Restituição 1 Lote" → "Restituição 1° Lote"
-    return 'Restituição 1° Lote';
+    return 'Restituição 1° lote';
   }
   
   if (motivoLower.includes('pix') && motivoLower.includes('não') && motivoLower.includes('localizado')) {
-    return 'PIX Não Localizado';
+    return 'Pix não localizado';
   }
   
   if (motivoLower.includes('cobrança') && motivoLower.includes('indevida')) {
-    return 'Cobrança Indevida';
+    return 'Cobrança indevida';
+  }
+  
+  if (motivoLower.includes('cobrança')) {
+    return 'Em cobrança';
+  }
+  
+  if (motivoLower.includes('fraude') || motivoLower === 'alega fraude') {
+    return 'Alega fraude';
   }
   
   if (motivoLower.includes('dúvidas') && motivoLower.includes('crédito') && motivoLower.includes('trabalhador')) {
-    return 'Dúvidas Crédito ao Trabalhador';
+    return 'Dúvidas crédito ao trabalhador';
   }
   
   if (motivoLower.includes('banco') && motivoLower.includes('brasil')) {
@@ -376,63 +372,52 @@ const normalizarMotivoParaAgrupamento = (motivo) => {
   }
   
   if (motivoLower.includes('limite') && motivoLower.includes('pix')) {
-    return 'Limite PIX';
+    return 'Limite baixo do pix';
   }
   
   if (motivoLower === 'portabilidade' || (motivoLower.includes('portabilidade') && motivoLower.includes('pix'))) {
-    return 'Portabilidade PIX';
+    return 'Portabilidade pix';
   }
   
   if (motivoLower.includes('encerramento') && motivoLower.includes('conta')) {
-    return 'Encerramento de Conta';
+    return 'Encerramento cta celcoin';
   }
   
   if (motivoLower.includes('encerramento') && motivoLower.includes('da')) {
-    return 'Encerramento de Conta';
+    return 'Encerramento cta celcoin';
   }
   
   if (motivoLower.includes('malha') && motivoLower.includes('fina')) {
-    return 'Malha Fina 2024';
+    return 'Malha fina 2024';
   }
   
   if (motivoLower.includes('taxa') && motivoLower.includes('exclusão')) {
     return 'Taxa/Exclusão';
   }
   
-  if (motivoLower.includes('limite') && motivoLower.includes('pix')) {
-    return 'Limite PIX';
-  }
-  
   if (motivoLower.includes('seguro') && motivoLower.includes('acidente')) {
-    return 'Seguro Acidente';
+    return 'Seguro acidente';
   }
   
   if (motivoLower.includes('seguro') && motivoLower.includes('saúde')) {
-    return 'Seguro Saúde';
+    return 'Seguro saúde';
   }
   
   if (motivoLower.includes('portabilidade')) {
-    // Normalizar "Portabilidade" → "Portabilidade PIX" se não tiver PIX já
-    if (motivoLower.includes('pix')) {
-      return 'Portabilidade PIX';
-    }
-    return 'Portabilidade PIX'; // Mesmo sem "pix" no texto, normalizar para incluir PIX
-  }
-  
-  if (motivoLower.includes('encerramento') && motivoLower.includes('da')) {
-    return 'Encerramento de Conta';
+    if (motivoLower.includes('chave')) return 'Portabilidade chave pix';
+    return 'Portabilidade pix';
   }
   
   if (motivoLower === 'encerramento da' || motivoLower.startsWith('encerramento da')) {
-    return 'Encerramento de Conta';
+    return 'Encerramento cta celcoin';
   }
   
   if (motivoLower.includes('quitação') && motivoLower.includes('antecipada')) {
-    return 'Quitação Antecipada';
+    return 'Quitação antecipada';
   }
   
   if (motivoLower.includes('antecipação') && motivoLower.includes('não') && motivoLower.includes('disponível')) {
-    return 'Antecipação Não Disponível';
+    return 'Antecipação não disponível';
   }
   
   // Preposições que não devem ser capitalizadas (exceto no início)
@@ -474,16 +459,15 @@ const normalizarMotivoParaAgrupamento = (motivo) => {
   const normalizadoLower = normalizado.toLowerCase();
   
   if (normalizadoLower === 'chave pix' || normalizadoLower === 'pix') {
-    normalizado = 'Chave Pix';
+    normalizado = 'Chave pix';
   }
   
   if (normalizadoLower === 'liberação chave pix') {
-    normalizado = 'Liberação Chave Pix';
+    normalizado = 'Liberação chave pix';
   }
   
-  // Normalizar "Erro/aplicativo" → "Erro/Aplicativo"
   if (normalizadoLower.includes('erro') && normalizadoLower.includes('aplicativo')) {
-    normalizado = normalizado.replace(/erro\s*\/\s*aplicativo/gi, 'Erro/Aplicativo');
+    normalizado = 'Erro app';
   }
   
   // Normalizar "Banco Do Brasil" → "Banco do Brasil" (preposição "do" em minúscula)
@@ -491,19 +475,16 @@ const normalizarMotivoParaAgrupamento = (motivo) => {
     normalizado = normalizado.replace(/Banco\s+Do\s+Brasil/gi, 'Banco do Brasil');
   }
   
-  // Normalizar "Limite Pix" → "Limite PIX" (PIX em maiúsculas)
   if (normalizadoLower.includes('limite') && normalizadoLower.includes('pix')) {
-    normalizado = normalizado.replace(/Limite\s+Pix/gi, 'Limite PIX');
+    normalizado = 'Limite baixo do pix';
   }
   
-  // Normalizar "Pix não localizado" → "PIX Não Localizado"
   if (normalizadoLower.includes('pix') && normalizadoLower.includes('não') && normalizadoLower.includes('localizado')) {
-    normalizado = normalizado.replace(/Pix\s+não\s+localizado/gi, 'PIX Não Localizado');
+    normalizado = 'Pix não localizado';
   }
   
-  // Normalizar "Restituição 1 Lote" → "Restituição 1° Lote"
   if (normalizadoLower.includes('restituição') && normalizadoLower.includes('1') && normalizadoLower.includes('lote')) {
-    normalizado = normalizado.replace(/Restituição\s+1\s+Lote/gi, 'Restituição 1° Lote');
+    normalizado = 'Restituição 1° lote';
   }
   
   return normalizado;

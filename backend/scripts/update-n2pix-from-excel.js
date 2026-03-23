@@ -1,7 +1,10 @@
 /**
  * Script de Atualização: Base N2 Pix (XLSX) → MongoDB reclamacoes_n2Pix
- * VERSION: v1.3.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
- * 
+ * VERSION: v1.4.0 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v1.4.0:
+ * - motivoReduzido via utils/motivoReduzidoNormalize.js (renomeações + sentence case pt-BR)
+ *
  * Mudanças v1.3.0:
  * - CORRIGIDO: Função converterPixLiberado() melhorada para aceitar boolean, número, string e null/undefined
  * - Agora processa corretamente valores da coluna V (pixLiberado) da planilha Excel
@@ -49,6 +52,7 @@ const { MongoClient } = require('mongodb');
 const path = require('path');
 const XLSX = require('xlsx');
 const fs = require('fs');
+const { normalizarMotivosDeCelula } = require(path.join(__dirname, '../utils/motivoReduzidoNormalize'));
 
 // Configuração MongoDB
 const MONGODB_URI = process.env.MONGO_ENV || 'mongodb+srv://lucasgravina:nKQu8bSN6iZl8FPo@velohubcentral.od7vwts.mongodb.net/?retryWrites=true&w=majority&appName=VelohubCentral';
@@ -170,47 +174,10 @@ function converterTelefones(telefoneStr) {
 }
 
 /**
- * Normalizar motivo individual: capitalização correta
- * - "Chave Pix" → "Liberação Chave Pix"
- * - "Liberação chave pix" → "Liberação Chave Pix"
- * - "Abatimento Juros" / "Abatimento de juros" → "Abatimento de Juros"
- */
-function normalizarMotivoIndividual(motivo) {
-  if (!motivo || typeof motivo !== 'string') return '';
-  
-  const motivoTrim = motivo.trim();
-  const lower = motivoTrim.toLowerCase();
-  
-  if (lower === 'chave pix') {
-    return 'Liberação Chave Pix';
-  }
-  if (lower === 'liberação chave pix' || lower === 'liberacao chave pix') {
-    return 'Liberação Chave Pix';
-  }
-  if (lower === 'abatimento juros' || lower === 'abatimento juro' || lower === 'abatimento de juros' || lower === 'abatimento de juro') {
-    return 'Abatimento de Juros';
-  }
-  
-  return motivoTrim;
-}
-
-/**
- * Converter motivoReduzido da coluna I para array (pode ter múltiplos valores separados)
- * Normaliza "Chave Pix" → "Liberação Chave Pix"
+ * Converter motivoReduzido (coluna I) para array — padrão ouvidoria (motivoReduzidoNormalize)
  */
 function converterMotivoReduzido(motivoStr) {
-  if (!motivoStr || typeof motivoStr !== 'string') {
-    return [];
-  }
-  
-  // Dividir por vírgula, ponto e vírgula, ou barra
-  const motivos = motivoStr
-    .split(/[,;\/]/)
-    .map(m => m.trim())
-    .filter(m => m.length > 0)
-    .map(m => normalizarMotivoIndividual(m)); // Normalizar cada motivo
-  
-  return motivos;
+  return normalizarMotivosDeCelula(motivoStr);
 }
 
 /**

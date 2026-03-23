@@ -1,28 +1,32 @@
 /**
  * Script de Atualização: Base Reclame Aqui (XLSX) → MongoDB reclamacoes_reclameAqui
- * VERSION: v1.2.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
- * 
- * Arquivo: dados procon/ATUALIZAÇÃO RA.xlsx (sem linha de cabeçalho)
- * 
- * Mapeamento de colunas Excel → Schema MongoDB (LISTA_SCHEMAS.rb):
- * - A → cpf
- * - B → idEntrada
- * - C → dataReclam
- * - D → createdAt
- * - E → Finalizado.dataResolucao (se preenchida: Resolvido = true)
- * - F → responsavel
- * - G → produto
- * - H → motivoReduzido (array)
- * - I → pixLiberado (TRUE = true, vazio = false)
- * - J → acionouCentral (não é FALSE e vazio = true)
- * - K → passivelNotaMais (TRUE = true, vazio = false)
- * - L → cpfRepetido
+ * VERSION: v1.2.3 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+ * - motivoReduzido: utils/motivoReduzidoNormalize.js (renomeações + sentence case pt-BR)
+ *
+ * Arquivo: dados procon/ATUALIZAÇÃO RA.xlsx
+ * Planilha: primeira aba. Use --skip-header para ignorar a linha 1 (títulos: CPF, ID, Entrada, …).
+ *
+ * Colunas A–L (nomes na planilha) → campos reclamacoes_reclameAqui (LISTA_SCHEMAS.rb):
+ * | Col | Planilha              | Campo MongoDB / observação |
+ * |-----|------------------------|----------------------------|
+ * | A   | CPF                    | cpf                        |
+ * | B   | ID                     | idEntrada                  |
+ * | C   | Entrada                | dataReclam                 |
+ * | D   | Início tratativa       | createdAt                  |
+ * | E   | Final tratativa        | Finalizado.dataResolucao (+ Resolvido true se preenchida) |
+ * | F   | Colaboradores          | responsavel                |
+ * | G   | Produto                | produto                    |
+ * | H   | Motivo reduzido        | motivoReduzido (array)     |
+ * | I   | PIX Retirado           | pixLiberado (Lib/Excl/Solicitada etc. → true; N/A/vazio → false) |
+ * | J   | Tratativa N1           | acionouCentral             |
+ * | K   | Passível de nota +     | passivelNotaMais           |
+ * | L   | CPF Repetido           | cpfRepetido                |
  * 
  * Enriquecimento: busca CPF em Bacen/N2Pix para nome, bacen, n2, protocolos (inalterado)
  * - updatedAt = data de hoje
  * 
  * Uso:
- *   node backend/scripts/update-reclameaqui-from-excel.js [--dry-run]
+ *   node backend/scripts/update-reclameaqui-from-excel.js [--skip-header] [--dry-run]
  */
 
 require('dotenv').config();
@@ -30,6 +34,7 @@ const { MongoClient } = require('mongodb');
 const path = require('path');
 const XLSX = require('xlsx');
 const fs = require('fs');
+const { normalizarMotivosDeCelula } = require(path.join(__dirname, '../utils/motivoReduzidoNormalize'));
 
 // Configuração MongoDB
 const MONGODB_URI = process.env.MONGO_ENV || 'mongodb+srv://lucasgravina:nKQu8bSN6iZl8FPo@velohubcentral.od7vwts.mongodb.net/?retryWrites=true&w=majority&appName=VelohubCentral';
@@ -38,6 +43,8 @@ const COLLECTION_NAME = 'reclamacoes_reclameAqui';
 
 // Modo dry-run (apenas validação, sem atualizar)
 const DRY_RUN = process.argv.includes('--dry-run');
+/** Pular a primeira linha da planilha (cabeçalho com nomes das colunas) */
+const SKIP_HEADER = process.argv.includes('--skip-header');
 
 // Caminho do arquivo XLSX
 const XLSX_PATH = path.join(__dirname, '../../../dados procon/ATUALIZAÇÃO RA.xlsx');
@@ -139,61 +146,10 @@ function normalizarNome(nome) {
 }
 
 /**
- * Normalizar motivo individual (title case, preservar siglas)
- */
-function normalizarMotivoIndividual(motivo) {
-  if (!motivo || typeof motivo !== 'string') return '';
-  
-  const motivoTrim = motivo.trim();
-  if (!motivoTrim) return '';
-  
-  // Preservar siglas conhecidas (PIX, EP, CPF, etc.)
-  const siglas = ['PIX', 'EP', 'CPF', 'N2', 'N/A'];
-  
-  // Verificar se é sigla
-  if (siglas.includes(motivoTrim.toUpperCase())) {
-    return motivoTrim.toUpperCase();
-  }
-  
-  // Aplicar title case
-  const palavras = motivoTrim.toLowerCase().split(/\s+/);
-  const palavrasNormalizadas = palavras.map(palavra => {
-    return palavra.charAt(0).toUpperCase() + palavra.slice(1);
-  });
-  
-  return palavrasNormalizadas.join(' ');
-}
-
-/**
- * Converter motivoReduzido para array
+ * Converter motivoReduzido (célula) para array — padrão ouvidoria (motivoReduzidoNormalize)
  */
 function converterMotivoReduzido(motivoStr) {
-  if (!motivoStr) return [];
-  
-  const str = String(motivoStr).trim();
-  if (!str) return [];
-  
-  // Dividir por vírgula, ponto e vírgula ou barra
-  const motivos = str
-    .split(/[,;/]/)
-    .map(m => m.trim())
-    .filter(m => m.length > 0)
-    .map(m => normalizarMotivoIndividual(m))
-    .filter(m => m.length > 0);
-  
-  // Remover duplicatas (case-insensitive)
-  const unicos = [];
-  const vistos = new Set();
-  
-  for (const motivo of motivos) {
-    const chave = motivo.toLowerCase();
-    if (!vistos.has(chave)) {
-      vistos.add(chave);
-      unicos.push(motivo);
-    }
-  }
-  
-  return unicos;
+  return normalizarMotivosDeCelula(motivoStr);
 }
 
 /**
@@ -304,8 +260,10 @@ function converterProtocolos(protocolosStr) {
 
 /**
  * Ler XLSX e converter para array de objetos usando colunas específicas
+ * @param {string} caminhoArquivo
+ * @param {boolean} [skipHeader=false] — se true, descarta a primeira linha (cabeçalho)
  */
-function lerXLSXPorColunas(caminhoArquivo) {
+function lerXLSXPorColunas(caminhoArquivo, skipHeader = false) {
   if (!fs.existsSync(caminhoArquivo)) {
     throw new Error(`Arquivo não encontrado: ${caminhoArquivo}`);
   }
@@ -347,11 +305,19 @@ function lerXLSXPorColunas(caminhoArquivo) {
     console.log('⚠️  Planilha vazia ou sem dados');
     return [];
   }
+
+  if (skipHeader) {
+    if (dados.length <= 1) {
+      console.log('⚠️  --skip-header ativo mas só há uma linha na planilha (nada a importar)');
+      return [];
+    }
+    dados.shift();
+    console.log('📋 Linha de cabeçalho ignorada (--skip-header)');
+  }
   
   // Converter para objetos usando índices de coluna (A=0, B=1, C=2, etc.)
   const registros = [];
   
-  // Processar todas as linhas (planilha não tem cabeçalho)
   for (let i = 0; i < dados.length; i++) {
     const row = dados[i];
     
@@ -360,7 +326,8 @@ function lerXLSXPorColunas(caminhoArquivo) {
       continue; // Pular linhas vazias
     }
     
-    // Mapear colunas (índices: A=0 … L=11) — alinhado a LISTA_SCHEMAS reclamacoes_reclameAqui
+    // Mapear colunas A–L: CPF, ID, Entrada, Início tratativa, Final tratativa, Colaboradores, Produto,
+    // Motivo reduzido, PIX Retirado, Tratativa N1, Passível de nota +, CPF Repetido (índices A=0 … L=11)
     const registro = {
       // A → cpf
       cpf: normalizarCPF(row[0]),
@@ -469,11 +436,12 @@ async function buscarDadosRelacionados(db, cpf) {
 async function processarAtualizacoes() {
   console.log('🚀 Script de Atualização: Base Reclame Aqui (XLSX) → MongoDB reclamacoes_reclameAqui\n');
   console.log(`📁 Arquivo: ${XLSX_PATH}`);
-  console.log(`🔧 Modo: ${DRY_RUN ? 'DRY-RUN (validação apenas)' : 'ATUALIZAÇÃO REAL'}\n`);
+  console.log(`🔧 Modo: ${DRY_RUN ? 'DRY-RUN (validação apenas)' : 'ATUALIZAÇÃO REAL'}`);
+  console.log(`📋 Skip cabeçalho: ${SKIP_HEADER ? 'sim (--skip-header)' : 'não'}\n`);
   
   // Ler dados da planilha
   console.log('📂 Lendo dados da planilha Excel...');
-  const registros = lerXLSXPorColunas(XLSX_PATH);
+  const registros = lerXLSXPorColunas(XLSX_PATH, SKIP_HEADER);
   console.log(`✅ ${registros.length} registros lidos da planilha\n`);
   
   if (registros.length === 0) {

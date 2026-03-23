@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - AnaliseDiaria Component
- * VERSION: v2.6.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.7.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.7.0:
+ * - MOTIVOS_REDUZIDOS: padrão Xxxxx xxxxx xxxx, alinhado a FormReclamacao e motivoReduzidoNormalize
  * 
  * Mudanças v2.6.0:
  * - Adicionadas opções Reclame Aqui, Procon e Ação Judicial ao filtro de tipo
@@ -102,35 +105,23 @@ import toast from 'react-hot-toast';
 /** Naturezas (origem, schema 471) - NÃO confundir com Motivos (motivoReduzido, schema 475) */
 const NATUREZAS_BACEN = ['Bacen Celcoin', 'Bacen Via Capital', 'Consumidor.Gov'];
 
-/** Lista fixa de motivos reduzidos (BACEN/N2) - referência. Tabela Motivos usa dados da API (motivoReduzido). */
+/** Lista fixa de motivos reduzidos (BACEN/N2) - referência. Tabela Motivos usa dados da API (motivoReduzido). Padrão: Xxxxx xxxxx xxxx */
 const MOTIVOS_REDUZIDOS = [
-  'Abatimento de Juros',
-  'Abatimento de Juros/Chave PIX',
-  'Cancelamento Conta',
-  'Chave PIX',
-  'PIX/Abatimento de Juros/Encerramento de Conta',
-  'Chave PIX/Abatimento de Juros/Prob. App',
-  'Chave PIX/Acesso ao App',
-  'Chave PIX/Exclusão de Conta',
-  'Conta',
-  'Contestação de Valores',
-  'Credito do Trabalhador',
-  'Credito Pessoal',
-  'Cupons Velotax',
-  'Devolução à Celcoin',
-  'Fraude',
-  'Liquidação Antecipada',
-  'Liquidação Antecipada/Abatimento de Juros',
-  'Não Recebeu Restituição',
-  'Não Recebeu Restituição/Abatimento de Juros',
-  'Não Recebeu Restituição/Abatimento de Juros/Chave PIX',
-  'Não Recebeu Restituição/Chave PIX',
-  'Probl. App/Gov',
-  'Seguro Celular',
-  'Seguro Divida Zero',
-  'Seguro Prestamista',
-  'Seguro Saude',
-  'Superendividamento'
+  'Liberação chave pix',
+  'Portabilidade pix',
+  'Abatimento de juros',
+  'Cancelamento até 7 dias',
+  'Cancelamento superior a 7 dias',
+  'Em cobrança',
+  'Alega fraude',
+  'Erro app',
+  'Encerramento cta celcoin',
+  'Encerramento cta app',
+  'Superendividamento',
+  'Liquidação antecipada',
+  'Não recebeu restituição',
+  'Chave pix',
+  'Conta'
 ];
 
 const AnaliseDiaria = () => {

@@ -220,16 +220,16 @@ const validarCPF = (cpf) => {
  * Em cobrança, Alega fraude, Erro App, encerramentos cta, Superendividamento.
  */
 const MOTIVOS_REDUZIDOS = [
-  'Liberação Chave Pix',
-  'Portabilidade Pix',
-  'Abatimento de Juros',
+  'Liberação chave pix',
+  'Portabilidade pix',
+  'Abatimento de juros',
   'Cancelamento até 7 dias',
   'Cancelamento superior a 7 dias',
   'Em cobrança',
   'Alega fraude',
-  'Erro App',
-  'Encerramento cta Celcoin',
-  'Encerramento cta App',
+  'Erro app',
+  'Encerramento cta celcoin',
+  'Encerramento cta app',
   'Superendividamento',
 ];
 
@@ -238,37 +238,37 @@ const MOTIVOS_REDUZIDOS = [
  */
 const MOTIVOS_ACAO_JUDICIAL = [
   'Juros',
-  'Chave Pix',
+  'Chave pix',
   'Restituição BB',
   'Relatório',
-  'Repetição Indébito',
+  'Repetição indébito',
   'Superendividamento',
-  'Desconhece Contratação'
+  'Desconhece contratação'
 ];
 
 /**
  * Opções de motivo para Reclame Aqui (múltipla escolha)
  */
 const MOTIVOS_RECLAME_AQUI = [
-  'Liberação Chave Pix',
-  'Portabilidade Chave Pix',
-  'Cancelamento/ Estorno',
+  'Liberação chave pix',
+  'Portabilidade chave pix',
+  'Cancelamento/ estorno',
   'Cancelamento até 7 dias',
   'Cancelamento superior a 7 dias',
-  'Abatimento de Juros',
+  'Abatimento de juros',
   'Em cobrança',
-  'Encerramento cta Celcoin',
-  'Encerramento cta App',
-  'Erro App',
-  'Erro Gov',
+  'Encerramento cta celcoin',
+  'Encerramento cta app',
+  'Erro app',
+  'Erro gov',
   'Alega fraude',
-  'Juros Abusivos',
-  'Sem Margem',
-  'Valor Minimo para contratação',
-  'Desativada - Não considerar Reclamação',
-  'Reativação de Cadastro',
-  'Dúvidas Gerais',
-  'Limite baixo do Pix',
+  'Juros abusivos',
+  'Sem margem',
+  'Valor minimo para contratação',
+  'Desativada - não considerar reclamação',
+  'Reativação de cadastro',
+  'Dúvidas gerais',
+  'Limite baixo do pix',
   'Alteração cadastral',
   'Dívida prescrita',
   'Seguro acidente',

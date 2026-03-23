@@ -1,7 +1,9 @@
 /**
  * Script de Atualização: Base Procon (XLSX) → MongoDB reclamacoes_procon
- * VERSION: v1.0.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
- * 
+ * VERSION: v1.1.0 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+ *
+ * v1.1.0: motivoReduzido via utils/motivoReduzidoNormalize.js (renomeações + sentence case pt-BR)
+ *
  * Mapeamento de colunas Excel → Schema MongoDB:
  * - Coluna A → codigoProcon
  * - Coluna B → cpf
@@ -24,6 +26,7 @@ const { MongoClient } = require('mongodb');
 const path = require('path');
 const XLSX = require('xlsx');
 const fs = require('fs');
+const { normalizarMotivosDeCelula } = require(path.join(__dirname, '../utils/motivoReduzidoNormalize'));
 
 // Configuração MongoDB
 const MONGODB_URI = process.env.MONGO_ENV || 'mongodb+srv://lucasgravina:nKQu8bSN6iZl8FPo@velohubcentral.od7vwts.mongodb.net/?retryWrites=true&w=majority&appName=VelohubCentral';
@@ -132,72 +135,10 @@ function normalizarNome(nome) {
 }
 
 /**
- * Normalizar motivo individual: capitalização correta
- * - "Liberação chave pix" → "Liberação Chave Pix"
- * - "Abatimento de juros" → "Abatimento de Juros"
- * - Demais: title case, preservar siglas (PIX, EP, CPF, etc.)
- */
-function normalizarMotivoIndividual(motivo) {
-  if (!motivo || typeof motivo !== 'string') return '';
-  
-  const motivoTrim = motivo.trim();
-  if (!motivoTrim) return '';
-  
-  const lower = motivoTrim.toLowerCase();
-  
-  // Normalizações explícitas (MOTIVOS_REDUZIDOS)
-  if (lower === 'liberação chave pix' || lower === 'liberacao chave pix') {
-    return 'Liberação Chave Pix';
-  }
-  if (lower === 'abatimento de juros' || lower === 'abatimento de juro') {
-    return 'Abatimento de Juros';
-  }
-  
-  // Preservar siglas conhecidas (PIX, EP, CPF, etc.)
-  const siglas = ['PIX', 'EP', 'CPF', 'N2', 'N/A'];
-  if (siglas.includes(motivoTrim.toUpperCase())) {
-    return motivoTrim.toUpperCase();
-  }
-  
-  // Aplicar title case para demais
-  const palavras = lower.split(/\s+/);
-  const palavrasNormalizadas = palavras.map(palavra => {
-    return palavra.charAt(0).toUpperCase() + palavra.slice(1);
-  });
-  
-  return palavrasNormalizadas.join(' ');
-}
-
-/**
- * Converter motivoReduzido para array
+ * Converter motivoReduzido (coluna F) para array — padrão ouvidoria (motivoReduzidoNormalize)
  */
 function converterMotivoReduzido(motivoStr) {
-  if (!motivoStr) return [];
-  
-  const str = String(motivoStr).trim();
-  if (!str) return [];
-  
-  // Dividir por vírgula, ponto e vírgula ou barra
-  const motivos = str
-    .split(/[,;/]/)
-    .map(m => m.trim())
-    .filter(m => m.length > 0)
-    .map(m => normalizarMotivoIndividual(m))
-    .filter(m => m.length > 0);
-  
-  // Remover duplicatas (case-insensitive)
-  const unicos = [];
-  const vistos = new Set();
-  
-  for (const motivo of motivos) {
-    const chave = motivo.toLowerCase();
-    if (!vistos.has(chave)) {
-      vistos.add(chave);
-      unicos.push(motivo);
-    }
-  }
-  
-  return unicos;
+  return normalizarMotivosDeCelula(motivoStr);
 }
 
 /**
