@@ -1,6 +1,12 @@
 // User Session Logger - Log de sessões de login/logout dos usuários
-// VERSION: v1.4.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
-// 
+// VERSION: v1.5.0 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+//
+// Mudanças v1.5.0:
+// - Reconexão automática quando a topologia MongoDB está fechada ("Topology is closed")
+// - Não confiar só em isConnected: verifica client fechado / topology destruída antes de reutilizar
+// - Mesmas opções de timeout do server.js (serverSelection / connect / socket) no MongoClient
+// - Single-flight em connect() para evitar corridas com múltiplas requisições simultâneas
+//
 // Mudanças v1.4.1:
 // - CRÍTICO: Corrigido bug onde chatStatus permanecia 'offline' mesmo com isActive=true
 // - Heartbeat agora reseta chatStatus para 'online' quando sessão é reativada após estar offline
@@ -14,31 +20,123 @@ const { MongoClient } = require('mongodb');
 const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
 
+const MONGO_CLIENT_OPTIONS = {
+  serverSelectionTimeoutMS: 45000,
+  connectTimeoutMS: 60000,
+  socketTimeoutMS: 120000,
+};
+
 class UserSessionLogger {
   constructor() {
     this.client = null;
     this.db = null;
     this.collection = null;
     this.isConnected = false;
+    /** @type {Promise<void> | null} */
+    this._connectPromise = null;
   }
 
   /**
-   * Conecta ao MongoDB
+   * Indica se o MongoClient atual ainda pode emitir operações (evita "Topology is closed").
+   */
+  _clientUsable() {
+    if (!this.client) return false;
+    try {
+      if (this.client.s?.hasBeenClosed) return false;
+      const t = this.client.topology;
+      if (!t) return false;
+      if (typeof t.isDestroyed === 'function' && t.isDestroyed()) return false;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async _disposeClient() {
+    if (this.client) {
+      try {
+        await this.client.close();
+      } catch (_) {
+        /* ignore */
+      }
+    }
+    this.client = null;
+    this.db = null;
+    this.collection = null;
+    this.isConnected = false;
+  }
+
+  _shouldReconnectAfterError(error) {
+    const msg = String(error?.message || '');
+    return (
+      msg.includes('Topology is closed') ||
+      msg.includes('topology was destroyed') ||
+      msg.includes('MongoClient must be connected')
+    );
+  }
+
+  /**
+   * Executa operação MongoDB; em erro de topologia fechada, reconecta e tenta mais uma vez.
+   * @template T
+   * @param {() => Promise<T>} fn
+   * @returns {Promise<T>}
+   */
+  async _withMongoRetry(fn) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (!this._shouldReconnectAfterError(error)) {
+        throw error;
+      }
+      console.warn('⚠️ SessionLogger: erro de topologia durante operação, reconectando e repetindo 1x:', error.message);
+      await this._disposeClient();
+      await this.connect();
+      return await fn();
+    }
+  }
+
+  /**
+   * Conecta ao MongoDB (reconecta se a topologia anterior foi fechada)
    */
   async connect() {
-    if (this.isConnected) return;
-    
-    try {
-      this.client = new MongoClient(process.env.MONGO_ENV);
+    if (this.isConnected && this._clientUsable()) {
+      return;
+    }
+
+    if (this.isConnected && !this._clientUsable()) {
+      console.warn('⚠️ SessionLogger: conexão MongoDB inválida ou topologia fechada — reconectando');
+      await this._disposeClient();
+    }
+
+    if (this._connectPromise) {
+      return this._connectPromise;
+    }
+
+    this._connectPromise = (async () => {
+      const uri = process.env.MONGO_ENV;
+      if (!uri || !String(uri).trim()) {
+        throw new Error('MONGO_ENV não configurada');
+      }
+
+      await this._disposeClient();
+
+      this.client = new MongoClient(uri, MONGO_CLIENT_OPTIONS);
       await this.client.connect();
       this.db = this.client.db('console_conteudo');
       this.collection = this.db.collection('hub_sessions');
       this.isConnected = true;
-      
+
       console.log('✅ SessionLogger: Conectado ao MongoDB');
+    })();
+
+    try {
+      await this._connectPromise;
     } catch (error) {
       console.error('❌ SessionLogger: Erro ao conectar MongoDB:', error.message);
+      await this._disposeClient();
       throw error;
+    } finally {
+      this._connectPromise = null;
     }
   }
 
@@ -52,40 +150,41 @@ class UserSessionLogger {
    */
   async logLogin(colaboradorNome, userEmail, ipAddress = null, userAgent = null) {
     try {
-      await this.connect();
+      return await this._withMongoRetry(async () => {
+        await this.connect();
 
-      const sessionId = uuidv4();
-      const now = new Date();
-      
-      const session = {
-        colaboradorNome,
-        userEmail,
-        sessionId,
-        ipAddress,
-        userAgent,
-        isActive: true,
-        chatStatus: 'online', // Inicializar status do chat como 'online' por padrão
-        loginTimestamp: now,
-        logoutTimestamp: null,
-        createdAt: now,
-        updatedAt: now
-      };
+        const sessionId = uuidv4();
+        const now = new Date();
 
-      const result = await this.collection.insertOne(session);
-      
-      console.log(`✅ SessionLogger: Login registrado - ${colaboradorNome} (${sessionId})`);
-      
-      return {
-        success: true,
-        sessionId: sessionId,
-        insertedId: result.insertedId
-      };
+        const session = {
+          colaboradorNome,
+          userEmail,
+          sessionId,
+          ipAddress,
+          userAgent,
+          isActive: true,
+          chatStatus: 'online', // Inicializar status do chat como 'online' por padrão
+          loginTimestamp: now,
+          logoutTimestamp: null,
+          createdAt: now,
+          updatedAt: now,
+        };
 
+        const result = await this.collection.insertOne(session);
+
+        console.log(`✅ SessionLogger: Login registrado - ${colaboradorNome} (${sessionId})`);
+
+        return {
+          success: true,
+          sessionId: sessionId,
+          insertedId: result.insertedId,
+        };
+      });
     } catch (error) {
       console.error('❌ SessionLogger: Erro ao registrar login:', error.message);
       return {
         success: false,
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -265,8 +364,12 @@ class UserSessionLogger {
     if (this.client) {
       await this.client.close();
       this.isConnected = false;
+      this._connectPromise = null;
       console.log('🔌 SessionLogger: Conexão MongoDB fechada');
     }
+    this.client = null;
+    this.db = null;
+    this.collection = null;
   }
 
   /**
@@ -374,70 +477,70 @@ class UserSessionLogger {
    */
   async reactivateSession(userEmail) {
     try {
-      await this.connect();
+      return await this._withMongoRetry(async () => {
+        await this.connect();
 
-      const now = new Date();
-      const SESSION_EXPIRATION_MS = 4 * 60 * 60 * 1000; // 4 horas
+        const now = new Date();
+        const SESSION_EXPIRATION_MS = 4 * 60 * 60 * 1000; // 4 horas
 
-      // Buscar sessão mais recente do usuário (ativa ou inativa)
-      const session = await this.collection
-        .find({ userEmail: userEmail })
-        .sort({ loginTimestamp: -1 })
-        .limit(1)
-        .toArray();
+        const session = await this.collection
+          .find({ userEmail: userEmail })
+          .sort({ loginTimestamp: -1 })
+          .limit(1)
+          .toArray();
 
-      if (!session || session.length === 0) {
-        return {
-          success: false,
-          expired: false,
-          error: 'Nenhuma sessão encontrada para este usuário'
-        };
-      }
-
-      const latestSession = session[0];
-
-      // Verificar se sessão expirou (4 horas)
-      const elapsedTime = now - latestSession.loginTimestamp;
-      if (elapsedTime > SESSION_EXPIRATION_MS) {
-        return {
-          success: false,
-          expired: true,
-          error: 'Sessão expirada (4 horas) - novo login necessário'
-        };
-      }
-
-      // Reativar sessão
-      const result = await this.collection.updateOne(
-        { sessionId: latestSession.sessionId },
-        {
-          $set: {
-            isActive: true,
-            updatedAt: now
-          }
+        if (!session || session.length === 0) {
+          return {
+            success: false,
+            expired: false,
+            error: 'Nenhuma sessão encontrada para este usuário',
+          };
         }
-      );
 
-      if (result.modifiedCount > 0) {
-        console.log(`🔄 SessionLogger: Sessão reativada - ${latestSession.colaboradorNome} (${latestSession.sessionId})`);
-        return {
-          success: true,
-          sessionId: latestSession.sessionId,
-          expired: false
-        };
-      } else {
+        const latestSession = session[0];
+
+        const elapsedTime = now - latestSession.loginTimestamp;
+        if (elapsedTime > SESSION_EXPIRATION_MS) {
+          return {
+            success: false,
+            expired: true,
+            error: 'Sessão expirada (4 horas) - novo login necessário',
+          };
+        }
+
+        const result = await this.collection.updateOne(
+          { sessionId: latestSession.sessionId },
+          {
+            $set: {
+              isActive: true,
+              updatedAt: now,
+            },
+          }
+        );
+
+        if (result.modifiedCount > 0) {
+          console.log(
+            `🔄 SessionLogger: Sessão reativada - ${latestSession.colaboradorNome} (${latestSession.sessionId})`
+          );
+          return {
+            success: true,
+            sessionId: latestSession.sessionId,
+            expired: false,
+          };
+        }
+
         return {
           success: false,
           expired: false,
-          error: 'Erro ao reativar sessão'
+          error: 'Erro ao reativar sessão',
         };
-      }
-
+      });
     } catch (error) {
       console.error('❌ SessionLogger: Erro ao reativar sessão:', error.message);
       return {
         success: false,
         expired: false,
-        error: error.message
+        error: error.message,
       };
     }
   }
