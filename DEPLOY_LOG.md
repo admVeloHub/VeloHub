@@ -40,6 +40,14 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - userSessionLogger**
+- **Data/Hora**: 2026-03-24
+- **Tipo**: GitHub Push
+- **Arquivos Modificados**:
+  - `backend/services/logging/userSessionLogger.js`
+- **Descrição**: Atualizações no serviço de log de sessão de usuário
+- **Status**: ✅ Concluído com sucesso
+
 ### **GitHub Push - Script Ouvidoria: normalizar produto Empréstimo Pessoal**
 - **Data/Hora**: 2026-03-23
 - **Tipo**: GitHub Push
