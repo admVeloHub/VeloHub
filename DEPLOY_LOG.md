@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.4 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.5 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,18 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - Ouvidoria: motivos Reclame Aqui**
+- **Data/Hora**: 2026-03-25
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: FormReclamacao v3.31.0, FormReclamacaoEdit v1.29.0, ListaReclamacoes v1.22.0
+- **Arquivos Modificados**:
+  - `src/components/Ouvidoria/FormReclamacao.js`
+  - `src/components/Ouvidoria/FormReclamacaoEdit.js`
+  - `src/components/Ouvidoria/ListaReclamacoes.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Removidas do campo Motivo (Reclame Aqui) as opções Cancelamento/ estorno, Sem margem, Desativada - não considerar reclamação, Seguro acidente e Dúvidas sobre restituição; filtro da lista alinhado; no formulário de edição, removidos mapeamentos LEGADO correspondentes
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - Module status, Home/Velobot e Escalações**
 - **Data/Hora**: 2026-03-25
