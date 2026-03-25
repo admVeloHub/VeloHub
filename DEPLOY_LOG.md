@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.3 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.4 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,22 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - Module status, Home/Velobot e Escalações**
+- **Data/Hora**: 2026-03-25
+- **Tipo**: GitHub Push
+- **Arquivos Modificados**:
+  - `backend/server.js`
+  - `src/App_v2-1.js`
+  - `src/components/Chatbot.js`
+  - `src/components/Escalacoes/ErrosBugsTab.js`
+  - `src/components/Escalacoes/FormSolicitacao.js`
+  - `src/pages/EscalacoesPage.js`
+  - `src/services/escalacoesApi.js`
+  - `src/utils/escalacoesModalHelpers.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Extensão de `/api/module-status` (perda-renda, cupons, seguro-pessoal e campos Mongo), widget Serviços na Home com lista de 8 produtos, Velobot com grade 5 colunas e segunda linha deslocada; melhorias e ajustes no fluxo Escalações (Erros/Bugs, formulário, página, API e helpers modais)
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - userSessionLogger**
 - **Data/Hora**: 2026-03-24

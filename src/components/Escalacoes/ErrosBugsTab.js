@@ -1,6 +1,22 @@
 /**
  * VeloHub V3 - ErrosBugsTab Component
- * VERSION: v1.27.0 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.29.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.29.0:
+ * - Modal do card (respostas): adicionar anexos ao registro existente (upload GCS + PUT payload mesclado); errosBugsAPI.update
+ * 
+ * Mudanças v1.28.3:
+ * - Botões de anexo: ícones Image e Video (lucide-react) alinhados ao texto
+ * 
+ * Mudanças v1.28.2:
+ * - Anexos: rótulo e botões Selecionar imagens/vídeos na mesma linha (flex, wrap em telas estreitas)
+ * 
+ * Mudanças v1.28.1:
+ * - Seção Anexos do formulário: só rótulo + botões Selecionar imagens/vídeos; removido quadro tracejado e textos de arrastar/soltar/formatos
+ * 
+ * Mudanças v1.28.0:
+ * - Paridade aba Solicitações: log da sidebar = lista do servidor (filtrada por colaborador) + extras do cache por requestId; GET com getByColaborador quando há agente
+ * - Cards busca + log: ticket cancelado → line-through em CPF e tipo (motivo)
  * 
  * Mudanças v1.27.0:
  * - Sidebar unificada (paridade Solicitações): um painel “Busca e acompanhamento”, CPF+Buscar+Atualizar, scroll único com resultados da busca + envios recentes; altura da sidebar = card principal (ResizeObserver)
@@ -160,11 +176,13 @@
  */
 
 import React, { useEffect, useLayoutEffect, useState, useRef, useMemo } from 'react';
+import { Image, Video } from 'lucide-react';
 import { errosBugsAPI, logsAPI, solicitacoesAPI } from '../../services/escalacoesApi';
 import { API_BASE_URL } from '../../config/api-config';
 import toast from 'react-hot-toast';
 import {
   STORAGE_PROD_READ_ERROS_BUGS,
+  normalizeMongoId,
   getStatusChamado,
   lastProdutosReplyAtMs,
   setProdutosReadMs,
@@ -219,6 +237,7 @@ const ErrosBugsTab = () => {
   const [modalN1Draft, setModalN1Draft] = useState('');
   const [modalSalvarN1Loading, setModalSalvarN1Loading] = useState(false);
   const [modalCancelarRegLoading, setModalCancelarRegLoading] = useState(false);
+  const [modalAnexosUploading, setModalAnexosUploading] = useState(false);
   const [prodReadEpoch, setProdReadEpoch] = useState(0);
 
   useEffect(() => {
@@ -267,7 +286,6 @@ const ErrosBugsTab = () => {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [errosBugsRaw, setErrosBugsRaw] = useState([]);
   const prevErrosBugsRef = useRef([]);
-  const [isDragging, setIsDragging] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const isLoadingRef = useRef(false); // Proteção contra requisições simultâneas
   const isMountedRef = useRef(true); // Controle de montagem do componente
@@ -381,7 +399,10 @@ const ErrosBugsTab = () => {
     setLoadError(null);
     try {
       console.log('[ErrosBugsTab] Iniciando carregamento de estatísticas...');
-      const result = await errosBugsAPI.getAll();
+      const agentName = String(selectedAgent || agente || '').trim();
+      const result = agentName
+        ? await errosBugsAPI.getByColaborador(agentName)
+        : await errosBugsAPI.getAll();
       
       // Verificar novamente se componente ainda está montado após requisição
       if (!isMountedRef.current) {
@@ -642,6 +663,77 @@ const ErrosBugsTab = () => {
   };
 
   /**
+   * Upload GCS + merge em payload.imagens | payload.videos e PUT no registro aberto no modal.
+   * @param {FileList|null} files
+   * @param {'imagem'|'video'} tipo
+   */
+  const processModalAnexos = async (files, tipo) => {
+    const fileArray = Array.from(files || []);
+    if (!fileArray.length) return;
+    const idRaw = selectedRepliesRequest?._id ?? selectedRepliesRequest?.id;
+    if (idRaw == null || idRaw === '') {
+      toast.error('ID do registro inválido.');
+      return;
+    }
+    const id = String(idRaw);
+    setModalAnexosUploading(true);
+    try {
+      const newItems = [];
+      for (const file of fileArray) {
+        if (file.size > 50 * 1024 * 1024) {
+          toast.error(`O arquivo "${file.name}" é muito grande. Máximo: 50MB`);
+          continue;
+        }
+        if (tipo === 'imagem') {
+          if (!file.type?.startsWith('image/')) {
+            toast.error(`"${file.name}" não é uma imagem.`);
+            continue;
+          }
+          newItems.push(await uploadToGcs(file, 'imagem'));
+        } else {
+          if (!file.type?.startsWith('video/')) {
+            toast.error(`"${file.name}" não é um vídeo.`);
+            continue;
+          }
+          newItems.push(await uploadToGcs(file, 'video'));
+        }
+      }
+      if (newItems.length === 0) return;
+
+      const got = await errosBugsAPI.getById(id);
+      const fresh = got?.data;
+      if (!fresh) throw new Error('Não foi possível recarregar o registro.');
+
+      const payload = {
+        ...(fresh.payload && typeof fresh.payload === 'object' ? fresh.payload : {}),
+      };
+      if (tipo === 'imagem') {
+        const prev = Array.isArray(payload.imagens) ? payload.imagens : [];
+        payload.imagens = [...prev, ...newItems];
+      } else {
+        const prev = Array.isArray(payload.videos) ? payload.videos : [];
+        payload.videos = [...prev, ...newItems];
+      }
+
+      const put = await errosBugsAPI.update(id, { payload });
+      if (!put?.success || !put?.data) {
+        throw new Error(put?.message || 'Falha ao salvar anexos no registro.');
+      }
+      setSelectedRepliesRequest(put.data);
+      toast.success(
+        newItems.length === 1 ? 'Anexo adicionado ao registro.' : `${newItems.length} anexos adicionados ao registro.`
+      );
+      await loadStats();
+      if (searchCpf) await buscarCpf();
+    } catch (err) {
+      console.error('[ErrosBugsTab] processModalAnexos:', err);
+      toast.error(err?.message || 'Erro ao anexar arquivos');
+    } finally {
+      setModalAnexosUploading(false);
+    }
+  };
+
+  /**
    * Abrir modal de anexos
    * @param {Object} request - Requisição com anexos
    */
@@ -851,6 +943,54 @@ const ErrosBugsTab = () => {
     }
   };
 
+  const norm = (s = '') => String(s).toLowerCase().trim().replace(/\s+/g, ' ');
+
+  /**
+   * Mesma ideia da aba Solicitações: base no GET (filtrado por colaborador) + linhas do cache só para ids ainda não na lista.
+   */
+  const errosBugsSidebarDisplayLogs = useMemo(() => {
+    const arr = Array.isArray(errosBugsRaw) ? errosBugsRaw : [];
+    const base = selectedAgent
+      ? arr.filter((r) => norm(r?.colaboradorNome || r?.agente || '') === norm(selectedAgent))
+      : arr;
+    const sortedServer = [...base].sort((a, b) => {
+      const ta = new Date(a?.createdAt || 0).getTime();
+      const tb = new Date(b?.createdAt || 0).getTime();
+      return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+    });
+    const fromServer = sortedServer.slice(0, 100).map((r) => ({
+      requestId: normalizeMongoId(r._id ?? r.id) || undefined,
+      cpf: String(r.cpf || '').replace(/\D/g, ''),
+      tipo: r.tipo,
+      status: getStatusChamado(r),
+      createdAt: r.createdAt,
+      reply: Array.isArray(r.reply) ? r.reply : undefined,
+      enviado: true,
+      waMessageId: r.waMessageId,
+    }));
+    const seen = new Set(
+      fromServer
+        .map((x) => normalizeMongoId(x.requestId))
+        .filter((id) => /^[a-f0-9]{24}$/.test(id))
+    );
+    const extras = [];
+    for (const l of Array.isArray(localLogs) ? localLogs : []) {
+      const rid = normalizeMongoId(l?.requestId);
+      if (rid && /^[a-f0-9]{24}$/.test(rid)) {
+        if (seen.has(rid)) continue;
+        seen.add(rid);
+      }
+      extras.push(l);
+    }
+    const merged = [...fromServer, ...extras];
+    merged.sort((a, b) => {
+      const ta = new Date(a?.createdAt || 0).getTime();
+      const tb = new Date(b?.createdAt || 0).getTime();
+      return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+    });
+    return merged.slice(0, 100);
+  }, [localLogs, errosBugsRaw, selectedAgent]);
+
   const sidebarConsultaUnread = useMemo(() => {
     for (const r of searchResults || []) {
       const id = r._id ?? r.id;
@@ -858,13 +998,13 @@ const ErrosBugsTab = () => {
         return true;
       }
     }
-    for (const l of localLogs || []) {
+    for (const l of errosBugsSidebarDisplayLogs || []) {
       if (l?.requestId && Array.isArray(l.reply)) {
         if (hasUnreadProdutosInReplies(String(l.requestId), l.reply, STORAGE_PROD_READ_ERROS_BUGS)) return true;
       }
     }
     return false;
-  }, [searchResults, localLogs, prodReadEpoch]);
+  }, [searchResults, errosBugsSidebarDisplayLogs, prodReadEpoch]);
 
   /**
    * Atualizar status dos logs locais e estatísticas
@@ -873,7 +1013,10 @@ const ErrosBugsTab = () => {
     await loadStats();
     if (!localLogs.length) return;
     try {
-      const result = await errosBugsAPI.getAll();
+      const agentName = String(selectedAgent || agente || '').trim();
+      const result = agentName
+        ? await errosBugsAPI.getByColaborador(agentName)
+        : await errosBugsAPI.getAll();
       const all = Array.isArray(result.data) ? result.data : [];
       const updated = localLogs.map((item) => {
         const match = item.waMessageId
@@ -1303,94 +1446,49 @@ const ErrosBugsTab = () => {
         </div>
 
         <div>
-          <label className="text-sm text-gray-700 dark:text-gray-300 mb-1 block">Anexos (imagens e vídeos)</label>
-          <div
-            className={`mt-1 p-6 border-2 border-dashed rounded-lg text-center transition-all duration-200 ${
-              isDragging
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 border-solid'
-                : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'
-            }`}
-            style={{ minHeight: '180px' }}
-            onDragOver={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setIsDragging(true);
-            }}
-            onDragLeave={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              // Só desativa se realmente saiu da área (não apenas de um filho)
-              if (e.currentTarget === e.target) {
-                setIsDragging(false);
-              }
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setIsDragging(false);
-              
-              const files = e.dataTransfer.files;
-              if (files && files.length > 0) {
-                processFiles(files);
-              }
-            }}
-          >
-            <div className={`mb-2 transition-colors ${
-              isDragging
-                ? 'text-blue-600 dark:text-blue-400 font-medium'
-                : 'text-gray-700 dark:text-gray-300'
-            }`}>
-              {isDragging
-                ? 'Solte os arquivos aqui'
-                : 'Arraste e solte aqui, clique para selecionar ou cole imagens no campo de descrição'}
-            </div>
-            <div className="mb-2 text-xs text-gray-600 dark:text-gray-400">
-              Aceitamos imagens (JPG, PNG, GIF) e vídeos (MP4, WebM, MOV) - Máx 50MB por arquivo
-            </div>
-            <div className="flex gap-2 justify-center">
-              <label className={`inline-block px-3 py-2 rounded bg-sky-600 text-white cursor-pointer hover:bg-sky-700 transition-colors ${uploading ? 'opacity-60 cursor-not-allowed' : ''}`}>
-                {uploading ? 'Enviando...' : 'Selecionar imagens'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  disabled={uploading}
-                  onChange={async (e) => {
-                    const files = e.target.files;
-                    if (files && files.length > 0) {
-                      await processFiles(files);
-                    }
-                    // Limpar o input para permitir selecionar o mesmo arquivo novamente
-                    e.target.value = '';
-                  }}
-                  className="hidden"
-                />
-              </label>
-              <label className={`inline-block px-3 py-2 rounded bg-purple-600 text-white cursor-pointer hover:bg-purple-700 transition-colors ${uploading ? 'opacity-60 cursor-not-allowed' : ''}`}>
-                {uploading ? 'Enviando...' : 'Selecionar vídeos'}
-                <input
-                  type="file"
-                  accept="video/*"
-                  multiple
-                  disabled={uploading}
-                  onChange={async (e) => {
-                    const files = e.target.files;
-                    if (files && files.length > 0) {
-                      await processFiles(files);
-                    }
-                    // Limpar o input para permitir selecionar o mesmo arquivo novamente
-                    e.target.value = '';
-                  }}
-                  className="hidden"
-                />
-              </label>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="text-sm text-gray-700 dark:text-gray-300 shrink-0">Anexos</label>
+            <div className="flex flex-wrap gap-2 items-center">
+            <label className={`inline-flex items-center gap-2 px-3 py-2 rounded bg-sky-600 text-white cursor-pointer hover:bg-sky-700 transition-colors text-sm ${uploading ? 'opacity-60 cursor-not-allowed' : ''}`}>
+              <Image className="w-4 h-4 shrink-0" aria-hidden />
+              <span>{uploading ? 'Enviando...' : 'Selecionar imagens'}</span>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                disabled={uploading}
+                onChange={async (e) => {
+                  const files = e.target.files;
+                  if (files && files.length > 0) {
+                    await processFiles(files);
+                  }
+                  e.target.value = '';
+                }}
+                className="hidden"
+              />
+            </label>
+            <label className={`inline-flex items-center gap-2 px-3 py-2 rounded bg-purple-600 text-white cursor-pointer hover:bg-purple-700 transition-colors text-sm ${uploading ? 'opacity-60 cursor-not-allowed' : ''}`}>
+              <Video className="w-4 h-4 shrink-0" aria-hidden />
+              <span>{uploading ? 'Enviando...' : 'Selecionar vídeos'}</span>
+              <input
+                type="file"
+                accept="video/*"
+                multiple
+                disabled={uploading}
+                onChange={async (e) => {
+                  const files = e.target.files;
+                  if (files && files.length > 0) {
+                    await processFiles(files);
+                  }
+                  e.target.value = '';
+                }}
+                className="hidden"
+              />
+            </label>
             </div>
           </div>
           {(imagens?.length > 0 || videos?.length > 0) && (
             <>
-              <div className="text-xs text-gray-600 dark:text-gray-400 mt-2">
-                {imagens?.length || 0} imagem(ns) e {videos?.length || 0} vídeo(s) anexado(s)
-              </div>
               {imagens?.length > 0 && (
                 <div className="mt-2">
                   <div className="text-xs text-gray-700 dark:text-gray-300 mb-1">Imagens:</div>
@@ -1609,6 +1707,10 @@ const ErrosBugsTab = () => {
                     String(r.tipo || '')
                       .replace(/^Erro\/Bug\s*-\s*/i, '')
                       .trim() || r.tipo || '—';
+                  const buscaCancelada = getStatusChamado(r) === 'Cancelado';
+                  const strikeCancel = buscaCancelada
+                    ? 'line-through decoration-gray-500 dark:decoration-gray-400'
+                    : '';
                   const dataHora = r.createdAt ? new Date(r.createdAt) : null;
                   const dataFormatada = dataHora ? dataHora.toLocaleDateString('pt-BR') : '—';
                   const horaFormatada = dataHora
@@ -1648,10 +1750,10 @@ const ErrosBugsTab = () => {
                       className="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
                     >
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="font-medium text-gray-800 dark:text-gray-200 text-sm">
+                        <span className={`font-medium text-gray-800 dark:text-gray-200 text-sm ${strikeCancel}`}>
                           {tipoLimpo}
                         </span>
-                        <span className="font-bold text-gray-800 dark:text-gray-200 text-sm">
+                        <span className={`font-bold text-gray-800 dark:text-gray-200 text-sm ${strikeCancel}`}>
                           {r.cpf || '—'}
                         </span>
                         {totalReplyEvents > 0 && (
@@ -1714,11 +1816,15 @@ const ErrosBugsTab = () => {
               </div>
             )}
 
-            {localLogs && localLogs.length > 0 && (
+            {errosBugsSidebarDisplayLogs && errosBugsSidebarDisplayLogs.length > 0 && (
               <div className="space-y-2">
-                {localLogs.map((l, idx) => {
-                  const s = String(l.status || '').toLowerCase();
-                  const isCancelado = s === 'cancelado';
+                {errosBugsSidebarDisplayLogs.map((l, idx) => {
+                  const statusChamado = getStatusChamado(l);
+                  const isCancelado = statusChamado === 'Cancelado';
+                  const strikeLogCancel = isCancelado
+                    ? 'line-through decoration-gray-500 dark:decoration-gray-400'
+                    : '';
+                  const s = String(statusChamado || l.status || '').toLowerCase();
                   const isDoneFail = s === 'não feito' || s === 'nao feito';
                   const isDoneOk = s === 'feito';
                   const sentOnly =
@@ -1771,7 +1877,9 @@ const ErrosBugsTab = () => {
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="text-xl flex-shrink-0">{icon}</span>
                           <span className="text-sm text-gray-800 dark:text-gray-200 truncate">
-                            {l.cpf || '—'} — {l.tipo}
+                            <span className={strikeLogCancel}>{l.cpf || '—'}</span>
+                            <span className="mx-0.5">—</span>
+                            <span className={strikeLogCancel}>{l.tipo}</span>
                           </span>
                         </div>
                         <div className="text-[10px] text-gray-600 dark:text-gray-400 flex-shrink-0 text-right">
@@ -1785,7 +1893,7 @@ const ErrosBugsTab = () => {
                         <span className={`h-1.5 w-8 rounded-full ${bar1}`} />
                         <span className={`h-1.5 w-8 rounded-full ${bar2}`} />
                         <span className="text-[11px] opacity-60 ml-2 text-gray-600 dark:text-gray-400">
-                          {l.status || s || 'em aberto'}
+                          {statusChamado || l.status || s || 'em aberto'}
                         </span>
                       </div>
                     </div>
@@ -1796,7 +1904,7 @@ const ErrosBugsTab = () => {
 
             {!searchLoading &&
               (!searchResults || searchResults.length === 0) &&
-              (!localLogs || localLogs.length === 0) &&
+              (!errosBugsSidebarDisplayLogs || errosBugsSidebarDisplayLogs.length === 0) &&
               !String(searchCpf || '').trim() && (
                 <div className="text-sm text-gray-600 dark:text-gray-400 py-8 text-center">
                   Busque por CPF ou envie um erro/bug; os itens aparecem aqui.
@@ -2130,8 +2238,9 @@ const ErrosBugsTab = () => {
                   </div>
                 </div>
 
-                {/* Anexos - suporta formato novo (imagemUrl/videoUrl) e legado (previews/videoData) */}
-                {(() => {
+                {/* Anexos: lista atual + adicionar (novo formato imagemUrl/videoUrl e legado previews/videoData) */}
+                <div className="space-y-3">
+                  {(() => {
                   const p = selectedRepliesRequest?.payload || {};
                   const imgs = p.imagens || [];
                   const vids = p.videos || [];
@@ -2210,8 +2319,62 @@ const ErrosBugsTab = () => {
                       </div>
                     );
                   }
-                  return null;
+                  return (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 py-1">
+                      Nenhum anexo neste registro.
+                    </p>
+                  );
                 })()}
+                  {getStatusChamado(selectedRepliesRequest) !== 'Cancelado' && (
+                    <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-gray-200 dark:border-gray-600">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300 shrink-0">
+                        Adicionar anexos
+                      </span>
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <label
+                          className={`inline-flex items-center gap-2 px-3 py-2 rounded bg-sky-600 text-white cursor-pointer hover:bg-sky-700 transition-colors text-sm ${
+                            modalAnexosUploading ? 'opacity-60 cursor-not-allowed' : ''
+                          }`}
+                        >
+                          <Image className="w-4 h-4 shrink-0" aria-hidden />
+                          <span>{modalAnexosUploading ? 'Enviando...' : 'Selecionar imagens'}</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            disabled={modalAnexosUploading}
+                            onChange={async (e) => {
+                              const fl = e.target.files;
+                              if (fl?.length) await processModalAnexos(fl, 'imagem');
+                              e.target.value = '';
+                            }}
+                            className="hidden"
+                          />
+                        </label>
+                        <label
+                          className={`inline-flex items-center gap-2 px-3 py-2 rounded bg-purple-600 text-white cursor-pointer hover:bg-purple-700 transition-colors text-sm ${
+                            modalAnexosUploading ? 'opacity-60 cursor-not-allowed' : ''
+                          }`}
+                        >
+                          <Video className="w-4 h-4 shrink-0" aria-hidden />
+                          <span>{modalAnexosUploading ? 'Enviando...' : 'Selecionar vídeos'}</span>
+                          <input
+                            type="file"
+                            accept="video/*"
+                            multiple
+                            disabled={modalAnexosUploading}
+                            onChange={async (e) => {
+                              const fl = e.target.files;
+                              if (fl?.length) await processModalAnexos(fl, 'video');
+                              e.target.value = '';
+                            }}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {(() => {
                   const replyArray = Array.isArray(selectedRepliesRequest.reply) ? selectedRepliesRequest.reply : [];
@@ -2377,7 +2540,7 @@ const ErrosBugsTab = () => {
             </div>
             {(() => {
               const cancelada = getStatusChamado(selectedRepliesRequest) === 'Cancelado';
-              const bloqueado = modalSalvarN1Loading || modalCancelarRegLoading;
+              const bloqueado = modalSalvarN1Loading || modalCancelarRegLoading || modalAnexosUploading;
               return (
                 <div className="border-t border-gray-200 dark:border-gray-600 p-4 flex-shrink-0 bg-gray-50 dark:bg-gray-900/30">
                   <label htmlFor="erros-modal-n1-resposta" className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">

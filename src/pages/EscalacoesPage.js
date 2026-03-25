@@ -1,6 +1,21 @@
 /**
  * VeloHub V3 - EscalacoesPage (Escalações Module)
- * VERSION: v1.14.8 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.15.2 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.15.2:
+ * - Cards (busca CPF + log na sidebar): solicitação cancelada → CPF e tipo (motivo no card) com line-through
+ * 
+ * Mudanças v1.15.1:
+ * - Log da sidebar: lista do servidor (filtrada) + extras do cache local só para ids ainda não na lista — não substituir o histórico do Mongo por N linhas do localStorage
+ * 
+ * Mudanças v1.15.0:
+ * - loadStats só na aba Solicitações + intervalo só nessa aba; GET com filtro colaborador quando houver agente na sessão (menos payload)
+ * - Chat lateral (VeloChat) só montado na aba Solicitações — outras abas não disparam loadContacts
+ * - Log da sidebar: fallback a partir de requestsRaw quando cache local vazio (contador e cards alinhados)
+ * - FormSolicitacao recebe lista do servidor + refresh do pai — evita GET /solicitacoes duplicado no mount/intervalo do form
+ * 
+ * Mudanças v1.14.9:
+ * - abrirModalDesdeLogLocal: resolve documento por normalizeMongoId + findSolicitacaoForLocalLogItem antes do GET (evita 404 com vários envios mesmo CPF/tipo)
  * 
  * Mudanças v1.14.8:
  * - Helpers do modal / reply / msgProdutos lidos extraídos para `utils/escalacoesModalHelpers.js` (reuso Erros/Bugs)
@@ -146,7 +161,7 @@
  * - Adicionado sistema de abas (Solicitações e Erros/Bugs)
  */
 
-import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import FormSolicitacao from '../components/Escalacoes/FormSolicitacao';
 import ErrosBugsTab from '../components/Escalacoes/ErrosBugsTab';
@@ -165,6 +180,8 @@ import {
   statusChamadoBadgeClass,
   buildModalExtraPayloadCells,
   ModalInfoGridCell,
+  normalizeMongoId,
+  findSolicitacaoForLocalLogItem,
 } from '../utils/escalacoesModalHelpers';
 
 /**
@@ -290,7 +307,7 @@ const EscalacoesPage = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [searchCpfError, setSearchCpfError] = useState('');
   const [stats, setStats] = useState({ today: 0, pending: 0, done: 0 });
-  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsLoading, setStatsLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [requestsRaw, setRequestsRaw] = useState([]);
   const [selectedAgent, setSelectedAgent] = useState('');
@@ -318,11 +335,6 @@ const EscalacoesPage = () => {
   /** Força recálculo do destaque da sidebar após marcar leitura de msgProdutos (localStorage) */
   const [prodReadEpoch, setProdReadEpoch] = useState(0);
   
-  // Debug: monitorar mudanças no estado do modal
-  useEffect(() => {
-    console.log('[EscalacoesPage] selectedRepliesRequest mudou:', selectedRepliesRequest);
-  }, [selectedRepliesRequest]);
-
   // Igualar altura da sidebar à do card do formulário (bases alinhadas; conteúdo extra rola dentro da sidebar)
   useLayoutEffect(() => {
     if (activeTab !== 'solicitacoes') {
@@ -410,12 +422,14 @@ const EscalacoesPage = () => {
   };
   
   // Função para calcular grid columns
-  const getGridColumns = (rightCollapsed) => {
+  const getGridColumns = (rightCollapsed, chatColumnActive) => {
+    if (chatColumnActive === false) {
+      return '1fr';
+    }
     if (rightCollapsed) {
       return '1fr 10px';
-    } else {
-      return 'minmax(0, 1fr) minmax(0, 35%)';
     }
+    return 'minmax(0, 1fr) minmax(0, 35%)';
   };
   
   // Função helper para renderizar sidebar direito com chat
@@ -672,6 +686,53 @@ const EscalacoesPage = () => {
   const norm = (s = '') => String(s).toLowerCase().trim().replace(/\s+/g, ' ');
 
   /**
+   * Cards do log na sidebar: base = tudo que já veio do servidor (mesmo filtro do contador), ordenado por data;
+   * acrescenta só itens do cache local cujo requestId ainda não está nessa lista (ex.: envio recém-criado antes do próximo loadStats).
+   * Nunca substituir o histórico completo do GET por só o que couber no localStorage.
+   */
+  const solicitacoesSidebarDisplayLogs = useMemo(() => {
+    const arr = Array.isArray(requestsRaw) ? requestsRaw : [];
+    const base = selectedAgent
+      ? arr.filter((r) => norm(r?.colaboradorNome || r?.agente || '') === norm(selectedAgent))
+      : arr;
+    const sortedServer = [...base].sort((a, b) => {
+      const ta = new Date(a?.createdAt || 0).getTime();
+      const tb = new Date(b?.createdAt || 0).getTime();
+      return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+    });
+    const fromServer = sortedServer.slice(0, 100).map((r) => ({
+      requestId: normalizeMongoId(r._id ?? r.id) || undefined,
+      cpf: String(r.cpf || '').replace(/\D/g, ''),
+      tipo: r.tipo,
+      status: getStatusChamado(r),
+      createdAt: r.createdAt,
+      reply: Array.isArray(r.reply) ? r.reply : undefined,
+      enviado: true,
+    }));
+    const seen = new Set(
+      fromServer
+        .map((x) => normalizeMongoId(x.requestId))
+        .filter((id) => /^[a-f0-9]{24}$/.test(id))
+    );
+    const extras = [];
+    for (const l of Array.isArray(sidebarLocalLogs) ? sidebarLocalLogs : []) {
+      const rid = normalizeMongoId(l?.requestId);
+      if (rid && /^[a-f0-9]{24}$/.test(rid)) {
+        if (seen.has(rid)) continue;
+        seen.add(rid);
+      }
+      extras.push(l);
+    }
+    const merged = [...fromServer, ...extras];
+    merged.sort((a, b) => {
+      const ta = new Date(a?.createdAt || 0).getTime();
+      const tb = new Date(b?.createdAt || 0).getTime();
+      return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+    });
+    return merged.slice(0, 100);
+  }, [sidebarLocalLogs, requestsRaw, selectedAgent]);
+
+  /**
    * Registrar log local
    * @param {string} msg - Mensagem do log
    */
@@ -680,23 +741,24 @@ const EscalacoesPage = () => {
   };
 
   /**
-   * Carregar estatísticas e solicitações
+   * Carregar estatísticas e solicitações (aba Solicitações; filtro por colaborador quando possível)
    */
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     setStatsLoading(true);
     try {
-      const result = await solicitacoesAPI.getAll();
+      const agentName = String(selectedAgent || myAgent || '').trim();
+      const result = agentName
+        ? await solicitacoesAPI.getByColaborador(agentName)
+        : await solicitacoesAPI.getAll();
       const list = Array.isArray(result.data) ? result.data : [];
       setRequestsRaw(list);
       setLastUpdated(new Date());
-      // O agente já é carregado do useEffect baseado na sessão do usuário
     } catch (err) {
       console.error('Erro ao carregar estatísticas:', err);
     }
     setStatsLoading(false);
-  };
+  }, [selectedAgent, myAgent]);
 
-  // Carregar estatísticas ao montar componente
   useEffect(() => {
     try {
       if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -705,14 +767,14 @@ const EscalacoesPage = () => {
     } catch (err) {
       console.error('Erro ao solicitar permissão de notificação:', err);
     }
-    // Carregar dados iniciais
-    loadStats();
-    
-    // Atualização automática a cada 3 minutos (padrão VeloHub)
-    const refreshInterval = setInterval(loadStats, 3 * 60 * 1000);
-    
-    return () => clearInterval(refreshInterval);
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'solicitacoes') return undefined;
+    loadStats();
+    const refreshInterval = setInterval(loadStats, 3 * 60 * 1000);
+    return () => clearInterval(refreshInterval);
+  }, [activeTab, loadStats]);
 
   // Carregar nome do agente da sessão do usuário
   useEffect(() => {
@@ -862,23 +924,28 @@ const EscalacoesPage = () => {
    * Abrir modal de respostas a partir de um item do log de envio (sidebar)
    */
   const abrirModalDesdeLogLocal = async (logItem) => {
-    const lid = logItem?.requestId;
+    const lid = normalizeMongoId(logItem?.requestId);
     try {
-      if (lid) {
+      const arr = Array.isArray(requestsRaw) ? requestsRaw : [];
+      if (lid && /^[a-f0-9]{24}$/.test(lid)) {
+        const byId = arr.find((r) => normalizeMongoId(r._id ?? r.id) === lid);
+        if (byId) {
+          setSelectedRepliesRequest(byId);
+          return;
+        }
+      }
+      const fuzzy = findSolicitacaoForLocalLogItem(arr, logItem);
+      if (fuzzy) {
+        setSelectedRepliesRequest(fuzzy);
+        return;
+      }
+      if (lid && /^[a-f0-9]{24}$/.test(lid)) {
         const result = await solicitacoesAPI.getById(lid);
         const doc = result?.data;
         if (doc) {
           setSelectedRepliesRequest(doc);
           return;
         }
-      }
-      const arr = Array.isArray(requestsRaw) ? requestsRaw : [];
-      const match = logItem?.waMessageId
-        ? arr.find((r) => r.waMessageId === logItem.waMessageId)
-        : arr.find((r) => r.cpf === logItem.cpf && r.tipo === logItem.tipo);
-      if (match) {
-        setSelectedRepliesRequest(match);
-        return;
       }
       toast.error('Não foi possível carregar esta solicitação. Use "Atualizar agora" nos logs ou busque por CPF.');
     } catch (err) {
@@ -982,20 +1049,23 @@ const EscalacoesPage = () => {
         return true;
       }
     }
-    for (const l of sidebarLocalLogs || []) {
+    for (const l of solicitacoesSidebarDisplayLogs || []) {
       if (l?.requestId && Array.isArray(l.reply)) {
         if (hasUnreadProdutosInReplies(String(l.requestId), l.reply, STORAGE_PROD_READ_SOLICITACOES)) return true;
       }
     }
     return false;
-  }, [searchResults, sidebarLocalLogs, prodReadEpoch]);
+  }, [searchResults, solicitacoesSidebarDisplayLogs, prodReadEpoch]);
 
   return (
     <div className="w-full py-12" style={{paddingLeft: '20px', paddingRight: '20px'}}>
         <div 
           className="grid gap-4" 
           style={{
-            gridTemplateColumns: getGridColumns(isRightSidebarCollapsed),
+            gridTemplateColumns: getGridColumns(
+              isRightSidebarCollapsed,
+              activeTab === 'solicitacoes'
+            ),
             transition: 'grid-template-columns 0.3s ease'
           }}
         >
@@ -1145,6 +1215,9 @@ const EscalacoesPage = () => {
               ref={formSolicitacaoRef}
               registrarLog={registrarLog}
               onLocalLogsChange={setSidebarLocalLogs}
+              solicitacoesServerList={requestsRaw}
+              solicitacoesStatsLoading={statsLoading}
+              onRefreshSolicitacoesForLogs={loadStats}
             />
           </div>
 
@@ -1289,6 +1362,8 @@ const EscalacoesPage = () => {
                       const repliesList = Array.isArray(r.replies) ? r.replies : [];
                       const totalReplies = replyArr.length + repliesList.length;
                       const requestId = r._id || r.id;
+                      const buscaCancelada = getStatusChamado(r) === 'Cancelado';
+                      const strikeCancel = buscaCancelada ? 'line-through decoration-gray-500 dark:decoration-gray-400' : '';
                       const handleCardClick = (e) => {
                         // Se o clique foi em um botão ou link, não fazer nada
                         if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
@@ -1314,7 +1389,9 @@ const EscalacoesPage = () => {
                               <div>
                                 <div className="font-medium flex items-center gap-2 flex-wrap text-gray-800 dark:text-gray-200 text-sm">
                                   <span>
-                                    {r.tipo} — {r.cpf}
+                                    <span className={strikeCancel}>{r.tipo}</span>
+                                    <span className="mx-0.5">—</span>
+                                    <span className={strikeCancel}>{r.cpf}</span>
                                   </span>
                                   {total > 0 && (
                                     <span className="px-2 py-0.5 rounded-full bg-fuchsia-100 dark:bg-fuchsia-900 text-fuchsia-800 dark:text-fuchsia-200 text-xs">
@@ -1350,10 +1427,14 @@ const EscalacoesPage = () => {
                     })}
                   </div>
                 )}
-                {sidebarLocalLogs && sidebarLocalLogs.length > 0 && (
+                {solicitacoesSidebarDisplayLogs && solicitacoesSidebarDisplayLogs.length > 0 && (
                   <div className="space-y-2">
-                    {sidebarLocalLogs.map((l, idx) => {
+                    {solicitacoesSidebarDisplayLogs.map((l, idx) => {
                       const s = String(l.status || '').toLowerCase();
+                      const isCanceladoLog = getStatusChamado(l) === 'Cancelado';
+                      const strikeLogCancel = isCanceladoLog
+                        ? 'line-through decoration-gray-500 dark:decoration-gray-400'
+                        : '';
                       const isDoneFail = s === 'não feito' || s === 'nao feito';
                       const isDoneOk = s === 'feito';
                       const sentOnly = !isDoneOk && !isDoneFail && (s === 'enviado' || l.enviado === true);
@@ -1384,7 +1465,9 @@ const EscalacoesPage = () => {
                             <div className="flex items-center gap-2 min-w-0">
                               <span className="text-xl flex-shrink-0">{icon}</span>
                               <span className="text-sm text-gray-800 dark:text-gray-200 truncate">
-                                {l.cpf} — {l.tipo}
+                                <span className={strikeLogCancel}>{l.cpf}</span>
+                                <span className="mx-0.5">—</span>
+                                <span className={strikeLogCancel}>{l.tipo}</span>
                               </span>
                             </div>
                             <div className="text-[10px] text-gray-600 dark:text-gray-400 flex-shrink-0 text-right">
@@ -1405,7 +1488,7 @@ const EscalacoesPage = () => {
                 )}
                 {!searchLoading &&
                   (!searchResults || searchResults.length === 0) &&
-                  (!sidebarLocalLogs || sidebarLocalLogs.length === 0) &&
+                  (!solicitacoesSidebarDisplayLogs || solicitacoesSidebarDisplayLogs.length === 0) &&
                   !String(searchCpf || '').trim() && (
                   <div className="text-sm text-gray-600 dark:text-gray-400 py-8 text-center">
                     Busque por CPF ou envie uma solicitação; os itens aparecem aqui.
@@ -1426,8 +1509,8 @@ const EscalacoesPage = () => {
             )}
           </div>
           
-          {/* Sidebar direito com chat */}
-          {renderRightSidebarChat()}
+          {/* Chat só na aba Solicitações — evita loadContacts / polling ao usar Calculadora ou Erros-Bugs */}
+          {activeTab === 'solicitacoes' ? renderRightSidebarChat() : null}
         </div>
 
         {/* Modal de Visualização de Respostas */}

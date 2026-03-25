@@ -1,6 +1,12 @@
 /**
  * VeloHub V3 - Escalações API Service
- * VERSION: v1.4.0 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.4.2 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.4.2:
+ * - errosBugsAPI.update(id, body) → PUT .../erros-bugs/:id (merge de payload no cliente)
+ *
+ * Mudanças v1.4.1:
+ * - errosBugsAPI.getByColaborador(nome) → GET .../erros-bugs?colaboradorNome= (filtro já suportado no backend)
  * 
  * Mudanças v1.4.0:
  * - errosBugsAPI: getById, addReply, cancelarRegistro (POST .../erros-bugs/:id/reply)
@@ -168,6 +174,14 @@ export const errosBugsAPI = {
   getAll: () => apiRequest('/escalacoes/erros-bugs'),
 
   /**
+   * Buscar erros/bugs por colaborador (mesmo query do backend que solicitações)
+   * @param {string} colaboradorNome
+   * @returns {Promise<Object>} { success, data }
+   */
+  getByColaborador: (colaboradorNome) =>
+    apiRequest(`/escalacoes/erros-bugs?colaboradorNome=${encodeURIComponent(colaboradorNome)}`),
+
+  /**
    * Criar novo erro/bug
    * @param {Object} data - Dados do erro/bug
    * @returns {Promise<Object>} Erro/bug criado
@@ -190,6 +204,17 @@ export const errosBugsAPI = {
    * @returns {Promise<Object>}
    */
   getById: (id) => apiRequest(`/escalacoes/erros-bugs/${id}`),
+
+  /**
+   * Atualizar erro/bug (ex.: mesclar anexos em payload)
+   * @param {string} id
+   * @param {Object} body - campos a enviar no $set (ex.: { payload })
+   */
+  update: (id, body) =>
+    apiRequest(`/escalacoes/erros-bugs/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
 
   /**
    * Adicionar item ao array reply (origem produtos | n1)
