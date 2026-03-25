@@ -1,7 +1,21 @@
 /**
  * VeloHub V3 - FormSolicitacao Component (Escalações Module)
- * VERSION: v1.15.5 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.15.9 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
+ * 
+ * Mudanças v1.15.9:
+ * - Reconcile só após lista do servidor estável (props solicitacoesServerList + !solicitacoesStatsLoading) — evita apagar cache enquanto GET ainda não retornou
+ * - Removidos GET /solicitacoes duplicados no form; refreshLocalLogs e sync usam onRefreshSolicitacoesForLogs do pai
+ * 
+ * Mudanças v1.15.8:
+ * - Reconcile no mount/interval: onLocalLogsChangeRef + localLogsRef + saveCache estáveis — evita closure obsoleta e garante persistência do cache após filtrar órfãos
+ * 
+ * Mudanças v1.15.7:
+ * - Log local = cache: reconcileEscalacoesLocalLogs ao montar + em cada refresh (remove linhas cujo _id sumiu do Mongo ou sem documento correspondente)
+ * 
+ * Mudanças v1.15.6:
+ * - Refresh dos logs: findSolicitacaoForLocalLogItem (requestId; senão cpf+tipo+createdAt) — corrige 404 ao clicar quando há vários envios iguais
+ * - normalizeMongoId no requestId após create e ao mesclar com GET /solicitacoes
  * 
  * Mudanças v1.15.5:
  * - Log local e refresh: anexa array reply do Mongo quando disponível (sidebar / destaque msg Produtos)
@@ -121,16 +135,29 @@
  * - Adicionada formatação automática de telefone (XX)91234-5678 nos campos dadoAntigo e dadoNovo
  */
 
-import React, { useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
+import React, { useEffect, useState, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
 import { createPortal } from 'react-dom';
 import { solicitacoesAPI, logsAPI } from '../../services/escalacoesApi';
+import { normalizeMongoId, reconcileEscalacoesLocalLogs } from '../../utils/escalacoesModalHelpers';
 
 /**
  * Componente de formulário para solicitações técnicas
  * @param {Function} registrarLog - Função para registrar logs
  * @param {Function} [onLocalLogsChange] - Callback com array de logs locais (sidebar Req_Prod)
+ * @param {Array} [solicitacoesServerList] - Lista GET já carregada pelo pai (evita segundo fetch)
+ * @param {boolean} [solicitacoesStatsLoading] - Enquanto true, não reconcilia com lista vazia
+ * @param {Function} [onRefreshSolicitacoesForLogs] - Recarrega lista no pai (ex.: loadStats)
  */
-const FormSolicitacao = forwardRef(function FormSolicitacao({ registrarLog, onLocalLogsChange }, ref) {
+const FormSolicitacao = forwardRef(function FormSolicitacao(
+  {
+    registrarLog,
+    onLocalLogsChange,
+    solicitacoesServerList = [],
+    solicitacoesStatsLoading = true,
+    onRefreshSolicitacoesForLogs,
+  },
+  ref
+) {
   const [form, setForm] = useState({
     agente: '',
     cpf: '',
@@ -164,6 +191,14 @@ const FormSolicitacao = forwardRef(function FormSolicitacao({ registrarLog, onLo
   const [loading, setLoading] = useState(false);
   const [cpfError, setCpfError] = useState('');
   const [localLogs, setLocalLogs] = useState([]); // {cpf, tipo, waMessageId, status, createdAt}
+  const localLogsRef = useRef([]);
+  useEffect(() => {
+    localLogsRef.current = localLogs;
+  }, [localLogs]);
+  const onLocalLogsChangeRef = useRef(onLocalLogsChange);
+  useEffect(() => {
+    onLocalLogsChangeRef.current = onLocalLogsChange;
+  }, [onLocalLogsChange]);
   const [buscaCpf, setBuscaCpf] = useState('');
   const [buscando, setBuscando] = useState(false);
   const [buscaResultados, setBuscaResultados] = useState([]);
@@ -193,14 +228,14 @@ const FormSolicitacao = forwardRef(function FormSolicitacao({ registrarLog, onLo
     }).join(' ');
   };
 
-  // Carregar cache inicial
+  // Cache inicial (localStorage); reconcile com o servidor só no efeito dedicado (após GET do pai)
   useEffect(() => {
     try {
       const cached = localStorage.getItem('velotax_local_logs');
       if (cached) {
         const parsed = JSON.parse(cached);
         setLocalLogs(parsed);
-        onLocalLogsChange?.(parsed);
+        onLocalLogsChangeRef.current?.(parsed);
       }
       const agent = localStorage.getItem('velotax_agent');
       if (agent) setForm((prev) => ({ ...prev, agente: toTitleCase(agent) }));
@@ -208,6 +243,21 @@ const FormSolicitacao = forwardRef(function FormSolicitacao({ registrarLog, onLo
       console.error('Erro ao carregar cache:', err);
     }
   }, []);
+
+  useEffect(() => {
+    if (solicitacoesStatsLoading) return;
+    try {
+      const raw = localStorage.getItem('velotax_local_logs');
+      const parsed = raw ? JSON.parse(raw) : [];
+      const requests = Array.isArray(solicitacoesServerList) ? solicitacoesServerList : [];
+      const next = reconcileEscalacoesLocalLogs(parsed, requests);
+      setLocalLogs(next);
+      onLocalLogsChangeRef.current?.(next);
+      localStorage.setItem('velotax_local_logs', JSON.stringify(next));
+    } catch (e) {
+      console.error('[FormSolicitacao] Reconcile log local vs lista do servidor:', e);
+    }
+  }, [solicitacoesServerList, solicitacoesStatsLoading]);
 
   // Garantir formatação quando componente monta com Telefone como padrão
   useEffect(() => {
@@ -236,18 +286,18 @@ const FormSolicitacao = forwardRef(function FormSolicitacao({ registrarLog, onLo
   }, []); // Executa apenas na montagem
 
   /**
-   * Salvar cache no localStorage
+   * Salvar cache no localStorage (ref no callback do pai evita closure velha no interval/refreshLocalLogs)
    * @param {Array} items - Itens para salvar
    */
-  const saveCache = (items) => {
+  const saveCache = useCallback((items) => {
     setLocalLogs(items);
-    onLocalLogsChange?.(items);
+    onLocalLogsChangeRef.current?.(items);
     try {
       localStorage.setItem('velotax_local_logs', JSON.stringify(items));
     } catch (err) {
       console.error('Erro ao salvar cache:', err);
     }
-  };
+  }, []);
 
   /**
    * Buscar solicitações por CPF
@@ -273,28 +323,25 @@ const FormSolicitacao = forwardRef(function FormSolicitacao({ registrarLog, onLo
    * Atualizar status dos logs localmente (exposto à sidebar via ref)
    */
   const refreshLocalLogs = useCallback(async () => {
-    if (!localLogs.length) return;
+    if (typeof onRefreshSolicitacoesForLogs === 'function') {
+      try {
+        await onRefreshSolicitacoesForLogs();
+      } catch (err) {
+        console.error('Erro ao atualizar logs:', err);
+      }
+      return;
+    }
+    const prev = localLogsRef.current;
+    if (!prev.length) return;
     try {
       const all = await solicitacoesAPI.getAll();
       const requests = Array.isArray(all.data) ? all.data : [];
-      const updated = localLogs.map((item) => {
-        const match = item.waMessageId
-          ? requests.find((r) => r.waMessageId === item.waMessageId)
-          : requests.find((r) => r.cpf === item.cpf && r.tipo === item.tipo);
-        if (!match) return item;
-        const rid = match._id != null ? String(match._id) : match.id != null ? String(match.id) : item.requestId;
-        return {
-          ...item,
-          status: match.status,
-          requestId: item.requestId || rid || undefined,
-          reply: Array.isArray(match.reply) ? match.reply : item.reply,
-        };
-      });
+      const updated = reconcileEscalacoesLocalLogs(prev, requests);
       saveCache(updated);
     } catch (err) {
       console.error('Erro ao atualizar logs:', err);
     }
-  }, [localLogs]);
+  }, [saveCache, onRefreshSolicitacoesForLogs]);
 
   useImperativeHandle(ref, () => ({
     refreshLocalLogs,
@@ -409,35 +456,6 @@ const FormSolicitacao = forwardRef(function FormSolicitacao({ registrarLog, onLo
     // Verifica se tem pelo menos: parte@dominio.com (ou similar)
     return emailRegex.test(email);
   };
-
-  // Refresh de status a cada 20s
-  useEffect(() => {
-    const refresh = async () => {
-      if (!localLogs.length) return;
-      try {
-        const all = await solicitacoesAPI.getAll();
-        const requests = Array.isArray(all.data) ? all.data : [];
-        const updated = localLogs.map((item) => {
-          const match = item.waMessageId
-            ? requests.find((r) => r.waMessageId === item.waMessageId)
-            : requests.find((r) => r.cpf === item.cpf && r.tipo === item.tipo);
-          if (!match) return item;
-          const rid = match._id != null ? String(match._id) : match.id != null ? String(match.id) : item.requestId;
-          return {
-            ...item,
-            status: match.status,
-            requestId: item.requestId || rid || undefined,
-          };
-        });
-        saveCache(updated);
-      } catch (err) {
-        console.error('Erro ao atualizar logs:', err);
-      }
-    };
-    refresh();
-    const id = setInterval(refresh, 20000);
-    return () => clearInterval(id);
-  }, [localLogs.length]);
 
   // Reformatar campos quando tipo de informação mudar para Telefone ou E-mail
   useEffect(() => {
@@ -710,12 +728,7 @@ const FormSolicitacao = forwardRef(function FormSolicitacao({ registrarLog, onLo
       showNotification('Solicitação registrada', 'success');
 
       const created = result?.data;
-      const requestId =
-        created?._id != null
-          ? String(created._id)
-          : created?.id != null
-            ? String(created.id)
-            : undefined;
+      const requestId = normalizeMongoId(created?._id ?? created?.id) || undefined;
       const newItem = {
         requestId,
         cpf: cpfApenasNumeros,
@@ -726,7 +739,7 @@ const FormSolicitacao = forwardRef(function FormSolicitacao({ registrarLog, onLo
         createdAt: new Date().toISOString(),
         reply: Array.isArray(created?.reply) ? created.reply : undefined,
       };
-      saveCache([newItem, ...localLogs].slice(0, 50));
+      saveCache([newItem, ...localLogsRef.current].slice(0, 50));
 
       // Limpar formulário
       setForm({

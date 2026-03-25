@@ -1,6 +1,10 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.49.3 | DATE: 2026-03-19 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.49.4 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v2.49.4:
+ * - module_status: chaves perda-renda, cupons, seguro-pessoal + campos Mongo _perdaRenda, _cupons, _seguroPessoal
+ * - GET/POST/PUT /api/module-status alinhados; PUT passa a persistir _clubeVelotax e _dividaZero no insert
  *
  * Mudanças v2.49.3:
  * - VeloBot: Tabulação exibida passa a ser sempre do mesmo documento da resposta
@@ -5281,7 +5285,10 @@ let moduleStatusCache = {
   'seguro-cred': 'on',
   'seguro-cel': 'on',
   'clube-velotax': 'on',
-  'divida-zero': 'on'
+  'divida-zero': 'on',
+  'perda-renda': 'on',
+  'cupons': 'on',
+  'seguro-pessoal': 'on'
 };
 
 // Timestamp do último cache para controle de validade
@@ -5331,7 +5338,10 @@ const fetchModuleStatusFromMongoDB = async () => {
       'seguro-cred': latestStatus._seguroCred || 'on',
       'seguro-cel': latestStatus._seguroCel || 'on',
       'clube-velotax': latestStatus._clubeVelotax || 'on',
-      'divida-zero': latestStatus._dividaZero || 'on'
+      'divida-zero': latestStatus._dividaZero || 'on',
+      'perda-renda': latestStatus._perdaRenda || 'on',
+      'cupons': latestStatus._cupons || 'on',
+      'seguro-pessoal': latestStatus._seguroPessoal || 'on'
     };
 
     console.log('📊 Status dos módulos mapeado do MongoDB:', mappedStatus);
@@ -5406,7 +5416,10 @@ app.get('/api/module-status', async (req, res) => {
       'seguro-cred': currentStatus['seguro-cred'] || 'on',
       'seguro-cel': currentStatus['seguro-cel'] || 'on',
       'clube-velotax': currentStatus['clube-velotax'] || 'on',
-      'divida-zero': currentStatus['divida-zero'] || 'on'
+      'divida-zero': currentStatus['divida-zero'] || 'on',
+      'perda-renda': currentStatus['perda-renda'] || 'on',
+      'cupons': currentStatus['cupons'] || 'on',
+      'seguro-pessoal': currentStatus['seguro-pessoal'] || 'on'
     };
     
     console.log('📊 Retornando status dos módulos:', validStatus);
@@ -5430,7 +5443,10 @@ app.get('/api/module-status', async (req, res) => {
       'seguro-cred': 'on',
       'seguro-cel': 'on',
       'clube-velotax': 'on',
-      'divida-zero': 'on'
+      'divida-zero': 'on',
+      'perda-renda': 'on',
+      'cupons': 'on',
+      'seguro-pessoal': 'on'
     };
     
     console.log('🔄 Usando status fallback:', fallbackStatus);
@@ -5470,7 +5486,10 @@ app.post('/api/module-status', async (req, res) => {
       'seguro-cred': '_seguroCred',
       'seguro-cel': '_seguroCel',
       'clube-velotax': '_clubeVelotax',
-      'divida-zero': '_dividaZero'
+      'divida-zero': '_dividaZero',
+      'perda-renda': '_perdaRenda',
+      'cupons': '_cupons',
+      'seguro-pessoal': '_seguroPessoal'
     };
     
     const mongoField = mongoFieldMap[moduleKey];
@@ -5503,6 +5522,9 @@ app.post('/api/module-status', async (req, res) => {
           _seguroCel: updateData['seguro-cel'],
           _clubeVelotax: updateData['clube-velotax'],
           _dividaZero: updateData['divida-zero'],
+          _perdaRenda: updateData['perda-renda'],
+          _cupons: updateData['cupons'],
+          _seguroPessoal: updateData['seguro-pessoal'],
           createdAt: new Date(),
           updatedAt: new Date()
         };
@@ -5581,6 +5603,11 @@ app.put('/api/module-status', async (req, res) => {
           _irpf: updatedStatus['modulo-irpf'],
           _seguroCred: updatedStatus['seguro-cred'],
           _seguroCel: updatedStatus['seguro-cel'],
+          _clubeVelotax: updatedStatus['clube-velotax'],
+          _dividaZero: updatedStatus['divida-zero'],
+          _perdaRenda: updatedStatus['perda-renda'],
+          _cupons: updatedStatus['cupons'],
+          _seguroPessoal: updatedStatus['seguro-pessoal'],
           createdAt: new Date(),
           updatedAt: new Date()
         };

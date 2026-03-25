@@ -1,6 +1,15 @@
 /**
  * VeloHub V3 - Chatbot Component
- * VERSION: v1.10.6 | DATE: 2025-03-18 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.10.9 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.10.9:
+ * - Velobot: segunda linha de serviços deslocada 1 coluna (célula vazia), evitando Seguro Cel sob o título
+ * 
+ * Mudanças v1.10.8:
+ * - Velobot: cabeçalho "Serviços Online" na primeira linha do quadro junto com os primeiros serviços (grid 5 colunas)
+ * 
+ * Mudanças v1.10.7:
+ * - Demonstrador Serviços Online: mesma lista da Home (8 itens); grid 3 colunas com título em linha completa
  * 
  * Mudanças v1.10.6:
  * - Botão WhatsApp substituído por botão atendimento telefônico (ícone telef.png, formatType: telefone)
@@ -23,7 +32,7 @@ import { API_BASE_URL } from '../config/api-config';
 console.log('🔧 Chatbot - API_BASE_URL:', API_BASE_URL);
 
 // Componente do Chatbot Inteligente - Mantendo Layout Original
-// VERSION: v1.10.4 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+// VERSION: v1.10.9 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
 const Chatbot = ({ prompt }) => {
     const [messages, setMessages] = useState([]);
     const [inputValue, setInputValue] = useState('');
@@ -45,7 +54,10 @@ const Chatbot = ({ prompt }) => {
         'seguro-cred': 'on',
         'seguro-cel': 'on',
         'clube-velotax': 'on',
-        'divida-zero': 'on'
+        'divida-zero': 'on',
+        'perda-renda': 'on',
+        'cupons': 'on',
+        'seguro-pessoal': 'on'
     });
 
     // Função para buscar status dos módulos do Console VeloHub
@@ -87,7 +99,7 @@ const Chatbot = ({ prompt }) => {
                 if (contentType && contentType.includes('application/json')) {
                     const statusData = await response.json();
                     console.log('✅ Status dos módulos recebido:', statusData);
-                    setModuleStatus(statusData);
+                    setModuleStatus((prev) => ({ ...prev, ...statusData }));
                 } else {
                     console.error('❌ Resposta não é JSON. Content-Type:', contentType);
                     const textResponse = await response.text();
@@ -113,7 +125,10 @@ const Chatbot = ({ prompt }) => {
                 'seguro-cred': 'on',
                 'seguro-cel': 'on',
                 'clube-velotax': 'on',
-                'divida-zero': 'on'
+                'divida-zero': 'on',
+                'perda-renda': 'on',
+                'cupons': 'on',
+                'seguro-pessoal': 'on'
             };
             setModuleStatus(fallbackStatus);
         }
@@ -774,39 +789,20 @@ const Chatbot = ({ prompt }) => {
             <div className="flex flex-col h-[80vh] velohub-modal" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', border: '1px solid var(--cor-borda)'}}>
         {/* Header - Sistema de Status de Serviços */}
         <div className="flex-shrink-0 p-3" style={{borderBottom: '1px solid var(--cor-borda)'}}>
-            {/* Grid de Status dos Serviços - Layout 5x2 */}
+            {/* Grid 5 colunas: linha 1 = título + 4 serviços; linha 2 = 1 col vazia + 4 serviços (alinhados às colunas 2–5) */}
             <div className="grid grid-cols-5 gap-1">
-                {/* Serviços Online - Primeira célula */}
-                <div className="flex items-center text-xs p-1">
-                    <h2 className="text-2xl font-semibold velohub-title" style={{fontFamily: 'Poppins, sans-serif'}}>Serviços Online</h2>
+                <div className="flex items-center text-xs p-1 min-w-0">
+                    <h2 className="text-2xl font-semibold velohub-title leading-tight" style={{fontFamily: 'Poppins, sans-serif'}}>Serviços Online</h2>
                 </div>
-                
-                {/* Crédito Trabalhador */}
-                {renderModuleStatus('credito-trabalhador', 'Crédito Trabalhador')}
-                
-                {/* Crédito Pessoal */}
-                {renderModuleStatus('credito-pessoal', 'Crédito Pessoal')}
-                
-                {/* Antecipação */}
                 {renderModuleStatus('antecipacao', 'Antecipação')}
-                
-                {/* Pagamento Antecipado */}
-                {renderModuleStatus('pagamento-antecipado', 'Pagamento Antecipado')}
-                
-                {/* Módulo IRPF */}
-                {renderModuleStatus('modulo-irpf', 'Módulo IRPF')}
-                
-                {/* Prestamista (renomeado de Seguro Cred.) */}
+                {renderModuleStatus('credito-pessoal', 'Cr. Pessoal')}
+                {renderModuleStatus('pagamento-antecipado', 'Pgto Antec')}
                 {renderModuleStatus('seguro-cred', 'Prestamista')}
-                
-                {/* Seguro Cel. */}
-                {renderModuleStatus('seguro-cel', 'Seguro Cel.')}
-                
-                {/* Clube Velotax - NOVO */}
-                {renderModuleStatus('clube-velotax', 'Clube Velotax')}
-                
-                {/* Divida Zero - NOVO */}
-                {renderModuleStatus('divida-zero', 'Divida Zero')}
+                <div className="p-1 min-h-[1.5rem]" aria-hidden="true" />
+                {renderModuleStatus('seguro-cel', 'Seguro Cel')}
+                {renderModuleStatus('perda-renda', 'Perda de Renda')}
+                {renderModuleStatus('cupons', 'Cupons')}
+                {renderModuleStatus('seguro-pessoal', 'Seguro Pessoal')}
             </div>
                 </div>
 

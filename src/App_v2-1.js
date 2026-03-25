@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.13.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.14.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.14.0:
+ * - Widget Serviços (Home): lista do demonstrador atualizada (8 itens: Antecipação, Cr. Pessoal, Pgto Antec, Prestamista, Seguro Cel, Perda de Renda, Cupons, Seguro Pessoal)
  * 
  * Mudanças v2.13.0:
  * - Header: botões Reclamações e Sociais exibidos apenas para usuários com acesso
@@ -2497,7 +2500,10 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
         'seguro-cred': 'on',
         'seguro-cel': 'on',
         'clube-velotax': 'on',
-        'divida-zero': 'on'
+        'divida-zero': 'on',
+        'perda-renda': 'on',
+        'cupons': 'on',
+        'seguro-pessoal': 'on'
     });
 
     // Função para buscar status dos módulos do Console VeloHub
@@ -2516,7 +2522,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
             if (response.ok) {
                 const statusData = await response.json();
                 console.log('✅ HomePage: Status dos módulos recebido:', statusData);
-                setModuleStatus(statusData);
+                setModuleStatus((prev) => ({ ...prev, ...statusData }));
             } else {
                 console.error('❌ HomePage: Erro HTTP:', response.status, response.statusText);
             }
@@ -2821,7 +2827,8 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                 });
                 
                 const veloNewsChanged = JSON.stringify(sortedNewVeloNews) !== JSON.stringify(veloNews);
-                const moduleStatusChanged = JSON.stringify(newModuleStatusData) !== JSON.stringify(moduleStatus);
+                const mergedModuleStatus = { ...moduleStatus, ...newModuleStatusData };
+                const moduleStatusChanged = JSON.stringify(mergedModuleStatus) !== JSON.stringify(moduleStatus);
                 
                 // Atualizar apenas se houver mudan├ºas
                 if (veloNewsChanged) {
@@ -2868,7 +2875,7 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                 
                 if (moduleStatusChanged) {
                     console.log('✅ Mudanças detectadas em ModuleStatus, atualizando...');
-                    setModuleStatus(newModuleStatusData);
+                    setModuleStatus(mergedModuleStatus);
                 } else {
                     console.log('✅ Sem mudanças em ModuleStatus, mantendo dados atuais');
                 }
@@ -2996,34 +3003,16 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                     <h3 className="font-bold text-xl mb-4 border-b pb-2 text-center velohub-title" style={{borderColor: 'var(--blue-opaque)'}}>
                         Serviços
                     </h3>
-                    {/* Grid de Status dos Serviços - Layout 3x3 */}
+                    {/* Grid de Status dos Serviços - demonstrador 3 colunas (8 serviços) */}
                     <div className="grid grid-cols-3 gap-1">
-                        {/* Crédito Trabalhador */}
-                        {renderModuleStatus('credito-trabalhador', 'Trabalhador')}
-                        
-                        {/* Crédito Pessoal */}
-                        {renderModuleStatus('credito-pessoal', 'Pessoal')}
-                        
-                        {/* Antecipação */}
                         {renderModuleStatus('antecipacao', 'Antecipação')}
-                        
-                        {/* Pagamento Antecipado */}
+                        {renderModuleStatus('credito-pessoal', 'Cr. Pessoal')}
                         {renderModuleStatus('pagamento-antecipado', 'Pgto Antec')}
-                        
-                        {/* Módulo IRPF */}
-                        {renderModuleStatus('modulo-irpf', 'IRPF')}
-                        
-                        {/* Prestamista (renomeado de Seguro Cred.) */}
                         {renderModuleStatus('seguro-cred', 'Prestamista')}
-                        
-                        {/* Seguro Cel. */}
-                        {renderModuleStatus('seguro-cel', 'Seguro Cel.')}
-                        
-                        {/* Clube Velotax - NOVO */}
-                        {renderModuleStatus('clube-velotax', 'Clube Velotax')}
-                        
-                        {/* Divida Zero - NOVO */}
-                        {renderModuleStatus('divida-zero', 'Divida Zero')}
+                        {renderModuleStatus('seguro-cel', 'Seguro Cel')}
+                        {renderModuleStatus('perda-renda', 'Perda de Renda')}
+                        {renderModuleStatus('cupons', 'Cupons')}
+                        {renderModuleStatus('seguro-pessoal', 'Seguro Pessoal')}
                     </div>
                 </div>
 

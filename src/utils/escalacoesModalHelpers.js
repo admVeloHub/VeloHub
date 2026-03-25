@@ -1,6 +1,19 @@
 /**
  * VeloHub V3 - Helpers compartilhados (modal Req_Prod / Erros-Bugs)
- * VERSION: v1.0.0 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.4 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v1.0.4:
+ * - reconcileEscalacoesLocalLogs: remoção por requestId órfão só quando idsInDb não está vazio — com GET vazio, !Set.has(id) era sempre true e apagava todo o cache (cards sumiam com contador ok)
+ *
+ * Mudanças v1.0.3:
+ * - reconcileEscalacoesLocalLogs: remove entradas cujo requestId não existe mais no Mongo e linhas sem documento correspondente (cache local alinhado ao GET /solicitacoes)
+ *
+ * Mudanças v1.0.2:
+ * - findSolicitacaoForLocalLogItem: removido ramo waMessageId (fluxo Req_Prod sem WhatsApp; matching só requestId → cpf+tipo+createdAt)
+ *
+ * Mudanças v1.0.1:
+ * - normalizeMongoId: string / { $oid } / toHexString — evita "[object Object]" no requestId
+ * - findSolicitacaoForLocalLogItem: alinha log local ao documento certo (requestId; senão cpf+tipo+createdAt mais próximo)
  *
  * Usado por EscalacoesPage e ErrosBugsTab para status, diálogo reply, grid de payload e leitura msgProdutos.
  */
@@ -11,6 +24,108 @@ export const STORAGE_PROD_READ_SOLICITACOES = 'velohub_esc_prod_read_v1';
 export const STORAGE_PROD_READ_ERROS_BUGS = 'velohub_esc_prod_read_erros_v1';
 
 export const MODAL_PAYLOAD_SKIP_KEYS = new Set(['imagens', 'videos', 'previews', 'videoThumbnails']);
+
+/**
+ * Normaliza _id vindo da API (string hex, EJSON { $oid }, ou objeto com toHexString).
+ * @param {unknown} id
+ * @returns {string} hex 24 chars ou string vazia se inválido
+ */
+export const normalizeMongoId = (id) => {
+  if (id == null || id === '') return '';
+  if (typeof id === 'string') {
+    const t = id.trim();
+    if (/^[a-fA-F0-9]{24}$/.test(t)) return t.toLowerCase();
+    return t;
+  }
+  if (typeof id === 'object') {
+    if (typeof id.$oid === 'string') return normalizeMongoId(id.$oid);
+    if (typeof id.toHexString === 'function') {
+      try {
+        return normalizeMongoId(id.toHexString());
+      } catch {
+        return '';
+      }
+    }
+  }
+  const s = String(id);
+  if (s === '[object Object]') return '';
+  return s;
+};
+
+/**
+ * Encontra na lista do backend o documento correspondente a um item do log local.
+ * Evita usar só cpf+tipo (sempre o mais recente) quando há vários envios iguais.
+ * @param {Array<Object>} requests - lista GET /solicitacoes
+ * @param {Object} item - { requestId?, cpf, tipo, createdAt? }
+ * @returns {Object|null}
+ */
+export const findSolicitacaoForLocalLogItem = (requests, item) => {
+  if (!Array.isArray(requests) || !item) return null;
+  const rid = normalizeMongoId(item.requestId);
+  if (rid && /^[a-f0-9]{24}$/.test(rid)) {
+    const byId = requests.find((r) => normalizeMongoId(r._id ?? r.id) === rid);
+    if (byId) return byId;
+  }
+  const cpf = String(item.cpf || '').replace(/\D/g, '');
+  const tipo = String(item.tipo || '');
+  const candidates = requests.filter(
+    (r) => String(r.cpf || '').replace(/\D/g, '') === cpf && String(r.tipo || '') === tipo
+  );
+  if (candidates.length === 0) return null;
+  if (candidates.length === 1) return candidates[0];
+  const itemMs = new Date(item.createdAt).getTime();
+  if (!Number.isFinite(itemMs)) return candidates[0];
+  return candidates.reduce((best, r) => {
+    if (!best) return r;
+    const rm = new Date(r.createdAt).getTime();
+    const bm = new Date(best.createdAt).getTime();
+    const d = Number.isFinite(rm) ? Math.abs(rm - itemMs) : Number.POSITIVE_INFINITY;
+    const bd = Number.isFinite(bm) ? Math.abs(bm - itemMs) : Number.POSITIVE_INFINITY;
+    return d < bd ? r : best;
+  }, null);
+};
+
+/**
+ * Alinha o cache local (sidebar) com a lista atual do backend: remove órfãos (doc apagado no Mongo)
+ * e atualiza status/requestId/reply quando há match.
+ * @param {Array<Object>} localLogs
+ * @param {Array<Object>} requests - resultado de GET /escalacoes/solicitacoes
+ * @returns {Array<Object>}
+ */
+export const reconcileEscalacoesLocalLogs = (localLogs, requests) => {
+  if (!Array.isArray(localLogs)) return [];
+  if (!Array.isArray(requests)) return localLogs.slice();
+  const idsInDb = new Set(
+    requests
+      .map((r) => normalizeMongoId(r._id ?? r.id))
+      .filter((id) => /^[a-f0-9]{24}$/.test(id))
+  );
+  const out = [];
+  for (const item of localLogs) {
+    const prevRid = normalizeMongoId(item.requestId);
+    // Só tratar como órfão por id quando sabemos os ids do servidor; com lista vazia, Set vazio faria !has(id) para todos
+    if (
+      prevRid &&
+      /^[a-f0-9]{24}$/.test(prevRid) &&
+      idsInDb.size > 0 &&
+      !idsInDb.has(prevRid)
+    ) {
+      continue;
+    }
+    const match = findSolicitacaoForLocalLogItem(requests, item);
+    if (!match) {
+      continue;
+    }
+    const rid = normalizeMongoId(match._id ?? match.id);
+    out.push({
+      ...item,
+      status: match.status,
+      requestId: prevRid || rid || undefined,
+      reply: Array.isArray(match.reply) ? match.reply : item.reply,
+    });
+  }
+  return out;
+};
 
 /**
  * Status do chamado a partir de reply[] (último item).
