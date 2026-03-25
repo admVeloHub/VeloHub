@@ -1,8 +1,11 @@
 /**
  * VeloHub V3 - FormReclamacao Component
- * VERSION: v3.30.0 | DATE: 2026-03-19 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.31.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
  * 
  * Componente de formulário para criação de reclamações BACEN, Ouvidoria, Reclame Aqui, Procon e Processos
+ * 
+ * Mudanças v3.31.0:
+ * - Reclame Aqui (MOTIVOS_RECLAME_AQUI): removidos Cancelamento/ estorno, Sem margem, Desativada - não considerar reclamação, Seguro acidente, Dúvidas sobre restituição
  * 
  * Mudanças v3.30.0:
  * - MOTIVOS_REDUZIDOS (BACEN / N2 / Procon): ordem e rótulos alinhados à especificação (Cancelamento em duas opções; renomeações; Lgpd → Encerramento cta App)
@@ -252,7 +255,6 @@ const MOTIVOS_ACAO_JUDICIAL = [
 const MOTIVOS_RECLAME_AQUI = [
   'Liberação chave pix',
   'Portabilidade chave pix',
-  'Cancelamento/ estorno',
   'Cancelamento até 7 dias',
   'Cancelamento superior a 7 dias',
   'Abatimento de juros',
@@ -263,16 +265,12 @@ const MOTIVOS_RECLAME_AQUI = [
   'Erro gov',
   'Alega fraude',
   'Juros abusivos',
-  'Sem margem',
   'Valor minimo para contratação',
-  'Desativada - não considerar reclamação',
   'Reativação de cadastro',
   'Dúvidas gerais',
   'Limite baixo do pix',
   'Alteração cadastral',
   'Dívida prescrita',
-  'Seguro acidente',
-  'Dúvidas sobre restituição',
 ];
 
 const FormReclamacao = ({ responsavel, onSuccess }) => {

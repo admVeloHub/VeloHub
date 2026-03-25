@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - FormReclamacaoEdit Component
- * VERSION: v1.28.0 | DATE: 2026-03-19 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.29.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.29.0:
+ * - Reclame Aqui (MOTIVOS_RECLAME_AQUI): removidos os mesmos cinco motivos que FormReclamacao v3.31; removidos mapeamentos LEGADO correspondentes
  * 
  * Mudanças v1.28.0:
  * - MOTIVOS_REDUZIDOS (BACEN/N2/Procon): igual FormReclamacao v3.30; legado ao carregar edição
@@ -232,7 +235,6 @@ const MOTIVOS_ACAO_JUDICIAL = [
 const MOTIVOS_RECLAME_AQUI = [
   'Liberação chave pix',
   'Portabilidade chave pix',
-  'Cancelamento/ estorno',
   'Cancelamento até 7 dias',
   'Cancelamento superior a 7 dias',
   'Abatimento de juros',
@@ -243,16 +245,12 @@ const MOTIVOS_RECLAME_AQUI = [
   'Erro gov',
   'Alega fraude',
   'Juros abusivos',
-  'Sem margem',
   'Valor minimo para contratação',
-  'Desativada - não considerar reclamação',
   'Reativação de cadastro',
   'Dúvidas gerais',
   'Limite baixo do pix',
   'Alteração cadastral',
   'Dívida prescrita',
-  'Seguro acidente',
-  'Dúvidas sobre restituição',
 ];
 
 /** Rótulos antigos do RA → novos (apenas ao carregar edição; não altera schema no banco até salvar) */
@@ -266,8 +264,6 @@ const LEGADO_MOTIVO_RECLAME_AQUI = {
   'Encerramento de Conta Celcoin': 'Encerramento cta celcoin',
   LGPD: 'Encerramento cta app',
   'Portabilidade Pix': 'Portabilidade chave pix',
-  'Desativada Não considerar Reclamação': 'Desativada - não considerar reclamação',
-  'Desativada Não Considerar Reclamação': 'Desativada - não considerar reclamação',
   'Valor Minimo para contratação': 'Valor minimo para contratação',
   'Valor Minimo Para Contratação': 'Valor minimo para contratação',
   'Limite baixo do Pix': 'Limite baixo do pix',
@@ -276,10 +272,6 @@ const LEGADO_MOTIVO_RECLAME_AQUI = {
   'Alteração Cadastral': 'Alteração cadastral',
   'Dívida prescrita': 'Dívida prescrita',
   'Dívida Prescrita': 'Dívida prescrita',
-  'Seguro acidente': 'Seguro acidente',
-  'Seguro Acidente': 'Seguro acidente',
-  'Dúvidas sobre restituição': 'Dúvidas sobre restituição',
-  'Dúvidas Sobre Restituição': 'Dúvidas sobre restituição',
 };
 
 const normalizarMotivosReclameAquiAoCarregar = (motivos) => {
