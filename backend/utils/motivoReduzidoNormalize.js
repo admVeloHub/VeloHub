@@ -1,6 +1,6 @@
 /**
  * Padronização de texto de um item de motivoReduzido (ouvidoria)
- * VERSION: v1.2.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.3.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
  *
  * Padrão de grafia: Xxxxx xxxxx xxxx (apenas primeira letra da primeira palavra maiúscula).
  *
@@ -33,19 +33,26 @@ const RENOMEACOES_EXATAS = new Map([
   ['alega fraude', 'Alega fraude'],
   ['erro', 'Erro app'],
   ['erro app', 'Erro app'],
-  ['encerramento de conta celcoin', 'Encerramento cta celcoin'],
-  ['encerramento cta celcoin', 'Encerramento cta celcoin'],
-  ['lgpd', 'Encerramento cta app'],
-  ['encerramento cta app', 'Encerramento cta app'],
-  ['portabilidade chave pix', 'Portabilidade chave pix'],
+  ['encerramento de conta celcoin', 'Encerramento cta Celcoin'],
+  ['encerramento cta celcoin', 'Encerramento cta Celcoin'],
+  ['lgpd', 'Encerramento cta App'],
+  ['encerramento cta app', 'Encerramento cta App'],
+  ['portabilidade chave pix', 'Portabilidade pix'],
   ['portabilidade pix', 'Portabilidade pix'],
-  ['valor minimo para contratação', 'Valor minimo para contratação'],
-  ['valor minimo para contrataçao', 'Valor minimo para contratação'],
+  ['valor minimo para contratação', 'Valor mínimo para contratação'],
+  ['valor minimo para contrataçao', 'Valor mínimo para contratação'],
+  ['valor mínimo para contratação', 'Valor mínimo para contratação'],
   ['limite baixo do pix', 'Limite baixo do pix'],
   ['alteração cadastral', 'Alteração cadastral'],
   ['alteracao cadastral', 'Alteração cadastral'],
   ['dívida prescrita', 'Dívida prescrita'],
   ['divida prescrita', 'Dívida prescrita'],
+  ['reativação de cadastro', 'Reativação do cadastro'],
+  ['reativacao de cadastro', 'Reativação do cadastro'],
+  ['não elegível a crédito', 'Não elegível a crédito'],
+  ['nao elegivel a credito', 'Não elegível a crédito'],
+  ['desativado', 'Desativado'],
+  ['erro gov', 'Erro gov'],
   ['seguro acidente', 'Seguro acidente'],
   ['dúvidas sobre restituição', 'Dúvidas sobre restituição'],
   ['duvidas sobre restituição', 'Dúvidas sobre restituição'],

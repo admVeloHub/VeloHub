@@ -1,6 +1,12 @@
 /**
  * VeloHub V3 - Helpers compartilhados (modal Req_Prod / Erros-Bugs)
- * VERSION: v1.0.4 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.6 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v1.0.6:
+ * - getStatusChamado: status efetivo pelo item de reply com maior `at` (cronológico), não só o último índice do array — corrige card não mostrar Cancelado quando a ordem do array não coincide com a ordem temporal
+ *
+ * Mudanças v1.0.5:
+ * - listUnreadProdutosDocs, produtosUnreadNotifySig, dedup de notificação (sessionStorage) para Req_Prod
  *
  * Mudanças v1.0.4:
  * - reconcileEscalacoesLocalLogs: remoção por requestId órfão só quando idsInDb não está vazio — com GET vazio, !Set.has(id) era sempre true e apagava todo o cache (cards sumiam com contador ok)
@@ -128,13 +134,29 @@ export const reconcileEscalacoesLocalLogs = (localLogs, requests) => {
 };
 
 /**
- * Status do chamado a partir de reply[] (último item).
+ * Status do chamado a partir de reply[]: usa o item com maior `at` entre os que têm `status` preenchido
+ * (evita depender da ordem do array no Mongo).
  */
 export const getStatusChamado = (doc) => {
   const reply = Array.isArray(doc?.reply) ? doc.reply : [];
   if (reply.length === 0) return 'enviado';
-  const last = reply[reply.length - 1];
-  const s = String(last?.status || '').toLowerCase();
+
+  const withStatus = reply
+    .map((item, i) => ({ item, i }))
+    .filter(({ item }) => String(item?.status || '').trim() !== '');
+  if (withStatus.length === 0) return 'enviado';
+
+  withStatus.sort((a, b) => {
+    const ta = parseReplyAtMs(a.item?.at);
+    const tb = parseReplyAtMs(b.item?.at);
+    const aAt = Number.isFinite(ta) && ta > 0 ? ta : 0;
+    const bAt = Number.isFinite(tb) && tb > 0 ? tb : 0;
+    if (aAt !== bAt) return aAt - bAt;
+    return a.i - b.i;
+  });
+
+  const chosen = withStatus[withStatus.length - 1].item;
+  const s = String(chosen?.status || '').toLowerCase();
   if (s === 'cancelado') return 'Cancelado';
   if (['enviado', 'feito', 'não feito', 'nao feito'].includes(s)) return s === 'nao feito' ? 'não feito' : s;
   return 'enviado';
@@ -188,6 +210,72 @@ export const hasUnreadProdutosInReplies = (solicitacaoId, replyArr, storageKey) 
   const last = lastProdutosReplyAtMs(replyArr);
   if (last <= 0) return false;
   return last > getProdutosReadMs(solicitacaoId, storageKey);
+};
+
+/** Chave sessionStorage para não repetir Notification do mesmo msg Produtos */
+export const PROD_NOTIFY_DEDUP_SESSION_KEY = 'velohub_prod_notify_dedup_v1';
+
+/**
+ * Lista documentos com mensagem do time Produtos não lida (sidebar / badge Req_Prod).
+ * @param {Array<Object>} docs
+ * @param {string} storageKey
+ * @returns {Array<{ id: string, tipo: string, cpf: string, preview: string, lastAt: number }>}
+ */
+export const listUnreadProdutosDocs = (docs, storageKey) => {
+  const out = [];
+  for (const r of docs || []) {
+    const id = normalizeMongoId(r._id ?? r.id);
+    if (!id) continue;
+    const reply = Array.isArray(r.reply) ? r.reply : [];
+    if (!hasUnreadProdutosInReplies(id, reply, storageKey)) continue;
+    const lastAt = lastProdutosReplyAtMs(reply);
+    let preview = '';
+    for (let i = reply.length - 1; i >= 0; i--) {
+      const mp = reply[i]?.msgProdutos;
+      if (mp != null && String(mp).trim() !== '') {
+        preview = String(mp).trim().slice(0, 140);
+        break;
+      }
+    }
+    out.push({
+      id,
+      tipo: String(r.tipo || '—'),
+      cpf: String(r.cpf || '—'),
+      preview,
+      lastAt,
+    });
+  }
+  return out;
+};
+
+/**
+ * Assinatura estável para deduplicar notificações (sol | erros).
+ * @param {'sol'|'erros'} source
+ * @param {string} id
+ * @param {number} lastAt
+ */
+export const produtosUnreadNotifySig = (source, id, lastAt) =>
+  `${source}:${id}:${lastAt}`;
+
+export const hasProdutosNotificationBeenSent = (sig) => {
+  try {
+    const raw = sessionStorage.getItem(PROD_NOTIFY_DEDUP_SESSION_KEY);
+    const set = new Set(raw ? JSON.parse(raw) : []);
+    return set.has(sig);
+  } catch {
+    return false;
+  }
+};
+
+export const markProdutosNotificationSent = (sig) => {
+  try {
+    const raw = sessionStorage.getItem(PROD_NOTIFY_DEDUP_SESSION_KEY);
+    const set = new Set(raw ? JSON.parse(raw) : []);
+    set.add(sig);
+    sessionStorage.setItem(PROD_NOTIFY_DEDUP_SESSION_KEY, JSON.stringify([...set].slice(-100)));
+  } catch {
+    /* ignore */
+  }
 };
 
 export const buildProdutosN1Dialogue = (replyArr) => {

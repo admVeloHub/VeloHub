@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - RelatoriosOuvidoria Component
- * VERSION: v2.12.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.13.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.13.0:
+ * - normalizarMotivoParaAgrupamento: Encerramento cta App/Celcoin e Portabilidade pix alinhados ao form Reclame Aqui v3.32
  * 
  * Mudanças v2.12.0:
  * - MOTIVOS_CONHECIDOS_FRONTEND e normalizarMotivoParaAgrupamento: padrão Xxxxx xxxxx xxxx (sentence case)
@@ -300,6 +303,13 @@ const normalizarMotivoParaAgrupamento = (motivo) => {
     return ''; // Retornar string vazia para filtrar depois
   }
   
+  if (motivoLower === 'lgpd' || motivoLower.includes('encerramento cta app')) {
+    return 'Encerramento cta App';
+  }
+  if (motivoLower.includes('encerramento cta celcoin')) {
+    return 'Encerramento cta Celcoin';
+  }
+  
   // Normalizar variações específicas conhecidas de "Chave Pix"
   // Incluir casos onde apenas "pix" ou "PIX" aparece sozinho
   if (motivoLower === 'chave pix' || motivoLower === 'chavepix' || motivoLower === 'chave pix cpf' || 
@@ -380,11 +390,11 @@ const normalizarMotivoParaAgrupamento = (motivo) => {
   }
   
   if (motivoLower.includes('encerramento') && motivoLower.includes('conta')) {
-    return 'Encerramento cta celcoin';
+    return 'Encerramento cta Celcoin';
   }
   
   if (motivoLower.includes('encerramento') && motivoLower.includes('da')) {
-    return 'Encerramento cta celcoin';
+    return 'Encerramento cta Celcoin';
   }
   
   if (motivoLower.includes('malha') && motivoLower.includes('fina')) {
@@ -404,12 +414,11 @@ const normalizarMotivoParaAgrupamento = (motivo) => {
   }
   
   if (motivoLower.includes('portabilidade')) {
-    if (motivoLower.includes('chave')) return 'Portabilidade chave pix';
     return 'Portabilidade pix';
   }
   
   if (motivoLower === 'encerramento da' || motivoLower.startsWith('encerramento da')) {
-    return 'Encerramento cta celcoin';
+    return 'Encerramento cta Celcoin';
   }
   
   if (motivoLower.includes('quitação') && motivoLower.includes('antecipada')) {

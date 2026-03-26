@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - ListaReclamacoes Component
- * VERSION: v1.22.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.23.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.23.0:
+ * - MOTIVOS_RECLAME_AQUI: alinhado a FormReclamacao v3.32 (lista final Reclame Aqui)
  * 
  * Mudanças v1.22.0:
  * - MOTIVOS_RECLAME_AQUI: alinhado a FormReclamacao v3.31 (cinco motivos removidos)
@@ -179,24 +182,25 @@ const MOTIVOS_ACAO_JUDICIAL = [
   'Desconhece contratação',
 ];
 const MOTIVOS_RECLAME_AQUI = [
-  'Liberação chave pix',
-  'Portabilidade chave pix',
+  'Reativação do cadastro',
+  'Alteração cadastral',
+  'Abatimento de juros',
+  'Valor mínimo para contratação',
+  'Limite baixo do pix',
+  'Portabilidade pix',
+  'Em cobrança',
   'Cancelamento até 7 dias',
   'Cancelamento superior a 7 dias',
-  'Abatimento de juros',
-  'Em cobrança',
-  'Encerramento cta celcoin',
-  'Encerramento cta app',
-  'Erro app',
   'Erro gov',
+  'Não elegível a crédito',
   'Alega fraude',
-  'Juros abusivos',
-  'Valor minimo para contratação',
-  'Reativação de cadastro',
-  'Dúvidas gerais',
-  'Limite baixo do pix',
-  'Alteração cadastral',
+  'Desativado',
   'Dívida prescrita',
+  'Dúvidas gerais',
+  'Encerramento cta App',
+  'Encerramento cta Celcoin',
+  'Erro app',
+  'Liberação chave pix',
 ];
 const MOTIVOS_FILTRO_LISTA = [...new Set([...MOTIVOS_REDUZIDOS, ...MOTIVOS_ACAO_JUDICIAL, ...MOTIVOS_RECLAME_AQUI])];
 

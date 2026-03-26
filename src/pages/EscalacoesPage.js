@@ -1,6 +1,15 @@
 /**
  * VeloHub V3 - EscalacoesPage (Escalações Module)
- * VERSION: v1.15.2 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.15.5 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.15.5:
+ * - Após cancelar (ou salvar N1) no modal: mescla documento retornado em requestsRaw/searchResults para o card refletir status imediatamente (getStatusChamado corrigido em helpers)
+ * 
+ * Mudanças v1.15.4:
+ * - Notificação do navegador para msg Produtos não lida quando a aba Solicitações está ativa mas o navegador está em segundo plano (dedup com Header)
+ * 
+ * Mudanças v1.15.3:
+ * - Destaque msg Produtos não lida: gradiente só no card correspondente (busca + log), não no container da sidebar
  * 
  * Mudanças v1.15.2:
  * - Cards (busca CPF + log na sidebar): solicitação cancelada → CPF e tipo (motivo no card) com line-through
@@ -182,6 +191,10 @@ import {
   ModalInfoGridCell,
   normalizeMongoId,
   findSolicitacaoForLocalLogItem,
+  listUnreadProdutosDocs,
+  produtosUnreadNotifySig,
+  hasProdutosNotificationBeenSent,
+  markProdutosNotificationSent,
 } from '../utils/escalacoesModalHelpers';
 
 /**
@@ -918,7 +931,26 @@ const EscalacoesPage = () => {
     } catch (err) {
       console.error('Erro ao processar mudanças:', err);
     }
-  }, [requestsRaw, selectedAgent]);
+
+    // Msg Produtos não lida: notificação quando a aba do navegador está em segundo plano (aba Solicitações ativa; dedup com Header)
+    try {
+      if (typeof document !== 'undefined' && document.hidden && activeTab === 'solicitacoes') {
+        const unread = listUnreadProdutosDocs(base, STORAGE_PROD_READ_SOLICITACOES);
+        for (const it of unread) {
+          const sig = produtosUnreadNotifySig('sol', it.id, it.lastAt);
+          if (hasProdutosNotificationBeenSent(sig)) continue;
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('VeloHub — Time Produtos', {
+              body: `${it.tipo} — CPF ${it.cpf}\n${it.preview || 'Nova mensagem'}`,
+            });
+            markProdutosNotificationSent(sig);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao notificar Produtos (Solicitações):', err);
+    }
+  }, [requestsRaw, selectedAgent, activeTab]);
 
   /**
    * Abrir modal de respostas a partir de um item do log de envio (sidebar)
@@ -981,15 +1013,35 @@ const EscalacoesPage = () => {
     setSearchLoading(false);
   };
 
+  const mergeSolicitacaoDocIntoCaches = useCallback((doc) => {
+    if (!doc) return;
+    const sid = normalizeMongoId(doc._id ?? doc.id);
+    if (!sid) return;
+    const patch = (list) => {
+      if (!Array.isArray(list)) return list;
+      const idx = list.findIndex((r) => normalizeMongoId(r._id ?? r.id) === sid);
+      if (idx === -1) return list;
+      const next = [...list];
+      next[idx] = { ...list[idx], ...doc };
+      return next;
+    };
+    setRequestsRaw((prev) => patch(prev));
+    setSearchResults((prev) => patch(prev));
+  }, []);
+
   const atualizarSolicitacaoNoModal = async (solicitacaoId) => {
     const id = solicitacaoId || selectedRepliesRequest?._id || selectedRepliesRequest?.id;
-    if (!id) return;
+    if (!id) return null;
     try {
       const res = await solicitacoesAPI.getById(id);
-      if (res?.data) setSelectedRepliesRequest(res.data);
+      if (res?.data) {
+        setSelectedRepliesRequest(res.data);
+        return res.data;
+      }
     } catch (err) {
       console.error('[EscalacoesPage] atualizarSolicitacaoNoModal:', err);
     }
+    return null;
   };
 
   const handleModalSalvarRespostaN1 = async () => {
@@ -1008,7 +1060,8 @@ const EscalacoesPage = () => {
         msgProdutos: null,
         msgN1: texto,
       });
-      await atualizarSolicitacaoNoModal(id);
+      const docN1 = await atualizarSolicitacaoNoModal(id);
+      if (docN1) mergeSolicitacaoDocIntoCaches(docN1);
       setModalN1Draft('');
       toast.success('Resposta N1 registrada.');
       await loadStats();
@@ -1030,7 +1083,8 @@ const EscalacoesPage = () => {
     setModalCancelarSolicLoading(true);
     try {
       await solicitacoesAPI.cancelarSolicitacao(id);
-      await atualizarSolicitacaoNoModal(id);
+      const docCancel = await atualizarSolicitacaoNoModal(id);
+      if (docCancel) mergeSolicitacaoDocIntoCaches(docCancel);
       toast.success('Solicitação cancelada.');
       await loadStats();
       if (searchCpf) await buscarCpf();
@@ -1041,21 +1095,6 @@ const EscalacoesPage = () => {
       setModalCancelarSolicLoading(false);
     }
   };
-
-  const sidebarProdutosUnread = useMemo(() => {
-    for (const r of searchResults || []) {
-      const id = r._id ?? r.id;
-      if (id != null && id !== '' && hasUnreadProdutosInReplies(String(id), r.reply, STORAGE_PROD_READ_SOLICITACOES)) {
-        return true;
-      }
-    }
-    for (const l of solicitacoesSidebarDisplayLogs || []) {
-      if (l?.requestId && Array.isArray(l.reply)) {
-        if (hasUnreadProdutosInReplies(String(l.requestId), l.reply, STORAGE_PROD_READ_SOLICITACOES)) return true;
-      }
-    }
-    return false;
-  }, [searchResults, solicitacoesSidebarDisplayLogs, prodReadEpoch]);
 
   return (
     <div className="w-full py-12" style={{paddingLeft: '20px', paddingRight: '20px'}}>
@@ -1223,31 +1262,15 @@ const EscalacoesPage = () => {
 
           {/* Sidebar: altura = card principal (rodapés alinhados); não aumenta o card */}
           <div
-            className={`w-[400px] flex-shrink-0 self-start flex flex-col min-h-0 rounded-2xl hover:-translate-y-0.5 transition-transform ${
-              sidebarProdutosUnread ? 'p-[2px]' : ''
-            }`}
+            className="w-[400px] flex-shrink-0 self-start flex flex-col min-h-0 rounded-2xl hover:-translate-y-0.5 transition-transform"
             style={{
-              ...(sidebarProdutosUnread
-                ? {
-                    background:
-                      'linear-gradient(135deg, #006AB9 0%, #FACC15 42%, #1D4ED8 100%)',
-                  }
-                : {}),
               ...(solicitacoesSidebarHeightPx != null && solicitacoesSidebarHeightPx > 0
                 ? { height: solicitacoesSidebarHeightPx }
                 : {}),
             }}
-            aria-label={
-              sidebarProdutosUnread
-                ? 'Busca e acompanhamento: há resposta do time Produtos não lida'
-                : 'Busca e acompanhamento'
-            }
+            aria-label="Busca e acompanhamento"
           >
-            <div
-              className={`flex flex-col flex-1 min-h-0 overflow-hidden bg-white dark:bg-gray-800 shadow-lg p-4 ${
-                sidebarProdutosUnread ? 'rounded-[14px]' : 'rounded-2xl'
-              }`}
-            >
+            <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-white dark:bg-gray-800 shadow-lg p-4 rounded-2xl">
               <div className="flex items-center gap-2 mb-2 flex-shrink-0">
                 <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-sky-500 to-emerald-500 flex-shrink-0" />
                 <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 leading-tight">
@@ -1324,7 +1347,10 @@ const EscalacoesPage = () => {
                 )}
               </div>
 
-              <div className="mt-2 flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1 space-y-2">
+              <div
+                className="mt-2 flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1 space-y-2"
+                data-prod-read-epoch={prodReadEpoch}
+              >
                 {searchCpf && (
                   <div className="text-sm text-gray-600 dark:text-gray-400 sticky top-0 bg-white dark:bg-gray-800 py-1 z-[1]">
                     {searchResults.length} registro(s) nesta busca
@@ -1364,6 +1390,10 @@ const EscalacoesPage = () => {
                       const requestId = r._id || r.id;
                       const buscaCancelada = getStatusChamado(r) === 'Cancelado';
                       const strikeCancel = buscaCancelada ? 'line-through decoration-gray-500 dark:decoration-gray-400' : '';
+                      const buscaCardProdUnread =
+                        requestId != null &&
+                        requestId !== '' &&
+                        hasUnreadProdutosInReplies(String(requestId), r.reply, STORAGE_PROD_READ_SOLICITACOES);
                       const handleCardClick = (e) => {
                         // Se o clique foi em um botão ou link, não fazer nada
                         if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
@@ -1375,14 +1405,27 @@ const EscalacoesPage = () => {
                         // SEMPRE abrir modal quando card é clicado
                         setSelectedRepliesRequest(r);
                       };
-                      return (
+                      const buscaCardBody = (
                         <div
-                          key={`cpf-${requestId}`}
                           role="button"
                           tabIndex={0}
                           onClick={handleCardClick}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCardClick(e); } }}
-                          className="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              handleCardClick(e);
+                            }
+                          }}
+                          className={`p-3 bg-gray-50 dark:bg-gray-700 cursor-pointer transition-colors ${
+                            buscaCardProdUnread
+                              ? 'rounded-[12px] border border-transparent hover:border-blue-300 dark:hover:border-blue-500'
+                              : 'rounded border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                          }`}
+                          aria-label={
+                            buscaCardProdUnread
+                              ? 'Há mensagem do time Produtos não lida neste chamado'
+                              : undefined
+                          }
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
@@ -1412,16 +1455,36 @@ const EscalacoesPage = () => {
                                 </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2" onClick={(e) => {
-                              if (totalReplies === 0) {
-                                e.stopPropagation();
-                              }
-                            }}>
+                            <div
+                              className="flex items-center gap-2"
+                              onClick={(e) => {
+                                if (totalReplies === 0) {
+                                  e.stopPropagation();
+                                }
+                              }}
+                            >
                               <div className="text-xs text-gray-600 dark:text-gray-400">
                                 {new Date(r.createdAt).toLocaleString()}
                               </div>
                             </div>
                           </div>
+                        </div>
+                      );
+                      return (
+                        <div key={`cpf-${requestId}`} className="shrink-0">
+                          {buscaCardProdUnread ? (
+                            <div
+                              className="p-[2px] rounded-[14px]"
+                              style={{
+                                background:
+                                  'linear-gradient(135deg, #006AB9 0%, #FACC15 42%, #1D4ED8 100%)',
+                              }}
+                            >
+                              {buscaCardBody}
+                            </div>
+                          ) : (
+                            buscaCardBody
+                          )}
                         </div>
                       );
                     })}
@@ -1442,14 +1505,20 @@ const EscalacoesPage = () => {
                       const bar2 = isDoneOk ? 'bg-emerald-500' : (isDoneFail ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-600');
                       const icon = isDoneOk ? '✅' : (isDoneFail ? '❌' : (sentOnly ? '📨' : '⏳'));
                       const logKey = l.requestId || l.waMessageId || `log-${idx}-${String(l.createdAt)}`;
+                      const logCardProdUnread =
+                        l?.requestId &&
+                        hasUnreadProdutosInReplies(
+                          String(l.requestId),
+                          l.reply,
+                          STORAGE_PROD_READ_SOLICITACOES
+                        );
                       const open = (e) => {
                         if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
                         e.preventDefault();
                         abrirModalDesdeLogLocal(l);
                       };
-                      return (
+                      const logCardBody = (
                         <div
-                          key={`envio-${logKey}`}
                           role="button"
                           tabIndex={0}
                           onClick={open}
@@ -1459,7 +1528,16 @@ const EscalacoesPage = () => {
                               open(e);
                             }
                           }}
-                          className="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:border-blue-300 dark:hover:border-blue-500 transition-colors"
+                          className={`p-3 bg-gray-50 dark:bg-gray-700 cursor-pointer transition-colors ${
+                            logCardProdUnread
+                              ? 'rounded-[12px] border border-transparent hover:border-blue-300 dark:hover:border-blue-500'
+                              : 'rounded border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500'
+                          }`}
+                          aria-label={
+                            logCardProdUnread
+                              ? 'Há mensagem do time Produtos não lida neste chamado'
+                              : undefined
+                          }
                         >
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
@@ -1481,6 +1559,23 @@ const EscalacoesPage = () => {
                               {s || 'em aberto'}
                             </span>
                           </div>
+                        </div>
+                      );
+                      return (
+                        <div key={`envio-${logKey}`} className="shrink-0">
+                          {logCardProdUnread ? (
+                            <div
+                              className="p-[2px] rounded-[14px]"
+                              style={{
+                                background:
+                                  'linear-gradient(135deg, #006AB9 0%, #FACC15 42%, #1D4ED8 100%)',
+                              }}
+                            >
+                              {logCardBody}
+                            </div>
+                          ) : (
+                            logCardBody
+                          )}
                         </div>
                       );
                     })}

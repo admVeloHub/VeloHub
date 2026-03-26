@@ -1,6 +1,15 @@
 /**
  * VeloHub V3 - ErrosBugsTab Component
- * VERSION: v1.29.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.29.3 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.29.3:
+ * - Após cancelar ou salvar N1 no modal: mescla GET por id em errosBugsRaw/searchResults para o card mostrar Cancelado (paridade Solicitações + getStatusChamado por `at`)
+ * 
+ * Mudanças v1.29.2:
+ * - Notificação do navegador para msg Produtos não lida quando a aba Erros/Bugs está ativa mas o navegador está em segundo plano (dedup com Header)
+ * 
+ * Mudanças v1.29.1:
+ * - Destaque msg Produtos não lida: gradiente só no card (busca + log), não no container da sidebar (paridade Solicitações)
  * 
  * Mudanças v1.29.0:
  * - Modal do card (respostas): adicionar anexos ao registro existente (upload GCS + PUT payload mesclado); errosBugsAPI.update
@@ -175,7 +184,7 @@
  * - Implementada atualização automática a cada 3 minutos
  */
 
-import React, { useEffect, useLayoutEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { Image, Video } from 'lucide-react';
 import { errosBugsAPI, logsAPI, solicitacoesAPI } from '../../services/escalacoesApi';
 import { API_BASE_URL } from '../../config/api-config';
@@ -191,6 +200,10 @@ import {
   statusChamadoBadgeClass,
   buildModalExtraPayloadCells,
   ModalInfoGridCell,
+  listUnreadProdutosDocs,
+  produtosUnreadNotifySig,
+  hasProdutosNotificationBeenSent,
+  markProdutosNotificationSent,
 } from '../../utils/escalacoesModalHelpers';
 
 /**
@@ -857,15 +870,35 @@ const ErrosBugsTab = () => {
     }
   };
 
+  const mergeErroBugDocIntoCaches = useCallback((doc) => {
+    if (!doc) return;
+    const sid = normalizeMongoId(doc._id ?? doc.id);
+    if (!sid) return;
+    const patch = (list) => {
+      if (!Array.isArray(list)) return list;
+      const idx = list.findIndex((r) => normalizeMongoId(r._id ?? r.id) === sid);
+      if (idx === -1) return list;
+      const next = [...list];
+      next[idx] = { ...list[idx], ...doc };
+      return next;
+    };
+    setErrosBugsRaw((prev) => patch(prev));
+    setSearchResults((prev) => patch(prev));
+  }, []);
+
   const atualizarErroBugNoModal = async (docId) => {
     const id = docId || selectedRepliesRequest?._id || selectedRepliesRequest?.id;
-    if (!id) return;
+    if (!id) return null;
     try {
       const res = await errosBugsAPI.getById(id);
-      if (res?.success && res?.data) setSelectedRepliesRequest(res.data);
+      if (res?.success && res?.data) {
+        setSelectedRepliesRequest(res.data);
+        return res.data;
+      }
     } catch (err) {
       console.error('[ErrosBugsTab] atualizarErroBugNoModal:', err);
     }
+    return null;
   };
 
   const abrirModalDesdeLogLocal = async (logItem) => {
@@ -909,7 +942,8 @@ const ErrosBugsTab = () => {
         msgProdutos: null,
         msgN1: texto,
       });
-      await atualizarErroBugNoModal(id);
+      const docN1 = await atualizarErroBugNoModal(id);
+      if (docN1) mergeErroBugDocIntoCaches(docN1);
       setModalN1Draft('');
       toast.success('Resposta N1 registrada.');
       await loadStats();
@@ -931,7 +965,8 @@ const ErrosBugsTab = () => {
     setModalCancelarRegLoading(true);
     try {
       await errosBugsAPI.cancelarRegistro(id);
-      await atualizarErroBugNoModal(id);
+      const docCancel = await atualizarErroBugNoModal(id);
+      if (docCancel) mergeErroBugDocIntoCaches(docCancel);
       toast.success('Registro cancelado.');
       await loadStats();
       if (searchCpf) await buscarCpf();
@@ -944,6 +979,30 @@ const ErrosBugsTab = () => {
   };
 
   const norm = (s = '') => String(s).toLowerCase().trim().replace(/\s+/g, ' ');
+
+  useEffect(() => {
+    const arr = Array.isArray(errosBugsRaw) ? errosBugsRaw : [];
+    const base = selectedAgent
+      ? arr.filter((r) => norm(r?.colaboradorNome || r?.agente || '') === norm(selectedAgent))
+      : arr;
+    try {
+      if (typeof document !== 'undefined' && document.hidden) {
+        const unread = listUnreadProdutosDocs(base, STORAGE_PROD_READ_ERROS_BUGS);
+        for (const it of unread) {
+          const sig = produtosUnreadNotifySig('erros', it.id, it.lastAt);
+          if (hasProdutosNotificationBeenSent(sig)) continue;
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('VeloHub — Time Produtos (Erros/Bugs)', {
+              body: `${it.tipo} — CPF ${it.cpf}\n${it.preview || 'Nova mensagem'}`,
+            });
+            markProdutosNotificationSent(sig);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao notificar Produtos (Erros/Bugs):', err);
+    }
+  }, [errosBugsRaw, selectedAgent]);
 
   /**
    * Mesma ideia da aba Solicitações: base no GET (filtrado por colaborador) + linhas do cache só para ids ainda não na lista.
@@ -990,21 +1049,6 @@ const ErrosBugsTab = () => {
     });
     return merged.slice(0, 100);
   }, [localLogs, errosBugsRaw, selectedAgent]);
-
-  const sidebarConsultaUnread = useMemo(() => {
-    for (const r of searchResults || []) {
-      const id = r._id ?? r.id;
-      if (id != null && id !== '' && hasUnreadProdutosInReplies(String(id), r.reply, STORAGE_PROD_READ_ERROS_BUGS)) {
-        return true;
-      }
-    }
-    for (const l of errosBugsSidebarDisplayLogs || []) {
-      if (l?.requestId && Array.isArray(l.reply)) {
-        if (hasUnreadProdutosInReplies(String(l.requestId), l.reply, STORAGE_PROD_READ_ERROS_BUGS)) return true;
-      }
-    }
-    return false;
-  }, [searchResults, errosBugsSidebarDisplayLogs, prodReadEpoch]);
 
   /**
    * Atualizar status dos logs locais e estatísticas
@@ -1569,31 +1613,15 @@ const ErrosBugsTab = () => {
 
       {/* Sidebar única: altura = card principal; busca CPF + envios recentes (paridade Solicitações) */}
       <div
-        className={`w-[400px] flex-shrink-0 self-start flex flex-col min-h-0 rounded-2xl hover:-translate-y-0.5 transition-transform ${
-          sidebarConsultaUnread ? 'p-[2px]' : ''
-        }`}
+        className="w-[400px] flex-shrink-0 self-start flex flex-col min-h-0 rounded-2xl hover:-translate-y-0.5 transition-transform"
         style={{
-          ...(sidebarConsultaUnread
-            ? {
-                background:
-                  'linear-gradient(135deg, #006AB9 0%, #FACC15 42%, #1D4ED8 100%)',
-              }
-            : {}),
           ...(errosBugsSidebarHeightPx != null && errosBugsSidebarHeightPx > 0
             ? { height: errosBugsSidebarHeightPx }
             : {}),
         }}
-        aria-label={
-          sidebarConsultaUnread
-            ? 'Busca e acompanhamento: há resposta do time Produtos não lida'
-            : 'Busca e acompanhamento'
-        }
+        aria-label="Busca e acompanhamento"
       >
-        <div
-          className={`flex flex-col flex-1 min-h-0 overflow-hidden bg-white dark:bg-gray-800 shadow-lg p-4 ${
-            sidebarConsultaUnread ? 'rounded-[14px]' : 'rounded-2xl'
-          }`}
-        >
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-white dark:bg-gray-800 shadow-lg p-4 rounded-2xl">
           <div className="flex items-center gap-2 mb-2 flex-shrink-0">
             <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-sky-500 to-emerald-500 flex-shrink-0" />
             <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 leading-tight">
@@ -1668,7 +1696,10 @@ const ErrosBugsTab = () => {
             </div>
           </div>
 
-          <div className="mt-2 flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1 space-y-2">
+          <div
+            className="mt-2 flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1 space-y-2"
+            data-prod-read-epoch={prodReadEpoch}
+          >
             {searchCpf && (
               <div className="text-sm text-gray-600 dark:text-gray-400 sticky top-0 bg-white dark:bg-gray-800 py-1 z-[1]">
                 {searchResults.length} registro(s) nesta busca
@@ -1711,6 +1742,11 @@ const ErrosBugsTab = () => {
                   const strikeCancel = buscaCancelada
                     ? 'line-through decoration-gray-500 dark:decoration-gray-400'
                     : '';
+                  const buscaRid = r._id || r.id;
+                  const buscaCardProdUnread =
+                    buscaRid != null &&
+                    buscaRid !== '' &&
+                    hasUnreadProdutosInReplies(String(buscaRid), r.reply, STORAGE_PROD_READ_ERROS_BUGS);
                   const dataHora = r.createdAt ? new Date(r.createdAt) : null;
                   const dataFormatada = dataHora ? dataHora.toLocaleDateString('pt-BR') : '—';
                   const horaFormatada = dataHora
@@ -1735,9 +1771,8 @@ const ErrosBugsTab = () => {
                     });
                     setSelectedRepliesRequest(r);
                   };
-                  return (
+                  const buscaCardBody = (
                     <div
-                      key={r._id || r.id}
                       role="button"
                       tabIndex={0}
                       onClick={handleCardClick}
@@ -1747,7 +1782,16 @@ const ErrosBugsTab = () => {
                           handleCardClick(e);
                         }
                       }}
-                      className="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
+                      className={`p-3 bg-gray-50 dark:bg-gray-700 cursor-pointer transition-colors ${
+                        buscaCardProdUnread
+                          ? 'rounded-[12px] border border-transparent hover:border-blue-300 dark:hover:border-blue-500'
+                          : 'rounded border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                      }`}
+                      aria-label={
+                        buscaCardProdUnread
+                          ? 'Há mensagem do time Produtos não lida neste chamado'
+                          : undefined
+                      }
                     >
                       <div className="flex items-center gap-2 mb-2">
                         <span className={`font-medium text-gray-800 dark:text-gray-200 text-sm ${strikeCancel}`}>
@@ -1812,6 +1856,23 @@ const ErrosBugsTab = () => {
                       )}
                     </div>
                   );
+                  return (
+                    <div key={String(buscaRid)} className="shrink-0">
+                      {buscaCardProdUnread ? (
+                        <div
+                          className="p-[2px] rounded-[14px]"
+                          style={{
+                            background:
+                              'linear-gradient(135deg, #006AB9 0%, #FACC15 42%, #1D4ED8 100%)',
+                          }}
+                        >
+                          {buscaCardBody}
+                        </div>
+                      ) : (
+                        buscaCardBody
+                      )}
+                    </div>
+                  );
                 })}
               </div>
             )}
@@ -1854,14 +1915,20 @@ const ErrosBugsTab = () => {
                           ? '📨'
                           : '⏳';
                   const logKey = l.requestId || l.waMessageId || `log-${idx}-${String(l.createdAt)}`;
+                  const logCardProdUnread =
+                    l?.requestId &&
+                    hasUnreadProdutosInReplies(
+                      String(l.requestId),
+                      l.reply,
+                      STORAGE_PROD_READ_ERROS_BUGS
+                    );
                   const openFromLog = (e) => {
                     if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
                     e.preventDefault();
                     abrirModalDesdeLogLocal(l);
                   };
-                  return (
+                  const logCardBody = (
                     <div
-                      key={`envio-${logKey}`}
                       role="button"
                       tabIndex={0}
                       onClick={openFromLog}
@@ -1871,7 +1938,16 @@ const ErrosBugsTab = () => {
                           openFromLog(e);
                         }
                       }}
-                      className="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:border-blue-300 dark:hover:border-blue-500 transition-colors"
+                      className={`p-3 bg-gray-50 dark:bg-gray-700 cursor-pointer transition-colors ${
+                        logCardProdUnread
+                          ? 'rounded-[12px] border border-transparent hover:border-blue-300 dark:hover:border-blue-500'
+                          : 'rounded border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500'
+                      }`}
+                      aria-label={
+                        logCardProdUnread
+                          ? 'Há mensagem do time Produtos não lida neste chamado'
+                          : undefined
+                      }
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
@@ -1896,6 +1972,23 @@ const ErrosBugsTab = () => {
                           {statusChamado || l.status || s || 'em aberto'}
                         </span>
                       </div>
+                    </div>
+                  );
+                  return (
+                    <div key={`envio-${logKey}`} className="shrink-0">
+                      {logCardProdUnread ? (
+                        <div
+                          className="p-[2px] rounded-[14px]"
+                          style={{
+                            background:
+                              'linear-gradient(135deg, #006AB9 0%, #FACC15 42%, #1D4ED8 100%)',
+                          }}
+                        >
+                          {logCardBody}
+                        </div>
+                      ) : (
+                        logCardBody
+                      )}
                     </div>
                   );
                 })}

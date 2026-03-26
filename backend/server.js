@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.49.4 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.49.5 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v2.49.5:
+ * - Chatbot: logs (user_activity / feedback) usam colaboradorNome de qualidade_funcionarios quando o body traz colaboradorNome ou quando userId é email
  *
  * Mudanças v2.49.4:
  * - module_status: chaves perda-renda, cupons, seguro-pessoal + campos Mongo _perdaRenda, _cupons, _seguroPessoal
@@ -477,6 +480,46 @@ const connectToMongo = async () => {
   
   return client;
 };
+
+/**
+ * Nome exibido nos logs do VeloBot: prioriza colaboradorNome do cliente; se ausente e userId for e-mail, resolve em qualidade_funcionarios.
+ */
+async function resolveColaboradorNomeForChatbotLog(userId, colaboradorNomeFromBody) {
+  const fromBody = colaboradorNomeFromBody != null && String(colaboradorNomeFromBody).trim() !== ''
+    ? String(colaboradorNomeFromBody).trim()
+    : '';
+  if (fromBody) return fromBody;
+  if (!userId || userId === 'anonymous') return userId || 'anonymous';
+  const uid = String(userId).trim();
+  if (!uid.includes('@')) return uid;
+  if (!client) return uid;
+  try {
+    await connectToMongo();
+    const db = client.db('console_analises');
+    const funcionariosCollection = db.collection('qualidade_funcionarios');
+    const normalizedEmail = uid.toLowerCase();
+    let funcionario = await funcionariosCollection.findOne({ userMail: normalizedEmail });
+    if (!funcionario) {
+      funcionario = await funcionariosCollection.findOne({
+        userMail: { $regex: new RegExp(`^${normalizedEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+      });
+    }
+    if (!funcionario) {
+      funcionario = await funcionariosCollection.findOne({ email: normalizedEmail });
+    }
+    if (!funcionario) {
+      funcionario = await funcionariosCollection.findOne({
+        email: { $regex: new RegExp(`^${normalizedEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+      });
+    }
+    if (funcionario && funcionario.colaboradorNome && String(funcionario.colaboradorNome).trim() !== '') {
+      return String(funcionario.colaboradorNome).trim();
+    }
+  } catch (e) {
+    console.warn('⚠️ resolveColaboradorNomeForChatbotLog:', e.message);
+  }
+  return uid;
+}
 
 // Health check endpoint (não depende do MongoDB)
 app.get('/api/health', (req, res) => {
@@ -1631,7 +1674,7 @@ app.get('/api/chatbot/init', async (req, res) => {
  */
 app.post('/api/chatbot/clarification', async (req, res) => {
   try {
-    const { question, userId, sessionId } = req.body;
+    const { question, userId, sessionId, colaboradorNome: colaboradorNomeBody } = req.body;
     
     if (!question || !userId) {
       return res.status(400).json({
@@ -1643,6 +1686,7 @@ app.post('/api/chatbot/clarification', async (req, res) => {
     const cleanUserId = userId.trim();
     const cleanSessionId = sessionId ? sessionId.trim() : null;
     const cleanQuestion = question.trim();
+    const resolvedColaboradorNome = await resolveColaboradorNomeForChatbotLog(cleanUserId, colaboradorNomeBody);
     
     console.log(`🔍 Clarification Direto: Buscando resposta para "${cleanQuestion}"`);
     
@@ -1663,7 +1707,7 @@ app.post('/api/chatbot/clarification', async (req, res) => {
       console.log(`✅ Clarification Direto: Resposta encontrada no MongoDB`);
       
       // 2. LOG DA ATIVIDADE
-      await userActivityLogger.logQuestion(cleanUserId, cleanQuestion, cleanSessionId);
+      await userActivityLogger.logQuestion(resolvedColaboradorNome, cleanQuestion, cleanSessionId);
       
       // 3. BUSCAR ARTIGOS RELACIONADOS
       let articlesData = dataCache.getArticlesData();
@@ -1867,7 +1911,7 @@ app.get('/api/chatbot/health-check', async (req, res) => {
 // API de Chat Inteligente - PONTO 1 OTIMIZADO (Fundido com Ponto 2)
 app.post('/api/chatbot/ask', async (req, res) => {
   try {
-    const { question, userId, sessionId } = req.body;
+    const { question, userId, sessionId, colaboradorNome: colaboradorNomeBody } = req.body;
 
     // Validação simplificada
     if (!question || typeof question !== 'string' || question.trim().length === 0) {
@@ -1887,6 +1931,7 @@ app.post('/api/chatbot/ask', async (req, res) => {
     const cleanQuestion = question.trim();
     const cleanUserId = userId.trim();
     const cleanSessionId = sessionId || null;
+    const resolvedColaboradorNome = await resolveColaboradorNomeForChatbotLog(cleanUserId, colaboradorNomeBody);
 
     console.log(`🤖 PONTO 1: Nova pergunta de ${cleanUserId}: "${cleanQuestion}"`);
 
@@ -1907,7 +1952,7 @@ app.post('/api/chatbot/ask', async (req, res) => {
       // Filtro otimizado nos campos palavrasChave e sinonimos
       applyOptimizedFilter(cleanQuestion),
       // Log da atividade (MongoDB) em paralelo
-      userActivityLogger.logQuestion(cleanUserId, cleanQuestion, session.id)
+      userActivityLogger.logQuestion(resolvedColaboradorNome, cleanQuestion, session.id)
     ]);
 
     // Processar resultados do filtro
@@ -2148,7 +2193,7 @@ app.post('/api/chatbot/ask', async (req, res) => {
 // API de Feedback - MongoDB apenas
 app.post('/api/chatbot/feedback', async (req, res) => {
   try {
-    const { messageId, feedbackType, comment, userId, sessionId, question, answer, source, aiProvider, responseSource } = req.body;
+    const { messageId, feedbackType, comment, userId, sessionId, question, answer, source, aiProvider, responseSource, colaboradorNome: colaboradorNomeBody } = req.body;
 
     // Validação básica
     if (!messageId || !feedbackType) {
@@ -2167,13 +2212,15 @@ app.post('/api/chatbot/feedback', async (req, res) => {
 
     const cleanUserId = userId || 'anonymous';
     const cleanSessionId = sessionId || null;
+    const resolvedColaboradorNome = await resolveColaboradorNomeForChatbotLog(cleanUserId, colaboradorNomeBody);
 
     console.log(`📝 Feedback: Novo feedback de ${cleanUserId} - ${feedbackType} para mensagem ${messageId}`);
 
 
     // Registrar feedback no MongoDB usando botFeedbackService
     const feedbackSuccess = await botFeedbackService.logFeedback({
-      colaboradorNome: cleanUserId,
+      colaboradorNome: resolvedColaboradorNome,
+      userId: cleanUserId,
       messageId: messageId,
       feedbackType: feedbackType,
       comment: comment || '',
@@ -2193,7 +2240,7 @@ app.post('/api/chatbot/feedback', async (req, res) => {
     }
 
     // Log da atividade
-    await userActivityLogger.logFeedback(cleanUserId, feedbackType, messageId, cleanSessionId, {
+    await userActivityLogger.logFeedback(resolvedColaboradorNome, feedbackType, messageId, cleanSessionId, {
       hasComment: !!comment,
       commentLength: comment ? comment.length : 0
     });
@@ -2229,7 +2276,7 @@ app.post('/api/chatbot/feedback', async (req, res) => {
 // API de Log de Atividade
 app.post('/api/chatbot/activity', async (req, res) => {
   try {
-    const { action, details, userId, sessionId, source } = req.body;
+    const { action, details, userId, sessionId, source, colaboradorNome: colaboradorNomeBody } = req.body;
 
     // Validação básica
     if (!action) {
@@ -2242,12 +2289,13 @@ app.post('/api/chatbot/activity', async (req, res) => {
     const cleanUserId = userId || 'anonymous';
     const cleanSessionId = sessionId || null;
     const cleanSource = source || 'chatbot';
+    const resolvedColaboradorNome = await resolveColaboradorNomeForChatbotLog(cleanUserId, colaboradorNomeBody);
 
     console.log(`📊 Activity: Nova atividade de ${cleanUserId} - ${action}`);
 
     // Preparar dados da atividade seguindo schema user_activity
     const activityData = {
-      colaboradorNome: cleanUserId,
+      colaboradorNome: resolvedColaboradorNome,
       action: action,
       details: details || {},
       sessionId: cleanSessionId,
@@ -2294,7 +2342,7 @@ app.post('/api/chatbot/activity', async (req, res) => {
 // API do Botão IA - Resposta Conversacional
 app.post('/api/chatbot/ai-response', async (req, res) => {
   try {
-    const { question, botPerguntaResponse, articleContent, userId, sessionId, formatType, nomeOperador } = req.body;
+    const { question, botPerguntaResponse, articleContent, userId, sessionId, formatType, nomeOperador, colaboradorNome: colaboradorNomeBody } = req.body;
 
     // Debug: Log dos dados recebidos
     console.log('🔍 AI Response Debug - Dados recebidos:', {
@@ -2317,6 +2365,7 @@ app.post('/api/chatbot/ai-response', async (req, res) => {
 
     const cleanUserId = userId || 'anonymous';
     const cleanSessionId = sessionId || null;
+    const resolvedColaboradorNome = await resolveColaboradorNomeForChatbotLog(cleanUserId, colaboradorNomeBody);
 
     console.log(`🤖 AI Button: Nova solicitação de ${cleanUserId} para resposta conversacional`);
 
@@ -2399,7 +2448,7 @@ Use APENAS a inteligência acima para desenvolver o e-mail conforme o template d
     }
 
     // Log da atividade do botão AI
-    await userActivityLogger.logAIButtonUsage(cleanUserId, formatType || 'conversational', cleanSessionId);
+    await userActivityLogger.logAIButtonUsage(resolvedColaboradorNome, formatType || 'conversational', cleanSessionId);
 
     // Resposta de sucesso
     const responseData = {
