@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.15.1 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.15.2 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.15.2:
+ * - ArtigosPage: categorias e ordem via GET /api/articles/categories (artigos_categorias); filtro por category_id
  * 
  * Mudanças v2.15.1:
  * - Header Req_Prod: bubble de notificação igual ao Apoio (vermelho #ff0000)
@@ -4988,8 +4991,10 @@ function ArtigosPage() {
     const [articles, setArticles] = useState([]);
     const [filteredArticles, setFilteredArticles] = useState([]);
     const [loading, setLoading] = useState(true);
+    /** 'Todas' ou categoria_id (referência artigos_categorias) */
     const [selectedCategory, setSelectedCategory] = useState('Todas');
-    const [categories, setCategories] = useState([]);
+    const [articleCategories, setArticleCategories] = useState([]);
+    const [loadingCategories, setLoadingCategories] = useState(true);
     const [selectedArticle, setSelectedArticle] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -5074,6 +5079,26 @@ function ArtigosPage() {
     };
 
     useEffect(() => {
+        let cancelled = false;
+        const fetchCategories = async () => {
+            setLoadingCategories(true);
+            try {
+                const response = await articlesAPI.getCategories();
+                if (!cancelled) {
+                    setArticleCategories(Array.isArray(response.data) ? response.data : []);
+                }
+            } catch (error) {
+                console.error('Erro ao carregar categorias de artigos:', error);
+                if (!cancelled) setArticleCategories([]);
+            } finally {
+                if (!cancelled) setLoadingCategories(false);
+            }
+        };
+        fetchCategories();
+        return () => { cancelled = true; };
+    }, []);
+
+    useEffect(() => {
         const fetchArticles = async () => {
             try {
                 setLoading(true);
@@ -5101,14 +5126,6 @@ function ArtigosPage() {
         fetchArticles();
     }, []);
 
-    // Extrair categorias ├║nicas dos artigos
-    useEffect(() => {
-        if (articles.length > 0) {
-            const uniqueCategories = ['Todas', ...new Set(articles.map(article => article.category).filter(Boolean))];
-            setCategories(uniqueCategories);
-        }
-    }, [articles]);
-
     // Debounce para o termo de busca
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -5122,9 +5139,12 @@ function ArtigosPage() {
     useEffect(() => {
         let filtered = articles;
         
-        // Filtrar por categoria
+        // Filtrar por categoria (categoria_id alinhado à collection artigos_categorias)
         if (selectedCategory !== 'Todas') {
-            filtered = filtered.filter(article => article.category === selectedCategory);
+            filtered = filtered.filter((article) => {
+                const aid = article.category_id != null ? String(article.category_id).trim() : '';
+                return aid === selectedCategory;
+            });
         }
         
         // Aplicar busca se houver termo de busca
@@ -5135,9 +5155,14 @@ function ArtigosPage() {
         setFilteredArticles(filtered);
     }, [selectedCategory, articles, debouncedSearchTerm]);
 
-    const handleCategoryChange = (category) => {
-        setSelectedCategory(category);
+    const handleCategoryChange = (categoryKey) => {
+        setSelectedCategory(categoryKey);
     };
+
+    const selectedCategoryTitle =
+        selectedCategory === 'Todas'
+            ? 'Todas'
+            : (articleCategories.find((c) => c.categoria_id === selectedCategory)?.categoria_titulo || selectedCategory);
 
     const handleSearchChange = (term) => {
         setSearchTerm(term);
@@ -5215,24 +5240,37 @@ function ArtigosPage() {
                         Categorias
                     </h3>
                     
-                    {loading ? (
+                    {loadingCategories ? (
                         <div className="text-center py-4">
                             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
-                            <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm">Carregando...</p>
+                            <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm">Carregando categorias...</p>
                         </div>
                     ) : (
                         <div className="space-y-2">
-                            {categories.map((category, index) => (
+                            <button
+                                type="button"
+                                key="todas"
+                                onClick={() => handleCategoryChange('Todas')}
+                                className={`w-full text-left px-3 py-2 rounded-md transition-colors duration-200 text-sm ${
+                                    selectedCategory === 'Todas'
+                                        ? 'bg-blue-600 text-white'
+                                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                }`}
+                            >
+                                Todas
+                            </button>
+                            {articleCategories.map((cat) => (
                                 <button
-                                    key={index}
-                                    onClick={() => handleCategoryChange(category)}
+                                    type="button"
+                                    key={cat.categoria_id}
+                                    onClick={() => handleCategoryChange(cat.categoria_id)}
                                     className={`w-full text-left px-3 py-2 rounded-md transition-colors duration-200 text-sm ${
-                                        selectedCategory === category
+                                        selectedCategory === cat.categoria_id
                                             ? 'bg-blue-600 text-white'
                                             : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                                     }`}
                                 >
-                                    {category}
+                                    {cat.categoria_titulo}
                                 </button>
                             ))}
                         </div>
@@ -5371,7 +5409,7 @@ function ArtigosPage() {
                             ) : (
                                 <div className="text-center py-12">
                                     <p className="text-gray-500 dark:text-gray-400 text-lg">
-                                        Nenhum artigo encontrado na categoria "{selectedCategory}"
+                                        Nenhum artigo encontrado na categoria "{selectedCategoryTitle}"
                                     </p>
                                 </div>
                             )}
