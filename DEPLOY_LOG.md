@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.5 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.6 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,18 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - Artigos: categorias via artigos_categorias**
+- **Data/Hora**: 2026-03-26
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: server v2.49.6, App_v2-1 v2.15.2, api.js v1.4.0
+- **Arquivos Modificados**:
+  - `backend/server.js`
+  - `src/App_v2-1.js`
+  - `src/services/api.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Novo `GET /api/articles/categories` (collection `console_conteudo.artigos_categorias`, array `Categorias`, ordem por `Ordem`); página Artigos carrega categorias em paralelo e filtra por `category_id`; `GET /api/articles` inalterado na estrutura de resposta
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - Backend logging, Escalações e Ouvidoria**
 - **Data/Hora**: 2026-03-25

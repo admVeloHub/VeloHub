@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.49.5 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.49.6 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v2.49.6:
+ * - GET /api/articles/categories: lê ordem e metadados de console_conteudo.artigos_categorias (array Categorias, campo Ordem)
  *
  * Mudanças v2.49.5:
  * - Chatbot: logs (user_activity / feedback) usam colaboradorNome de qualidade_funcionarios quando o body traz colaboradorNome ou quando userId é email
@@ -975,6 +978,61 @@ app.put('/api/velo-news/:id/comment', async (req, res) => {
       success: false,
       message: 'Erro ao adicionar comentário',
       error: error.message
+    });
+  }
+});
+
+/**
+ * Categorias do módulo Artigos (ordem e rótulos oficiais)
+ * Collection: console_conteudo.artigos_categorias — documento com array Categorias (Ordem, categoria_id, categoria_titulo)
+ */
+app.get('/api/articles/categories', async (req, res) => {
+  try {
+    if (!client) {
+      return res.status(503).json({
+        success: false,
+        message: 'MongoDB não configurado',
+        data: []
+      });
+    }
+
+    await connectToMongo();
+    const db = client.db('console_conteudo');
+    const collection = db.collection('artigos_categorias');
+    const doc = await collection.findOne({}, { sort: { updatedAt: -1 } });
+
+    if (!doc || !Array.isArray(doc.Categorias) || doc.Categorias.length === 0) {
+      return res.json({
+        success: true,
+        data: []
+      });
+    }
+
+    const sorted = [...doc.Categorias].sort((a, b) => {
+      const oa = typeof a.Ordem === 'number' ? a.Ordem : parseInt(String(a.Ordem ?? 0), 10) || 0;
+      const ob = typeof b.Ordem === 'number' ? b.Ordem : parseInt(String(b.Ordem ?? 0), 10) || 0;
+      return oa - ob;
+    });
+
+    const data = sorted
+      .map((c) => ({
+        categoria_id: c.categoria_id != null ? String(c.categoria_id).trim() : '',
+        categoria_titulo: c.categoria_titulo != null ? String(c.categoria_titulo).trim() : '',
+        ordem: typeof c.Ordem === 'number' ? c.Ordem : parseInt(String(c.Ordem ?? 0), 10) || 0
+      }))
+      .filter((c) => c.categoria_id);
+
+    res.json({
+      success: true,
+      data
+    });
+  } catch (error) {
+    console.error('Erro ao buscar categorias de artigos:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao buscar categorias de artigos',
+      error: error.message,
+      data: []
     });
   }
 });

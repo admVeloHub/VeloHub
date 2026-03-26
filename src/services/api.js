@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - API Service
- * VERSION: v1.3.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.4.0 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.4.0:
+ * - articlesAPI.getCategories: GET /articles/categories (ordem oficial a partir de artigos_categorias)
  * 
  * Mudanças v1.3.0:
  * - Melhorado tratamento de erros em apiRequest para operações de escrita (PUT/POST/DELETE)
@@ -118,6 +121,9 @@ export const veloNewsAPI = {
 export const articlesAPI = {
   // Buscar todos os artigos
   getAll: () => apiRequest('/articles'),
+
+  /** Categorias ordenadas (collection artigos_categorias) */
+  getCategories: () => apiRequest('/articles/categories'),
   
   // Buscar artigo por ID
   getById: (id) => apiRequest(`/articles/${id}`),
