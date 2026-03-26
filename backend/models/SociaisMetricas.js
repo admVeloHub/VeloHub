@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - SociaisMetricas Model
- * VERSION: v1.0.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.1.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v1.1.0:
+ * - validNetworks: adicionado LinkedIn
  *
  * Model para tabulações de redes sociais (console_sociais.sociais_metricas)
  * Adaptado do natralha para usar client e connectToMongo do VeloHub
@@ -9,7 +12,7 @@
 const DB_NAME = process.env.CONSOLE_SOCIAIS_DB || 'console_sociais';
 const COLLECTION_NAME = 'sociais_metricas';
 
-const validNetworks = ['WhatsApp', 'Instagram', 'Facebook', 'TikTok', 'Messenger', 'YouTube', 'PlayStore'];
+const validNetworks = ['WhatsApp', 'Instagram', 'Facebook', 'LinkedIn', 'TikTok', 'Messenger', 'YouTube', 'PlayStore'];
 const validReasons = ['Produto', 'Suporte', 'Bug', 'Elogio', 'Reclamação', 'Oculto', 'Outro'];
 const validSentiments = ['Positivo', 'Neutro', 'Negativo'];
 

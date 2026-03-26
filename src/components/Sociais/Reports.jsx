@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Reports (Sociais)
- * VERSION: v1.1.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.2.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v1.2.0:
+ * - Filtro rede social: opção LinkedIn
  *
  * Mudanças v1.1.0:
  * - Gráfico de sentimento no PDF: barras empilhadas (Positivo azul, Neutro amarelo, Negativo vermelho)
@@ -22,7 +25,7 @@ const Reports = () => {
   const [sentimentChartImage, setSentimentChartImage] = useState(null);
   const [filters, setFilters] = useState({ socialNetwork: '', contactReason: '', dateFrom: '', dateTo: '' });
 
-  const socialNetworks = ['WhatsApp', 'Instagram', 'Facebook', 'TikTok', 'Messenger', 'YouTube', 'PlayStore'];
+  const socialNetworks = ['WhatsApp', 'Instagram', 'Facebook', 'LinkedIn', 'TikTok', 'Messenger', 'YouTube', 'PlayStore'];
   const reasons = ['Produto', 'Suporte', 'Bug', 'Elogio', 'Reclamação', 'Oculto', 'Outro'];
 
   const handleFilterChange = (name, value) => setFilters(prev => ({ ...prev, [name]: value }));

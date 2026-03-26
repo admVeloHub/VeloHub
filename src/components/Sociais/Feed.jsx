@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Feed (Sociais)
- * VERSION: v1.2.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.3.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v1.3.0:
+ * - Filtro rede social: opção LinkedIn
  *
  * Mudanças v1.2.0:
  * - Botão Filtrar; filtros aplicados apenas ao clicar
@@ -30,7 +33,7 @@ const Feed = ({ selectedWord, wordCloudWords = [] }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const socialNetworks = ['WhatsApp', 'Instagram', 'Facebook', 'TikTok', 'Messenger', 'YouTube', 'PlayStore'];
+  const socialNetworks = ['WhatsApp', 'Instagram', 'Facebook', 'LinkedIn', 'TikTok', 'Messenger', 'YouTube', 'PlayStore'];
   const reasons = ['Produto', 'Suporte', 'Bug', 'Elogio', 'Reclamação', 'Oculto', 'Outro'];
   const sentiments = ['Positivo', 'Neutro', 'Negativo'];
 
