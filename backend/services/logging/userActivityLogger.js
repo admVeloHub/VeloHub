@@ -1,5 +1,7 @@
 // User Activity Logger - Log de atividades dos usuários
-// VERSION: v1.2.0 | DATE: 2025-01-10 | AUTHOR: VeloHub Development Team
+// VERSION: v1.2.1 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team
+// Mudanças v1.2.1:
+// - Adicionado logFeedback() usado pelo POST /api/chatbot/feedback (registro em user_activity)
 const { MongoClient } = require('mongodb');
 require('dotenv').config();
 
@@ -81,6 +83,22 @@ class UserActivityLogger {
     });
   }
 
+  /**
+   * Registra feedback em user_activity (complementa bot_feedback)
+   */
+  async logFeedback(colaboradorNome, feedbackType, messageId, sessionId = null, details = {}) {
+    return await this.logActivity({
+      colaboradorNome,
+      action: 'feedback_given',
+      details: {
+        feedbackType,
+        messageId,
+        ...details
+      },
+      sessionId,
+      source: 'chatbot'
+    });
+  }
 
 
   /**

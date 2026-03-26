@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - FormReclamacaoEdit Component
- * VERSION: v1.29.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.30.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.30.0:
+ * - Reclame Aqui: lista final de Motivos e Produto alinhada a FormReclamacao v3.32; LEGADO motivo/produto ao carregar edição
  * 
  * Mudanças v1.29.0:
  * - Reclame Aqui (MOTIVOS_RECLAME_AQUI): removidos os mesmos cinco motivos que FormReclamacao v3.31; removidos mapeamentos LEGADO correspondentes
@@ -233,24 +236,25 @@ const MOTIVOS_ACAO_JUDICIAL = [
  * Opções de motivo para Reclame Aqui (múltipla escolha)
  */
 const MOTIVOS_RECLAME_AQUI = [
-  'Liberação chave pix',
-  'Portabilidade chave pix',
+  'Reativação do cadastro',
+  'Alteração cadastral',
+  'Abatimento de juros',
+  'Valor mínimo para contratação',
+  'Limite baixo do pix',
+  'Portabilidade pix',
+  'Em cobrança',
   'Cancelamento até 7 dias',
   'Cancelamento superior a 7 dias',
-  'Abatimento de juros',
-  'Em cobrança',
-  'Encerramento cta celcoin',
-  'Encerramento cta app',
-  'Erro app',
   'Erro gov',
+  'Não elegível a crédito',
   'Alega fraude',
-  'Juros abusivos',
-  'Valor minimo para contratação',
-  'Reativação de cadastro',
-  'Dúvidas gerais',
-  'Limite baixo do pix',
-  'Alteração cadastral',
+  'Desativado',
   'Dívida prescrita',
+  'Dúvidas gerais',
+  'Encerramento cta App',
+  'Encerramento cta Celcoin',
+  'Erro app',
+  'Liberação chave pix',
 ];
 
 /** Rótulos antigos do RA → novos (apenas ao carregar edição; não altera schema no banco até salvar) */
@@ -261,22 +265,34 @@ const LEGADO_MOTIVO_RECLAME_AQUI = {
   'Alega Fraude': 'Alega fraude',
   Erro: 'Erro app',
   'Erro App': 'Erro app',
-  'Encerramento de Conta Celcoin': 'Encerramento cta celcoin',
-  LGPD: 'Encerramento cta app',
-  'Portabilidade Pix': 'Portabilidade chave pix',
-  'Valor Minimo para contratação': 'Valor minimo para contratação',
-  'Valor Minimo Para Contratação': 'Valor minimo para contratação',
+  'Encerramento de Conta Celcoin': 'Encerramento cta Celcoin',
+  'Encerramento cta celcoin': 'Encerramento cta Celcoin',
+  LGPD: 'Encerramento cta App',
+  'Encerramento cta app': 'Encerramento cta App',
+  'Portabilidade Pix': 'Portabilidade pix',
+  'Portabilidade chave pix': 'Portabilidade pix',
+  'Valor Minimo para contratação': 'Valor mínimo para contratação',
+  'Valor Minimo Para Contratação': 'Valor mínimo para contratação',
+  'Valor minimo para contratação': 'Valor mínimo para contratação',
   'Limite baixo do Pix': 'Limite baixo do pix',
   'Limite Baixo Do Pix': 'Limite baixo do pix',
   'Alteração cadastral': 'Alteração cadastral',
   'Alteração Cadastral': 'Alteração cadastral',
   'Dívida prescrita': 'Dívida prescrita',
   'Dívida Prescrita': 'Dívida prescrita',
+  'Reativação de cadastro': 'Reativação do cadastro',
 };
 
 const normalizarMotivosReclameAquiAoCarregar = (motivos) => {
   if (!Array.isArray(motivos)) return motivos;
   return motivos.map((m) => LEGADO_MOTIVO_RECLAME_AQUI[m] || m);
+};
+
+/** Valores antigos de produto RA → canônicos do select v1.30 */
+const LEGADO_PRODUTO_RECLAME_AQUI = {
+  'Empréstimo pessoal': 'Empréstimo Pessoal',
+  'Crédito ao trabalhador': 'Crédito ao Trabalhador',
+  VeloPrime: 'Veloprime',
 };
 
 /**
@@ -330,7 +346,13 @@ const converterParaFormData = (reclamacao) => {
     // Campos BACEN
     dataEntrada: formatarDataInput(reclamacao.dataEntrada),
     origem: reclamacao.origem || '',
-    produto: reclamacao.produto || '',
+    produto: (() => {
+      const p = reclamacao.produto || '';
+      if (tipoNormalizado === 'RECLAME_AQUI') {
+        return LEGADO_PRODUTO_RECLAME_AQUI[p] || p;
+      }
+      return p;
+    })(),
     anexos: reclamacao.anexos || [],
     prazoBacen: formatarDataInput(reclamacao.prazoBacen),
     motivoReduzido: (() => {
@@ -1448,11 +1470,13 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                 <option value="Antecipação 2026">Antecipação 2026</option>
                 <option value="Aplicativo">Aplicativo</option>
                 <option value="Conta Celcoin">Conta Celcoin</option>
+                <option value="Crédito ao Trabalhador">Crédito ao Trabalhador</option>
+                <option value="Clube Velotax">Clube Velotax</option>
+                <option value="Empréstimo Pessoal">Empréstimo Pessoal</option>
                 <option value="Cupom">Cupom</option>
-                <option value="Empréstimo pessoal">Empréstimo pessoal</option>
                 <option value="Seguros">Seguros</option>
-                <option value="Crédito ao trabalhador">Crédito ao trabalhador</option>
-                <option value="VeloPrime">VeloPrime</option>
+                <option value="Veloprime">Veloprime</option>
+                <option value="Desativado">Desativado</option>
               </select>
               {errors.produto && (
                 <span className="text-red-500 text-xs">{errors.produto}</span>

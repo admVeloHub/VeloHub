@@ -1,8 +1,11 @@
 /**
  * VeloHub V3 - FormReclamacao Component
- * VERSION: v3.31.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.32.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
  * 
  * Componente de formulário para criação de reclamações BACEN, Ouvidoria, Reclame Aqui, Procon e Processos
+ * 
+ * Mudanças v3.32.0:
+ * - Reclame Aqui: lista final de Motivos e de Produto (ordem operacional); novos motivos Não elegível a crédito, Desativado; rótulos Encerramento cta App/Celcoin, Reativação do cadastro, Valor mínimo para contratação, Portabilidade pix
  * 
  * Mudanças v3.31.0:
  * - Reclame Aqui (MOTIVOS_RECLAME_AQUI): removidos Cancelamento/ estorno, Sem margem, Desativada - não considerar reclamação, Seguro acidente, Dúvidas sobre restituição
@@ -253,24 +256,25 @@ const MOTIVOS_ACAO_JUDICIAL = [
  * Opções de motivo para Reclame Aqui (múltipla escolha)
  */
 const MOTIVOS_RECLAME_AQUI = [
-  'Liberação chave pix',
-  'Portabilidade chave pix',
+  'Reativação do cadastro',
+  'Alteração cadastral',
+  'Abatimento de juros',
+  'Valor mínimo para contratação',
+  'Limite baixo do pix',
+  'Portabilidade pix',
+  'Em cobrança',
   'Cancelamento até 7 dias',
   'Cancelamento superior a 7 dias',
-  'Abatimento de juros',
-  'Em cobrança',
-  'Encerramento cta celcoin',
-  'Encerramento cta app',
-  'Erro app',
   'Erro gov',
+  'Não elegível a crédito',
   'Alega fraude',
-  'Juros abusivos',
-  'Valor minimo para contratação',
-  'Reativação de cadastro',
-  'Dúvidas gerais',
-  'Limite baixo do pix',
-  'Alteração cadastral',
+  'Desativado',
   'Dívida prescrita',
+  'Dúvidas gerais',
+  'Encerramento cta App',
+  'Encerramento cta Celcoin',
+  'Erro app',
+  'Liberação chave pix',
 ];
 
 const FormReclamacao = ({ responsavel, onSuccess }) => {
@@ -1359,11 +1363,13 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
                 <option value="Antecipação 2026">Antecipação 2026</option>
                 <option value="Aplicativo">Aplicativo</option>
                 <option value="Conta Celcoin">Conta Celcoin</option>
+                <option value="Crédito ao Trabalhador">Crédito ao Trabalhador</option>
+                <option value="Clube Velotax">Clube Velotax</option>
+                <option value="Empréstimo Pessoal">Empréstimo Pessoal</option>
                 <option value="Cupom">Cupom</option>
-                <option value="Empréstimo pessoal">Empréstimo pessoal</option>
                 <option value="Seguros">Seguros</option>
-                <option value="Crédito ao trabalhador">Crédito ao trabalhador</option>
-                <option value="VeloPrime">VeloPrime</option>
+                <option value="Veloprime">Veloprime</option>
+                <option value="Desativado">Desativado</option>
               </select>
               {errors.produto && (
                 <span className="text-red-500 text-xs">{errors.produto}</span>

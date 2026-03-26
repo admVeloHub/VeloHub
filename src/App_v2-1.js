@@ -1,6 +1,12 @@
 /**
  * VeloHub V3 - Main Application Component
- * VERSION: v2.14.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.15.1 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.15.1:
+ * - Header Req_Prod: bubble de notificação igual ao Apoio (vermelho #ff0000)
+ * 
+ * Mudanças v2.15.0:
+ * - Header Req_Prod: badge quando há msg Produtos não lida (fora do módulo); polling + notificação do navegador com preview (dedup sessionStorage)
  * 
  * Mudanças v2.14.0:
  * - Widget Serviços (Home): lista do demonstrador atualizada (8 itens: Antecipação, Cr. Pessoal, Pgto Antec, Prestamista, Seguro Cel, Perda de Renda, Cupons, Seguro Pessoal)
@@ -233,7 +239,7 @@
  * - Mantida compatibilidade com formato antigo (images) e novo (media.images)
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Map, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen, X, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
@@ -260,6 +266,15 @@ import PrivacidadePage from './pages/PrivacidadePage';
 import VelonewsCommentThread from './components/VelonewsCommentThread';
 import PilulasModal from './components/PilulasModal';
 import { formatArticleContent, formatPreviewText, formatResponseText } from './utils/textFormatter';
+import { solicitacoesAPI, errosBugsAPI } from './services/escalacoesApi';
+import {
+  STORAGE_PROD_READ_SOLICITACOES,
+  STORAGE_PROD_READ_ERROS_BUGS,
+  listUnreadProdutosDocs,
+  produtosUnreadNotifySig,
+  hasProdutosNotificationBeenSent,
+  markProdutosNotificationSent,
+} from './utils/escalacoesModalHelpers';
 
 // Sistema de gerenciamento de estado para modal cr├¡tico
 const CriticalModalManager = {
@@ -425,11 +440,56 @@ const Footer = ({ isDarkMode }) => {
   );
 };
 
+/** Lista normalizada de GET escalacoes (solicitações / erros-bugs) */
+const pickEscalacoesApiList = (res) => {
+  if (!res) return [];
+  if (Array.isArray(res.data)) return res.data;
+  if (Array.isArray(res)) return res;
+  return [];
+};
+
+const getEscalacoesAgentNameForHeader = () => {
+  try {
+    const sessionData = localStorage.getItem('velohub_user_session');
+    if (sessionData) {
+      const session = JSON.parse(sessionData);
+      if (session?.user?.name) return String(session.user.name).trim();
+    }
+  } catch {
+    /* ignore */
+  }
+  return String(localStorage.getItem('velotax_agent') || '').trim();
+};
+
+/**
+ * Notificações do navegador: msg Produtos não lida (fora do Req_Prod em foco ou aba do browser em segundo plano).
+ * @param {Array<{ id: string, tipo: string, cpf: string, preview: string, lastAt: number }>} items
+ * @param {'sol'|'erros'} source
+ */
+const notifyProdutosUnreadForHeader = (items, source, activePage) => {
+  if (typeof window === 'undefined' || !('Notification' in window)) return;
+  if (Notification.permission !== 'granted') return;
+  if (activePage === 'Req_Prod' && !document.hidden) return;
+  for (const it of items) {
+    const sig = produtosUnreadNotifySig(source, it.id, it.lastAt);
+    if (hasProdutosNotificationBeenSent(sig)) continue;
+    try {
+      new Notification('VeloHub — Time Produtos', {
+        body: `${it.tipo} — CPF ${it.cpf}\n${it.preview || 'Nova mensagem'}`,
+      });
+      markProdutosNotificationSent(sig);
+    } catch (err) {
+      console.error('[Header] Notificação Produtos:', err);
+    }
+  }
+};
+
 // Componente do Cabe├ºalho
 const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
   const baseNavItems = ['Home', 'VeloBot', 'Artigos', 'Apoio', 'Req_Prod', 'Reclamações', 'Sociais', 'VeloAcademy'];
   const [moduleAccess, setModuleAccess] = useState({ ouvidoria: false, sociais: false });
   const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
+  const [reqProdUnreadCount, setReqProdUnreadCount] = useState(0);
   const [userName, setUserName] = useState('Usu├írio VeloHub');
   const [userPicture, setUserPicture] = useState(null);
 
@@ -1104,6 +1164,51 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
     };
   }, [activePage]);
 
+  const fetchReqProdUnreadBadge = useCallback(async () => {
+    try {
+      const agent = getEscalacoesAgentNameForHeader();
+      const [solRes, errosRes] = await Promise.all([
+        agent ? solicitacoesAPI.getByColaborador(agent) : solicitacoesAPI.getAll(),
+        agent ? errosBugsAPI.getByColaborador(agent) : errosBugsAPI.getAll(),
+      ]);
+      const solList = pickEscalacoesApiList(solRes);
+      const errosList = pickEscalacoesApiList(errosRes);
+      const unreadSol = listUnreadProdutosDocs(solList, STORAGE_PROD_READ_SOLICITACOES);
+      const unreadEr = listUnreadProdutosDocs(errosList, STORAGE_PROD_READ_ERROS_BUGS);
+      setReqProdUnreadCount(unreadSol.length + unreadEr.length);
+      notifyProdutosUnreadForHeader(unreadSol, 'sol', activePage);
+      notifyProdutosUnreadForHeader(unreadEr, 'erros', activePage);
+    } catch (err) {
+      console.error('[Header] Req_Prod unread:', err);
+    }
+  }, [activePage]);
+
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        Notification.requestPermission().catch(() => {});
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchReqProdUnreadBadge();
+    const t = setInterval(fetchReqProdUnreadBadge, 90 * 1000);
+    return () => clearInterval(t);
+  }, [fetchReqProdUnreadBadge]);
+
+  useEffect(() => {
+    const onVis = () => {
+      if (!document.hidden) {
+        fetchReqProdUnreadBadge();
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [fetchReqProdUnreadBadge]);
+
   // Quando usu├írio clica em Apoio, marcar todos os tickets como visualizados
   const handleNavClick = (item) => {
     console.log('Clicou em:', item); // Debug
@@ -1195,6 +1300,30 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
                   title={`${unreadTicketsCount} ticket(s) n├úo visualizado(s)`}
                 >
                   {unreadTicketsCount > 9 ? '9+' : unreadTicketsCount}
+                </span>
+              )}
+              {item === 'Req_Prod' && activePage !== 'Req_Prod' && reqProdUnreadCount > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '-3px',
+                    right: '-3px',
+                    backgroundColor: '#ff0000',
+                    color: 'white',
+                    borderRadius: '50%',
+                    width: '14px',
+                    height: '14px',
+                    fontSize: '9px',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    lineHeight: '1',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                  }}
+                  title={`${reqProdUnreadCount} mensagem(ns) do time Produtos não lida(s) em Solicitações ou Erros/Bugs`}
+                >
+                  {reqProdUnreadCount > 9 ? '9+' : reqProdUnreadCount}
                 </span>
               )}
             </button>

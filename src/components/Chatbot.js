@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Chatbot Component
- * VERSION: v1.10.9 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.10.10 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.10.10:
+ * - Logs de atividade/feedback: envia colaboradorNome (sessão / qualidade_funcionarios) em vez de apenas e-mail como identificação
  * 
  * Mudanças v1.10.9:
  * - Velobot: segunda linha de serviços deslocada 1 coluna (célula vazia), evitando Seguro Cel sob o título
@@ -32,13 +35,15 @@ import { API_BASE_URL } from '../config/api-config';
 console.log('🔧 Chatbot - API_BASE_URL:', API_BASE_URL);
 
 // Componente do Chatbot Inteligente - Mantendo Layout Original
-// VERSION: v1.10.9 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+// VERSION: v1.10.10 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team
 const Chatbot = ({ prompt }) => {
     const [messages, setMessages] = useState([]);
     const [inputValue, setInputValue] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     const [sessionId, setSessionId] = useState(null);
     const [userId, setUserId] = useState(null);
+    /** Nome do colaborador (qualidade_funcionarios / sessão), usado nos logs — userId continua sendo o e-mail */
+    const [colaboradorNome, setColaboradorNome] = useState('');
     const chatBoxRef = useRef(null);
     const [feedbackForMessage, setFeedbackForMessage] = useState(null);
     const [feedbackComment, setFeedbackComment] = useState('');
@@ -211,20 +216,24 @@ const Chatbot = ({ prompt }) => {
         );
     };
 
-    // Obter userId do SSO PRIMEIRO
+    // Obter userId (e-mail) e colaboradorNome da sessão
     useEffect(() => {
         try {
             const session = getUserSession();
             if (session && session.user && session.user.email) {
-                setUserId(session.user.email); // Usar email como userId
-                console.log('🤖 Chatbot: Usuário identificado:', session.user.email);
+                setUserId(session.user.email);
+                const nome = (session.user?.name || session.colaboradorNome || '').trim();
+                setColaboradorNome(nome);
+                console.log('🤖 Chatbot: Usuário identificado:', session.user.email, nome ? `(${nome})` : '');
             } else {
                 setUserId('anonymous');
+                setColaboradorNome('');
                 console.log('🤖 Chatbot: Usuário anônimo');
             }
         } catch (error) {
             console.error('❌ Chatbot: Erro ao obter sessão:', error);
             setUserId('anonymous');
+            setColaboradorNome('');
         }
     }, []);
 
@@ -291,7 +300,8 @@ const Chatbot = ({ prompt }) => {
                 articleContent,
                 userId,
                 sessionId,
-                formatType
+                formatType,
+                ...(colaboradorNome ? { colaboradorNome } : {})
             };
             if (formatType === 'email') {
                 payload.nomeOperador = nomeOperador;
@@ -342,7 +352,8 @@ const Chatbot = ({ prompt }) => {
                                 responseLength: data.response ? data.response.length : 0
                             },
                             userId: userId,
-                            sessionId: sessionId
+                            sessionId: sessionId,
+                            ...(colaboradorNome ? { colaboradorNome } : {})
                         })
                     });
                 } catch (activityError) {
@@ -479,7 +490,8 @@ const Chatbot = ({ prompt }) => {
                     body: JSON.stringify({
                         question: trimmedInput,
                         userId: userId,
-                        sessionId: sessionId
+                        sessionId: sessionId,
+                        ...(colaboradorNome ? { colaboradorNome } : {})
                     })
                 });
 
@@ -578,7 +590,8 @@ const Chatbot = ({ prompt }) => {
                 body: JSON.stringify({
                     question: trimmedInput,
                     userId: userId,
-                    sessionId: sessionId
+                    sessionId: sessionId,
+                    ...(colaboradorNome ? { colaboradorNome } : {})
                 })
             });
 
@@ -729,7 +742,8 @@ const Chatbot = ({ prompt }) => {
                     userId: userId,
                     sessionId: sessionId,
                     question: messages.find(m => m.id === messageId)?.text || '',
-                    answer: messages.find(m => m.id === messageId)?.text || ''
+                    answer: messages.find(m => m.id === messageId)?.text || '',
+                    ...(colaboradorNome ? { colaboradorNome } : {})
                 })
             });
 

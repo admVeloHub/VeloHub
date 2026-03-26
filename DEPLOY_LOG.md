@@ -40,6 +40,23 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Backend logging, Escalações e Ouvidoria**
+- **Data/Hora**: 2026-03-25
+- **Tipo**: GitHub Push
+- **Arquivos Modificados**:
+  - `backend/server.js`
+  - `backend/services/logging/userActivityLogger.js`
+  - `backend/utils/motivoReduzidoNormalize.js`
+  - `src/App_v2-1.js`
+  - `src/components/Chatbot.js`
+  - `src/components/Escalacoes/ErrosBugsTab.js`
+  - `src/components/Ouvidoria/` (FormReclamacao, FormReclamacaoEdit, ListaReclamacoes, RelatoriosOuvidoria)
+  - `src/pages/EscalacoesPage.js`
+  - `src/utils/escalacoesModalHelpers.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Atualizações servidor, log de atividade, normalização de motivos, Chatbot, Escalações e Ouvidoria
+- **Status**: ✅ Concluído com sucesso
+
 ### **GitHub Push - Ouvidoria: motivos Reclame Aqui**
 - **Data/Hora**: 2026-03-25
 - **Tipo**: GitHub Push
