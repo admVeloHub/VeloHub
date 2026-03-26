@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.6 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.7 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,20 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - Módulo Sociais: rede LinkedIn**
+- **Data/Hora**: 2026-03-26
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: SociaisMetricas v1.1.0, TabulationForm v1.3.0, Dashboard v1.4.0, Feed v1.3.0, Reports v1.2.0
+- **Arquivos Modificados**:
+  - `backend/models/SociaisMetricas.js`
+  - `src/components/Sociais/TabulationForm.jsx`
+  - `src/components/Sociais/Dashboard.jsx`
+  - `src/components/Sociais/Feed.jsx`
+  - `src/components/Sociais/Reports.jsx`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Campo Rede social / filtros: adicionada opção LinkedIn; `validNetworks` no backend alinhado para aceitar tabulações e atualizações
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - Artigos: categorias via artigos_categorias**
 - **Data/Hora**: 2026-03-26
