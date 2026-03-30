@@ -1,7 +1,10 @@
 /**
  * VeloHub V3 - FormSolicitacao Component (Escalações Module)
- * VERSION: v1.15.9 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.16.0 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
+ * 
+ * Mudanças v1.16.0:
+ * - Tipo "Devolução de Antecipação": data contratação (local), obs do cliente, análise de exceção; elegibilidade <7 dias corridos (borda verde/vermelha); envio bloqueado ou via exceção (checkbox + obs)
  * 
  * Mudanças v1.15.9:
  * - Reconcile só após lista do servidor estável (props solicitacoesServerList + !solicitacoesStatsLoading) — evita apagar cache enquanto GET ainda não retornou
@@ -135,10 +138,32 @@
  * - Adicionada formatação automática de telefone (XX)91234-5678 nos campos dadoAntigo e dadoNovo
  */
 
-import React, { useEffect, useState, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
+import React, { useEffect, useState, useCallback, useRef, forwardRef, useImperativeHandle, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { solicitacoesAPI, logsAPI } from '../../services/escalacoesApi';
 import { normalizeMongoId, reconcileEscalacoesLocalLogs } from '../../utils/escalacoesModalHelpers';
+
+/** YYYY-MM-DD → Date meia-noite local (evita parse UTC de ISO date-only). */
+const parseIsoDateLocal = (yyyyMmDd) => {
+  if (!yyyyMmDd || typeof yyyyMmDd !== 'string') return null;
+  const parts = yyyyMmDd.trim().split('-').map((x) => parseInt(x, 10));
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return null;
+  const [y, m, d] = parts;
+  const dt = new Date(y, m - 1, d);
+  if (dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) return null;
+  return dt;
+};
+
+const startOfLocalDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+/** Dias corridos entre data de contratação (local) e hoje (local); null se inválido. */
+const diffCalendarDaysContractToToday = (yyyyMmDd) => {
+  const contr = parseIsoDateLocal(yyyyMmDd);
+  if (!contr) return null;
+  const hoje = startOfLocalDay(new Date());
+  const c0 = startOfLocalDay(contr);
+  return Math.round((hoje - c0) / 86400000);
+};
 
 /**
  * Componente de formulário para solicitações técnicas
@@ -187,6 +212,10 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
     clubeVelotax: false,
     dentroDos7Dias: false,
     depoisDos7Dias: false,
+    // Devolução de Antecipação (não reutilizar dataContratacao do Cancelamento)
+    devolucaoDataContratacao: '',
+    obsClienteDevolucao: '',
+    analiseExcecaoDevolucao: false,
   });
   const [loading, setLoading] = useState(false);
   const [cpfError, setCpfError] = useState('');
@@ -404,6 +433,69 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
     return digits.length === 11;
   };
 
+  const devolucaoAntecInfo = useMemo(() => {
+    if (form.tipo !== 'Devolução de Antecipação') {
+      return {
+        diffDays: null,
+        hasValidDate: false,
+        elegivel: false,
+        inelegivelPorPrazoOuFuturo: false,
+        dateBorderClass: 'border-gray-400 dark:border-gray-500',
+      };
+    }
+    const raw = String(form.devolucaoDataContratacao || '').trim();
+    if (!raw) {
+      return {
+        diffDays: null,
+        hasValidDate: false,
+        elegivel: false,
+        inelegivelPorPrazoOuFuturo: false,
+        dateBorderClass: 'border-gray-400 dark:border-gray-500',
+      };
+    }
+    const diffDays = diffCalendarDaysContractToToday(raw);
+    if (diffDays === null) {
+      return {
+        diffDays: null,
+        hasValidDate: false,
+        elegivel: false,
+        inelegivelPorPrazoOuFuturo: false,
+        dateBorderClass: 'border-gray-400 dark:border-gray-500',
+      };
+    }
+    const elegivel = diffDays >= 0 && diffDays < 7;
+    const inelegivel = diffDays < 0 || diffDays >= 7;
+    let dateBorderClass = 'border-gray-400 dark:border-gray-500 focus:ring-1 focus:ring-blue-500';
+    if (elegivel) {
+      dateBorderClass = 'border-green-500 focus:ring-2 focus:ring-green-500';
+    } else if (inelegivel) {
+      dateBorderClass = 'border-red-500 focus:ring-2 focus:ring-red-500';
+    }
+    return {
+      diffDays,
+      hasValidDate: true,
+      elegivel,
+      inelegivelPorPrazoOuFuturo: inelegivel,
+      dateBorderClass,
+    };
+  }, [form.tipo, form.devolucaoDataContratacao]);
+
+  const formularioPodeEnviar = useMemo(() => {
+    if (form.tipo !== 'Devolução de Antecipação') return true;
+    const cpfOk = String(form.cpf || '').replace(/\D/g, '').length === 11;
+    if (!cpfOk) return false;
+    if (!devolucaoAntecInfo.hasValidDate) return false;
+    if (devolucaoAntecInfo.elegivel) return true;
+    return !!(form.analiseExcecaoDevolucao && String(form.obsClienteDevolucao || '').trim());
+  }, [
+    form.tipo,
+    form.cpf,
+    form.analiseExcecaoDevolucao,
+    form.obsClienteDevolucao,
+    devolucaoAntecInfo.hasValidDate,
+    devolucaoAntecInfo.elegivel,
+  ]);
+
   /**
    * Formatar email (mantém formato básico, não força máscara rígida)
    * @param {string} valor - Valor a formatar
@@ -574,6 +666,7 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
       'Cancelamento': 'Cancelamento',
       'Reset de Senha': 'Reset de Senha',
       'Aumento de Limite Pix': 'Aumento de Limite Pix',
+      'Devolução de Antecipação': 'Devolução de Antecipação',
     };
     const tipoCanon = typeMap[form.tipo] || toTitleCase(String(form.tipo || ''));
     const cpfNorm = String(form.cpf || '').replace(/\s+/g, ' ').trim();
@@ -607,6 +700,25 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
       msg += `Data da Contratação: ${form.dataContratacao || '—'}\n`;
       msg += `Valor: ${form.valor || '—'}\n`;
       msg += `Observações: ${form.observacoes || '—'}\n`;
+    } else if (form.tipo === 'Devolução de Antecipação') {
+      const dc = form.devolucaoDataContratacao || '—';
+      let dcFmt = dc;
+      if (typeof dc === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dc)) {
+        dcFmt = dc.split('-').reverse().join('/');
+      }
+      const diff = diffCalendarDaysContractToToday(form.devolucaoDataContratacao);
+      const eleg =
+        diff !== null && diff >= 0 && diff < 7
+          ? 'Elegível (menos de 7 dias corridos desde a contratação)'
+          : diff !== null
+            ? `Inelegível (${diff < 0 ? 'data futura' : '7 dias ou mais desde a contratação'})`
+            : 'Data não informada ou inválida';
+      msg += `Data da Contratação: ${dcFmt}\n`;
+      msg += `Situação prazo: ${eleg}\n`;
+      if (diff !== null) msg += `Dias corridos (contratação → hoje, local): ${diff}\n`;
+      msg += `Obs do cliente: ${String(form.obsClienteDevolucao || '').trim() || '—'}\n`;
+      msg += `Análise de exceção: ${simNao(form.analiseExcecaoDevolucao)}\n`;
+      msg += `Observações (geral): ${form.observacoes || '—'}\n`;
     } else {
       msg += `Observações: ${form.observacoes || '—'}\n`;
     }
@@ -627,6 +739,13 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
     }
     if (form.tipo === 'Exclusão de Chave PIX' && !form.semDebitoAberto && !form.n2Ouvidora && !form.procon && !form.reclameAqui && !form.processo && !form.bacen) {
       showNotification('Para Exclusão de Chave PIX, selecione pelo menos uma opção: Sem Débito em aberto, N2 - Ouvidora, Procon, Reclame Aqui, Processo ou Bacen.', 'error');
+      return;
+    }
+    if (form.tipo === 'Devolução de Antecipação' && !formularioPodeEnviar) {
+      showNotification(
+        'Devolução de Antecipação: informe uma data de contratação válida. Fora do prazo de 7 dias, marque "Análise de exceção" e preencha "Obs do cliente". Verifique também o CPF.',
+        'error'
+      );
       return;
     }
     setLoading(true);
@@ -771,6 +890,9 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
         clubeVelotax: false,
         dentroDos7Dias: false,
         depoisDos7Dias: false,
+        devolucaoDataContratacao: '',
+        obsClienteDevolucao: '',
+        analiseExcecaoDevolucao: false,
       });
     } catch (err) {
       console.error('❌ [FormSolicitacao] Erro ao enviar solicitação:', err);
@@ -859,6 +981,7 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
               <option>Reativação de Conta</option>
               <option>Reset de Senha</option>
               <option value="Cancelamento">Cancelamento</option>
+              <option value="Devolução de Antecipação">Devolução de Antecipação</option>
             </select>
           </div>
         </div>
@@ -1039,6 +1162,53 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
           </div>
         )}
 
+        {form.tipo === 'Devolução de Antecipação' && (
+          <div className="p-4 rounded-lg mt-2" style={{ background: 'transparent', border: '1.5px solid #000058', borderRadius: '8px' }}>
+            <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+              <div>
+                <label className="text-sm text-gray-700 dark:text-gray-300">Data da Contratação</label>
+                <input
+                  className={`w-full border rounded-lg px-3 py-2 outline-none transition-all duration-200 dark:bg-gray-800 dark:text-white ${devolucaoAntecInfo.dateBorderClass}`}
+                  type="date"
+                  value={form.devolucaoDataContratacao || ''}
+                  onChange={(e) => atualizar('devolucaoDataContratacao', e.target.value)}
+                  required
+                />
+                {form.devolucaoDataContratacao && devolucaoAntecInfo.hasValidDate && (
+                  <p
+                    className={`mt-1 text-xs ${devolucaoAntecInfo.elegivel ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}
+                    role="status"
+                  >
+                    {devolucaoAntecInfo.elegivel
+                      ? 'Elegível: menos de 7 dias corridos desde a contratação (data local).'
+                      : devolucaoAntecInfo.diffDays !== null && devolucaoAntecInfo.diffDays < 0
+                        ? 'Inelegível: data de contratação no futuro. Use análise de exceção e obs do cliente para enviar.'
+                        : 'Inelegível: 7 dias corridos ou mais desde a contratação. Marque análise de exceção e preencha obs do cliente para habilitar o envio.'}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="text-sm text-gray-700 dark:text-gray-300">Obs do cliente</label>
+                <textarea
+                  className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 min-h-[88px] outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                  placeholder="Observações do cliente sobre a devolução"
+                  value={form.obsClienteDevolucao || ''}
+                  onChange={(e) => atualizar('obsClienteDevolucao', e.target.value)}
+                />
+              </div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4"
+                  checked={form.analiseExcecaoDevolucao || false}
+                  onChange={(e) => atualizar('analiseExcecaoDevolucao', e.target.checked)}
+                />
+                <span className="text-gray-700 dark:text-gray-300">Análise de exceção</span>
+              </label>
+            </div>
+          </div>
+        )}
+
         {form.tipo === 'Cancelamento' && (
           <div className="p-4 rounded-lg mt-2" style={{ background: 'transparent', border: '1.5px solid #000058', borderRadius: '8px' }}>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1090,9 +1260,9 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
 
         <div className="flex items-center justify-end gap-4 mt-1 mb-0">
           <button
-            disabled={loading}
+            disabled={loading || !formularioPodeEnviar}
             className={`bg-blue-600 text-white font-medium px-5 py-2 rounded-lg hover:bg-blue-700 transition-all duration-200 inline-flex items-center gap-2 ${
-              loading ? 'opacity-60 cursor-not-allowed' : ''
+              loading || !formularioPodeEnviar ? 'opacity-60 cursor-not-allowed' : ''
             }`}
             type="submit"
           >

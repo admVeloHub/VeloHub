@@ -1,7 +1,10 @@
 /**
  * VeloHub V3 - Escalações API Service
- * VERSION: v1.4.2 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.5.0 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
  * 
+ * Mudanças v1.5.0:
+ * - apoioN1API: GET /escalacoes/apoio-n1/overview e /agentes (credencial Apoio N1; email em query + x-user-email)
+ *
  * Mudanças v1.4.2:
  * - errosBugsAPI.update(id, body) → PUT .../erros-bugs/:id (merge de payload no cliente)
  *
@@ -164,6 +167,44 @@ export const solicitacoesAPI = {
 };
 
 /**
+ * Rotas restritas Apoio N1 (visão geral Req_Prod — todos os agentes)
+ */
+export const apoioN1API = {
+  /**
+   * @param {Object} params - origem, dataInicio, dataFim, colaboradorNome, statusChamado
+   * @param {string} email - obrigatório para validação no backend
+   */
+  getOverview: (params = {}, email) => {
+    const q = new URLSearchParams();
+    if (params.origem) q.set('origem', params.origem);
+    if (params.dataInicio) q.set('dataInicio', params.dataInicio);
+    if (params.dataFim) q.set('dataFim', params.dataFim);
+    if (params.colaboradorNome) q.set('colaboradorNome', params.colaboradorNome);
+    if (params.statusChamado) q.set('statusChamado', params.statusChamado);
+    if (email) q.set('email', email);
+    const qs = q.toString();
+    return apiRequest(`/escalacoes/apoio-n1/overview${qs ? `?${qs}` : ''}`, {
+      headers: {
+        ...(email ? { 'x-user-email': email } : {}),
+      },
+    });
+  },
+
+  /**
+   * @param {string} email
+   */
+  getAgentes: (email) => {
+    const q = new URLSearchParams();
+    if (email) q.set('email', email);
+    return apiRequest(`/escalacoes/apoio-n1/agentes?${q.toString()}`, {
+      headers: {
+        ...(email ? { 'x-user-email': email } : {}),
+      },
+    });
+  },
+};
+
+/**
  * API para Erros/Bugs
  */
 export const errosBugsAPI = {
@@ -293,6 +334,7 @@ export const feedbackAPI = {
 export default {
   solicitacoes: solicitacoesAPI,
   errosBugs: errosBugsAPI,
+  apoioN1: apoioN1API,
   logs: logsAPI,
   atendimento: atendimentoAPI,
   feedback: feedbackAPI,

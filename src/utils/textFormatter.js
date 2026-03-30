@@ -1,6 +1,10 @@
 // Text Formatter Utility - Sistema de formatação de texto para o frontend
-// VERSION: v1.0.3 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
-// 
+// VERSION: v1.0.4 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
+//
+// Mudanças v1.0.4:
+// - Markdown de imagem ![alt](url) com alt vazio (![](url)) convertido para <img> (antes ficava texto cru; comum em data:image/base64)
+// - Imagens processadas antes de links para não tratar ![...](...) como <a>
+//
 // Mudanças v1.0.3:
 // - Corrigido parsing de hífens escapados no velonews: formatBulletLists agora remove escapes (\- ou \\-) antes de processar listas
 // 
@@ -130,6 +134,44 @@ const formatLineBreaks = (text) => {
 };
 
 /**
+ * Escapa texto para uso em atributo HTML (alt, etc.).
+ * @private
+ */
+const escapeHtmlAttr = (s) => {
+  if (s == null || s === '') return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;');
+};
+
+/**
+ * Escapa URL para src/href entre aspas duplas (não altera &lt; para não quebrar data: URIs).
+ * @private
+ */
+const escapeUrlForHtmlAttr = (s) => {
+  if (s == null || s === '') return '';
+  return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+};
+
+/**
+ * Src permitido em <img> gerado a partir de markdown (evita javascript: etc.).
+ * @private
+ */
+const isAllowedImgSrc = (src) => {
+  const t = (src || '').trim();
+  if (!t) return false;
+  return (
+    /^https?:\/\//i.test(t) ||
+    /^data:image\//i.test(t) ||
+    /^img_velonews\//i.test(t) ||
+    /^img_artigos\//i.test(t) ||
+    /^\/img_velonews\//i.test(t) ||
+    /^\/img_artigos\//i.test(t)
+  );
+};
+
+/**
  * Formata markdown básico
  * @private
  */
@@ -137,15 +179,24 @@ const formatMarkdown = (text) => {
   return text
     // Negrito
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    
+
     // Itálico
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    
+
     // Código inline
     .replace(/`(.*?)`/g, '<code>$1</code>')
-    
-    // Links markdown
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+    // Imagens markdown (![alt](url)) — alt pode ser vazio (![](...)), ex.: data:image/png;base64,...
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, src) => {
+      const trimmed = (src || '').trim();
+      if (!isAllowedImgSrc(trimmed)) return match;
+      const safeSrc = escapeUrlForHtmlAttr(trimmed);
+      const safeAlt = escapeHtmlAttr(alt || '');
+      return `<img src="${safeSrc}" alt="${safeAlt}" style="max-width:100%;height:auto;" loading="lazy" />`;
+    })
+
+    // Links markdown (texto do link pode ser vazio)
+    .replace(/\[([^\]]*)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
 };
 
 /**

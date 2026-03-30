@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.7 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.8 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,24 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - Escalações: Apoio N1 (panorama e API)**
+- **Data/Hora**: 2026-03-26
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: server v2.49.7
+- **Arquivos Modificados**:
+  - `backend/server.js`
+  - `src/components/Escalacoes/FormSolicitacao.js`
+  - `src/pages/EscalacoesPage.js`
+  - `src/services/escalacoesApi.js`
+  - `src/utils/textFormatter.js`
+  - `DEPLOY_LOG.md`
+- **Arquivos Novos**:
+  - `backend/routes/api/escalacoes/apoio-n1.js`
+  - `backend/routes/api/escalacoes/escalacoesReplyStatusDerive.js`
+  - `src/components/Escalacoes/ApoioN1PanoramaTab.js`
+- **Descrição**: Rotas `/api/escalacoes/apoio-n1`, derivação de status de reply para chamados, aba panorama Apoio N1, checagem de acesso `apoioN1`; ajustes em formulário Escalações, página, cliente API e `textFormatter`
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - Módulo Sociais: rede LinkedIn**
 - **Data/Hora**: 2026-03-26
