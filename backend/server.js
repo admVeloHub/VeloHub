@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.49.6 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.49.7 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v2.49.7:
+ * - Escalações: router GET /api/escalacoes/apoio-n1 (overview, agentes); /api/auth/check-module-access aceita apoioN1 / apoion1
  *
  * Mudanças v2.49.6:
  * - GET /api/articles/categories: lê ordem e metadados de console_conteudo.artigos_categorias (array Categorias, campo Ordem)
@@ -3133,6 +3136,8 @@ app.get('/api/auth/check-module-access', async (req, res) => {
       hasModuleAccess = acessos.sociais === true || 
                         acessos.Sociais === true || 
                         acessos.SOCIAIS === true;
+    } else if (module === 'apoioN1' || module === 'apoion1') {
+      hasModuleAccess = acessos.apoioN1 === true || acessos.apoion1 === true;
     } else {
       // Para outros módulos, verificar campo correspondente
       const moduleKey = module.charAt(0).toLowerCase() + module.slice(1);
@@ -6324,12 +6329,13 @@ try {
   const initSolicitacoesRoutes = require('./routes/api/escalacoes/solicitacoes');
   const initErrosBugsRoutes = require('./routes/api/escalacoes/erros-bugs');
   const initLogsRoutes = require('./routes/api/escalacoes/logs');
+  const initApoioN1Routes = require('./routes/api/escalacoes/apoio-n1');
   const createEscalacoesIndexes = require('./routes/api/escalacoes/indexes');
   console.log('✅ Módulos carregados com sucesso');
 
   console.log('🔧 Inicializando routers...');
   // Registrar rotas
-  let solicitacoesRouter, errosBugsRouter, logsRouter;
+  let solicitacoesRouter, errosBugsRouter, logsRouter, apoioN1Router;
   
   try {
     solicitacoesRouter = initSolicitacoesRoutes(client, connectToMongo, { userActivityLogger });
@@ -6355,6 +6361,14 @@ try {
     console.log('✅ Router de logs inicializado:', typeof logsRouter);
   } catch (error) {
     console.error('❌ Erro ao inicializar router de logs:', error);
+    throw error;
+  }
+
+  try {
+    apoioN1Router = initApoioN1Routes(client, connectToMongo);
+    console.log('✅ Router Apoio N1 (Req_Prod) inicializado:', typeof apoioN1Router);
+  } catch (error) {
+    console.error('❌ Erro ao inicializar router Apoio N1:', error);
     throw error;
   }
   
@@ -6383,6 +6397,7 @@ try {
   
   app.use('/api/escalacoes/erros-bugs', errosBugsRouter);
   app.use('/api/escalacoes/logs', logsRouter);
+  app.use('/api/escalacoes/apoio-n1', apoioN1Router);
   
   console.log('✅ Rotas registradas no Express');
   console.log('🔍 [DEBUG] Rotas /api/escalacoes/erros-bugs registradas com sucesso');
@@ -6404,6 +6419,7 @@ try {
   console.log('   - GET/POST/PUT/DELETE /api/escalacoes/solicitacoes');
   console.log('   - GET/POST /api/escalacoes/erros-bugs');
   console.log('   - GET/POST /api/escalacoes/logs');
+  console.log('   - GET /api/escalacoes/apoio-n1/overview, /api/escalacoes/apoio-n1/agentes (credencial Apoio N1)');
 } catch (error) {
   console.error('❌ Erro ao registrar rotas de Escalações:', error.message);
   console.error('Stack:', error.stack);

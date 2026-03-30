@@ -1,6 +1,12 @@
 /**
  * VeloHub V3 - EscalacoesPage (Escalações Module)
- * VERSION: v1.15.5 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.16.1 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.16.1:
+ * - Aba "Visão geral" (sem sufixo N1 no rótulo); credencial Apoio N1 inalterada
+ * 
+ * Mudanças v1.16.0:
+ * - Aba visão geral restrita a credencial Apoio N1 (check-module-access module=apoioN1); componente ApoioN1PanoramaTab
  * 
  * Mudanças v1.15.5:
  * - Após cancelar (ou salvar N1) no modal: mescla documento retornado em requestsRaw/searchResults para o card refletir status imediatamente (getStatusChamado corrigido em helpers)
@@ -174,7 +180,9 @@ import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallba
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import FormSolicitacao from '../components/Escalacoes/FormSolicitacao';
 import ErrosBugsTab from '../components/Escalacoes/ErrosBugsTab';
+import ApoioN1PanoramaTab from '../components/Escalacoes/ApoioN1PanoramaTab';
 import VeloChatWidget from '../components/VeloChatWidget';
+import { getUserSession } from '../services/auth';
 import ChatStatusSelector from '../components/ChatStatusSelector';
 import { solicitacoesAPI } from '../services/escalacoesApi';
 import { API_BASE_URL } from '../config/api-config';
@@ -314,6 +322,8 @@ const CalculadoraRestituicao = () => {
  */
 const EscalacoesPage = () => {
   const [activeTab, setActiveTab] = useState('solicitacoes');
+  /** null = verificando; só usuários com acessos.apoioN1 veem a aba Visão geral */
+  const [hasApoioN1, setHasApoioN1] = useState(null);
   const [logs, setLogs] = useState([]);
   const [searchCpf, setSearchCpf] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
@@ -789,6 +799,46 @@ const EscalacoesPage = () => {
     return () => clearInterval(refreshInterval);
   }, [activeTab, loadStats]);
 
+  useEffect(() => {
+    const checkApoioN1 = async () => {
+      try {
+        const session = getUserSession();
+        const em = session?.user?.email;
+        if (!em) {
+          setHasApoioN1(false);
+          return;
+        }
+        const sessionId = localStorage.getItem('velohub_session_id');
+        const url = new URL(`${API_BASE_URL}/auth/check-module-access`);
+        url.searchParams.append('email', em);
+        url.searchParams.append('module', 'apoioN1');
+        if (sessionId) url.searchParams.append('sessionId', sessionId);
+        const response = await fetch(url.toString(), {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(sessionId && { 'x-session-id': sessionId }),
+            'x-user-email': em,
+          },
+        });
+        if (!response.ok) {
+          setHasApoioN1(false);
+          return;
+        }
+        const data = await response.json();
+        setHasApoioN1(Boolean(data.success && data.hasAccess));
+      } catch {
+        setHasApoioN1(false);
+      }
+    };
+    checkApoioN1();
+  }, []);
+
+  useEffect(() => {
+    if (hasApoioN1 === false && activeTab === 'apoio-n1-panorama') {
+      setActiveTab('solicitacoes');
+    }
+  }, [hasApoioN1, activeTab]);
+
   // Carregar nome do agente da sessão do usuário
   useEffect(() => {
     try {
@@ -1141,6 +1191,17 @@ const EscalacoesPage = () => {
             >
               Calculadora de Restituição
             </button>
+            {hasApoioN1 === true && (
+              <button
+                onClick={() => setActiveTab('apoio-n1-panorama')}
+                className={`px-6 py-3 text-2xl font-semibold transition-colors duration-200 ${activeTab === 'apoio-n1-panorama' ? '' : 'opacity-50'}`}
+                style={{
+                  color: activeTab === 'apoio-n1-panorama' ? 'var(--blue-light)' : 'var(--cor-texto-secundario)',
+                }}
+              >
+                Visão geral
+              </button>
+            )}
           </div>
           
           {/* Linha divisória */}
@@ -1602,6 +1663,8 @@ const EscalacoesPage = () => {
             {activeTab === 'calculadora-restituicao' && (
               <CalculadoraRestituicao />
             )}
+
+            {activeTab === 'apoio-n1-panorama' && hasApoioN1 === true && <ApoioN1PanoramaTab />}
           </div>
           
           {/* Chat só na aba Solicitações — evita loadContacts / polling ao usar Calculadora ou Erros-Bugs */}
