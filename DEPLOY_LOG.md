@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.8 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.9 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,16 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - Req_Prod: tipos Excluir conta (app/Celcoin) e validação boolean**
+- **Data/Hora**: 2026-03-30
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: FormSolicitacao v1.17.1
+- **Arquivos Modificados**:
+  - `src/components/Escalacoes/FormSolicitacao.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Solicitações técnicas — novos tipos "Excluir conta - app" e "Excluir conta - Celcoin" com três checkboxes; no envio o payload grava `true`/`false` explícitos e validação garante tipo boolean por campo
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - Escalações: Apoio N1 (panorama e API)**
 - **Data/Hora**: 2026-03-26

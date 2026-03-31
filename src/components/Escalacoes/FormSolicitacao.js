@@ -1,8 +1,14 @@
 /**
  * VeloHub V3 - FormSolicitacao Component (Escalações Module)
- * VERSION: v1.16.0 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.17.1 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
  * 
+ * Mudanças v1.17.1:
+ * - Excluir conta (app/Celcoin): no envio cada checkbox vai como boolean explícito true/false no payload; removida exigência de os três estarem true
+ *
+ * Mudanças v1.17.0:
+ * - Tipos "Excluir conta - app" e "Excluir conta - Celcoin": bloco com 3 checkboxes (sem débito em aberto, sem chave PIX, sem saldo); mensagem e payload atualizados
+ *
  * Mudanças v1.16.0:
  * - Tipo "Devolução de Antecipação": data contratação (local), obs do cliente, análise de exceção; elegibilidade <7 dias corridos (borda verde/vermelha); envio bloqueado ou via exceção (checkbox + obs)
  * 
@@ -143,6 +149,11 @@ import { createPortal } from 'react-dom';
 import { solicitacoesAPI, logsAPI } from '../../services/escalacoesApi';
 import { normalizeMongoId, reconcileEscalacoesLocalLogs } from '../../utils/escalacoesModalHelpers';
 
+/** Tipos de solicitação técnica — exclusão de conta (app / Celcoin); mesmos checkboxes dinâmicos. */
+const TIPOS_EXCLUSAO_CONTA = ['Excluir conta - app', 'Excluir conta - Celcoin'];
+
+const isTipoExclusaoConta = (tipo) => TIPOS_EXCLUSAO_CONTA.includes(tipo);
+
 /** YYYY-MM-DD → Date meia-noite local (evita parse UTC de ISO date-only). */
 const parseIsoDateLocal = (yyyyMmDd) => {
   if (!yyyyMmDd || typeof yyyyMmDd !== 'string') return null;
@@ -216,6 +227,10 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
     devolucaoDataContratacao: '',
     obsClienteDevolucao: '',
     analiseExcecaoDevolucao: false,
+    // Excluir conta - app | Excluir conta - Celcoin
+    exclusaoContaSemDebitoAberto: false,
+    exclusaoContaSemChavePixAssociada: false,
+    exclusaoContaSemValorSaldo: false,
   });
   const [loading, setLoading] = useState(false);
   const [cpfError, setCpfError] = useState('');
@@ -667,6 +682,8 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
       'Reset de Senha': 'Reset de Senha',
       'Aumento de Limite Pix': 'Aumento de Limite Pix',
       'Devolução de Antecipação': 'Devolução de Antecipação',
+      'Excluir conta - app': 'Excluir conta - app',
+      'Excluir conta - Celcoin': 'Excluir conta - Celcoin',
     };
     const tipoCanon = typeMap[form.tipo] || toTitleCase(String(form.tipo || ''));
     const cpfNorm = String(form.cpf || '').replace(/\s+/g, ' ').trim();
@@ -699,6 +716,14 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
       msg += `Nome do Cliente: ${form.nomeCliente || '—'}\n`;
       msg += `Data da Contratação: ${form.dataContratacao || '—'}\n`;
       msg += `Valor: ${form.valor || '—'}\n`;
+      msg += `Observações: ${form.observacoes || '—'}\n`;
+    } else if (isTipoExclusaoConta(form.tipo)) {
+      const b1 = form.exclusaoContaSemDebitoAberto === true;
+      const b2 = form.exclusaoContaSemChavePixAssociada === true;
+      const b3 = form.exclusaoContaSemValorSaldo === true;
+      msg += `Sem débito em aberto: ${simNao(b1)}\n`;
+      msg += `Sem chave PIX associada: ${simNao(b2)}\n`;
+      msg += `Sem valor em saldo: ${simNao(b3)}\n`;
       msg += `Observações: ${form.observacoes || '—'}\n`;
     } else if (form.tipo === 'Devolução de Antecipação') {
       const dc = form.devolucaoDataContratacao || '—';
@@ -740,6 +765,20 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
     if (form.tipo === 'Exclusão de Chave PIX' && !form.semDebitoAberto && !form.n2Ouvidora && !form.procon && !form.reclameAqui && !form.processo && !form.bacen) {
       showNotification('Para Exclusão de Chave PIX, selecione pelo menos uma opção: Sem Débito em aberto, N2 - Ouvidora, Procon, Reclame Aqui, Processo ou Bacen.', 'error');
       return;
+    }
+    if (isTipoExclusaoConta(form.tipo)) {
+      const tri = [
+        form.exclusaoContaSemDebitoAberto,
+        form.exclusaoContaSemChavePixAssociada,
+        form.exclusaoContaSemValorSaldo,
+      ];
+      if (tri.some((v) => v !== true && v !== false)) {
+        showNotification(
+          'Cada condição de exclusão de conta deve estar definida como Sim ou Não (marcado ou desmarcado).',
+          'error'
+        );
+        return;
+      }
     }
     if (form.tipo === 'Devolução de Antecipação' && !formularioPodeEnviar) {
       showNotification(
@@ -797,11 +836,17 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
 
     try {
       // Criar solicitação no backend (WhatsApp descontinuado - replies via polling MongoDB)
+      const payload = { ...form, cpf: cpfApenasNumeros };
+      if (isTipoExclusaoConta(form.tipo)) {
+        payload.exclusaoContaSemDebitoAberto = form.exclusaoContaSemDebitoAberto === true;
+        payload.exclusaoContaSemChavePixAssociada = form.exclusaoContaSemChavePixAssociada === true;
+        payload.exclusaoContaSemValorSaldo = form.exclusaoContaSemValorSaldo === true;
+      }
       const solicitacaoData = {
         agente: agenteNorm || form.agente,
         cpf: cpfApenasNumeros,
         tipo: form.tipo,
-        payload: { ...form, cpf: cpfApenasNumeros },
+        payload,
         mensagemTexto,
         agentContact: null,
         waMessageId: null,
@@ -893,6 +938,9 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
         devolucaoDataContratacao: '',
         obsClienteDevolucao: '',
         analiseExcecaoDevolucao: false,
+        exclusaoContaSemDebitoAberto: false,
+        exclusaoContaSemChavePixAssociada: false,
+        exclusaoContaSemValorSaldo: false,
       });
     } catch (err) {
       console.error('❌ [FormSolicitacao] Erro ao enviar solicitação:', err);
@@ -978,6 +1026,8 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
               <option>Alteração de Dados Cadastrais</option>
               <option>Aumento de Limite Pix</option>
               <option>Exclusão de Chave PIX</option>
+              <option>Excluir conta - app</option>
+              <option>Excluir conta - Celcoin</option>
               <option>Reativação de Conta</option>
               <option>Reset de Senha</option>
               <option value="Cancelamento">Cancelamento</option>
@@ -1070,6 +1120,41 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
                 />
               </div>
             </div>
+          </div>
+        )}
+
+        {isTipoExclusaoConta(form.tipo) && (
+          <div className="p-4 rounded-lg mt-2" style={{ background: 'transparent', border: '1.5px solid #000058', borderRadius: '8px' }}>
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+              Marque conforme a situação: cada item é enviado como Sim (true) ou Não (false).
+            </p>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="w-4 h-4"
+                checked={form.exclusaoContaSemDebitoAberto || false}
+                onChange={(e) => atualizar('exclusaoContaSemDebitoAberto', e.target.checked)}
+              />
+              <span>Sem débito em aberto</span>
+            </label>
+            <label className="flex items-center gap-2 mt-2">
+              <input
+                type="checkbox"
+                className="w-4 h-4"
+                checked={form.exclusaoContaSemChavePixAssociada || false}
+                onChange={(e) => atualizar('exclusaoContaSemChavePixAssociada', e.target.checked)}
+              />
+              <span>Sem chave PIX associada</span>
+            </label>
+            <label className="flex items-center gap-2 mt-2">
+              <input
+                type="checkbox"
+                className="w-4 h-4"
+                checked={form.exclusaoContaSemValorSaldo || false}
+                onChange={(e) => atualizar('exclusaoContaSemValorSaldo', e.target.checked)}
+              />
+              <span>Sem valor em saldo</span>
+            </label>
           </div>
         )}
 
