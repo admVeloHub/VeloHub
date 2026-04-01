@@ -1,7 +1,10 @@
 /**
  * VeloHub V3 - FormSolicitacao Component (Escalações Module)
- * VERSION: v1.17.1 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.17.2 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
+ * 
+ * Mudanças v1.17.2:
+ * - Exclusão de Chave PIX: checkbox "Revogado consentimento ECAC"; grid de opções em 2 colunas
  * 
  * Mudanças v1.17.1:
  * - Excluir conta (app/Celcoin): no envio cada checkbox vai como boolean explícito true/false no payload; removida exigência de os três estarem true
@@ -210,6 +213,7 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
     reclameAqui: false,
     processo: false,
     bacen: false,
+    revogadoConsentimentoEcac: false,
     prazoMaximo: '',
     // Campos para Aumento de Limite Pix e Cancelamento
     valor: '',
@@ -703,6 +707,7 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
       msg += `Reclame Aqui: ${simNao(form.reclameAqui)}\n`;
       msg += `Processo: ${simNao(form.processo)}\n`;
       msg += `Bacen: ${simNao(form.bacen)}\n`;
+      msg += `Revogado consentimento ECAC: ${simNao(form.revogadoConsentimentoEcac)}\n`;
       if (form.prazoMaximo) {
         // Formatar data de YYYY-MM-DD para DD/MM/YYYY
         const dataFormatada = form.prazoMaximo.split('-').reverse().join('/');
@@ -762,8 +767,8 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
       showNotification('CPF inválido. Digite os 11 dígitos.', 'error');
       return;
     }
-    if (form.tipo === 'Exclusão de Chave PIX' && !form.semDebitoAberto && !form.n2Ouvidora && !form.procon && !form.reclameAqui && !form.processo && !form.bacen) {
-      showNotification('Para Exclusão de Chave PIX, selecione pelo menos uma opção: Sem Débito em aberto, N2 - Ouvidora, Procon, Reclame Aqui, Processo ou Bacen.', 'error');
+    if (form.tipo === 'Exclusão de Chave PIX' && !form.semDebitoAberto && !form.n2Ouvidora && !form.procon && !form.reclameAqui && !form.processo && !form.bacen && !form.revogadoConsentimentoEcac) {
+      showNotification('Para Exclusão de Chave PIX, selecione pelo menos uma opção: Sem Débito em aberto, N2 - Ouvidora, Procon, Reclame Aqui, Processo, Bacen ou Revogado consentimento ECAC.', 'error');
       return;
     }
     if (isTipoExclusaoConta(form.tipo)) {
@@ -922,6 +927,7 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
         reclameAqui: false,
         processo: false,
         bacen: false,
+        revogadoConsentimentoEcac: false,
         prazoMaximo: '',
         // Campos para Aumento de Limite Pix e Cancelamento
         valor: '',
@@ -1161,60 +1167,71 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
         {form.tipo === 'Exclusão de Chave PIX' && (
           <div className="p-4 rounded-lg mt-2" style={{ background: 'transparent', border: '1.5px solid #000058', borderRadius: '8px' }}>
             <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">* Selecione pelo menos uma opção:</p>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                className="w-4 h-4"
-                checked={form.semDebitoAberto || false}
-                onChange={(e) => atualizar('semDebitoAberto', e.target.checked)}
-              />
-              <span>Sem Débito em aberto</span>
-            </label>
-            <label className="flex items-center gap-2 mt-2">
-              <input
-                type="checkbox"
-                className="w-4 h-4"
-                checked={form.n2Ouvidora || false}
-                onChange={(e) => atualizar('n2Ouvidora', e.target.checked)}
-              />
-              <span>N2 - Ouvidora</span>
-            </label>
-            <label className="flex items-center gap-2 mt-2">
-              <input
-                type="checkbox"
-                className="w-4 h-4"
-                checked={form.procon || false}
-                onChange={(e) => atualizar('procon', e.target.checked)}
-              />
-              <span>Procon</span>
-            </label>
-            <label className="flex items-center gap-2 mt-2">
-              <input
-                type="checkbox"
-                className="w-4 h-4"
-                checked={form.reclameAqui || false}
-                onChange={(e) => atualizar('reclameAqui', e.target.checked)}
-              />
-              <span>Reclame Aqui</span>
-            </label>
-            <label className="flex items-center gap-2 mt-2">
-              <input
-                type="checkbox"
-                className="w-4 h-4"
-                checked={form.processo || false}
-                onChange={(e) => atualizar('processo', e.target.checked)}
-              />
-              <span>Processo</span>
-            </label>
-            <label className="flex items-center gap-2 mt-2">
-              <input
-                type="checkbox"
-                className="w-4 h-4"
-                checked={form.bacen || false}
-                onChange={(e) => atualizar('bacen', e.target.checked)}
-              />
-              <span>Bacen</span>
-            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+              <label className="flex items-center gap-2 min-h-[1.75rem]">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 shrink-0"
+                  checked={form.semDebitoAberto || false}
+                  onChange={(e) => atualizar('semDebitoAberto', e.target.checked)}
+                />
+                <span>Sem Débito em aberto</span>
+              </label>
+              <label className="flex items-center gap-2 min-h-[1.75rem]">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 shrink-0"
+                  checked={form.n2Ouvidora || false}
+                  onChange={(e) => atualizar('n2Ouvidora', e.target.checked)}
+                />
+                <span>N2 - Ouvidora</span>
+              </label>
+              <label className="flex items-center gap-2 min-h-[1.75rem]">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 shrink-0"
+                  checked={form.procon || false}
+                  onChange={(e) => atualizar('procon', e.target.checked)}
+                />
+                <span>Procon</span>
+              </label>
+              <label className="flex items-center gap-2 min-h-[1.75rem]">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 shrink-0"
+                  checked={form.reclameAqui || false}
+                  onChange={(e) => atualizar('reclameAqui', e.target.checked)}
+                />
+                <span>Reclame Aqui</span>
+              </label>
+              <label className="flex items-center gap-2 min-h-[1.75rem]">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 shrink-0"
+                  checked={form.processo || false}
+                  onChange={(e) => atualizar('processo', e.target.checked)}
+                />
+                <span>Processo</span>
+              </label>
+              <label className="flex items-center gap-2 min-h-[1.75rem]">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 shrink-0"
+                  checked={form.bacen || false}
+                  onChange={(e) => atualizar('bacen', e.target.checked)}
+                />
+                <span>Bacen</span>
+              </label>
+              <label className="flex items-center gap-2 min-h-[1.75rem]">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 shrink-0"
+                  checked={form.revogadoConsentimentoEcac || false}
+                  onChange={(e) => atualizar('revogadoConsentimentoEcac', e.target.checked)}
+                />
+                <span>Revogado consentimento ECAC</span>
+              </label>
+            </div>
             
             {/* Campo Prazo Máximo - aparece quando qualquer checkbox relevante estiver marcado */}
             {(form.reclameAqui || form.bacen || form.procon || form.processo || form.n2Ouvidora) && (
