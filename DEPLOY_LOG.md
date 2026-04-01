@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.9 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.10 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,16 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - Req_Prod: Exclusão Chave PIX (ECAC + grid 2 colunas)**
+- **Data/Hora**: 2026-03-30
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: FormSolicitacao v1.17.2
+- **Arquivos Modificados**:
+  - `src/components/Escalacoes/FormSolicitacao.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Tipo "Exclusão de Chave PIX": checkbox "Revogado consentimento ECAC" (`revogadoConsentimentoEcac`); opções em grelha de duas colunas (sm+); mensagem e validação atualizadas
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - Req_Prod: tipos Excluir conta (app/Celcoin) e validação boolean**
 - **Data/Hora**: 2026-03-30
