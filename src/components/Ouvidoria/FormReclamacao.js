@@ -1,8 +1,11 @@
 /**
  * VeloHub V3 - FormReclamacao Component
- * VERSION: v3.39.0 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.40.0 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
  * 
  * Componente de formulário para criação de reclamações BACEN, Ouvidoria, Reclame Aqui, Procon e Processos
+ * 
+ * Mudanças v3.40.0:
+ * - BACEN/N2/Procon e Reclame Aqui: motivo "Juros abusivos" nas listas de seleção
  * 
  * Mudanças v3.39.0:
  * - Produto N2 e Reclame Aqui: rótulo de value Antecipação unificado a "Antecipação Outros Anos" (igual BACEN/Procon/Judicial)
@@ -241,7 +244,7 @@ const validarCPF = (cpf) => {
 
 /**
  * Opções de motivo reduzido (BACEN / N2 Pix / Procon)
- * VERSION: v2.0.0 | DATE: 2026-03-19 | Alinhado lista operacional BACEN
+ * VERSION: v2.1.0 | DATE: 2026-04-02 | Alinhado lista operacional BACEN
  *
  * Ordem: Liberação Chave Pix e Portabilidade Pix no topo; depois Abatimento, cancelamentos (7 dias),
  * Em cobrança, Alega fraude, Erro App, encerramentos cta, Superendividamento.
@@ -250,6 +253,7 @@ const MOTIVOS_REDUZIDOS = [
   'Liberação chave pix',
   'Portabilidade pix',
   'Abatimento de juros',
+  'Juros abusivos',
   'Cancelamento até 7 dias',
   'Cancelamento superior a 7 dias',
   'Em cobrança',
@@ -280,6 +284,7 @@ const MOTIVOS_RECLAME_AQUI = [
   'Reativação do cadastro',
   'Alteração cadastral',
   'Abatimento de juros',
+  'Juros abusivos',
   'Valor mínimo para contratação',
   'Limite baixo do pix',
   'Portabilidade pix',
