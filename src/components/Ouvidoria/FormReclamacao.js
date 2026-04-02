@@ -1,8 +1,23 @@
 /**
  * VeloHub V3 - FormReclamacao Component
- * VERSION: v3.32.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.37.0 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
  * 
  * Componente de formulário para criação de reclamações BACEN, Ouvidoria, Reclame Aqui, Procon e Processos
+ * 
+ * Mudanças v3.37.0:
+ * - Canais: Localizar fora do grid (flex); checkboxes em grid 4×2 com L2C4 vazio (md)
+ * 
+ * Mudanças v3.36.0:
+ * - Canais: linha Localizar só botão + campo; Sem Resposta do Cliente na 1ª linha do grid de checkboxes (col. 4), com N1 | N2 | Pix
+ * 
+ * Mudanças v3.35.0:
+ * - Canais de Atendimento: 1ª linha em grid 4 colunas — Localizar (C1 + C2–C3 campo) e Sem Resposta do Cliente (C4); demais grids inalterados
+ * 
+ * Mudanças v3.34.0:
+ * - BACEN / N2 Pix: removido campo "Prazo" do formulário; prazoBacen/prazoOuvidoria definidos na API (2 dias após createdAt)
+ * 
+ * Mudanças v3.33.0:
+ * - Canais de Atendimento e Protocolos: checkbox "Sem Resposta do Cliente" (semRespostaCliente boolean no payload BACEN, N2, Reclame Aqui, Procon)
  * 
  * Mudanças v3.32.0:
  * - Reclame Aqui: lista final de Motivos e de Produto (ordem operacional); novos motivos Não elegível a crédito, Desativado; rótulos Encerramento cta App/Celcoin, Reativação do cadastro, Valor mínimo para contratação, Portabilidade pix
@@ -292,16 +307,11 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
     origem: '',
     produto: '',
     anexos: [], // Array de URLs dos anexos
-    prazoBacen: '',
     motivoReduzido: [], // Array de motivos selecionados
     motivoDetalhado: '',
     
     // Campos Ouvidoria (schema: dataEntradaN2)
     dataEntradaN2: '',
-    origem: '',
-    produto: '',
-    prazoOuvidoria: '',
-    motivoDetalhado: '',
     
     // Campos Reclame Aqui
     cpfRepetido: '',
@@ -348,6 +358,7 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
     statusContratoQuitado: false,
     enviarParaCobranca: false,
     localizarAtendimentos: '', // Resultado da busca por CPF (BACEN, N2, Reclame Aqui)
+    semRespostaCliente: false,
   });
 
   const [loading, setLoading] = useState(false);
@@ -704,7 +715,6 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
           origem: formData.origem,
           produto: formData.produto || '',
           anexos: formData.anexos,
-          prazoBacen: formData.prazoBacen,
           motivoReduzido: formData.motivoReduzido,
           motivoDetalhado: formData.motivoDetalhado,
           tentativasContato: { lista: formData.tentativasContato.lista.filter(t => t.data || t.meio || t.resultado) },
@@ -716,6 +726,7 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
           protocolosReclameAqui: formData.protocolosReclameAqui.filter(p => p.trim() !== ''),
           procon: formData.procon,
           protocolosProcon: formData.protocolosProcon.filter(p => p.trim() !== ''),
+          semRespostaCliente: formData.semRespostaCliente === true,
           pixLiberado: formData.pixLiberado,
           statusContratoQuitado: formData.statusContratoQuitado,
           statusContratoAberto: !formData.statusContratoQuitado,
@@ -726,7 +737,6 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
           dataEntradaN2: formData.dataEntradaN2,
           origem: formData.origem || '',
           produto: formData.produto || '',
-          prazoOuvidoria: formData.prazoOuvidoria || '',
           motivoReduzido: formData.motivoReduzido,
           motivoDetalhado: formData.motivoDetalhado || '',
           anexos: formData.anexos,
@@ -738,6 +748,7 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
           protocolosReclameAqui: formData.protocolosReclameAqui.filter(p => p.trim() !== ''),
           procon: formData.procon,
           protocolosProcon: formData.protocolosProcon.filter(p => p.trim() !== ''),
+          semRespostaCliente: formData.semRespostaCliente === true,
           pixLiberado: formData.pixLiberado,
           statusContratoQuitado: formData.statusContratoQuitado,
           statusContratoAberto: !formData.statusContratoQuitado,
@@ -768,6 +779,7 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
           protocolosReclameAqui: formData.protocolosReclameAqui.filter(p => p.trim() !== ''),
           procon: formData.procon,
           protocolosProcon: formData.protocolosProcon.filter(p => p.trim() !== ''),
+          semRespostaCliente: formData.semRespostaCliente === true,
         };
       } else if (formData.tipo === 'PROCON') {
         payload = {
@@ -797,6 +809,7 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
           protocolosReclameAqui: formData.protocolosReclameAqui.filter(p => p && String(p).trim() !== ''),
           pixLiberado: formData.pixLiberado || false,
           statusContratoQuitado: formData.statusContratoQuitado || false,
+          semRespostaCliente: formData.semRespostaCliente === true,
         };
       } else if (formData.tipo === 'PROCESSOS') {
         payload = {
@@ -854,14 +867,11 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
       origem: '',
       produto: '',
       anexos: [],
-      prazoBacen: '',
       motivoReduzido: [],
       motivoDetalhado: '',
       dataEntradaN2: '',
       origem: '',
       produto: '',
-      prazoOuvidoria: '',
-      motivoDetalhado: '',
       cpfRepetido: '',
       idEntrada: '',
       dataReclam: '',
@@ -882,7 +892,6 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
       nroProcesso: '',
       empresaAcionada: '',
       dataEntradaProcesso: hoje,
-      motivoReduzido: [],
       audiencia: false,
       dataAudiencia: '',
       situacaoAudiencia: '',
@@ -897,6 +906,7 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
       protocolosReclameAqui: [''],
       procon: false,
       protocolosProcon: [''],
+      semRespostaCliente: false,
       pixLiberado: false,
       statusContratoQuitado: false,
       enviarParaCobranca: false,
@@ -969,33 +979,16 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
           </div>
         </div>
 
-        {/* Linha 2: Motivo | Prazo (dimensionar) */}
-        <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-4 mb-4">
-          <div>
-            {renderCampoMotivo(
-              MOTIVOS_REDUZIDOS,
-              formData.motivoReduzido,
-              (novosMotivos) => setFormData(prev => ({ ...prev, motivoReduzido: novosMotivos })),
-              errors.motivoReduzido,
-              'Motivo *',
-              'motivo-bacen'
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Prazo
-            </label>
-            <input
-              type="date"
-              value={formData.prazoBacen}
-              onChange={(e) => setFormData(prev => ({ ...prev, prazoBacen: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            />
-            {errors.prazoBacen && (
-              <span className="text-red-500 text-xs">{errors.prazoBacen}</span>
-            )}
-          </div>
+        {/* Linha 2: Motivo (prazo BACEN é automático na API: +2 dias após a criação do registro) */}
+        <div className="mb-4">
+          {renderCampoMotivo(
+            MOTIVOS_REDUZIDOS,
+            formData.motivoReduzido,
+            (novosMotivos) => setFormData(prev => ({ ...prev, motivoReduzido: novosMotivos })),
+            errors.motivoReduzido,
+            'Motivo *',
+            'motivo-bacen'
+          )}
         </div>
 
         {/* Linha 3: Descrição */}
@@ -1088,8 +1081,8 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
       <div className="velohub-card">
         <h3 className="text-xl font-semibold mb-4 velohub-title">Reclamação</h3>
         
-        {/* Linha 1: Produto | Origem | Data de Entrada | Prazo */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        {/* Linha 1: Produto | Origem | Data de Entrada (prazo N2 é automático na API: +2 dias após a criação) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
               Produto
@@ -1142,18 +1135,6 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
             {errors.dataEntradaN2 && (
               <span className="text-red-500 text-xs">{errors.dataEntradaN2}</span>
             )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Prazo
-            </label>
-            <input
-              type="date"
-              value={formData.prazoOuvidoria}
-              onChange={(e) => setFormData(prev => ({ ...prev, prazoOuvidoria: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            />
           </div>
         </div>
 
@@ -2315,31 +2296,31 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
             </div>
           </div>
 
-          {/* Localizar Atendimentos e Protocolos */}
+          {/* Localizar — fora do grid */}
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => localizarAtendimentos('PROCON')}
               disabled={buscandoReclameAqui || !formData.cpf || formData.cpf.replace(/\D/g, '').length !== 11}
               className="px-4 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                style={{
-                  borderColor: '#006AB9',
-                  color: '#006AB9',
-                  background: 'transparent',
-                }}
-                onMouseEnter={(e) => {
-                  if (!e.target.disabled) {
-                    e.target.style.background = 'linear-gradient(135deg, #006AB9 0%, #006AB9 100%)';
-                    e.target.style.color = '#F3F7FC';
-                    e.target.style.borderColor = '#006AB9';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!e.target.disabled) {
-                    e.target.style.background = 'transparent';
-                    e.target.style.color = '#006AB9';
-                    e.target.style.borderColor = '#006AB9';
-                  }
+              style={{
+                borderColor: '#006AB9',
+                color: '#006AB9',
+                background: 'transparent',
+              }}
+              onMouseEnter={(e) => {
+                if (!e.target.disabled) {
+                  e.target.style.background = 'linear-gradient(135deg, #006AB9 0%, #006AB9 100%)';
+                  e.target.style.color = '#F3F7FC';
+                  e.target.style.borderColor = '#006AB9';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!e.target.disabled) {
+                  e.target.style.background = 'transparent';
+                  e.target.style.color = '#006AB9';
+                  e.target.style.borderColor = '#006AB9';
+                }
               }}
             >
               {buscandoReclameAqui ? 'Buscando...' : 'Localizar Atendimentos e Protocolos'}
@@ -2353,8 +2334,8 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
             />
           </div>
 
-          {/* Atendimento N1 e Protocolos (omitir Procon) - L1: N1 | N2 */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          {/* Grid 4×2 — L2C4 vazio (md); Procon omitido neste form */}
+          <div className="grid grid-cols-1 md:grid-cols-4 md:grid-rows-2 gap-4 mb-4">
             <div>
               <div className="flex items-center mb-2">
                 <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
@@ -2454,10 +2435,33 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
                 </div>
               )}
             </div>
-          </div>
 
-          {/* L2: Reclame Aqui (C1) | Pix Liberado + Contrato Quitado (C3) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <div className="flex items-center mb-2">
+                <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={formData.pixLiberado === true}
+                    onChange={(e) => setFormData(prev => ({ ...prev, pixLiberado: e.target.checked }))}
+                    className="w-5 h-5"
+                  />
+                  <span>Pix Liberado</span>
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  className="w-5 h-5 shrink-0"
+                  checked={formData.semRespostaCliente === true}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, semRespostaCliente: e.target.checked }))}
+                />
+                <span>Sem Resposta do Cliente</span>
+              </label>
+            </div>
+
             <div>
               <div className="flex items-center mb-2">
                 <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
@@ -2508,19 +2512,10 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
               )}
             </div>
 
-            <div className="md:col-start-3 space-y-4">
-              <div className="flex items-center">
-                <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
-                  <input
-                    type="checkbox"
-                    checked={formData.pixLiberado === true}
-                    onChange={(e) => setFormData(prev => ({ ...prev, pixLiberado: e.target.checked }))}
-                    className="w-5 h-5"
-                  />
-                  <span>Pix Liberado</span>
-                </label>
-              </div>
-              <div className="flex items-center">
+            <div className="hidden md:block min-h-0" aria-hidden="true" />
+
+            <div>
+              <div className="flex items-center mb-2">
                 <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
                   <input
                     type="checkbox"
@@ -2532,6 +2527,8 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
                 </label>
               </div>
             </div>
+
+            <div className="hidden md:block min-h-0" aria-hidden="true" />
           </div>
 
           {/* Anexo */}
@@ -2722,7 +2719,7 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
       <div className="velohub-card">
         <h3 className="text-xl font-semibold mb-4 velohub-title">Canais de Atendimento e Protocolos Acionados</h3>
 
-        {/* Localizar Atendimentos e Protocolos */}
+        {/* Localizar Atendimentos — fora do grid de checkboxes */}
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -2759,9 +2756,9 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
             placeholder=""
           />
         </div>
-        
-        {/* Grid 3x2: Linha 1 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+
+        {/* Grid 4×2 checkboxes — L2C4 vazio (md) */}
+        <div className="grid grid-cols-1 md:grid-cols-4 md:grid-rows-2 gap-4 mb-4">
           {/* Atendimento N1 */}
           <div>
             <div className="flex items-center mb-2">
@@ -2841,8 +2838,8 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
             )}
           </div>
 
-          {/* Escalado N2 - oculto no form N2 Pix (redundante) */}
-          {formData.tipo !== 'OUVIDORIA' && (
+          {/* Escalado N2 - oculto no form N2 Pix: coluna vazia mantém Pix na 3ª posição */}
+          {formData.tipo !== 'OUVIDORIA' ? (
           <div>
             <div className="flex items-center mb-2">
               <label className="flex items-center">
@@ -2920,10 +2917,11 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
               </div>
             )}
           </div>
+          ) : (
+            <div className="hidden md:block min-h-0" aria-hidden="true" />
           )}
 
-          {/* Pix Liberado (checkbox boolean) - sempre coluna 3 */}
-          <div className="md:col-start-3">
+          <div>
             <div className="flex items-center mb-2">
               <label className="flex items-center">
                 <input
@@ -2936,12 +2934,21 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
               </label>
             </div>
           </div>
-        </div>
 
-        {/* Grid 3x2: Linha 2 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          {/* Reclame Aqui - oculto no form Reclame Aqui (redundante) */}
-          {formData.tipo !== 'RECLAME_AQUI' && (
+          <div>
+            <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                className="w-5 h-5 shrink-0"
+                checked={formData.semRespostaCliente === true}
+                onChange={(e) => setFormData((prev) => ({ ...prev, semRespostaCliente: e.target.checked }))}
+              />
+              <span>Sem Resposta do Cliente</span>
+            </label>
+          </div>
+
+          {/* L2C1 Reclame Aqui — oculto no form Reclame Aqui */}
+          {formData.tipo !== 'RECLAME_AQUI' ? (
           <div>
             <div className="flex items-center mb-2">
               <label className="flex items-center">
@@ -3019,10 +3026,12 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
               </div>
             )}
           </div>
+          ) : (
+            <div className="hidden md:block min-h-0" aria-hidden="true" />
           )}
 
-          {/* Procon - oculto no form Procon (redundante) */}
-          {formData.tipo !== 'PROCON' && (
+          {/* L2C2 Procon — oculto no form Procon */}
+          {formData.tipo !== 'PROCON' ? (
           <div>
             <div className="flex items-center mb-2">
               <label className="flex items-center">
@@ -3100,10 +3109,12 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
               </div>
             )}
           </div>
+          ) : (
+            <div className="hidden md:block min-h-0" aria-hidden="true" />
           )}
 
-          {/* Status do contrato - 1 checkbox Boolean: Contrato Quitado - sempre coluna 3 */}
-          <div className="md:col-start-3">
+          {/* L2C3 Contrato quitado */}
+          <div>
             <div className="flex items-center mb-2">
               <label className="flex items-center">
                 <input
@@ -3116,6 +3127,9 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
               </label>
             </div>
           </div>
+
+          {/* L2C4 reservado vazio */}
+          <div className="hidden md:block min-h-0" aria-hidden="true" />
         </div>
       </div>
     );
@@ -3141,14 +3155,11 @@ const FormReclamacao = ({ responsavel, onSuccess }) => {
                   // Resetar campos específicos ao mudar tipo
                   origem: '',
                   anexos: [],
-                  prazoBacen: '',
                   motivoReduzido: [],
                   motivoDetalhado: '',
                   dataEntradaN2: '',
                   origem: '',
                   produto: '',
-                  prazoOuvidoria: '',
-                  motivoDetalhado: '',
                   cpfRepetido: '',
                   idEntrada: '',
                   dataReclam: '',

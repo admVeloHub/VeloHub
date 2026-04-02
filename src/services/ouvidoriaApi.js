@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Ouvidoria API Service
- * VERSION: v2.6.0 | DATE: 2026-03-19 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.7.0 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.7.0:
+ * - reclamacoesAPI.remove: DELETE /ouvidoria/reclamacoes/:id?tipo=
  * 
  * Mudanças v2.6.0:
  * - Adicionado parâmetro status em getAll de reclamacoesAPI
@@ -173,12 +176,27 @@ export const reclamacoesAPI = {
   update: (id, data, tipo = null) => {
     const tipoParam = tipo || data.tipo;
     const url = tipoParam 
-      ? `/ouvidoria/reclamacoes/${id}?tipo=${tipoParam}`
+      ? `/ouvidoria/reclamacoes/${id}?tipo=${encodeURIComponent(tipoParam)}`
       : `/ouvidoria/reclamacoes/${id}`;
     return apiRequest(url, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
+  },
+
+  /**
+   * Excluir reclamação permanentemente
+   * @param {string} id - ID MongoDB
+   * @param {string} tipo - Tipo (ex.: BACEN, N2 Pix, Reclame Aqui) — define a coleção
+   */
+  remove: (id, tipo) => {
+    const tid = String(id || '').trim();
+    const ttipo = String(tipo || '').trim();
+    if (!tid || !ttipo) {
+      return Promise.reject(new Error('ID e tipo são obrigatórios para excluir'));
+    }
+    const url = `/ouvidoria/reclamacoes/${encodeURIComponent(tid)}?tipo=${encodeURIComponent(ttipo)}`;
+    return apiRequest(url, { method: 'DELETE' });
   },
 
   /**
