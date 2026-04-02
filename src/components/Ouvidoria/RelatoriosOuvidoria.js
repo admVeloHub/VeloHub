@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - RelatoriosOuvidoria Component
- * VERSION: v2.13.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.14.0 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.14.0:
+ * - MOTIVOS_CONHECIDOS_FRONTEND: Empréstimo pessoal → Empréstimo Pessoal (alinhado produto/form)
  * 
  * Mudanças v2.13.0:
  * - normalizarMotivoParaAgrupamento: Encerramento cta App/Celcoin e Portabilidade pix alinhados ao form Reclame Aqui v3.32
@@ -135,7 +138,7 @@ const MOTIVOS_CONHECIDOS_FRONTEND = [
   'Bloqueio de conta',
   'Contestação de valores',
   'Crédito do trabalhador',
-  'Empréstimo pessoal',
+  'Empréstimo Pessoal',
   'Abatimento de juros',
   'Cancelamento conta',
   'Devolução à Celcoin',

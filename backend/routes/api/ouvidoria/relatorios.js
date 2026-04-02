@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Relatórios
- * VERSION: v2.24.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.25.0 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.25.0:
+ * - MOTIVOS_CONHECIDOS: Empréstimo pessoal → Empréstimo Pessoal (alinhado produto/form)
  * 
  * Mudanças v2.24.0:
  * - MOTIVOS_CONHECIDOS e MOTIVOS_VALIDOS: padrão Xxxxx xxxxx xxxx (sentence case)
@@ -188,7 +191,7 @@ const MOTIVOS_CONHECIDOS = [
   'Bloqueio de conta',
   'Contestação de valores',
   'Crédito do trabalhador',
-  'Empréstimo pessoal',
+  'Empréstimo Pessoal',
   'Abatimento de juros',
   'Cancelamento conta',
   'Devolução à Celcoin',

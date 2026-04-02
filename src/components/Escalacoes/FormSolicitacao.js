@@ -1,7 +1,10 @@
 /**
  * VeloHub V3 - FormSolicitacao Component (Escalações Module)
- * VERSION: v1.17.2 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.17.3 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
+ * 
+ * Mudanças v1.17.3:
+ * - Comentário histórico v1.4.0: removida referência ao projeto legado "painel de serviços" (diretório excluído do repositório)
  * 
  * Mudanças v1.17.2:
  * - Exclusão de Chave PIX: checkbox "Revogado consentimento ECAC"; grid de opções em 2 colunas
@@ -112,7 +115,7 @@
  * - Limitação de entrada: máximo 11 dígitos no campo CPF
  * 
  * Mudanças v1.4.0:
- * - Alterado fluxo para seguir padrão do painel de serviços (que funciona corretamente)
+ * - Alterado fluxo na migração de Escalações: WhatsApp primeiro, depois persistência com waMessageId
  * - PRIMEIRO: Frontend envia diretamente para WhatsApp API
  * - DEPOIS: Salva no backend com waMessageId já obtido
  * - Isso garante envio imediato e controle direto do frontend sobre o processo
