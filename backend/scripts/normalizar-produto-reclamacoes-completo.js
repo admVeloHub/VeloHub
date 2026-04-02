@@ -1,6 +1,9 @@
 /**
  * Normaliza campo produto em todas as coleções de reclamações (ouvidoria)
- * VERSION: v1.0.0 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.2 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ *
+ * v1.0.2: Carrega MONGO_ENV como server.js (backend/env, backend/.env, cwd)
+ * v1.0.1: produto "EP" (e variações de casing / espaços) → Empréstimo Pessoal
  *
  * Canônicos alinhados a FormReclamacao / FormReclamacaoEdit (value persistido).
  * Cobre: Empréstimo Pessoal (grafias), Crédito Trabalhador (grafias), Veloprime (typos/casing),
@@ -13,10 +16,14 @@
  *   node backend/scripts/normalizar-produto-reclamacoes-completo.js --dry-run
  *   node backend/scripts/normalizar-produto-reclamacoes-completo.js
  *
- * Requer: MONGO_ENV (connection string) no .env do backend ou ambiente.
+ * Requer: MONGO_ENV em backend/env ou backend/.env (ou ambiente), igual ao server.js.
  */
 
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', 'env') });
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 require('dotenv').config();
+
 const { MongoClient } = require('mongodb');
 
 const MONGODB_URI = process.env.MONGO_ENV;
@@ -47,6 +54,9 @@ const REGEX_VELOPRIME = /^\s*veloprime\s*$/i;
 /** "Velo Prime", "VELO PRIME", etc. */
 const REGEX_VELO_PRIME = /^\s*velo\s+prime\s*$/i;
 
+/** Sigla legada em produto */
+const REGEX_EP = /^\s*ep\s*$/i;
+
 /**
  * Substituições exatas — ordem: typos específicos antes de formas gerais.
  * "de" deve bater byte a byte com o que está no Mongo.
@@ -65,6 +75,10 @@ const SUBSTITUICOES_EXATAS = [
   { de: 'Crédito pessoal', para: CANON_EMPRESTIMO },
   { de: 'Crédito Pessoal', para: CANON_EMPRESTIMO },
   { de: 'CREDITO PESSOAL', para: CANON_EMPRESTIMO },
+  { de: 'EP', para: CANON_EMPRESTIMO },
+  { de: 'ep', para: CANON_EMPRESTIMO },
+  { de: 'Ep', para: CANON_EMPRESTIMO },
+  { de: 'eP', para: CANON_EMPRESTIMO },
   { de: 'Credito Trabalhador', para: CANON_TRABALHADOR },
   { de: 'CREDITO TRABALHADOR', para: CANON_TRABALHADOR },
   { de: 'Crédito ao trabalhador', para: CANON_TRABALHADOR },
@@ -159,7 +173,18 @@ async function executar() {
       console.log('\n[1] Substituições exatas (typos + grafias legadas)');
       await faseExatas(col, name, DRY_RUN, acum);
 
-      console.log('\n[2] Regex empréstimo/crédito + pessoal → Empréstimo Pessoal');
+      console.log('\n[2] Regex sigla EP → Empréstimo Pessoal');
+      await contarOuAtualizarRegex(
+        col,
+        name,
+        'regex EP',
+        { $type: 'string', $regex: REGEX_EP },
+        CANON_EMPRESTIMO,
+        DRY_RUN,
+        acum
+      );
+
+      console.log('\n[3] Regex empréstimo/crédito + pessoal → Empréstimo Pessoal');
       await contarOuAtualizarRegex(
         col,
         name,
@@ -170,7 +195,7 @@ async function executar() {
         acum
       );
 
-      console.log('\n[3] Regex crédito/credito + trabalhador → Crédito Trabalhador');
+      console.log('\n[4] Regex crédito/credito + trabalhador → Crédito Trabalhador');
       await contarOuAtualizarRegex(
         col,
         name,
@@ -181,7 +206,7 @@ async function executar() {
         acum
       );
 
-      console.log('\n[4] Regex restante Veloprime (casing / variações)');
+      console.log('\n[5] Regex restante Veloprime (casing / variações)');
       await faseRegexVeloprimeRestante(col, name, DRY_RUN, acum);
     }
 

@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Relatórios
- * VERSION: v2.25.0 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.26.0 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.26.0:
+ * - MOTIVOS_CONHECIDOS e MOTIVOS_VALIDOS: Juros abusivos (form BACEN/RA)
  * 
  * Mudanças v2.25.0:
  * - MOTIVOS_CONHECIDOS: Empréstimo pessoal → Empréstimo Pessoal (alinhado produto/form)
@@ -193,6 +196,7 @@ const MOTIVOS_CONHECIDOS = [
   'Crédito do trabalhador',
   'Empréstimo Pessoal',
   'Abatimento de juros',
+  'Juros abusivos',
   'Cancelamento conta',
   'Devolução à Celcoin',
   'Superendividamento',
@@ -1538,6 +1542,7 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
       // Lista de motivos válidos (não naturezas) - referência; motivosPorDia usa dados do banco
       const MOTIVOS_VALIDOS = [
         'Abatimento de juros',
+        'Juros abusivos',
         'Liberação chave pix',
         'Portabilidade pix',
         'Cancelamento até 7 dias',

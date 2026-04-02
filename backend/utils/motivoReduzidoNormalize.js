@@ -1,6 +1,9 @@
 /**
  * Padronização de texto de um item de motivoReduzido (ouvidoria)
- * VERSION: v1.3.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.4.0 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v1.4.0:
+ * - RENOMEACOES_EXATAS: juros abusivos → Juros abusivos (canônico igual ao form BACEN/RA)
  *
  * Padrão de grafia: Xxxxx xxxxx xxxx (apenas primeira letra da primeira palavra maiúscula).
  *
@@ -59,6 +62,7 @@ const RENOMEACOES_EXATAS = new Map([
   ['duvidas sobre restituiçao', 'Dúvidas sobre restituição'],
   ['desativada não considerar reclamação', 'Desativada - não considerar reclamação'],
   ['desativada nao considerar reclamação', 'Desativada - não considerar reclamação'],
+  ['juros abusivos', 'Juros abusivos'],
 ]);
 
 /**

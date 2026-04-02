@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.12 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.13 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,20 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - Ouvidoria: motivo Juros abusivos; script produto EP e env**
+- **Data/Hora**: 2026-04-02
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: FormReclamacao v3.40.0, FormReclamacaoEdit v1.38.0, motivoReduzidoNormalize v1.4.0, relatorios v2.26.0, normalizar-produto-reclamacoes-completo v1.0.2
+- **Arquivos Modificados**:
+  - `src/components/Ouvidoria/FormReclamacao.js`
+  - `src/components/Ouvidoria/FormReclamacaoEdit.js`
+  - `backend/utils/motivoReduzidoNormalize.js`
+  - `backend/routes/api/ouvidoria/relatorios.js`
+  - `backend/scripts/normalizar-produto-reclamacoes-completo.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Novo motivo canônico **Juros abusivos** nas listas BACEN/N2/Procon e Reclame Aqui; legado **Juros Abusivos** na edição; normalização na API; listas MOTIVOS_CONHECIDOS/MOTIVOS_VALIDOS nos relatórios. Script de normalização de produto: carga de `MONGO_ENV` via `backend/env` e `backend/.env`; mapeamento **EP** → Empréstimo Pessoal.
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - Limpeza painel de serviços; Ouvidoria produto Empréstimo Pessoal e scripts**
 - **Data/Hora**: 2026-04-02

@@ -1,6 +1,12 @@
 /**
  * VeloHub V3 - FormReclamacaoEdit Component
- * VERSION: v1.37.0 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.38.0 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.38.0:
+ * - MOTIVOS_REDUZIDOS e MOTIVOS_RECLAME_AQUI: "Juros abusivos" — alinhado FormReclamacao v3.40
+ * 
+ * Mudanças v1.37.1:
+ * - LEGADO_PRODUTO_GRAFIA: EP (e variações de casing) → Empréstimo Pessoal
  * 
  * Mudanças v1.37.0:
  * - Produto N2 e RA: rótulo Antecipação → Antecipação Outros Anos (alinhado FormReclamacao v3.39)
@@ -212,12 +218,13 @@ const validarCPF = (cpf) => {
 
 /**
  * Opções de motivo reduzido (BACEN / N2 Pix / Procon)
- * VERSION: v2.0.0 | DATE: 2026-03-19 | Igual FormReclamacao.js
+ * VERSION: v2.1.0 | DATE: 2026-04-02 | Igual FormReclamacao.js
  */
 const MOTIVOS_REDUZIDOS = [
   'Liberação chave pix',
   'Portabilidade pix',
   'Abatimento de juros',
+  'Juros abusivos',
   'Cancelamento até 7 dias',
   'Cancelamento superior a 7 dias',
   'Em cobrança',
@@ -239,6 +246,7 @@ const LEGADO_MOTIVO_REDUZIDOS = {
   'Encerramento de Conta': 'Encerramento cta celcoin',
   Lgpd: 'Encerramento cta app',
   LGPD: 'Encerramento cta app',
+  'Juros Abusivos': 'Juros abusivos',
 };
 
 const normalizarMotivosReduzidosAoCarregar = (motivos) => {
@@ -266,6 +274,7 @@ const MOTIVOS_RECLAME_AQUI = [
   'Reativação do cadastro',
   'Alteração cadastral',
   'Abatimento de juros',
+  'Juros abusivos',
   'Valor mínimo para contratação',
   'Limite baixo do pix',
   'Portabilidade pix',
@@ -308,6 +317,7 @@ const LEGADO_MOTIVO_RECLAME_AQUI = {
   'Dívida prescrita': 'Dívida prescrita',
   'Dívida Prescrita': 'Dívida prescrita',
   'Reativação de cadastro': 'Reativação do cadastro',
+  'Juros Abusivos': 'Juros abusivos',
 };
 
 const normalizarMotivosReclameAquiAoCarregar = (motivos) => {
@@ -317,6 +327,10 @@ const normalizarMotivosReclameAquiAoCarregar = (motivos) => {
 
 /** Grafia legada de produto → canônicos do select (todos os tipos) */
 const LEGADO_PRODUTO_GRAFIA = {
+  EP: 'Empréstimo Pessoal',
+  ep: 'Empréstimo Pessoal',
+  Ep: 'Empréstimo Pessoal',
+  eP: 'Empréstimo Pessoal',
   'Credito Pessoal': 'Empréstimo Pessoal',
   'Credito Trabalhador': 'Crédito Trabalhador',
   'Empréstimo pessoal': 'Empréstimo Pessoal',
