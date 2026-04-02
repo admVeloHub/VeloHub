@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Dashboard
- * VERSION: v2.33.3 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.33.4 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v2.33.4:
+ * - Comentário exemplo query produtos: Empréstimo Pessoal (antes Credito Pessoal)
  *
  * Mudanças v2.33.3:
  * - Comentários dos cards solLiberacao alinhados ao match case-insensitive (canônico: Liberação chave pix)
@@ -27,7 +30,7 @@
  * 
  * Mudanças v2.29.0:
  * - Adicionado filtro de produto (produtos) nas rotas /stats e /metricas
- * - Query param produtos (array): filtra por produto quando informado (ex: produtos=Antecipação&produtos=Credito Pessoal)
+ * - Query param produtos (array): filtra por produto quando informado (ex: produtos=Antecipação&produtos=Empréstimo Pessoal)
  * - Quando vazio ou ausente, não aplica filtro de produto
  * 
  * Mudanças v2.28.0:

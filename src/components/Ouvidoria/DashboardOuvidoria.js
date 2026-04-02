@@ -1,6 +1,12 @@
 /**
  * VeloHub V3 - Dashboard Ouvidoria Component
- * VERSION: v2.5.0 | DATE: 2026-03-16 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.7.0 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.7.0:
+ * - PRODUTOS_OPCOES: união de todos os value de produto dos forms BACEN/N2/RA/Procon/Judicial (FormReclamacao/Edit) para filtro multiselect
+ * 
+ * Mudanças v2.6.0:
+ * - Filtro produto: value/label Empréstimo Pessoal e Crédito Trabalhador (alinhado FormReclamacao v3.38)
  * 
  * Mudanças v2.5.0:
  * - Adicionada categoria Judicial no dashboard
@@ -111,12 +117,22 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 
-/** Opções de produto: value (banco) e label (exibição). Antecipação exibe "Antecipação Outros Anos" */
+/**
+ * Produtos do módulo reclamações: value idêntico ao salvo no Mongo (FormReclamacao / FormReclamacaoEdit).
+ * Label: exibição no filtro; value "Antecipação" usa "Antecipação Outros Anos" (como BACEN/Procon/Judicial).
+ */
 const PRODUTOS_OPCOES = [
   { value: 'Antecipação 2026', label: 'Antecipação 2026' },
   { value: 'Antecipação', label: 'Antecipação Outros Anos' },
-  { value: 'Credito Pessoal', label: 'Credito Pessoal' },
-  { value: 'Credito Trabalhador', label: 'Credito Trabalhador' },
+  { value: 'Empréstimo Pessoal', label: 'Empréstimo Pessoal' },
+  { value: 'Crédito Trabalhador', label: 'Crédito Trabalhador' },
+  { value: 'Conta Celcoin', label: 'Conta Celcoin' },
+  { value: 'Seguros', label: 'Seguros' },
+  { value: 'Aplicativo', label: 'Aplicativo' },
+  { value: 'Clube Velotax', label: 'Clube Velotax' },
+  { value: 'Cupom', label: 'Cupom' },
+  { value: 'Veloprime', label: 'Veloprime' },
+  { value: 'Desativado', label: 'Desativado' },
   { value: 'Cupons Velotax', label: 'Cupons Velotax' },
   { value: 'QueroQuitar', label: 'QueroQuitar' },
   { value: 'Seguro DividaZero', label: 'Seguro DividaZero' },

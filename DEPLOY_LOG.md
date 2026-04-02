@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.11 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.12 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,28 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - Limpeza painel de serviços; Ouvidoria produto Empréstimo Pessoal e scripts**
+- **Data/Hora**: 2026-04-02
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: server v2.49.8, dashboard ouvidoria v2.33.4, relatorios v2.25.0, FormReclamacao v3.39.0, FormReclamacaoEdit (edição alinhada), FormSolicitacao v1.17.3
+- **Arquivos Modificados** (principais):
+  - `backend/server.js`
+  - `backend/routes/api/ouvidoria/dashboard.js`
+  - `backend/routes/api/ouvidoria/relatorios.js`
+  - `backend/scripts/normalizar-produto-emprestimo-pessoal.js`
+  - `src/components/Escalacoes/FormSolicitacao.js`
+  - `src/components/Ouvidoria/DashboardOuvidoria.js`
+  - `src/components/Ouvidoria/FormReclamacao.js`
+  - `src/components/Ouvidoria/FormReclamacaoEdit.js`
+  - `src/components/Ouvidoria/RelatoriosOuvidoria.js`
+  - `DEPLOY_LOG.md`
+- **Arquivos Novos**:
+  - `backend/scripts/normalizar-produto-reclamacoes-completo.js`
+- **Removidos**:
+  - Diretório legado `painel de serviços/` por completo (subprojeto Next.js, APIs locais, dados estáticos e módulo embutido em `public/`)
+- **Descrição**: Exclusão do diretório legado que não integrava o app principal. Alinhamento de produto e motivos (Empréstimo Pessoal; comentários e filtros no dashboard); relatórios e formulários de ouvidoria; script MongoDB para normalizar campo `produto` nas coleções de reclamações; ajustes de comentários em servidor e FormSolicitacao (referências ao painel removido).
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - Ouvidoria: prazo automático, DELETE, layout canais e listagens**
 - **Data/Hora**: 2026-03-30

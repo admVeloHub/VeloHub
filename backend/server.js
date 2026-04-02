@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.49.7 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.49.8 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v2.49.8:
+ * - Comentário POST /api/anexos-produto/get-upload-url: removida referência ao diretório legado removido (anexos Req_Prod / GCS)
  *
  * Mudanças v2.49.7:
  * - Escalações: router GET /api/escalacoes/apoio-n1 (overview, agentes); /api/auth/check-module-access aceita apoioN1 / apoion1
@@ -4359,7 +4362,7 @@ app.post('/api/chat/attachments/get-upload-url', async (req, res) => {
 console.log('✅ Endpoint POST /api/chat/attachments/get-upload-url registrado');
 
 // POST /api/anexos-produto/get-upload-url
-// Signed URL para upload de anexos (imagens/vídeos) no painel de serviços - Req_Prod
+// Signed URL para upload de anexos (imagens/vídeos) — Req_Prod / GCS
 // Bucket: mediabank_velohub, pasta: anexos_produto
 console.log('🔧 Registrando endpoint POST /api/anexos-produto/get-upload-url...');
 app.post('/api/anexos-produto/get-upload-url', async (req, res) => {

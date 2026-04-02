@@ -1,6 +1,15 @@
 /**
  * VeloHub V3 - FormReclamacaoEdit Component
- * VERSION: v1.35.0 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.37.0 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.37.0:
+ * - Produto N2 e RA: rótulo Antecipação → Antecipação Outros Anos (alinhado FormReclamacao v3.39)
+ * 
+ * Mudanças v1.36.1:
+ * - Changelog: Veloprime (value do select) em vez de VeloPrime na linha do form RA
+ * 
+ * Mudanças v1.36.0:
+ * - Produto: grafia canônica Empréstimo Pessoal e Crédito Trabalhador (options + LEGADO_PRODUTO_GRAFIA para todos os tipos; RA mantém VeloPrime)
  * 
  * Mudanças v1.35.0:
  * - Canais (edição): Localizar fora do grid (flex shrink-0 + max-w-md); checkboxes em grid único 4×2 com L2C4 vazio — alinhado FormReclamacao v3.37
@@ -79,10 +88,10 @@
  * - Corrigido toast.info para toast (react-hot-toast não possui método .info)
  * 
  * Mudanças v1.16.2:
- * - Campo Produto do form N2 Pix: Antecipação, Antecipação 2026, Conta Celcoin, Empréstimo pessoal, Seguros, Crédito ao trabalhador
+ * - Campo Produto do form N2 Pix: Antecipação Outros Anos, Antecipação 2026, Conta Celcoin, Empréstimo Pessoal, Seguros, Crédito Trabalhador
  * 
  * Mudanças v1.16.1:
- * - Campo Produto do form Reclame Aqui: opções atualizadas (Antecipação, Antecipação 2026, Aplicativo, Conta Celcoin, Cupom, Empréstimo pessoal, Seguros, Crédito ao trabalhador, VeloPrime)
+ * - Campo Produto do form Reclame Aqui: opções atualizadas (Antecipação Outros Anos, Antecipação 2026, Aplicativo, Conta Celcoin, Cupom, Empréstimo Pessoal, Seguros, Crédito Trabalhador, Veloprime)
  * 
  * Mudanças v1.16.0:
  * - Adicionado campo Produto no formulário Reclame Aqui (obrigatório)
@@ -306,10 +315,17 @@ const normalizarMotivosReclameAquiAoCarregar = (motivos) => {
   return motivos.map((m) => LEGADO_MOTIVO_RECLAME_AQUI[m] || m);
 };
 
-/** Valores antigos de produto RA → canônicos do select v1.30 */
-const LEGADO_PRODUTO_RECLAME_AQUI = {
+/** Grafia legada de produto → canônicos do select (todos os tipos) */
+const LEGADO_PRODUTO_GRAFIA = {
+  'Credito Pessoal': 'Empréstimo Pessoal',
+  'Credito Trabalhador': 'Crédito Trabalhador',
   'Empréstimo pessoal': 'Empréstimo Pessoal',
-  'Crédito ao trabalhador': 'Crédito ao Trabalhador',
+  'Crédito ao trabalhador': 'Crédito Trabalhador',
+  'Crédito ao Trabalhador': 'Crédito Trabalhador',
+};
+
+/** Valores antigos só Reclame Aqui → canônicos do select */
+const LEGADO_PRODUTO_RECLAME_AQUI = {
   VeloPrime: 'Veloprime',
 };
 
@@ -383,11 +399,11 @@ const converterParaFormData = (reclamacao) => {
     dataEntrada: formatarDataInput(reclamacao.dataEntrada),
     origem: reclamacao.origem || '',
     produto: (() => {
-      const p = reclamacao.produto || '';
-      if (tipoNormalizado === 'RECLAME_AQUI') {
-        return LEGADO_PRODUTO_RECLAME_AQUI[p] || p;
+      let p = reclamacao.produto || '';
+      if (tipoNormalizado === 'RECLAME_AQUI' && LEGADO_PRODUTO_RECLAME_AQUI[p]) {
+        p = LEGADO_PRODUTO_RECLAME_AQUI[p];
       }
-      return p;
+      return LEGADO_PRODUTO_GRAFIA[p] || p;
     })(),
     anexos: reclamacao.anexos || [],
     motivoReduzido: (() => {
@@ -1111,8 +1127,8 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
               <option value="">Selecione...</option>
               <option value="Antecipação 2026">Antecipação 2026</option>
               <option value="Antecipação">Antecipação Outros Anos</option>
-              <option value="Credito Pessoal">Credito Pessoal</option>
-              <option value="Credito Trabalhador">Credito Trabalhador</option>
+              <option value="Empréstimo Pessoal">Empréstimo Pessoal</option>
+              <option value="Crédito Trabalhador">Crédito Trabalhador</option>
             </select>
           </div>
 
@@ -1241,12 +1257,12 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
               className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
             >
               <option value="">Selecione...</option>
-              <option value="Antecipação">Antecipação</option>
+              <option value="Antecipação">Antecipação Outros Anos</option>
               <option value="Antecipação 2026">Antecipação 2026</option>
               <option value="Conta Celcoin">Conta Celcoin</option>
-              <option value="Empréstimo pessoal">Empréstimo pessoal</option>
+              <option value="Empréstimo Pessoal">Empréstimo Pessoal</option>
               <option value="Seguros">Seguros</option>
-              <option value="Crédito ao trabalhador">Crédito ao trabalhador</option>
+              <option value="Crédito Trabalhador">Crédito Trabalhador</option>
             </select>
           </div>
 
@@ -1488,11 +1504,11 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                 required
               >
                 <option value="">Selecione...</option>
-                <option value="Antecipação">Antecipação</option>
+                <option value="Antecipação">Antecipação Outros Anos</option>
                 <option value="Antecipação 2026">Antecipação 2026</option>
                 <option value="Aplicativo">Aplicativo</option>
                 <option value="Conta Celcoin">Conta Celcoin</option>
-                <option value="Crédito ao Trabalhador">Crédito ao Trabalhador</option>
+                <option value="Crédito Trabalhador">Crédito Trabalhador</option>
                 <option value="Clube Velotax">Clube Velotax</option>
                 <option value="Empréstimo Pessoal">Empréstimo Pessoal</option>
                 <option value="Cupom">Cupom</option>
@@ -1890,8 +1906,8 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
               <option value="">Selecione...</option>
               <option value="Antecipação 2026">Antecipação 2026</option>
               <option value="Antecipação">Antecipação Outros Anos</option>
-              <option value="Credito Pessoal">Credito Pessoal</option>
-              <option value="Credito Trabalhador">Credito Trabalhador</option>
+              <option value="Empréstimo Pessoal">Empréstimo Pessoal</option>
+              <option value="Crédito Trabalhador">Crédito Trabalhador</option>
               <option value="Cupons Velotax">Cupons Velotax</option>
               <option value="QueroQuitar">QueroQuitar</option>
               <option value="Seguro DividaZero">Seguro DividaZero</option>
@@ -2165,8 +2181,8 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                 <option value="">Selecione...</option>
                 <option value="Antecipação 2026">Antecipação 2026</option>
                 <option value="Antecipação">Antecipação Outros Anos</option>
-                <option value="Credito Pessoal">Credito Pessoal</option>
-                <option value="Credito Trabalhador">Credito Trabalhador</option>
+                <option value="Empréstimo Pessoal">Empréstimo Pessoal</option>
+                <option value="Crédito Trabalhador">Crédito Trabalhador</option>
                 <option value="Cupons Velotax">Cupons Velotax</option>
                 <option value="QueroQuitar">QueroQuitar</option>
                 <option value="Seguro DividaZero">Seguro DividaZero</option>
