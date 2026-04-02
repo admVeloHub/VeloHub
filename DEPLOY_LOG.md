@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.10 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.11 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,22 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - Ouvidoria: prazo automático, DELETE, layout canais e listagens**
+- **Data/Hora**: 2026-03-30
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: reclamacoes API v2.18.0, FormReclamacao v3.37.0, FormReclamacaoEdit v1.35.0
+- **Arquivos Modificados**:
+  - `backend/routes/api/ouvidoria/reclamacoes.js`
+  - `src/components/Ouvidoria/FormReclamacao.js`
+  - `src/components/Ouvidoria/FormReclamacaoEdit.js`
+  - `src/components/Ouvidoria/ListaReclamacoes.js`
+  - `src/components/Ouvidoria/MinhasReclamacoes.js`
+  - `src/services/ouvidoriaApi.js`
+  - `src/utils/dateUtils.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: API passa a definir `prazoBacen` / `prazoOuvidoria` automaticamente (2 dias corridos UTC após `createdAt`) em POST/PUT; rota DELETE de reclamação por id e tipo. Formulários de criação e edição: “Localizar Atendimentos” fora do grid de checkboxes; grid único 4×2 (md) com célula L2C4 vazia. Ajustes em listagens “todas” e “minhas”, cliente `ouvidoriaApi` e utilitários de data.
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - Req_Prod: Exclusão Chave PIX (ECAC + grid 2 colunas)**
 - **Data/Hora**: 2026-03-30

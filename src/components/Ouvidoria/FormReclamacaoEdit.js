@@ -1,6 +1,24 @@
 /**
  * VeloHub V3 - FormReclamacaoEdit Component
- * VERSION: v1.30.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.35.0 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.35.0:
+ * - Canais (edição): Localizar fora do grid (flex shrink-0 + max-w-md); checkboxes em grid único 4×2 com L2C4 vazio — alinhado FormReclamacao v3.37
+ * 
+ * Mudanças v1.34.0:
+ * - Canais: linha Localizar isolada; Sem Resposta na 1ª linha do grid de checkboxes (col. 4), alinhado FormReclamacao v3.36
+ * 
+ * Mudanças v1.33.0:
+ * - Canais de Atendimento: 1ª linha em grid 4 colunas — Localizar (C1 + C2–C3) e Sem Resposta (C4); demais grids alinhados FormReclamacao v3.35
+ * 
+ * Mudanças v1.32.0:
+ * - BACEN / N2 Pix: removido input "Prazo"; exibição somente leitura (valor persistido ou +2 dias após createdAt); PUT sem prazo — API recalcula
+ * 
+ * Mudanças v1.31.1:
+ * - semRespostaCliente: mesmo checkbox da seção Canais (após Localizar Atendimentos) em renderProtocolos e bloco PROCON
+ * 
+ * Mudanças v1.31.0:
+ * - semRespostaCliente (boolean): estado, conversão e PUT; alinhado FormReclamacao v3.33
  * 
  * Mudanças v1.30.0:
  * - Reclame Aqui: lista final de Motivos e Produto alinhada a FormReclamacao v3.32; LEGADO motivo/produto ao carregar edição
@@ -295,6 +313,24 @@ const LEGADO_PRODUTO_RECLAME_AQUI = {
   VeloPrime: 'Veloprime',
 };
 
+/** Data YYYY-MM-DD do prazo (campo salvo ou derivado de createdAt + 2 dias UTC, alinhado à API reclamacoes v2.18) */
+const dataPrazoAutomaticoParaExibicao = (tipoNorm, rec) => {
+  if (!rec) return '';
+  const salvo = tipoNorm === 'BACEN' ? rec.prazoBacen : tipoNorm === 'OUVIDORIA' ? rec.prazoOuvidoria : null;
+  if (salvo) {
+    try {
+      const d = new Date(salvo);
+      if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+    } catch { /* ignore */ }
+  }
+  if (!rec.createdAt) return '';
+  const c = new Date(rec.createdAt);
+  if (isNaN(c.getTime())) return '';
+  const p = new Date(c.getTime());
+  p.setUTCDate(p.getUTCDate() + 2);
+  return p.toISOString().split('T')[0];
+};
+
 /**
  * Converter dados da reclamação para formData
  */
@@ -354,7 +390,6 @@ const converterParaFormData = (reclamacao) => {
       return p;
     })(),
     anexos: reclamacao.anexos || [],
-    prazoBacen: formatarDataInput(reclamacao.prazoBacen),
     motivoReduzido: (() => {
       const arr = Array.isArray(reclamacao.motivoReduzido)
         ? [...reclamacao.motivoReduzido]
@@ -371,7 +406,6 @@ const converterParaFormData = (reclamacao) => {
     
     // Campos OUVIDORIA (schema: dataEntradaN2)
     dataEntradaN2: formatarDataInput(reclamacao.dataEntradaN2 || reclamacao.dataEntrada),
-    prazoOuvidoria: formatarDataInput(reclamacao.prazoOuvidoria),
     
     // Campos Reclame Aqui
     cpfRepetido: reclamacao.cpfRepetido || '',
@@ -414,6 +448,7 @@ const converterParaFormData = (reclamacao) => {
     protocolosProcon: reclamacao.protocolosProcon?.length > 0 
       ? reclamacao.protocolosProcon 
       : [''],
+    semRespostaCliente: reclamacao.semRespostaCliente === true,
     localizarAtendimentos: reclamacao.localizarAtendimentos || '',
     pixLiberado: (() => {
       if (reclamacao.pixLiberado === true) return true;
@@ -468,11 +503,9 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
     origem: '',
     produto: '',
     anexos: [],
-    prazoBacen: '',
     motivoReduzido: [],
     motivoDetalhado: '',
     dataEntradaN2: '',
-    prazoOuvidoria: '',
     cpfRepetido: '',
     idEntrada: '',
     dataReclam: '',
@@ -499,6 +532,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
     protocolosReclameAqui: [''],
     procon: false,
     protocolosProcon: [''],
+    semRespostaCliente: false,
     pixLiberado: false,
     statusContratoQuitado: false,
     enviarParaCobranca: false,
@@ -847,7 +881,6 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           origem: formData.origem,
           produto: formData.produto || '',
           anexos: formData.anexos,
-          prazoBacen: formData.prazoBacen || '',
           motivoReduzido: formData.motivoReduzido,
           motivoDetalhado: formData.motivoDetalhado,
           tentativasContato: { lista: formData.tentativasContato.lista.filter(t => t.data || t.meio || t.resultado) },
@@ -859,6 +892,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           protocolosReclameAqui: formData.protocolosReclameAqui.filter(p => p.trim() !== ''),
           procon: formData.procon,
           protocolosProcon: formData.protocolosProcon.filter(p => p.trim() !== ''),
+          semRespostaCliente: formData.semRespostaCliente === true,
           pixLiberado: formData.pixLiberado,
           statusContratoQuitado: formData.statusContratoQuitado,
           statusContratoAberto: !formData.statusContratoQuitado,
@@ -869,7 +903,6 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           dataEntradaN2: formData.dataEntradaN2,
           origem: formData.origem || '',
           produto: formData.produto || '',
-          prazoOuvidoria: formData.prazoOuvidoria || '',
           motivoReduzido: formData.motivoReduzido,
           motivoDetalhado: formData.motivoDetalhado || '',
           anexos: formData.anexos,
@@ -881,6 +914,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           protocolosReclameAqui: formData.protocolosReclameAqui.filter(p => p.trim() !== ''),
           procon: formData.procon,
           protocolosProcon: formData.protocolosProcon.filter(p => p.trim() !== ''),
+          semRespostaCliente: formData.semRespostaCliente === true,
           pixLiberado: formData.pixLiberado,
           statusContratoQuitado: formData.statusContratoQuitado,
           statusContratoAberto: !formData.statusContratoQuitado,
@@ -911,6 +945,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           protocolosReclameAqui: formData.protocolosReclameAqui.filter(p => p.trim() !== ''),
           procon: formData.procon,
           protocolosProcon: formData.protocolosProcon.filter(p => p.trim() !== ''),
+          semRespostaCliente: formData.semRespostaCliente === true,
         };
       } else if (formData.tipo === 'PROCON') {
         payload = {
@@ -940,6 +975,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           protocolosReclameAqui: formData.protocolosReclameAqui.filter(p => p && String(p).trim() !== ''),
           pixLiberado: formData.pixLiberado || false,
           statusContratoQuitado: formData.statusContratoQuitado || false,
+          semRespostaCliente: formData.semRespostaCliente === true,
         };
       } else if (formData.tipo === 'PROCESSOS') {
         payload = {
@@ -1095,31 +1131,22 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-4 mb-4">
-          <div>
-            {renderCampoMotivo(
-              MOTIVOS_REDUZIDOS,
-              formData.motivoReduzido,
-              (novosMotivos) => setFormData(prev => ({ ...prev, motivoReduzido: novosMotivos })),
-              errors.motivoReduzido,
-              'Motivo *',
-              'motivo-bacen-edit'
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Prazo
-            </label>
-            <input
-              type="date"
-              value={formData.prazoBacen}
-              onChange={(e) => setFormData(prev => ({ ...prev, prazoBacen: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            />
-            {errors.prazoBacen && <span className="text-red-500 text-xs">{errors.prazoBacen}</span>}
-          </div>
+        <div className="mb-4">
+          {renderCampoMotivo(
+            MOTIVOS_REDUZIDOS,
+            formData.motivoReduzido,
+            (novosMotivos) => setFormData(prev => ({ ...prev, motivoReduzido: novosMotivos })),
+            errors.motivoReduzido,
+            'Motivo *',
+            'motivo-bacen-edit'
+          )}
         </div>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Prazo (automático — 2 dias após a criação do registro):{' '}
+          <span className="font-medium text-gray-800 dark:text-gray-200">
+            {dataPrazoAutomaticoParaExibicao('BACEN', reclamacao) || '—'}
+          </span>
+        </p>
 
         <div className="mb-4">
           <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
@@ -1203,7 +1230,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
       <div className="velohub-card">
         <h3 className="text-xl font-semibold mb-4 velohub-title">Reclamação</h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
               Produto
@@ -1253,19 +1280,14 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
             />
             {errors.dataEntradaN2 && <span className="text-red-500 text-xs">{errors.dataEntradaN2}</span>}
           </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Prazo
-            </label>
-            <input
-              type="date"
-              value={formData.prazoOuvidoria}
-              onChange={(e) => setFormData(prev => ({ ...prev, prazoOuvidoria: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            />
-          </div>
         </div>
+
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Prazo (automático — 2 dias após a criação do registro):{' '}
+          <span className="font-medium text-gray-800 dark:text-gray-200">
+            {dataPrazoAutomaticoParaExibicao('OUVIDORIA', reclamacao) || '—'}
+          </span>
+        </p>
 
         {/* Linha 2: Motivo | Protocolo N2 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -2303,7 +2325,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
             </div>
           </div>
 
-          {/* Localizar Atendimentos e Protocolos */}
+          {/* Localizar — fora do grid */}
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -2341,8 +2363,8 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
             />
           </div>
 
-          {/* Atendimento N1 e Protocolos (omitir Procon) - L1: N1 | N2 */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          {/* Grid 4×2 — L2C4 vazio (md); célula Procon vazia neste form */}
+          <div className="grid grid-cols-1 md:grid-cols-4 md:grid-rows-2 gap-4 mb-4">
             <div>
               <div className="flex items-center mb-2">
                 <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
@@ -2442,10 +2464,33 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                 </div>
               )}
             </div>
-          </div>
 
-          {/* L2: Reclame Aqui (C1) | Pix Liberado + Contrato Quitado (C3) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <div className="flex items-center mb-2">
+                <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={formData.pixLiberado === true}
+                    onChange={(e) => setFormData(prev => ({ ...prev, pixLiberado: e.target.checked }))}
+                    className="w-5 h-5"
+                  />
+                  <span>Pix Liberado</span>
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  className="w-5 h-5 shrink-0"
+                  checked={formData.semRespostaCliente === true}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, semRespostaCliente: e.target.checked }))}
+                />
+                <span>Sem Resposta do Cliente</span>
+              </label>
+            </div>
+
             <div>
               <div className="flex items-center mb-2">
                 <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
@@ -2496,19 +2541,10 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
               )}
             </div>
 
-            <div className="md:col-start-3 space-y-4">
-              <div className="flex items-center">
-                <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
-                  <input
-                    type="checkbox"
-                    checked={formData.pixLiberado === true}
-                    onChange={(e) => setFormData(prev => ({ ...prev, pixLiberado: e.target.checked }))}
-                    className="w-5 h-5"
-                  />
-                  <span>Pix Liberado</span>
-                </label>
-              </div>
-              <div className="flex items-center">
+            <div className="hidden md:block min-h-0" aria-hidden="true" />
+
+            <div>
+              <div className="flex items-center mb-2">
                 <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
                   <input
                     type="checkbox"
@@ -2520,6 +2556,8 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                 </label>
               </div>
             </div>
+
+            <div className="hidden md:block min-h-0" aria-hidden="true" />
           </div>
 
           {/* Anexo */}
@@ -2701,7 +2739,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
     <div className="velohub-card">
       <h3 className="text-xl font-semibold mb-4 velohub-title">Canais de Atendimento e Protocolos Acionados</h3>
 
-      {/* Localizar Atendimentos e Protocolos */}
+      {/* Localizar Atendimentos — fora do grid de checkboxes */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <button
           type="button"
@@ -2738,8 +2776,9 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           placeholder=""
         />
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+
+      {/* Grid 4×2 checkboxes — L2C4 vazio (md) */}
+      <div className="grid grid-cols-1 md:grid-cols-4 md:grid-rows-2 gap-4 mb-4">
           {/* Atendimento N1 */}
           <div>
             <div className="flex items-center mb-2">
@@ -2819,8 +2858,8 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           )}
         </div>
 
-        {/* Escalado N2 - oculto no form N2 Pix (redundante) */}
-        {formData.tipo !== 'OUVIDORIA' && (
+        {/* Escalado N2 - oculto no form N2 Pix: coluna vazia mantém Pix na 3ª posição */}
+        {formData.tipo !== 'OUVIDORIA' ? (
         <div>
           <div className="flex items-center mb-2">
             <label className="flex items-center">
@@ -2898,10 +2937,11 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
             </div>
           )}
         </div>
+        ) : (
+          <div className="hidden md:block min-h-0" aria-hidden="true" />
         )}
 
-        {/* Pix Liberado (checkbox boolean) - sempre coluna 3 */}
-        <div className="md:col-start-3">
+        <div>
           <div className="flex items-center mb-2">
             <label className="flex items-center">
               <input
@@ -2914,13 +2954,22 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
             </label>
           </div>
         </div>
-      </div>
 
-      {/* Grid 3x2: Linha 2 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        {/* Reclame Aqui - oculto no form Reclame Aqui (redundante) */}
-        {formData.tipo !== 'RECLAME_AQUI' && (
         <div>
+          <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+            <input
+              type="checkbox"
+              className="w-5 h-5 shrink-0"
+              checked={formData.semRespostaCliente === true}
+              onChange={(e) => setFormData((prev) => ({ ...prev, semRespostaCliente: e.target.checked }))}
+            />
+            <span>Sem Resposta do Cliente</span>
+          </label>
+        </div>
+
+          {/* L2C1 Reclame Aqui — oculto no form Reclame Aqui */}
+          {formData.tipo !== 'RECLAME_AQUI' ? (
+          <div>
           <div className="flex items-center mb-2">
             <label className="flex items-center">
               <input
@@ -2997,11 +3046,13 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
             </div>
           )}
         </div>
-        )}
+          ) : (
+            <div className="hidden md:block min-h-0" aria-hidden="true" />
+          )}
 
-        {/* Procon - oculto no form Procon (redundante) */}
-        {formData.tipo !== 'PROCON' && (
-        <div>
+          {/* L2C2 Procon — oculto no form Procon */}
+          {formData.tipo !== 'PROCON' ? (
+          <div>
           <div className="flex items-center mb-2">
             <label className="flex items-center">
               <input
@@ -3078,22 +3129,27 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
             </div>
           )}
         </div>
-        )}
+          ) : (
+            <div className="hidden md:block min-h-0" aria-hidden="true" />
+          )}
 
-        {/* Status do contrato - 1 checkbox Boolean: Contrato Quitado - sempre coluna 3 */}
-        <div className="md:col-start-3">
-          <div className="flex items-center mb-2">
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.statusContratoQuitado}
-                onChange={(e) => setFormData(prev => ({ ...prev, statusContratoQuitado: e.target.checked }))}
-                className="mr-2"
-              />
-              <span>Contrato Quitado</span>
-            </label>
+          {/* L2C3 Contrato quitado */}
+          <div>
+            <div className="flex items-center mb-2">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.statusContratoQuitado}
+                  onChange={(e) => setFormData(prev => ({ ...prev, statusContratoQuitado: e.target.checked }))}
+                  className="mr-2"
+                />
+                <span>Contrato Quitado</span>
+              </label>
+            </div>
           </div>
-        </div>
+
+          {/* L2C4 reservado vazio */}
+          <div className="hidden md:block min-h-0" aria-hidden="true" />
       </div>
     </div>
   );

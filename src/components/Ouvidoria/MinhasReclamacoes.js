@@ -1,6 +1,15 @@
 /**
  * VeloHub V3 - MinhasReclamacoes Component
- * VERSION: v1.8.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.11.0 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.11.0:
+ * - Badge de SLA nas linhas (prazoBacen / prazoOuvidoria via dateUtils.getSlaBadgeReclamacao) para BACEN e N2 Pix
+ * 
+ * Mudanças v1.10.0:
+ * - Filtro por situação: Todos, Em andamento, Resolvido (Finalizado.Resolvido, client-side)
+ * 
+ * Mudanças v1.9.0:
+ * - Cards: botão de opções (⋮) à direita; menu "Excluir registro" (reclamacoesAPI.remove + confirmação), alinhado à Lista de Reclamações
  * 
  * Mudanças v1.8.0:
  * - Data exibida: usa formatDateRegistro (data do registro, sem adaptação de fuso)
@@ -34,21 +43,62 @@
  * Componente para listagem de reclamações do colaborador logado
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { reclamacoesAPI } from '../../services/ouvidoriaApi';
-import { formatDateRegistro } from '../../utils/dateUtils';
+import { formatDateRegistro, getSlaBadgeReclamacao } from '../../utils/dateUtils';
 import toast from 'react-hot-toast';
 
 const MinhasReclamacoes = ({ colaboradorNome, userEmail }) => {
   const [reclamacoes, setReclamacoes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedReclamacao, setSelectedReclamacao] = useState(null);
+  const [menuOpenId, setMenuOpenId] = useState(null);
+  /** '' = todos | em_andamento | resolvido */
+  const [filtroStatus, setFiltroStatus] = useState('');
 
   useEffect(() => {
     if (colaboradorNome) {
       loadMinhasReclamacoes();
     }
   }, [colaboradorNome]);
+
+  useEffect(() => {
+    if (menuOpenId == null) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setMenuOpenId(null);
+    };
+    const onDown = (e) => {
+      if (!e.target.closest?.('[data-minhas-reclamacao-menu-root]')) setMenuOpenId(null);
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onDown);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onDown);
+    };
+  }, [menuOpenId]);
+
+  const solicitarExcluirReclamacao = async (reclamacao) => {
+    const idStr = reclamacao?._id != null ? String(reclamacao._id) : '';
+    const tipo = reclamacao?.tipo;
+    if (!idStr || tipo == null || String(tipo).trim() === '') {
+      toast.error('Não foi possível identificar o registro para exclusão.');
+      return;
+    }
+    if (!window.confirm('Excluir este registro permanentemente? Esta ação não pode ser desfeita.')) {
+      return;
+    }
+    try {
+      await reclamacoesAPI.remove(idStr, tipo);
+      toast.success('Registro excluído');
+      setMenuOpenId(null);
+      setSelectedReclamacao((cur) => (cur && String(cur._id) === idStr ? null : cur));
+      await loadMinhasReclamacoes();
+    } catch (err) {
+      console.error('Erro ao excluir reclamação:', err);
+      toast.error(err?.message || 'Erro ao excluir registro');
+    }
+  };
 
   /**
    * Carregar minhas reclamações
@@ -97,6 +147,16 @@ const MinhasReclamacoes = ({ colaboradorNome, userEmail }) => {
     };
   };
 
+  const reclamacoesFiltradas = useMemo(() => {
+    if (!filtroStatus) return reclamacoes;
+    return reclamacoes.filter((r) => {
+      const resolvido = r.Finalizado?.Resolvido === true;
+      if (filtroStatus === 'resolvido') return resolvido;
+      if (filtroStatus === 'em_andamento') return !resolvido;
+      return true;
+    });
+  }, [reclamacoes, filtroStatus]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -107,6 +167,26 @@ const MinhasReclamacoes = ({ colaboradorNome, userEmail }) => {
 
   return (
     <div>
+      <div className="velohub-card mb-4 p-4 flex flex-wrap items-center gap-3">
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Situação</span>
+        <select
+          id="minhas-filtro-status"
+          value={filtroStatus}
+          onChange={(e) => setFiltroStatus(e.target.value)}
+          className="text-sm border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white min-w-[11rem]"
+          aria-label="Filtrar por situação"
+        >
+          <option value="">Todos</option>
+          <option value="em_andamento">Em andamento</option>
+          <option value="resolvido">Resolvido</option>
+        </select>
+        {reclamacoes.length > 0 && (
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            Exibindo {reclamacoesFiltradas.length} de {reclamacoes.length}
+          </span>
+        )}
+      </div>
+
       {/* Lista de Reclamações */}
       <div className="space-y-4">
         {reclamacoes.length === 0 ? (
@@ -115,17 +195,37 @@ const MinhasReclamacoes = ({ colaboradorNome, userEmail }) => {
               Você não possui reclamações atribuídas
             </p>
           </div>
+        ) : reclamacoesFiltradas.length === 0 ? (
+          <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded border border-gray-200 dark:border-gray-600 text-center py-12">
+            <p className="text-gray-600 dark:text-gray-400">
+              Nenhuma reclamação corresponde ao filtro selecionado
+            </p>
+          </div>
         ) : (
-          reclamacoes.map((reclamacao) => (
-            <div
-              key={reclamacao._id}
-              className="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
-              onClick={() => setSelectedReclamacao(reclamacao)}
-            >
-              <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1 flex items-center gap-2 flex-wrap">
-                <span>
-                  {reclamacao.nome || 'Sem nome'} — {formatCPF(reclamacao.cpf)}
-                </span>
+          reclamacoesFiltradas.map((reclamacao, index) => {
+            const rowId = reclamacao._id != null ? String(reclamacao._id) : '';
+            const menuOpen = menuOpenId === rowId;
+            return (
+              <div
+                key={rowId || `minhas-row-${index}`}
+                className="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 transition-colors flex gap-2 items-start"
+              >
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className="flex-1 min-w-0 cursor-pointer text-left"
+                  onClick={() => setSelectedReclamacao(reclamacao)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSelectedReclamacao(reclamacao);
+                    }
+                  }}
+                >
+                  <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1 flex items-center gap-2 flex-wrap">
+                    <span>
+                      {reclamacao.nome || 'Sem nome'} — {formatCPF(reclamacao.cpf)}
+                    </span>
                     {(() => {
                       const statusInfo = getStatusInfo(reclamacao);
                       return (
@@ -134,16 +234,65 @@ const MinhasReclamacoes = ({ colaboradorNome, userEmail }) => {
                         </span>
                       );
                     })()}
-                <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200">
-                  {reclamacao.tipo || 'BACEN'}
-                </span>
+                    <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200">
+                      {reclamacao.tipo || 'BACEN'}
+                    </span>
+                    {(() => {
+                      const sla = getSlaBadgeReclamacao(reclamacao);
+                      if (!sla) return null;
+                      return (
+                        <span
+                          title={sla.title}
+                          className={`px-2 py-0.5 rounded text-[11px] font-medium ${sla.corClasses}`}
+                        >
+                          {sla.texto}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2 mb-1 flex-wrap">
+                    <span>Data: {formatDateRegistro(reclamacao.dataEntrada || reclamacao.dataEntradaN2 || reclamacao.createdAt)}</span>
+                    {reclamacao.motivoReduzido && (
+                      <span>• {Array.isArray(reclamacao.motivoReduzido) ? reclamacao.motivoReduzido.filter(Boolean).join(', ') : reclamacao.motivoReduzido}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="relative shrink-0" data-minhas-reclamacao-menu-root>
+                  <button
+                    type="button"
+                    aria-label="Opções do registro"
+                    aria-expanded={menuOpen}
+                    aria-haspopup="menu"
+                    className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuOpenId((prev) => (prev === rowId ? null : rowId));
+                    }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                      <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+                    </svg>
+                  </button>
+                  {menuOpen && (
+                    <div
+                      role="menu"
+                      className="absolute right-0 top-full mt-1 py-1 min-w-[11rem] rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg z-[20]"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        onClick={() => solicitarExcluirReclamacao(reclamacao)}
+                      >
+                        Excluir registro
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2 mb-1">
-                <span>Data: {formatDateRegistro(reclamacao.dataEntrada || reclamacao.dataEntradaN2 || reclamacao.createdAt)}</span>
-                {reclamacao.motivoReduzido && <span>• {reclamacao.motivoReduzido}</span>}
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 

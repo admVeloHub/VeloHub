@@ -1,6 +1,12 @@
 /**
  * VeloHub V3 - ListaReclamacoes Component
- * VERSION: v1.23.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.25.0 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.25.0:
+ * - Badge de SLA nas linhas (prazoBacen / prazoOuvidoria via dateUtils.getSlaBadgeReclamacao) para BACEN e N2 Pix
+ * 
+ * Mudanças v1.24.0:
+ * - Lista: botão de opções (três pontos verticais) à direita; menu com "Excluir registro" (DELETE API + confirmação)
  * 
  * Mudanças v1.23.0:
  * - MOTIVOS_RECLAME_AQUI: alinhado a FormReclamacao v3.32 (lista final Reclame Aqui)
@@ -114,7 +120,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { reclamacoesAPI, colaboradoresAPI, anexosAPI } from '../../services/ouvidoriaApi';
 import FormReclamacaoEdit from './FormReclamacaoEdit';
-import { formatDateRegistro } from '../../utils/dateUtils';
+import { formatDateRegistro, getSlaBadgeReclamacao } from '../../utils/dateUtils';
 import toast from 'react-hot-toast';
 
 /**
@@ -227,6 +233,8 @@ const ListaReclamacoes = () => {
     status: '',
   });
   const [selectedReclamacao, setSelectedReclamacao] = useState(null);
+  /** ID string do item cujo menu lateral está aberto */
+  const [menuOpenId, setMenuOpenId] = useState(null);
   const [paginacao, setPaginacao] = useState({
     page: 1,
     limit: 20,
@@ -242,6 +250,44 @@ const ListaReclamacoes = () => {
   useEffect(() => {
     loadReclamacoes();
   }, [filtrosAplicados, paginacao.page]);
+
+  useEffect(() => {
+    if (menuOpenId == null) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setMenuOpenId(null);
+    };
+    const onDown = (e) => {
+      if (!e.target.closest?.('[data-reclamacao-menu-root]')) setMenuOpenId(null);
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onDown);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onDown);
+    };
+  }, [menuOpenId]);
+
+  const solicitarExcluirReclamacao = async (reclamacao) => {
+    const idStr = reclamacao?._id != null ? String(reclamacao._id) : '';
+    const tipo = reclamacao?.tipo;
+    if (!idStr || tipo == null || String(tipo).trim() === '') {
+      toast.error('Não foi possível identificar o registro para exclusão.');
+      return;
+    }
+    if (!window.confirm('Excluir este registro permanentemente? Esta ação não pode ser desfeita.')) {
+      return;
+    }
+    try {
+      await reclamacoesAPI.remove(idStr, tipo);
+      toast.success('Registro excluído');
+      setMenuOpenId(null);
+      setSelectedReclamacao((cur) => (cur && String(cur._id) === idStr ? null : cur));
+      loadReclamacoes();
+    } catch (err) {
+      console.error('Erro ao excluir reclamação:', err);
+      toast.error(err?.message || 'Erro ao excluir registro');
+    }
+  };
 
   /**
    * Carregar lista de colaboradores
@@ -649,38 +695,99 @@ const ListaReclamacoes = () => {
           </div>
         ) : (
           <>
-            {reclamacoes.map((reclamacao) => (
-              <div
-                key={reclamacao._id}
-                className="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 cursor-pointer hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
-                onClick={() => setSelectedReclamacao(reclamacao)}
-              >
-                <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1 flex items-center gap-2 flex-wrap">
-                  <span>
-                    {reclamacao.nome || 'Sem nome'} — {formatCPF(reclamacao.cpf)}
-                  </span>
-                  {(() => {
-                    const statusInfo = getStatusInfo(reclamacao);
-                    return (
-                      <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${statusInfo.cor}`}>
-                        {statusInfo.texto}
+            {reclamacoes.map((reclamacao, index) => {
+              const rowId = reclamacao._id != null ? String(reclamacao._id) : '';
+              const menuOpen = menuOpenId === rowId;
+              return (
+                <div
+                  key={rowId || `reclamacao-row-${index}`}
+                  className="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 transition-colors flex gap-2 items-start"
+                >
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className="flex-1 min-w-0 cursor-pointer text-left"
+                    onClick={() => setSelectedReclamacao(reclamacao)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setSelectedReclamacao(reclamacao);
+                      }
+                    }}
+                  >
+                    <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1 flex items-center gap-2 flex-wrap">
+                      <span>
+                        {reclamacao.nome || 'Sem nome'} — {formatCPF(reclamacao.cpf)}
                       </span>
-                    );
-                  })()}
-                  <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200">
-                    {normalizarTipoExibicao(reclamacao.tipo)}
-                  </span>
+                      {(() => {
+                        const statusInfo = getStatusInfo(reclamacao);
+                        return (
+                          <span className={`px-2 py-0.5 rounded text-[11px] font-medium ${statusInfo.cor}`}>
+                            {statusInfo.texto}
+                          </span>
+                        );
+                      })()}
+                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200">
+                        {normalizarTipoExibicao(reclamacao.tipo)}
+                      </span>
+                      {(() => {
+                        const sla = getSlaBadgeReclamacao(reclamacao);
+                        if (!sla) return null;
+                        return (
+                          <span
+                            title={sla.title}
+                            className={`px-2 py-0.5 rounded text-[11px] font-medium ${sla.corClasses}`}
+                          >
+                            {sla.texto}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2 mb-1 flex-wrap">
+                      <span>Data: {formatDateRegistro(getDataExibicao(reclamacao))}</span>
+                      {reclamacao.responsavel && <span>• Responsável: {reclamacao.responsavel}</span>}
+                      {reclamacao.origem && <span>• Origem: {reclamacao.origem}</span>}
+                      {reclamacao.motivoReduzido && (Array.isArray(reclamacao.motivoReduzido) ? reclamacao.motivoReduzido.length > 0 : reclamacao.motivoReduzido) && (
+                        <span>• {formatarMotivoExibicao(reclamacao.motivoReduzido)}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="relative shrink-0" data-reclamacao-menu-root>
+                    <button
+                      type="button"
+                      aria-label="Opções do registro"
+                      aria-expanded={menuOpen}
+                      aria-haspopup="menu"
+                      className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMenuOpenId((prev) => (prev === rowId ? null : rowId));
+                      }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                        <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+                      </svg>
+                    </button>
+                    {menuOpen && (
+                      <div
+                        role="menu"
+                        className="absolute right-0 top-full mt-1 py-1 min-w-[11rem] rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg z-[20]"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          onClick={() => solicitarExcluirReclamacao(reclamacao)}
+                        >
+                          Excluir registro
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2 mb-1 flex-wrap">
-                  <span>Data: {formatDateRegistro(getDataExibicao(reclamacao))}</span>
-                  {reclamacao.responsavel && <span>• Responsável: {reclamacao.responsavel}</span>}
-                  {reclamacao.origem && <span>• Origem: {reclamacao.origem}</span>}
-                  {reclamacao.motivoReduzido && (Array.isArray(reclamacao.motivoReduzido) ? reclamacao.motivoReduzido.length > 0 : reclamacao.motivoReduzido) && (
-                    <span>• {formatarMotivoExibicao(reclamacao.motivoReduzido)}</span>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
 
             {/* Controles de Paginação */}
             {paginacao.totalPages > 1 && (

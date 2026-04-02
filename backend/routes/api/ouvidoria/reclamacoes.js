@@ -1,6 +1,13 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Reclamações
- * VERSION: v2.16.0 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.18.0 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v2.18.0:
+ * - BACEN / N2 Pix: prazoBacen e prazoOuvidoria preenchidos automaticamente na API (2 dias corridos UTC após createdAt do registro); valores enviados pelo cliente nesses campos são ignorados
+ * - PUT: recalcula prazo a partir do createdAt já persistido (mantém regra alinhada à criação)
+ *
+ * Mudanças v2.17.0:
+ * - DELETE /reclamacoes/:id?tipo=: exclui documento na coleção correspondente (tipo obrigatório, mesmo mapeamento do PUT)
  *
  * Mudanças v2.16.0:
  * - POST/PUT: motivoReduzido persistido via utils/motivoReduzidoNormalize (sentence case pt-BR + renomeações)
@@ -110,6 +117,42 @@ const parsearDataParaDate = (valor) => {
   if (!trimmed) return null;
   const parsed = new Date(trimmed);
   return isNaN(parsed.getTime()) ? null : parsed;
+};
+
+/**
+ * Prazo automático Ouvidoria: data limite = 2 dias corridos (UTC) após a data de criação do registro.
+ * @param {Date|string|null|undefined} createdAt
+ * @returns {Date}
+ */
+const prazoAutomaticoDoisDiasAposCriacao = (createdAt) => {
+  const base =
+    createdAt instanceof Date
+      ? createdAt
+      : createdAt
+        ? new Date(createdAt)
+        : new Date();
+  if (isNaN(base.getTime())) return new Date();
+  const d = new Date(base.getTime());
+  d.setUTCDate(d.getUTCDate() + 2);
+  return d;
+};
+
+/**
+ * Define prazoBacen (reclamacoes_bacen) ou prazoOuvidoria (reclamacoes_n2Pix); remove o campo da outra família se vier misturado no body.
+ * @param {Record<string, unknown>} alvo — documento de insert ou objeto $set do update
+ * @param {string} collectionName
+ * @param {Date|string|null|undefined} createdAtRef — createdAt do registro (POST: novo; PUT: existente)
+ */
+const aplicarPrazoAutomaticoPorColecao = (alvo, collectionName, createdAtRef) => {
+  if (!alvo || typeof alvo !== 'object') return;
+  const prazo = prazoAutomaticoDoisDiasAposCriacao(createdAtRef);
+  if (collectionName === 'reclamacoes_bacen') {
+    alvo.prazoBacen = prazo;
+    delete alvo.prazoOuvidoria;
+  } else if (collectionName === 'reclamacoes_n2Pix') {
+    alvo.prazoOuvidoria = prazo;
+    delete alvo.prazoBacen;
+  }
 };
 
 /**
@@ -617,6 +660,8 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         })
       );
 
+      aplicarPrazoAutomaticoPorColecao(documento, collection.collectionName, documento.createdAt);
+
       const resultado = await collection.insertOne(documento);
 
       console.log(`✅ Reclamação criada na coleção ${collection.collectionName}: ${resultado.insertedId}`);
@@ -696,6 +741,14 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
       // Obter coleção correta
       const collection = getCollectionByType(db, tipo);
 
+      const existente = await collection.findOne({ _id: new ObjectId(id) });
+      if (!existente) {
+        return res.status(404).json({
+          success: false,
+          message: 'Reclamação não encontrada',
+        });
+      }
+
       // Normalizar CPF se fornecido
       if (dados.cpf) {
         dados.cpf = String(dados.cpf).replace(/\D/g, '');
@@ -726,6 +779,8 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         })
       );
 
+      aplicarPrazoAutomaticoPorColecao(updateDoc, collection.collectionName, existente.createdAt);
+
       const resultado = await collection.updateOne(
         { _id: new ObjectId(id) },
         { $set: updateDoc }
@@ -754,7 +809,65 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
     }
   });
 
+  /**
+   * DELETE /api/ouvidoria/reclamacoes/:id
+   * Excluir reclamação (documento removido da coleção do tipo informado)
+   * Query: tipo (obrigatório) — mesmo conjunto de valores aceitos em PUT
+   */
+  router.delete('/:id', async (req, res) => {
+    try {
+      if (!client) {
+        return res.status(503).json({
+          success: false,
+          message: 'MongoDB não configurado'
+        });
+      }
 
+      await connectToMongo();
+      const db = client.db('hub_ouvidoria');
+
+      const { id } = req.params;
+      const { tipo } = req.query;
+
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).json({
+          success: false,
+          message: 'ID inválido'
+        });
+      }
+
+      if (!tipo || !String(tipo).trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Tipo é obrigatório (query param tipo)'
+        });
+      }
+
+      const collection = getCollectionByType(db, tipo);
+      const resultado = await collection.deleteOne({ _id: new ObjectId(id) });
+
+      if (resultado.deletedCount === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Reclamação não encontrada na coleção do tipo informado'
+        });
+      }
+
+      console.log(`✅ Reclamação excluída: ${id} (tipo: ${tipo})`);
+
+      res.json({
+        success: true,
+        message: 'Reclamação excluída com sucesso'
+      });
+    } catch (error) {
+      console.error('❌ Erro ao excluir reclamação:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erro ao excluir reclamação',
+        error: error.message
+      });
+    }
+  });
 
   return router;
 };
