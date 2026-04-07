@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Reclamações
- * VERSION: v2.18.0 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.19.0 | DATE: 2026-04-07 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v2.19.0:
+ * - GET /reclamacoes: filtro opcional query `produto` (campo existente `produto`, match exato)
  *
  * Mudanças v2.18.0:
  * - BACEN / N2 Pix: prazoBacen e prazoOuvidoria preenchidos automaticamente na API (2 dias corridos UTC após createdAt do registro); valores enviados pelo cliente nesses campos são ignorados
@@ -359,7 +362,7 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
       const db = client.db('hub_ouvidoria');
 
       // Filtros opcionais
-      const { cpf, colaboradorNome, tipo, dataInicio, dataFim, motivo, status, page = '1', limit = '20' } = req.query;
+      const { cpf, colaboradorNome, tipo, dataInicio, dataFim, motivo, produto, status, page = '1', limit = '20' } = req.query;
 
       const baseFilter = {};
       if (cpf) {
@@ -370,6 +373,9 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
       }
       if (motivo && String(motivo).trim()) {
         baseFilter.motivoReduzido = String(motivo).trim();
+      }
+      if (produto && String(produto).trim()) {
+        baseFilter.produto = String(produto).trim();
       }
       if (status && String(status).trim()) {
         const statusVal = String(status).trim().toLowerCase();

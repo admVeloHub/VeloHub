@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.13 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.14 | DATE: 2026-04-07 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,18 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - Ouvidoria: lista de reclamações filtro e card por produto**
+- **Data/Hora**: 2026-04-07
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: ListaReclamacoes v1.26.1, reclamacoes API v2.19.0, ouvidoriaApi v2.8.0
+- **Arquivos Modificados**:
+  - `backend/routes/api/ouvidoria/reclamacoes.js`
+  - `src/components/Ouvidoria/ListaReclamacoes.js`
+  - `src/services/ouvidoriaApi.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Filtro por produto na lista (valores alinhados ao formulário/dashboard); GET `/reclamacoes` com query opcional `produto`; no card da lista, removida exibição de Origem e exibido Produto quando preenchido.
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - Ouvidoria: motivo Juros abusivos; script produto EP e env**
 - **Data/Hora**: 2026-04-02
