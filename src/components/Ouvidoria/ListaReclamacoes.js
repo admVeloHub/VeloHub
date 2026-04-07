@@ -1,6 +1,12 @@
 /**
  * VeloHub V3 - ListaReclamacoes Component
- * VERSION: v1.25.0 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.26.1 | DATE: 2026-04-07 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.26.1:
+ * - Card da lista: removida linha "Origem"; exibe "Produto" quando o campo existir
+ * 
+ * Mudanças v1.26.0:
+ * - Filtro por Produto (values alinhados a FormReclamacao / DashboardOuvidoria); GET paginado e refinamento client-side (CPF/colaborador)
  * 
  * Mudanças v1.25.0:
  * - Badge de SLA nas linhas (prazoBacen / prazoOuvidoria via dateUtils.getSlaBadgeReclamacao) para BACEN e N2 Pix
@@ -210,6 +216,30 @@ const MOTIVOS_RECLAME_AQUI = [
 ];
 const MOTIVOS_FILTRO_LISTA = [...new Set([...MOTIVOS_REDUZIDOS, ...MOTIVOS_ACAO_JUDICIAL, ...MOTIVOS_RECLAME_AQUI])];
 
+/** Values idênticos ao persistido em `produto` (FormReclamacao / DashboardOuvidoria PRODUTOS_OPCOES) */
+const PRODUTOS_FILTRO_LISTA = [
+  { value: 'Antecipação 2026', label: 'Antecipação 2026' },
+  { value: 'Antecipação', label: 'Antecipação Outros Anos' },
+  { value: 'Empréstimo Pessoal', label: 'Empréstimo Pessoal' },
+  { value: 'Crédito Trabalhador', label: 'Crédito Trabalhador' },
+  { value: 'Conta Celcoin', label: 'Conta Celcoin' },
+  { value: 'Seguros', label: 'Seguros' },
+  { value: 'Aplicativo', label: 'Aplicativo' },
+  { value: 'Clube Velotax', label: 'Clube Velotax' },
+  { value: 'Cupom', label: 'Cupom' },
+  { value: 'Veloprime', label: 'Veloprime' },
+  { value: 'Desativado', label: 'Desativado' },
+  { value: 'Cupons Velotax', label: 'Cupons Velotax' },
+  { value: 'QueroQuitar', label: 'QueroQuitar' },
+  { value: 'Seguro DividaZero', label: 'Seguro DividaZero' },
+  { value: 'Seguro Celular', label: 'Seguro Celular' },
+  { value: 'Seguro Prestamista', label: 'Seguro Prestamista' },
+  { value: 'Seguro Saúde', label: 'Seguro Saúde' },
+  { value: 'Calculadora', label: 'Calculadora' },
+  { value: 'App', label: 'App' },
+  { value: 'Outras Ocorrências', label: 'Outras Ocorrências' },
+];
+
 const ListaReclamacoes = () => {
   const [reclamacoes, setReclamacoes] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -221,6 +251,7 @@ const ListaReclamacoes = () => {
     dataInicio: '',
     dataFim: '',
     motivo: '',
+    produto: '',
     status: '',
   });
   const [filtrosAplicados, setFiltrosAplicados] = useState({
@@ -230,6 +261,7 @@ const ListaReclamacoes = () => {
     dataInicio: '',
     dataFim: '',
     motivo: '',
+    produto: '',
     status: '',
   });
   const [selectedReclamacao, setSelectedReclamacao] = useState(null);
@@ -314,7 +346,7 @@ const ListaReclamacoes = () => {
    * Limpar filtros
    */
   const limparFiltros = () => {
-    const filtrosLimpos = { tipo: '', cpf: '', colaboradorNome: '', dataInicio: '', dataFim: '', motivo: '', status: '' };
+    const filtrosLimpos = { tipo: '', cpf: '', colaboradorNome: '', dataInicio: '', dataFim: '', motivo: '', produto: '', status: '' };
     setFiltros(filtrosLimpos);
     setFiltrosAplicados(filtrosLimpos);
     setPaginacao(prev => ({ ...prev, page: 1 }));
@@ -344,6 +376,10 @@ const ListaReclamacoes = () => {
         if (Array.isArray(m)) return m.some(v => String(v || '').trim() === motivoFiltro);
         return String(m).trim() === motivoFiltro;
       });
+    }
+    if (filtros.produto && String(filtros.produto).trim()) {
+      const prodFiltro = String(filtros.produto).trim();
+      resultado = resultado.filter(r => String(r.produto || '').trim() === prodFiltro);
     }
     if (filtros.status && String(filtros.status).trim()) {
       const statusVal = String(filtros.status).trim().toLowerCase();
@@ -436,6 +472,7 @@ const ListaReclamacoes = () => {
         if (filtrosAplicados.dataInicio) params.dataInicio = filtrosAplicados.dataInicio;
         if (filtrosAplicados.dataFim) params.dataFim = filtrosAplicados.dataFim;
         if (filtrosAplicados.motivo) params.motivo = filtrosAplicados.motivo;
+        if (filtrosAplicados.produto) params.produto = filtrosAplicados.produto;
         if (filtrosAplicados.status) params.status = filtrosAplicados.status;
 
         resultado = await reclamacoesAPI.getAll(params);
@@ -623,6 +660,21 @@ const ListaReclamacoes = () => {
                   </select>
                 </div>
 
+                <div className="relative flex-1 min-w-[130px]">
+                  {floatLabel('Produto')}
+                  <select
+                    id="filtro-produto"
+                    value={filtros.produto}
+                    onChange={(e) => setFiltros(prev => ({ ...prev, produto: e.target.value }))}
+                    className={selectBase}
+                  >
+                    <option value="">Todos</option>
+                    {PRODUTOS_FILTRO_LISTA.map((p) => (
+                      <option key={p.value} value={p.value}>{p.label}</option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="relative flex-1 min-w-[110px]">
                   {floatLabel('Status')}
                   <select
@@ -746,7 +798,9 @@ const ListaReclamacoes = () => {
                     <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2 mb-1 flex-wrap">
                       <span>Data: {formatDateRegistro(getDataExibicao(reclamacao))}</span>
                       {reclamacao.responsavel && <span>• Responsável: {reclamacao.responsavel}</span>}
-                      {reclamacao.origem && <span>• Origem: {reclamacao.origem}</span>}
+                      {reclamacao.produto != null && String(reclamacao.produto).trim() !== '' && (
+                        <span>• Produto: {String(reclamacao.produto).trim()}</span>
+                      )}
                       {reclamacao.motivoReduzido && (Array.isArray(reclamacao.motivoReduzido) ? reclamacao.motivoReduzido.length > 0 : reclamacao.motivoReduzido) && (
                         <span>• {formatarMotivoExibicao(reclamacao.motivoReduzido)}</span>
                       )}

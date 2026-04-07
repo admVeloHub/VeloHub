@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Ouvidoria API Service
- * VERSION: v2.7.0 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.8.0 | DATE: 2026-04-07 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.8.0:
+ * - reclamacoesAPI.getAll: parâmetro opcional produto (query)
  * 
  * Mudanças v2.7.0:
  * - reclamacoesAPI.remove: DELETE /ouvidoria/reclamacoes/:id?tipo=
@@ -138,6 +141,7 @@ export const reclamacoesAPI = {
     if (params.dataInicio) query.append('dataInicio', params.dataInicio);
     if (params.dataFim) query.append('dataFim', params.dataFim);
     if (params.motivo) query.append('motivo', params.motivo);
+    if (params.produto) query.append('produto', params.produto);
     if (params.status) query.append('status', params.status);
     const queryString = query.toString();
     return apiRequest(`/ouvidoria/reclamacoes${queryString ? `?${queryString}` : ''}`);
