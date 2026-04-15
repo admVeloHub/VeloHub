@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.14 | DATE: 2026-04-07 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.15 | DATE: 2026-04-15 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,21 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - Req_Prod: Liberação chave PIX (aba, liberacao_pix_prod, porta dev 8090)**
+- **Data/Hora**: 2026-04-15
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: server v2.50.1, FormSolicitacao v1.20.1, EscalacoesPage v1.17.1, solicitacoes API v1.8.1, config/config-local (porta local)
+- **Arquivos Modificados**:
+  - `backend/config-local.js`
+  - `backend/config.js`
+  - `backend/routes/api/escalacoes/solicitacoes.js`
+  - `backend/server.js`
+  - `src/components/Escalacoes/FormSolicitacao.js`
+  - `src/pages/EscalacoesPage.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Aba «Liberação chave pix» com credencial `qualidade_funcionarios.acessos.ChavePix` (check-module-access); formulário alinhado ao fluxo de exclusão de chave PIX com origem e nome do cliente; espelho em `hub_escalacoes.liberacao_pix_prod` (observações, sync em reply/cancel); remoção do tipo «Exclusão de Chave PIX» do select geral; porta padrão do backend em desenvolvimento local **8090** (front 8080).
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - Ouvidoria: lista de reclamações filtro e card por produto**
 - **Data/Hora**: 2026-04-07

@@ -1,5 +1,6 @@
 // Configuração do VeloHub V3 - Baseada em Variáveis de Ambiente
-// VERSION: v1.4.0 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v1.4.1 | DATE: 2026-04-15 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// v1.4.1: PORT fallback 8090 em dev local; produção (Cloud Run) define PORT=8080
 
 module.exports = {
   // ===========================================
@@ -35,8 +36,8 @@ module.exports = {
   // Ambiente de execução
   NODE_ENV: process.env.NODE_ENV || 'development',
   
-  // Porta do servidor
-  PORT: process.env.PORT || 8080,
+  // Porta do servidor (produção: Cloud Run injeta PORT; local sem PORT → 8090, front em 8080)
+  PORT: process.env.PORT || 8090,
   
   
   // ===========================================

@@ -1,6 +1,12 @@
 /**
  * VeloHub V3 - EscalacoesPage (Escalações Module)
- * VERSION: v1.16.1 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.17.1 | DATE: 2026-04-15 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.17.1:
+ * - Aba Liberação chave pix: card em largura total (removido max-w-4xl mx-auto), alinhado às demais abas
+ * 
+ * Mudanças v1.17.0:
+ * - Aba «Liberação chave pix» (credencial acessos.ChavePix via check-module-access module=ChavePix); FormSolicitacao liberacaoChavePixTab
  * 
  * Mudanças v1.16.1:
  * - Aba "Visão geral" (sem sufixo N1 no rótulo); credencial Apoio N1 inalterada
@@ -324,6 +330,8 @@ const EscalacoesPage = () => {
   const [activeTab, setActiveTab] = useState('solicitacoes');
   /** null = verificando; só usuários com acessos.apoioN1 veem a aba Visão geral */
   const [hasApoioN1, setHasApoioN1] = useState(null);
+  /** null = verificando; só usuários com acessos.ChavePix veem a aba Liberação chave pix */
+  const [hasChavePix, setHasChavePix] = useState(null);
   const [logs, setLogs] = useState([]);
   const [searchCpf, setSearchCpf] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
@@ -834,10 +842,50 @@ const EscalacoesPage = () => {
   }, []);
 
   useEffect(() => {
+    const checkChavePix = async () => {
+      try {
+        const session = getUserSession();
+        const em = session?.user?.email;
+        if (!em) {
+          setHasChavePix(false);
+          return;
+        }
+        const sessionId = localStorage.getItem('velohub_session_id');
+        const url = new URL(`${API_BASE_URL}/auth/check-module-access`);
+        url.searchParams.append('email', em);
+        url.searchParams.append('module', 'ChavePix');
+        if (sessionId) url.searchParams.append('sessionId', sessionId);
+        const response = await fetch(url.toString(), {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(sessionId && { 'x-session-id': sessionId }),
+            'x-user-email': em,
+          },
+        });
+        if (!response.ok) {
+          setHasChavePix(false);
+          return;
+        }
+        const data = await response.json();
+        setHasChavePix(Boolean(data.success && data.hasAccess));
+      } catch {
+        setHasChavePix(false);
+      }
+    };
+    checkChavePix();
+  }, []);
+
+  useEffect(() => {
     if (hasApoioN1 === false && activeTab === 'apoio-n1-panorama') {
       setActiveTab('solicitacoes');
     }
   }, [hasApoioN1, activeTab]);
+
+  useEffect(() => {
+    if (hasChavePix === false && activeTab === 'liberacao-chave-pix') {
+      setActiveTab('solicitacoes');
+    }
+  }, [hasChavePix, activeTab]);
 
   // Carregar nome do agente da sessão do usuário
   useEffect(() => {
@@ -1191,6 +1239,18 @@ const EscalacoesPage = () => {
             >
               Calculadora de Restituição
             </button>
+            {hasChavePix === true && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('liberacao-chave-pix')}
+                className={`px-6 py-3 text-2xl font-semibold transition-colors duration-200 ${activeTab === 'liberacao-chave-pix' ? '' : 'opacity-50'}`}
+                style={{
+                  color: activeTab === 'liberacao-chave-pix' ? 'var(--blue-light)' : 'var(--cor-texto-secundario)',
+                }}
+              >
+                Liberação chave pix
+              </button>
+            )}
             {hasApoioN1 === true && (
               <button
                 onClick={() => setActiveTab('apoio-n1-panorama')}
@@ -1662,6 +1722,19 @@ const EscalacoesPage = () => {
 
             {activeTab === 'calculadora-restituicao' && (
               <CalculadoraRestituicao />
+            )}
+
+            {activeTab === 'liberacao-chave-pix' && hasChavePix === true && (
+              <div className="flex-1 min-w-0 bg-white dark:bg-gray-800 rounded-2xl shadow-lg pt-6 px-6 pb-4 hover:-translate-y-0.5 transition-transform">
+                <FormSolicitacao
+                  liberacaoChavePixTab
+                  registrarLog={registrarLog}
+                  onLocalLogsChange={setSidebarLocalLogs}
+                  solicitacoesServerList={requestsRaw}
+                  solicitacoesStatsLoading={statsLoading}
+                  onRefreshSolicitacoesForLogs={loadStats}
+                />
+              </div>
             )}
 
             {activeTab === 'apoio-n1-panorama' && hasApoioN1 === true && <ApoioN1PanoramaTab />}
