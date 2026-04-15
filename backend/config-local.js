@@ -1,5 +1,6 @@
 // VeloHub V3 - Configuração Local para Testes
-// VERSION: v1.0.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+// VERSION: v1.0.1 | DATE: 2026-04-15 | AUTHOR: VeloHub Development Team
+// v1.0.1: PORT fallback 8090 (backend dev); front VeloHub usa 8080 — alinhado a src/config/api-config.js
 
 // Configuração para testes locais com dados reais
 const config = {
@@ -8,7 +9,7 @@ const config = {
   
   // Servidor
   NODE_ENV: process.env.NODE_ENV || 'development',
-  PORT: process.env.PORT || 8080,
+  PORT: process.env.PORT || 8090,
   
   // Google OAuth
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '278491073220-eb4ogvn3aifu0ut9mq3rvu5r9r9l3137.apps.googleusercontent.com',

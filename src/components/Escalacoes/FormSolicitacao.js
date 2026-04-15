@@ -1,7 +1,19 @@
 /**
  * VeloHub V3 - FormSolicitacao Component (Escalações Module)
- * VERSION: v1.17.3 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.20.1 | DATE: 2026-04-15 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
+ * 
+ * Mudanças v1.20.1:
+ * - Liberação chave pix: 2ª coluna com label «Nome» (nomeCliente); removido nome da sessão; removida duplicata de campo nome em linha extra
+ * 
+ * Mudanças v1.20.0:
+ * - Liberação chave pix: campo nomeCliente (nome do cliente) no payload; backend espelha em hub_escalacoes.liberacao_pix_prod
+ * 
+ * Mudanças v1.19.0:
+ * - Aba Liberação chave pix: 2ª coluna com nome do usuário (sessão); quadro com Origem (select) antes dos checkboxes; payload/mensagem com origem
+ * 
+ * Mudanças v1.18.0:
+ * - Prop liberacaoChavePixTab: formulário só «Exclusão de Chave PIX» (aba Req_Prod); tipo removido do select na aba Solicitações
  * 
  * Mudanças v1.17.3:
  * - Comentário histórico v1.4.0: removida referência ao projeto legado "painel de serviços" (diretório excluído do repositório)
@@ -155,6 +167,16 @@ import { createPortal } from 'react-dom';
 import { solicitacoesAPI, logsAPI } from '../../services/escalacoesApi';
 import { normalizeMongoId, reconcileEscalacoesLocalLogs } from '../../utils/escalacoesModalHelpers';
 
+/** Origens do campo «Origem» (aba Liberação chave pix). */
+const ORIGENS_LIBERACAO_CHAVE_PIX = [
+  'Time Portabilidade',
+  'N2 Pix',
+  'Reclame Aqui',
+  'Bacen',
+  'Procon',
+  'Judicial',
+];
+
 /** Tipos de solicitação técnica — exclusão de conta (app / Celcoin); mesmos checkboxes dinâmicos. */
 const TIPOS_EXCLUSAO_CONTA = ['Excluir conta - app', 'Excluir conta - Celcoin'];
 
@@ -189,6 +211,7 @@ const diffCalendarDaysContractToToday = (yyyyMmDd) => {
  * @param {Array} [solicitacoesServerList] - Lista GET já carregada pelo pai (evita segundo fetch)
  * @param {boolean} [solicitacoesStatsLoading] - Enquanto true, não reconcilia com lista vazia
  * @param {Function} [onRefreshSolicitacoesForLogs] - Recarrega lista no pai (ex.: loadStats)
+ * @param {boolean} [liberacaoChavePixTab] - Se true, tipo fixo «Exclusão de Chave PIX» e sem seletor de tipo (aba Liberação chave pix)
  */
 const FormSolicitacao = forwardRef(function FormSolicitacao(
   {
@@ -197,19 +220,22 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
     solicitacoesServerList = [],
     solicitacoesStatsLoading = true,
     onRefreshSolicitacoesForLogs,
+    liberacaoChavePixTab = false,
   },
   ref
 ) {
   const [form, setForm] = useState({
     agente: '',
     cpf: '',
-    tipo: 'Alteração de Dados Cadastrais',
+    tipo: liberacaoChavePixTab ? 'Exclusão de Chave PIX' : 'Alteração de Dados Cadastrais',
     infoTipo: 'Telefone',
     dadoAntigo: '',
     dadoNovo: '',
     fotosVerificadas: false,
     observacoes: '',
     // Campos para Exclusão de Chave PIX
+    origem: '',
+    nomeCliente: '',
     semDebitoAberto: false,
     n2Ouvidora: false,
     procon: false,
@@ -220,7 +246,6 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
     prazoMaximo: '',
     // Campos para Aumento de Limite Pix e Cancelamento
     valor: '',
-    nomeCliente: '',
     dataContratacao: '',
     // Campos para Cancelamento (existente)
     seguroPrestamista: false,
@@ -704,6 +729,10 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
       msg += `Fotos verificadas: ${simNao(form.fotosVerificadas)}\n`;
       msg += `Observações: ${form.observacoes || '—'}\n`;
     } else if (form.tipo === 'Exclusão de Chave PIX') {
+      if (liberacaoChavePixTab) {
+        msg += `Nome: ${String(form.nomeCliente || '').trim() || '—'}\n`;
+        msg += `Origem: ${String(form.origem || '').trim() || '—'}\n`;
+      }
       msg += `Sem Débito em aberto: ${simNao(form.semDebitoAberto)}\n`;
       msg += `N2 - Ouvidora: ${simNao(form.n2Ouvidora)}\n`;
       msg += `Procon: ${simNao(form.procon)}\n`;
@@ -768,6 +797,14 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
     if (digits.length !== 11) {
       setCpfError('CPF inválido. Digite os 11 dígitos.');
       showNotification('CPF inválido. Digite os 11 dígitos.', 'error');
+      return;
+    }
+    if (liberacaoChavePixTab && !String(form.origem || '').trim()) {
+      showNotification('Selecione a origem.', 'error');
+      return;
+    }
+    if (liberacaoChavePixTab && !String(form.nomeCliente || '').trim()) {
+      showNotification('Informe o nome.', 'error');
       return;
     }
     if (form.tipo === 'Exclusão de Chave PIX' && !form.semDebitoAberto && !form.n2Ouvidora && !form.procon && !form.reclameAqui && !form.processo && !form.bacen && !form.revogadoConsentimentoEcac) {
@@ -917,13 +954,15 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
       setForm({
         agente: agenteNorm || '',
         cpf: '',
-        tipo: 'Alteração de Dados Cadastrais',
+        tipo: liberacaoChavePixTab ? 'Exclusão de Chave PIX' : 'Alteração de Dados Cadastrais',
         infoTipo: 'Telefone',
         dadoAntigo: '',
         dadoNovo: '',
         fotosVerificadas: false,
         observacoes: '',
         // Campos para Exclusão de Chave PIX
+        origem: '',
+        nomeCliente: '',
         semDebitoAberto: false,
         n2Ouvidora: false,
         procon: false,
@@ -934,7 +973,6 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
         prazoMaximo: '',
         // Campos para Aumento de Limite Pix e Cancelamento
         valor: '',
-        nomeCliente: '',
         dataContratacao: '',
         // Campos para Cancelamento (existente)
         seguroPrestamista: false,
@@ -1025,24 +1063,41 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
               <div className="mt-1 text-xs text-red-600">{cpfError}</div>
             )}
           </div>
-          <div>
-            <label className="text-sm text-gray-700 dark:text-gray-300">Tipo de Solicitação</label>
-            <select
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              value={form.tipo}
-              onChange={(e) => atualizar('tipo', e.target.value)}
-            >
-              <option>Alteração de Dados Cadastrais</option>
-              <option>Aumento de Limite Pix</option>
-              <option>Exclusão de Chave PIX</option>
-              <option>Excluir conta - app</option>
-              <option>Excluir conta - Celcoin</option>
-              <option>Reativação de Conta</option>
-              <option>Reset de Senha</option>
-              <option value="Cancelamento">Cancelamento</option>
-              <option value="Devolução de Antecipação">Devolução de Antecipação</option>
-            </select>
-          </div>
+          {liberacaoChavePixTab ? (
+            <div className="min-w-0">
+              <label className="text-sm text-gray-700 dark:text-gray-300" htmlFor="form-nome-chave-pix">
+                Nome
+              </label>
+              <input
+                id="form-nome-chave-pix"
+                type="text"
+                className="mt-1 w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                placeholder="Nome completo"
+                value={form.nomeCliente || ''}
+                onChange={(e) => atualizar('nomeCliente', e.target.value)}
+                required
+                autoComplete="name"
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="text-sm text-gray-700 dark:text-gray-300">Tipo de Solicitação</label>
+              <select
+                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                value={form.tipo}
+                onChange={(e) => atualizar('tipo', e.target.value)}
+              >
+                <option>Alteração de Dados Cadastrais</option>
+                <option>Aumento de Limite Pix</option>
+                <option>Excluir conta - app</option>
+                <option>Excluir conta - Celcoin</option>
+                <option>Reativação de Conta</option>
+                <option>Reset de Senha</option>
+                <option value="Cancelamento">Cancelamento</option>
+                <option value="Devolução de Antecipação">Devolução de Antecipação</option>
+              </select>
+            </div>
+          )}
         </div>
 
         {form.tipo === 'Alteração de Dados Cadastrais' && (
@@ -1169,6 +1224,27 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
 
         {form.tipo === 'Exclusão de Chave PIX' && (
           <div className="p-4 rounded-lg mt-2" style={{ background: 'transparent', border: '1.5px solid #000058', borderRadius: '8px' }}>
+            {liberacaoChavePixTab && (
+              <div className="mb-4">
+                <label className="text-sm text-gray-700 dark:text-gray-300 mb-1 block" htmlFor="form-origem-chave-pix">
+                  Origem
+                </label>
+                <select
+                  id="form-origem-chave-pix"
+                  className="w-full md:max-w-md border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                  value={form.origem}
+                  onChange={(e) => atualizar('origem', e.target.value)}
+                  required
+                >
+                  <option value="">Selecione a origem</option>
+                  {ORIGENS_LIBERACAO_CHAVE_PIX.map((o) => (
+                    <option key={o} value={o}>
+                      {o}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">* Selecione pelo menos uma opção:</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
               <label className="flex items-center gap-2 min-h-[1.75rem]">

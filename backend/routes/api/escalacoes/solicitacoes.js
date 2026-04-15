@@ -1,6 +1,13 @@
 /**
  * VeloHub V3 - Escalações API Routes - Solicitações Técnicas
- * VERSION: v1.7.1 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.8.1 | DATE: 2026-04-15 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.8.1:
+ * - liberacao_pix_prod: campo observacoes (espelho de payload.observacoes)
+ * 
+ * Mudanças v1.8.0:
+ * - POST /: após criar solicitação em solicitacoes_tecnicas, se tipo «Exclusão de Chave PIX» com payload.origem (aba Liberação chave pix), insert em hub_escalacoes.liberacao_pix_prod (espelho + solicitacaoTecnicaId)
+ * - POST /:id/reply (e cancelar): mesmo reply[] gravado em liberacao_pix_prod quando existir solicitacaoTecnicaId
  * 
  * Mudanças v1.7.1:
  * - Documentação: POST /:id/reply com origem "produtos" grava msgProdutos + msgN1 null + at; origem "n1" o inverso (comportamento já existente)
@@ -46,6 +53,64 @@
 
 const express = require('express');
 const router = express.Router();
+
+/**
+ * Monta documento para hub_escalacoes.liberacao_pix_prod (formulário Liberação chave pix).
+ * @param {Object} p
+ * @param {Object} p.solicitacaoTecnicaId - ObjectId da solicitação em solicitacoes_tecnicas
+ * @param {string} p.colaboradorNome
+ * @param {string} p.cpf
+ * @param {string} p.origem
+ * @param {string} [p.nomeCliente]
+ * @param {Object} p.payloadForm — payload bruto do formulário (semDebitoAberto, etc.)
+ * @param {Date} p.now
+ */
+function buildLiberacaoPixProdDoc({ solicitacaoTecnicaId, colaboradorNome, cpf, origem, nomeCliente, payloadForm, now }) {
+  const pf = payloadForm || {};
+  return {
+    solicitacaoTecnicaId,
+    colaboradorNome: String(colaboradorNome || '').trim(),
+    cpf: String(cpf || '').replace(/\D/g, ''),
+    nome: String(nomeCliente || '').trim(),
+    origem: String(origem || '').trim(),
+    observacoes: String(pf.observacoes != null ? pf.observacoes : '').trim(),
+    payload: {
+      'Sem Débito em aberto': pf.semDebitoAberto === true,
+      'N2 - Ouvidora': pf.n2Ouvidora === true,
+      'Procon': pf.procon === true,
+      'Reclame Aqui': pf.reclameAqui === true,
+      'Processo': pf.processo === true,
+      'Bacen': pf.bacen === true,
+      'Revogado consentimento ECAC': pf.revogadoConsentimentoEcac === true,
+    },
+    pixLiberado: false,
+    dataLiberacao: null,
+    reply: [{ status: 'enviado', msgProdutos: null, msgN1: null, at: now }],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+/**
+ * Replica reply[] em hub_escalacoes.liberacao_pix_prod para o mesmo solicitacaoTecnicaId (se existir documento espelho).
+ * @param {Object} db - MongoDB Db (hub_escalacoes)
+ * @param {Object} solicitacaoTecnicaId - ObjectId da solicitação em solicitacoes_tecnicas
+ * @param {Array} replyArray
+ */
+async function syncReplyToLiberacaoPixProd(db, solicitacaoTecnicaId, replyArray) {
+  try {
+    const lib = db.collection('liberacao_pix_prod');
+    const res = await lib.updateOne(
+      { solicitacaoTecnicaId },
+      { $set: { reply: replyArray, updatedAt: new Date() } }
+    );
+    if (res.matchedCount > 0) {
+      console.log(`[liberacao_pix_prod] reply sincronizado (${replyArray.length} itens) para solicitacaoTecnicaId=${solicitacaoTecnicaId}`);
+    }
+  } catch (e) {
+    console.error('[liberacao_pix_prod] Erro ao sincronizar reply:', e.message);
+  }
+}
 
 /**
  * Inicializar rotas de solicitações
@@ -252,6 +317,29 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
       const result = await collection.insertOne(solicitacao);
 
       console.log(`✅ Solicitação criada: ${result.insertedId}`);
+
+      // Espelho em liberacao_pix_prod quando fluxo «Liberação chave pix» (origem obrigatória no payload)
+      try {
+        const tipoTrim = String(tipo || '').trim();
+        const pl = payload || {};
+        const origemStr = String(pl.origem || '').trim();
+        if (tipoTrim === 'Exclusão de Chave PIX' && origemStr) {
+          const libCollection = db.collection('liberacao_pix_prod');
+          const libDoc = buildLiberacaoPixProdDoc({
+            solicitacaoTecnicaId: result.insertedId,
+            colaboradorNome,
+            cpf: solicitacao.cpf,
+            origem: origemStr,
+            nomeCliente: pl.nomeCliente != null ? String(pl.nomeCliente) : '',
+            payloadForm: pl,
+            now,
+          });
+          const libRes = await libCollection.insertOne(libDoc);
+          console.log(`✅ liberacao_pix_prod criado: ${libRes.insertedId} (solicitacaoTecnicaId: ${result.insertedId})`);
+        }
+      } catch (libErr) {
+        console.error('Erro ao inserir em liberacao_pix_prod (solicitação principal já gravada):', libErr.message);
+      }
 
       // Log de atividade
       if (userActivityLogger) {
@@ -677,6 +765,7 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
           { _id: doc._id },
           { $set: { reply: replyArray, updatedAt: new Date() } }
         );
+        await syncReplyToLiberacaoPixProd(db, doc._id, replyArray);
         console.log(`[reply] 🛑 Solicitação cancelada em ${doc._id}`);
         return res.json({
           ok: true,
@@ -739,6 +828,8 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
           }
         }
       );
+
+      await syncReplyToLiberacaoPixProd(db, doc._id, replyArray);
 
       console.log(`[reply] ✅ Reply adicionado em ${doc._id}. Total: ${replyArray.length}`);
 

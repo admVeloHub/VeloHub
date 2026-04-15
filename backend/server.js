@@ -1,12 +1,21 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.49.8 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.50.1 | DATE: 2026-04-15 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v2.50.1:
+ * - Porta padrão local sem PORT: 8090 (backend dev); front VeloHub 8080; config.js e config-local alinhados
+ *
+ * Mudanças v2.50.0:
+ * - GET /api/auth/check-module-access: módulo ChavePix / chavePix / chavepix → qualidade_funcionarios.acessos.ChavePix
+ *
+ * Mudanças v2.49.9:
+ * - Desenvolvimento local: variáveis de FONTE DA VERDADE/.env (bootstrapFonteEnv.cjs); removidos backend/env e backend/.env locais
  *
  * Mudanças v2.49.8:
  * - Comentário POST /api/anexos-produto/get-upload-url: removida referência ao diretório legado removido (anexos Req_Prod / GCS)
  *
  * Mudanças v2.49.7:
- * - Escalações: router GET /api/escalacoes/apoio-n1 (overview, agentes); /api/auth/check-module-access aceita apoioN1 / apoion1
+ * - Escalações: router GET /api/escalacoes/apoio-n1 (overview, agentes); /api/auth/check-module-access aceita apoioN1 / apoion1 e ChavePix / chavepix
  *
  * Mudanças v2.49.6:
  * - GET /api/articles/categories: lê ordem e metadados de console_conteudo.artigos_categorias (array Categorias, campo Ordem)
@@ -223,6 +232,22 @@
  * - Resolve problema de "imagem não encontrada" no frontend
  */
 
+(function loadVelohubFonteEnv(here) {
+  const path = require('path');
+  const fs = require('fs');
+  let d = here;
+  for (let i = 0; i < 14; i++) {
+    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
+    if (fs.existsSync(loader)) {
+      require(loader).loadFrom(here);
+      return;
+    }
+    const parent = path.dirname(d);
+    if (parent === d) break;
+    d = parent;
+  }
+})(__dirname);
+
 // ===== FALLBACK PARA TESTES LOCAIS =====
 const FALLBACK_FOR_LOCAL_TESTING = {
   _id: "devId123",
@@ -258,20 +283,14 @@ const fs = require('fs');
 const { MongoClient, ObjectId } = require('mongodb');
 const fetch = require('node-fetch');
 const { Storage } = require('@google-cloud/storage');
-// Carregar variáveis de ambiente
-// IMPORTANTE: dotenv deve ser carregado ANTES de qualquer outro módulo que use process.env
-// Carrega: 1) backend/env 2) backend/.env 3) .env no cwd (ex: raiz do projeto)
-require('dotenv').config({ path: path.join(__dirname, 'env') });
-require('dotenv').config({ path: path.join(__dirname, '.env') });
-require('dotenv').config();
 
 // Log para debug - verificar se env foi carregado
 if (process.env.MONGO_ENV) {
   console.log('✅ Arquivo env carregado - MONGO_ENV encontrado');
   console.log('🔍 MONGO_ENV (primeiros 50 chars):', process.env.MONGO_ENV.substring(0, 50) + '...');
 } else {
-  console.warn('⚠️ Arquivo env não encontrado ou MONGO_ENV não definido');
-  console.warn('⚠️ Verifique se backend/env existe e contém MONGO_ENV');
+  console.warn('⚠️ MONGO_ENV não definido');
+  console.warn('⚠️ Verifique FONTE DA VERDADE/.env (desenvolvimento local)');
 }
 
 // Carregar configuração local para testes (apenas em desenvolvimento)
@@ -356,8 +375,8 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 const app = express();
-// Cloud Run usa PORT=8080 (padrão). Desenvolvimento local pode usar outra porta via .env
-const PORT = process.env.PORT || 8080;
+// Cloud Run injeta PORT=8080. Em dev local sem PORT: 8090 (api-config.js: front 8080 → API 8090)
+const PORT = process.env.PORT || 8090;
 
 // Middleware
 app.use(cors({
@@ -3141,6 +3160,8 @@ app.get('/api/auth/check-module-access', async (req, res) => {
                         acessos.SOCIAIS === true;
     } else if (module === 'apoioN1' || module === 'apoion1') {
       hasModuleAccess = acessos.apoioN1 === true || acessos.apoion1 === true;
+    } else if (module === 'ChavePix' || module === 'chavePix' || module === 'chavepix') {
+      hasModuleAccess = acessos.ChavePix === true || acessos.chavepix === true;
     } else {
       // Para outros módulos, verificar campo correspondente
       const moduleKey = module.charAt(0).toLowerCase() + module.slice(1);
