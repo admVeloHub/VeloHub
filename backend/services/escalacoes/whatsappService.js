@@ -1,9 +1,13 @@
 /**
  * VeloHub V3 - WhatsApp Service para Módulo Escalações
- * VERSION: v1.5.0 | DATE: 2026-03-03 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.6.0 | DATE: 2026-04-07 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
  * 
- * Serviço para integração com API WhatsApp (ngrok)
+ * Integração WhatsApp descontinuada: sendMessage/sendImage não realizam chamadas HTTP (solicitações não usam WhatsApp).
+ * Mantidos formatJid e parseMetaFromText para compatibilidade com rotas que ainda referenciam o módulo.
+ * 
+ * Mudanças v1.6.0:
+ * - sendMessage: retorno imediato { ok: false } — sem URLs, secrets ou rede
  * 
  * Mudanças v1.5.0:
  * - SIMPLIFICAÇÃO: Removida lógica do Skynet, usando apenas ngrok para todos os ambientes
@@ -41,8 +45,6 @@
  * - Produção: WHATSAPP_API_URL (ngrok) → endpoint /send
  * - Desenvolvimento: SKYNET_API_URL ou localhost:3001 → endpoint /api/whatsapp/send
  */
-
-const config = require('../../config');
 
 /**
  * Formatar número para JID WhatsApp
@@ -118,173 +120,10 @@ function parseMetaFromText(texto) {
  * @returns {Promise<Object>} { ok: boolean, messageId?: string, messageIds?: Array, error?: string }
  */
 async function sendMessage(jid, mensagem, imagens = [], videos = [], options = {}) {
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'whatsappService.js:94',message:'sendMessage ENTRY',data:{jid,hasMensagem:!!mensagem,mensagemLength:mensagem?.length||0,imagensCount:imagens.length,videosCount:videos.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-  // #endregion
-  // Seleção de URL - sempre usa ngrok
-  // Usa WHATSAPP_API_URL se configurado, senão usa fallback padrão do ngrok
-  let apiUrl = config.WHATSAPP_API_URL || 'https://carmina-peskier-balletically.ngrok-free.dev';
-  
-  // Garantir que a URL não seja o próprio backend (evitar loop)
-  // Remover barras finais e normalizar URL
-  apiUrl = apiUrl.trim().replace(/\/+$/, '');
-  
-  const isOwnBackend = apiUrl.includes('velohub-278491073220.us-east1.run.app') ||
-                       apiUrl.includes('velohub-main-staging-278491073220.us-east1.run.app');
-  
-  if (isOwnBackend) {
-    console.error('[WHATSAPP] ❌ WhatsApp API URL aponta para o próprio backend!');
-    return { ok: false, error: 'Configuração inválida: WhatsApp API URL não pode apontar para o próprio backend.' };
-  }
-  
-  // ngrok sempre usa /send
-  const endpoint = '/send';
-  
-  // Garantir que não haja barras duplas na construção da URL
-  const fullUrl = `${apiUrl}${endpoint}`.replace(/([^:]\/)\/+/g, '$1');
-  
-  // Logs de diagnóstico
-  console.log(`[WHATSAPP] ========================================`);
-  console.log(`[WHATSAPP] Ambiente: ${config.NODE_ENV || 'development'}`);
-  console.log(`[WHATSAPP] API: NGROK`);
-  console.log(`[WHATSAPP] URL base: ${apiUrl}`);
-  console.log(`[WHATSAPP] Endpoint: ${endpoint}`);
-  console.log(`[WHATSAPP] URL completa: ${fullUrl}`);
-  console.log(`[WHATSAPP] ========================================`);
-  
-  if (!apiUrl) {
-    console.error('[WHATSAPP] ❌ Nenhuma URL de API configurada');
-    return { ok: false, error: 'WhatsApp API não configurada' };
-  }
-  
-  try {
-    // Formatar JID se necessário
-    let destinatario = formatJid(jid);
-    if (!destinatario) {
-      console.error('[WHATSAPP] ❌ Destino inválido:', jid);
-      return { ok: false, error: 'Destino inválido' };
-    }
-    
-    // Extrair CPF e solicitação de options ou mensagem
-    const { cpf: cpfOption, solicitacao: solOption, agente } = options;
-    const parsed = parseMetaFromText(mensagem);
-    const cpf = cpfOption || parsed.cpf || null;
-    const solicitacao = solOption || parsed.solicitacao || null;
-    
-    // Preparar payload (compatível com ambas as APIs)
-    const payload = {
-      jid: destinatario,
-      numero: null, // Não usado, mas mantido para compatibilidade
-      mensagem: mensagem || '',
-      imagens: Array.isArray(imagens) ? imagens : [],
-      videos: Array.isArray(videos) ? videos : [],
-      cpf: cpf,
-      solicitacao: solicitacao,
-      agente: agente || null
-    };
-    
-    console.log(`[WHATSAPP] Enviando mensagem para ${destinatario}...`);
-    console.log(`[WHATSAPP] Payload:`, {
-      jid: destinatario,
-      mensagemLength: mensagem?.length || 0,
-      imagensCount: imagens.length,
-      videosCount: videos.length,
-      cpf: cpf || 'não informado',
-      solicitacao: solicitacao || 'não informado',
-      agente: agente || 'não informado'
-    });
-    
-    // Fazer requisição com timeout de 30 segundos
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
-    
-    try {
-      console.log(`[WHATSAPP] Fazendo requisição POST para: ${fullUrl}`);
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'whatsappService.js:169',message:'BEFORE FETCH REQUEST',data:{fullUrl,destinatario,payloadKeys:Object.keys(payload)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
-      const response = await fetch(fullUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      console.log(`[WHATSAPP] Resposta recebida:`, {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Erro desconhecido');
-        
-        if (response.status === 503) {
-          console.error('[WHATSAPP] ❌ WhatsApp desconectado (503)');
-          return { ok: false, error: 'WhatsApp desconectado' };
-        }
-        
-        if (response.status === 400) {
-          console.error('[WHATSAPP] ❌ Destino inválido (400):', errorText);
-          return { ok: false, error: 'Destino inválido' };
-        }
-        
-        if (response.status === 404) {
-          console.error('[WHATSAPP] ❌ Endpoint não encontrado (404):', errorText);
-          console.error('[WHATSAPP] Verifique se a URL e endpoint estão corretos');
-          return { ok: false, error: `Endpoint não encontrado: ${endpoint}` };
-        }
-        
-        console.error(`[WHATSAPP] ❌ Erro HTTP ${response.status}:`, errorText);
-        return { ok: false, error: `Erro HTTP ${response.status}: ${errorText}` };
-      }
-      
-      const data = await response.json();
-      console.log(`[WHATSAPP] Resposta JSON:`, data);
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'whatsappService.js:217',message:'API RESPONSE RECEIVED',data:{ok:data?.ok,hasMessageId:!!data?.messageId,hasMessageIds:Array.isArray(data?.messageIds),error:data?.error||null,status:response?.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
-      
-      if (data.ok) {
-        console.log(`[WHATSAPP] ✅ Mensagem enviada com sucesso!`);
-        console.log(`[WHATSAPP] MessageId: ${data.messageId || 'não informado'}`);
-        console.log(`[WHATSAPP] MessageIds: ${Array.isArray(data.messageIds) ? data.messageIds.length : 0} IDs`);
-        return {
-          ok: true,
-          messageId: data.messageId || null,
-          messageIds: Array.isArray(data.messageIds) ? data.messageIds : (data.messageId ? [data.messageId] : [])
-        };
-      } else {
-        console.error('[WHATSAPP] ❌ Erro na resposta da API:', data.error);
-        return { ok: false, error: data.error || 'Erro desconhecido' };
-      }
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      
-      if (fetchError.name === 'AbortError') {
-        console.error('[WHATSAPP] ❌ Timeout ao enviar mensagem (30s)');
-        return { ok: false, error: 'Timeout ao enviar mensagem' };
-      }
-      
-      console.error('[WHATSAPP] ❌ Erro ao fazer requisição:', {
-        name: fetchError.name,
-        message: fetchError.message,
-        stack: fetchError.stack
-      });
-      return { ok: false, error: fetchError.message || 'Erro ao fazer requisição' };
-    }
-  } catch (error) {
-    console.error('[WHATSAPP] ❌ Erro geral:', {
-      message: error.message,
-      stack: error.stack
-    });
-    return { ok: false, error: error.message || 'Erro desconhecido' };
-  }
+  return {
+    ok: false,
+    error: 'Integração WhatsApp descontinuada'
+  };
 }
 
 /**

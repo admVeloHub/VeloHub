@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.50.1 | DATE: 2026-04-15 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.50.2 | DATE: 2026-04-07 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v2.50.2:
+ * - Removidos logs de configuração WhatsApp na subida (integração descontinuada; sem WHATSAPP_* em config)
  *
  * Mudanças v2.50.1:
  * - Porta padrão local sem PORT: 8090 (backend dev); front VeloHub 8080; config.js e config-local alinhados
@@ -356,22 +359,6 @@ try {
   console.error('⚠️ Algumas funcionalidades podem não estar disponíveis');
   // Não encerrar o processo - permitir que o servidor inicie mesmo com serviços faltando
   // Isso garante que o container não falhe completamente no Cloud Run
-}
-
-// Carregar config para verificação de configurações WhatsApp
-const config = require('./config');
-
-// Log de configurações WhatsApp (apenas em desenvolvimento)
-if (process.env.NODE_ENV === 'development') {
-  console.log('📱 Configurações WhatsApp:');
-  console.log('   - WHATSAPP_API_URL:', config.WHATSAPP_API_URL ? '✅ Configurado' : '❌ Não configurado');
-  console.log('   - WHATSAPP_DEFAULT_JID:', config.WHATSAPP_DEFAULT_JID ? '✅ Configurado' : '❌ Não configurado');
-  if (config.WHATSAPP_API_URL) {
-    console.log('   - URL:', config.WHATSAPP_API_URL);
-  }
-  if (config.WHATSAPP_DEFAULT_JID) {
-    console.log('   - JID:', config.WHATSAPP_DEFAULT_JID);
-  }
 }
 
 const app = express();

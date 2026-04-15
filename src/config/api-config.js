@@ -1,7 +1,10 @@
 /**
  * VeloHub V3 - API Configuration
- * VERSION: v1.0.22 | DATE: 2026-03-03 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.23 | DATE: 2026-04-07 | AUTHOR: VeloHub Development Team
  * REGRA: Frontend porta 8080 | Backend porta 8090 | VeloChat Server porta 3002 na rede local
+ * 
+ * Mudanças v1.0.23:
+ * - Removidas funções e exports relacionados a WhatsApp (integração descontinuada; sem env REACT_APP_WHATSAPP_*)
  * 
  * Mudanças v1.0.22:
  * - Atualizado: agora sempre usa ngrok (removido Skynet)
@@ -90,97 +93,9 @@ export const getApiBaseUrl = () => {
 };
 
 /**
- * Obtém a URL da API do WhatsApp baseada no ambiente
- * VERSION: v1.0.20 | DATE: 2025-02-26 | AUTHOR: VeloHub Development Team
- * @returns {string} URL base da API do WhatsApp (sem /send no final)
- * 
- * API WhatsApp:
- * - Local: http://localhost:3001
- * - Produção: https://carmina-peskier-balletically.ngrok-free.dev
- */
-export const getWhatsAppApiUrl = () => {
-  // Prioridade 1: Variável de ambiente específica para WhatsApp
-  if (process.env.REACT_APP_WHATSAPP_API_URL) {
-    return process.env.REACT_APP_WHATSAPP_API_URL.trim();
-  }
-  
-  // Prioridade 2: Detectar ambiente
-  if (typeof window !== 'undefined') {
-    const currentHost = window.location.hostname;
-    
-    // Em produção (domínio velotax.com.br ou velohub), usar API ngrok
-    if (currentHost.includes('velotax.com.br') || currentHost.includes('velohub')) {
-      return 'https://carmina-peskier-balletically.ngrok-free.dev';
-    }
-    
-    // Em desenvolvimento (localhost), usar localhost:3001
-    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
-      return 'http://localhost:3001';
-    }
-  }
-  
-  // Fallback: usar ngrok em produção
-  return 'https://carmina-peskier-balletically.ngrok-free.dev';
-};
-
-/**
- * Obtém o endpoint completo da API do WhatsApp baseado no ambiente
- * VERSION: v1.0.22 | DATE: 2026-03-03 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v1.0.22:
- * - Atualizado comentário: agora sempre usa ngrok (removido Skynet)
- * - Mantido proxy do backend para resolver problemas de CORS
- * 
- * Fluxo:
- * - Frontend sempre chama: /api/whatsapp/send (proxy do próprio backend)
- * - Backend faz proxy para: ngrok (https://carmina-peskier-balletically.ngrok-free.dev/send)
- * - Isso resolve CORS porque o frontend não chama ngrok diretamente
- * 
- * Endpoints:
- * - Frontend → Backend: /api/whatsapp/send
- * - Backend → ngrok: https://carmina-peskier-balletically.ngrok-free.dev/send
- */
-export const getWhatsAppEndpoint = () => {
-  // SEMPRE usar proxy do backend para evitar problemas de CORS
-  // Frontend chama backend → Backend chama ngrok
-  const backendApiUrl = getApiBaseUrl().replace('/api', ''); // Remover /api para adicionar /api/whatsapp/send
-  return `${backendApiUrl}/api/whatsapp/send`;
-};
-
-/**
- * Obtém o JID padrão do WhatsApp baseado no ambiente
- * VERSION: v1.0.10 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
- * @returns {string} JID padrão do grupo WhatsApp
- */
-export const getWhatsAppDefaultJid = () => {
-  // Prioridade 1: Variável de ambiente
-  if (process.env.REACT_APP_WHATSAPP_DEFAULT_JID) {
-    return process.env.REACT_APP_WHATSAPP_DEFAULT_JID.trim();
-  }
-  
-  // Fallback: JID padrão do grupo
-  return '120363400851545835@g.us';
-};
-
-/**
  * URL base da API (calculada automaticamente)
  */
 export const API_BASE_URL = getApiBaseUrl();
-
-/**
- * URL da API do WhatsApp (calculada automaticamente)
- */
-export const WHATSAPP_API_URL = getWhatsAppApiUrl();
-
-/**
- * Endpoint completo da API do WhatsApp (calculado automaticamente)
- */
-export const WHATSAPP_ENDPOINT = getWhatsAppEndpoint();
-
-/**
- * JID padrão do WhatsApp (calculado automaticamente)
- */
-export const WHATSAPP_DEFAULT_JID = getWhatsAppDefaultJid();
 
 /**
  * Obtém a URL base da API do VeloChat automaticamente baseada no ambiente
@@ -257,14 +172,11 @@ if (process.env.NODE_ENV === 'development') {
 // Log sempre (para debug do problema)
 console.log('🔧 API Config (SEMPRE):', {
   baseUrl: API_BASE_URL,
-  whatsappApiUrl: WHATSAPP_API_URL,
-  whatsappEndpoint: WHATSAPP_ENDPOINT,
   velochatApiUrl: getVeloChatApiUrl(),
   velochatWsUrl: getVeloChatWsUrl(),
   environment: process.env.NODE_ENV,
   hostname: typeof window !== 'undefined' ? window.location.hostname : 'server-side',
   reactAppApiUrl: process.env.REACT_APP_API_URL,
-  reactAppWhatsappApiUrl: process.env.REACT_APP_WHATSAPP_API_URL,
   reactAppVeloChatApiUrl: process.env.REACT_APP_VELOCHAT_API_URL,
   detectedEnv: typeof window !== 'undefined' 
     ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 

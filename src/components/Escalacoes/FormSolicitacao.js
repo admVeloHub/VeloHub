@@ -1,7 +1,10 @@
 /**
  * VeloHub V3 - FormSolicitacao Component (Escalações Module)
- * VERSION: v1.20.1 | DATE: 2026-04-15 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.20.2 | DATE: 2026-04-15 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
+ * 
+ * Mudanças v1.20.2:
+ * - Cabeçalho: Liberação chave pix — backend grava só em liberacao_pix_prod (sem espelho em solicitacoes_tecnicas; API solicitacoes v1.9.0)
  * 
  * Mudanças v1.20.1:
  * - Liberação chave pix: 2ª coluna com label «Nome» (nomeCliente); removido nome da sessão; removida duplicata de campo nome em linha extra

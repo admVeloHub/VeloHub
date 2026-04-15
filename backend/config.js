@@ -1,5 +1,6 @@
 // Configuração do VeloHub V3 - Baseada em Variáveis de Ambiente
-// VERSION: v1.4.1 | DATE: 2026-04-15 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v1.4.2 | DATE: 2026-04-07 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// v1.4.2: Removidos WHATSAPP_API_URL / WHATSAPP_DEFAULT_JID (integração descontinuada)
 // v1.4.1: PORT fallback 8090 em dev local; produção (Cloud Run) define PORT=8080
 
 module.exports = {
@@ -48,19 +49,8 @@ module.exports = {
   PONTO_MAIS_API_KEY: process.env.PONTO_MAIS_API_KEY,
   PONTO_MAIS_COMPANY_ID: process.env.PONTO_MAIS_COMPANY_ID,
   
-  // SKYNET API URL (para módulo Escalações - WhatsApp via SKYNET)
-  // Em produção: vem do secret 'skynet-api-url' ou variável de ambiente
-  // URL base do SKYNET (ex: http://localhost:3001 ou https://skynet-url.run.app)
+  // SKYNET API URL (módulo Escalações, se configurado)
   SKYNET_API_URL: process.env.SKYNET_API_URL,
-  
-  // WhatsApp API URL (mantido para compatibilidade - será substituído por SKYNET)
-  // Em produção: vem do secret 'whatsapp-api-url'
-  WHATSAPP_API_URL: process.env.WHATSAPP_API_URL,
-  
-  // WhatsApp Default JID (destinatário padrão para envio de mensagens)
-  // Em produção: vem do secret 'whatsapp-default-jid'
-  // Formato: número individual (5511999999999@s.whatsapp.net) ou grupo (120363400851545835@g.us)
-  WHATSAPP_DEFAULT_JID: process.env.WHATSAPP_JID || process.env.WHATSAPP_DEFAULT_JID,
   
   // Cache timeout para dados do chatbot (em ms)
   CHATBOT_CACHE_TIMEOUT: parseInt(process.env.CHATBOT_CACHE_TIMEOUT) || 300000,
