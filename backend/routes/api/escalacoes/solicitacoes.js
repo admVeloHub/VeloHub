@@ -1,13 +1,13 @@
 /**
  * VeloHub V3 - Escalações API Routes - Solicitações Técnicas
- * VERSION: v1.8.1 | DATE: 2026-04-15 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.9.0 | DATE: 2026-04-15 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.9.0:
+ * - Aba Liberação chave pix (tipo «Exclusão de Chave PIX» + payload.origem): insert apenas em hub_escalacoes.liberacao_pix_prod — sem registro em solicitacoes_tecnicas; removidos solicitacaoTecnicaId e sync de reply entre coleções
+ * - GET / e GET /:id, PUT/DELETE/POST reply: consideram liberacao_pix_prod quando o id não está em solicitacoes_tecnicas
  * 
  * Mudanças v1.8.1:
  * - liberacao_pix_prod: campo observacoes (espelho de payload.observacoes)
- * 
- * Mudanças v1.8.0:
- * - POST /: após criar solicitação em solicitacoes_tecnicas, se tipo «Exclusão de Chave PIX» com payload.origem (aba Liberação chave pix), insert em hub_escalacoes.liberacao_pix_prod (espelho + solicitacaoTecnicaId)
- * - POST /:id/reply (e cancelar): mesmo reply[] gravado em liberacao_pix_prod quando existir solicitacaoTecnicaId
  * 
  * Mudanças v1.7.1:
  * - Documentação: POST /:id/reply com origem "produtos" grava msgProdutos + msgN1 null + at; origem "n1" o inverso (comportamento já existente)
@@ -57,7 +57,6 @@ const router = express.Router();
 /**
  * Monta documento para hub_escalacoes.liberacao_pix_prod (formulário Liberação chave pix).
  * @param {Object} p
- * @param {Object} p.solicitacaoTecnicaId - ObjectId da solicitação em solicitacoes_tecnicas
  * @param {string} p.colaboradorNome
  * @param {string} p.cpf
  * @param {string} p.origem
@@ -65,10 +64,10 @@ const router = express.Router();
  * @param {Object} p.payloadForm — payload bruto do formulário (semDebitoAberto, etc.)
  * @param {Date} p.now
  */
-function buildLiberacaoPixProdDoc({ solicitacaoTecnicaId, colaboradorNome, cpf, origem, nomeCliente, payloadForm, now }) {
+function buildLiberacaoPixProdDoc({ colaboradorNome, cpf, origem, nomeCliente, payloadForm, now }) {
   const pf = payloadForm || {};
   return {
-    solicitacaoTecnicaId,
+    tipo: 'Exclusão de Chave PIX',
     colaboradorNome: String(colaboradorNome || '').trim(),
     cpf: String(cpf || '').replace(/\D/g, ''),
     nome: String(nomeCliente || '').trim(),
@@ -89,27 +88,6 @@ function buildLiberacaoPixProdDoc({ solicitacaoTecnicaId, colaboradorNome, cpf, 
     createdAt: now,
     updatedAt: now,
   };
-}
-
-/**
- * Replica reply[] em hub_escalacoes.liberacao_pix_prod para o mesmo solicitacaoTecnicaId (se existir documento espelho).
- * @param {Object} db - MongoDB Db (hub_escalacoes)
- * @param {Object} solicitacaoTecnicaId - ObjectId da solicitação em solicitacoes_tecnicas
- * @param {Array} replyArray
- */
-async function syncReplyToLiberacaoPixProd(db, solicitacaoTecnicaId, replyArray) {
-  try {
-    const lib = db.collection('liberacao_pix_prod');
-    const res = await lib.updateOne(
-      { solicitacaoTecnicaId },
-      { $set: { reply: replyArray, updatedAt: new Date() } }
-    );
-    if (res.matchedCount > 0) {
-      console.log(`[liberacao_pix_prod] reply sincronizado (${replyArray.length} itens) para solicitacaoTecnicaId=${solicitacaoTecnicaId}`);
-    }
-  } catch (e) {
-    console.error('[liberacao_pix_prod] Erro ao sincronizar reply:', e.message);
-  }
 }
 
 /**
@@ -160,10 +138,20 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
         .sort({ createdAt: -1 })
         .toArray();
 
-      console.log(`✅ Solicitações encontradas: ${solicitacoes.length}`);
+      const libCollection = db.collection('liberacao_pix_prod');
+      const liberacoes = await libCollection
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .toArray();
+
+      const merged = [...solicitacoes, ...liberacoes].sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+      );
+
+      console.log(`✅ Solicitações encontradas: ${solicitacoes.length} (solicitacoes_tecnicas) + ${liberacoes.length} (liberacao_pix_prod) → ${merged.length} mescladas`);
       
       // Log ANTES da normalização para verificar o que vem do MongoDB
-      solicitacoes.forEach(s => {
+      merged.forEach(s => {
         if (s.waMessageId) {
           console.log(`🔍 [GET /solicitacoes] Documento ${s._id}:`, {
             waMessageId: s.waMessageId,
@@ -177,16 +165,16 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
       });
       
       // Normalizar campo replies (legado) e reply (novo schema) para garantir que sempre sejam arrays
-      solicitacoes.forEach(s => {
+      merged.forEach(s => {
         if (!Array.isArray(s.replies)) s.replies = [];
         if (!Array.isArray(s.reply)) s.reply = [];
       });
       
       // Log de replies para debug (apenas em desenvolvimento)
-      if (process.env.NODE_ENV === 'development' && solicitacoes.length > 0) {
-        const repliesCount = solicitacoes.filter(s => Array.isArray(s.replies) && s.replies.length > 0).length;
-        console.log(`📊 Solicitações com replies: ${repliesCount}/${solicitacoes.length}`);
-        solicitacoes.forEach(s => {
+      if (process.env.NODE_ENV === 'development' && merged.length > 0) {
+        const repliesCount = merged.filter(s => Array.isArray(s.replies) && s.replies.length > 0).length;
+        console.log(`📊 Solicitações com replies: ${repliesCount}/${merged.length}`);
+        merged.forEach(s => {
           if (Array.isArray(s.replies) && s.replies.length > 0) {
             console.log(`  - ${s._id}: ${s.replies.length} replies`);
           }
@@ -194,9 +182,9 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
       }
       
       // Log de status para debug (apenas em desenvolvimento)
-      if (process.env.NODE_ENV === 'development' && solicitacoes.length > 0) {
+      if (process.env.NODE_ENV === 'development' && merged.length > 0) {
         const statusCount = {};
-        solicitacoes.forEach(s => {
+        merged.forEach(s => {
           const st = String(s.status || 'sem status');
           statusCount[st] = (statusCount[st] || 0) + 1;
         });
@@ -205,7 +193,7 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
 
       res.json({
         success: true,
-        data: solicitacoes
+        data: merged
       });
     } catch (error) {
       console.error('❌ Erro ao buscar solicitações:', error);
@@ -236,9 +224,12 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
       const collection = db.collection('solicitacoes_tecnicas');
 
       const { ObjectId } = require('mongodb');
-      const solicitacao = await collection.findOne({
-        _id: ObjectId.isValid(req.params.id) ? new ObjectId(req.params.id) : req.params.id
-      });
+      const oid = ObjectId.isValid(req.params.id) ? new ObjectId(req.params.id) : req.params.id;
+      let solicitacao = await collection.findOne({ _id: oid });
+
+      if (!solicitacao) {
+        solicitacao = await db.collection('liberacao_pix_prod').findOne({ _id: oid });
+      }
 
       if (!solicitacao) {
         return res.status(404).json({
@@ -297,49 +288,67 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
 
       const now = new Date();
       const colaboradorNome = String(agente).trim();
-      
+      const tipoTrim = String(tipo || '').trim();
+      const pl = payload || {};
+      const origemStr = String(pl.origem || '').trim();
+
+      // Aba Liberação chave pix: somente hub_escalacoes.liberacao_pix_prod (não grava em solicitacoes_tecnicas)
+      if (tipoTrim === 'Exclusão de Chave PIX' && origemStr) {
+        const libCollection = db.collection('liberacao_pix_prod');
+        const libDoc = buildLiberacaoPixProdDoc({
+          colaboradorNome,
+          cpf: String(cpf).replace(/\D/g, ''),
+          origem: origemStr,
+          nomeCliente: pl.nomeCliente != null ? String(pl.nomeCliente) : '',
+          payloadForm: pl,
+          now,
+        });
+        const libRes = await libCollection.insertOne(libDoc);
+        const insertedDoc = await libCollection.findOne({ _id: libRes.insertedId });
+        console.log(`✅ liberacao_pix_prod criado: ${libRes.insertedId}`);
+
+        if (userActivityLogger) {
+          try {
+            await userActivityLogger.logActivity({
+              action: 'create_liberacao_pix_prod',
+              detail: {
+                liberacaoPixProdId: libRes.insertedId.toString(),
+                tipo: tipoTrim,
+                cpf: libDoc.cpf,
+                colaboradorNome,
+                origem: origemStr,
+              },
+            });
+          } catch (logErr) {
+            console.error('Erro ao registrar log:', logErr);
+          }
+        }
+
+        return res.status(201).json({
+          success: true,
+          data: insertedDoc,
+        });
+      }
+
       // Garantir que payload tenha agente dentro
       const payloadCompleto = {
         agente: colaboradorNome,
-        ...(payload || {})
+        ...(payload || {}),
       };
 
       const solicitacao = {
         colaboradorNome: colaboradorNome,
         cpf: String(cpf).replace(/\D/g, ''),
-        tipo: String(tipo).trim(),
+        tipo: tipoTrim,
         payload: payloadCompleto,
         reply: [{ status: 'enviado', msgProdutos: null, msgN1: null, at: now }],
         createdAt: now,
-        updatedAt: now
+        updatedAt: now,
       };
 
       const result = await collection.insertOne(solicitacao);
 
       console.log(`✅ Solicitação criada: ${result.insertedId}`);
-
-      // Espelho em liberacao_pix_prod quando fluxo «Liberação chave pix» (origem obrigatória no payload)
-      try {
-        const tipoTrim = String(tipo || '').trim();
-        const pl = payload || {};
-        const origemStr = String(pl.origem || '').trim();
-        if (tipoTrim === 'Exclusão de Chave PIX' && origemStr) {
-          const libCollection = db.collection('liberacao_pix_prod');
-          const libDoc = buildLiberacaoPixProdDoc({
-            solicitacaoTecnicaId: result.insertedId,
-            colaboradorNome,
-            cpf: solicitacao.cpf,
-            origem: origemStr,
-            nomeCliente: pl.nomeCliente != null ? String(pl.nomeCliente) : '',
-            payloadForm: pl,
-            now,
-          });
-          const libRes = await libCollection.insertOne(libDoc);
-          console.log(`✅ liberacao_pix_prod criado: ${libRes.insertedId} (solicitacaoTecnicaId: ${result.insertedId})`);
-        }
-      } catch (libErr) {
-        console.error('Erro ao inserir em liberacao_pix_prod (solicitação principal já gravada):', libErr.message);
-      }
 
       // Log de atividade
       if (userActivityLogger) {
@@ -350,8 +359,8 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
               solicitacaoId: result.insertedId.toString(),
               tipo,
               cpf: solicitacao.cpf,
-              colaboradorNome: colaboradorNome
-            }
+              colaboradorNome: colaboradorNome,
+            },
           });
         } catch (logErr) {
           console.error('Erro ao registrar log:', logErr);
@@ -362,8 +371,8 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
         success: true,
         data: {
           _id: result.insertedId,
-          ...solicitacao
-        }
+          ...solicitacao,
+        },
       });
     } catch (error) {
       console.error('❌ Erro ao criar solicitação:', error);
@@ -392,6 +401,7 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
       await connectToMongo();
       const db = client.db('hub_escalacoes');
       const collection = db.collection('solicitacoes_tecnicas');
+      const libCollection = db.collection('liberacao_pix_prod');
 
       const { ObjectId } = require('mongodb');
       const filter = {
@@ -409,7 +419,12 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
         $set: updateData
       };
 
-      const result = await collection.updateOne(filter, update);
+      let result = await collection.updateOne(filter, update);
+      let targetCol = collection;
+      if (result.matchedCount === 0) {
+        result = await libCollection.updateOne(filter, update);
+        targetCol = libCollection;
+      }
 
       if (result.matchedCount === 0) {
         return res.status(404).json({
@@ -422,7 +437,7 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
       console.log(`✅ Solicitação atualizada: ${req.params.id}`);
 
       // Buscar solicitação atualizada
-      const solicitacao = await collection.findOne(filter);
+      const solicitacao = await targetCol.findOne(filter);
 
       res.json({
         success: true,
@@ -455,13 +470,17 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
       await connectToMongo();
       const db = client.db('hub_escalacoes');
       const collection = db.collection('solicitacoes_tecnicas');
+      const libCollection = db.collection('liberacao_pix_prod');
 
       const { ObjectId } = require('mongodb');
       const filter = {
         _id: ObjectId.isValid(req.params.id) ? new ObjectId(req.params.id) : req.params.id
       };
 
-      const result = await collection.deleteOne(filter);
+      let result = await collection.deleteOne(filter);
+      if (result.deletedCount === 0) {
+        result = await libCollection.deleteOne(filter);
+      }
 
       if (result.deletedCount === 0) {
         return res.status(404).json({
@@ -744,15 +763,25 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
       await connectToMongo();
       const db = client.db('hub_escalacoes');
       const collection = db.collection('solicitacoes_tecnicas');
+      const libCollection = db.collection('liberacao_pix_prod');
       const { ObjectId } = require('mongodb');
       const filterId = ObjectId.isValid(id) ? new ObjectId(id) : id;
 
+      const findSolicitacaoOuLiberacao = async () => {
+        let doc = await collection.findOne({ _id: filterId });
+        if (doc) return { doc, col: collection };
+        doc = await libCollection.findOne({ _id: filterId });
+        if (doc) return { doc, col: libCollection };
+        return null;
+      };
+
       // Cancelar solicitação: novo item em reply (status Cancelado, mensagens null)
       if (body.cancelarSolicitacao === true || body.cancelarSolicitacao === 'true') {
-        const doc = await collection.findOne({ _id: filterId });
-        if (!doc) {
+        const found = await findSolicitacaoOuLiberacao();
+        if (!found) {
           return res.status(404).json({ ok: false, error: 'Solicitação não encontrada' });
         }
+        const { doc, col } = found;
         const replyArray = Array.isArray(doc.reply) ? [...doc.reply] : [];
         const cancelEntry = {
           status: 'Cancelado',
@@ -761,11 +790,10 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
           at: new Date()
         };
         replyArray.push(cancelEntry);
-        await collection.updateOne(
+        await col.updateOne(
           { _id: doc._id },
           { $set: { reply: replyArray, updatedAt: new Date() } }
         );
-        await syncReplyToLiberacaoPixProd(db, doc._id, replyArray);
         console.log(`[reply] 🛑 Solicitação cancelada em ${doc._id}`);
         return res.json({
           ok: true,
@@ -798,14 +826,14 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
         });
       }
 
-      const doc = await collection.findOne({ _id: filterId });
-
-      if (!doc) {
+      const found = await findSolicitacaoOuLiberacao();
+      if (!found) {
         return res.status(404).json({
           ok: false,
           error: 'Solicitação não encontrada'
         });
       }
+      const { doc, col } = found;
 
       // Normalizar array reply
       const replyArray = Array.isArray(doc.reply) ? doc.reply : [];
@@ -819,7 +847,7 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
 
       replyArray.push(newEntry);
 
-      await collection.updateOne(
+      await col.updateOne(
         { _id: doc._id },
         {
           $set: {
@@ -828,8 +856,6 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
           }
         }
       );
-
-      await syncReplyToLiberacaoPixProd(db, doc._id, replyArray);
 
       console.log(`[reply] ✅ Reply adicionado em ${doc._id}. Total: ${replyArray.length}`);
 

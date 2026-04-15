@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.15 | DATE: 2026-04-15 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.16 | DATE: 2026-04-15 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,23 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - WhatsApp removido do deploy; Liberação chave pix só em liberacao_pix_prod**
+- **Data/Hora**: 2026-04-15
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: app.yaml v1.2.5, cloudbuild v1.2.3, config v1.4.2, server v2.50.2, api-config v1.0.23, whatsappService v1.6.0, solicitacoes API v1.9.0, FormSolicitacao v1.20.2
+- **Arquivos Modificados**:
+  - `app.yaml`
+  - `cloudbuild.yaml`
+  - `backend/config.js`
+  - `backend/server.js`
+  - `backend/services/escalacoes/whatsappService.js`
+  - `backend/routes/api/escalacoes/solicitacoes.js`
+  - `src/config/api-config.js`
+  - `src/components/Escalacoes/FormSolicitacao.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Removidas variáveis e comentários de WhatsApp no deploy (`app.yaml`, `cloudbuild`, `config`); `whatsappService` sem chamadas HTTP; `api-config` sem exports WhatsApp. Aba Liberação chave pix: POST grava apenas em `liberacao_pix_prod` (sem `solicitacoes_tecnicas` nem `solicitacaoTecnicaId`); GET/PUT/DELETE/reply unificados com a coleção; lista mesclada no GET.
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - Req_Prod: Liberação chave PIX (aba, liberacao_pix_prod, porta dev 8090)**
 - **Data/Hora**: 2026-04-15
