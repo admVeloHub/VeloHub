@@ -1,6 +1,22 @@
 /**
  * Script de Migração: Ouvidoria 2025.csv → MongoDB reclamacoes_n2Pix
  * VERSION: v1.0.0 | DATE: 2026-02-24 | AUTHOR: VeloHub Development Team
+(function loadVelohubFonteEnv(here) {
+  const path = require('path');
+  const fs = require('fs');
+  let d = here;
+  for (let i = 0; i < 14; i++) {
+    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
+    if (fs.existsSync(loader)) {
+      require(loader).loadFrom(here);
+      return;
+    }
+    const parent = path.dirname(d);
+    if (parent === d) break;
+    d = parent;
+  }
+})(__dirname);
+
  * 
  * Processa Ouvidoria 2025.csv e insere na collection reclamacoes_n2Pix
  * Todos os registros são marcados como Finalizado.Resolvido = true
@@ -12,7 +28,6 @@
  *   - MONGO_ENV (MongoDB connection string)
  */
 
-require('dotenv').config();
 const { MongoClient } = require('mongodb');
 const path = require('path');
 const {

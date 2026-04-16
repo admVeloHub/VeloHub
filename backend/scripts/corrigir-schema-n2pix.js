@@ -1,6 +1,22 @@
 /**
  * Script de Correção: Alinhar reclamacoes_n2Pix ao schema LISTA_SCHEMAS.rb
  * VERSION: v1.0.0 | DATE: 2026-03-05 | AUTHOR: VeloHub Development Team
+(function loadVelohubFonteEnv(here) {
+  const path = require('path');
+  const fs = require('fs');
+  let d = here;
+  for (let i = 0; i < 14; i++) {
+    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
+    if (fs.existsSync(loader)) {
+      require(loader).loadFrom(here);
+      return;
+    }
+    const parent = path.dirname(d);
+    if (parent === d) break;
+    d = parent;
+  }
+})(__dirname);
+
  *
  * - Remove dataEntradaAtendimento (redundante com dataEntradaN2)
  * - Garante dataEntradaN2 preenchido (copia de dataEntradaAtendimento se necessário)
@@ -10,7 +26,6 @@
  *   node backend/scripts/corrigir-schema-n2pix.js [--dry-run]
  */
 
-require('dotenv').config();
 const { MongoClient } = require('mongodb');
 
 const MONGODB_URI = process.env.MONGO_ENV || 'mongodb+srv://REDACTED';

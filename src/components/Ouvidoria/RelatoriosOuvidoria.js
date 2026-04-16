@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - RelatoriosOuvidoria Component
- * VERSION: v2.14.0 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.15.0 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.15.0:
+ * - Export XLSX Reclamações: coluna Data Resolvido (Finalizado.dataResolucao via API dataResolucao)
  * 
  * Mudanças v2.14.0:
  * - MOTIVOS_CONHECIDOS_FRONTEND: Empréstimo pessoal → Empréstimo Pessoal (alinhado produto/form)
@@ -98,6 +101,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { relatoriosAPI } from '../../services/ouvidoriaApi';
+import { formatDateRegistro } from '../../utils/dateUtils';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 import {
@@ -1309,6 +1313,7 @@ const RelatoriosOuvidoria = () => {
           'Tipo': r.tipo || '-',
           'Status': r.status || '-',
           'Data Entrada': r.dataEntrada || '-',
+          'Data Resolvido': formatDateRegistro(r.dataResolucao, '-'),
           'Motivo': r.motivoReduzido || '-',
           'Responsável': r.responsavel || '-',
         }));

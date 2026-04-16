@@ -2,6 +2,22 @@
  * Script de Atualização: Base Reclame Aqui (XLSX) → MongoDB reclamacoes_reclameAqui
  * VERSION: v1.2.3 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
  * - motivoReduzido: utils/motivoReduzidoNormalize.js (renomeações + sentence case pt-BR)
+(function loadVelohubFonteEnv(here) {
+  const path = require('path');
+  const fs = require('fs');
+  let d = here;
+  for (let i = 0; i < 14; i++) {
+    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
+    if (fs.existsSync(loader)) {
+      require(loader).loadFrom(here);
+      return;
+    }
+    const parent = path.dirname(d);
+    if (parent === d) break;
+    d = parent;
+  }
+})(__dirname);
+
  *
  * Arquivo: dados procon/ATUALIZAÇÃO RA.xlsx
  * Planilha: primeira aba. Use --skip-header para ignorar a linha 1 (títulos: CPF, ID, Entrada, …).
@@ -29,7 +45,6 @@
  *   node backend/scripts/update-reclameaqui-from-excel.js [--skip-header] [--dry-run]
  */
 
-require('dotenv').config();
 const { MongoClient } = require('mongodb');
 const path = require('path');
 const XLSX = require('xlsx');

@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Relatórios
- * VERSION: v2.26.0 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.27.0 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v2.27.0:
+ * - GET relatório (lista reclamacoes): campo dataResolucao (YYYY-MM-DD) quando Finalizado.Resolvido, para exportação/planilha
  * 
  * Mudanças v2.26.0:
  * - MOTIVOS_CONHECIDOS e MOTIVOS_VALIDOS: Juros abusivos (form BACEN/RA)
@@ -179,6 +182,16 @@
 const express = require('express');
 const router = express.Router();
 const { ObjectId } = require('mongodb');
+
+/** YYYY-MM-DD ou null — Finalizado.dataResolucao quando Resolvido (leitura apenas). */
+function extrairDataResolucaoRelatorio(r) {
+  if (!r || r.Finalizado?.Resolvido !== true) return null;
+  const dr = r.Finalizado?.dataResolucao;
+  if (dr == null || dr === '') return null;
+  const s = dr instanceof Date ? dr.toISOString() : String(dr);
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : null;
+}
 
 /**
  * Lista de motivos conhecidos para dividir strings concatenadas
@@ -761,6 +774,7 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
           tipo: r.tipo,
           status: r.Finalizado?.Resolvido === true ? 'Resolvido' : 'Em Andamento',
           dataEntrada: (r.tipo === 'OUVIDORIA' || r.tipo === 'N2' || r.tipo === 'N2 Pix') ? r.dataEntradaN2 : (r.tipo === 'RECLAME AQUI' ? r.dataReclam : r.tipo === 'PROCON' ? r.dataProcon : r.dataEntrada),
+          dataResolucao: extrairDataResolucaoRelatorio(r),
           motivoReduzido: r.motivoReduzido,
           responsavel: r.responsavel,
           createdAt: r.createdAt,

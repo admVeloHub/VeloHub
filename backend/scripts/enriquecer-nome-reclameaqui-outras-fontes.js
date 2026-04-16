@@ -1,6 +1,22 @@
 /**
  * Enriquecer campo nome em reclamacoes_reclameAqui a partir de outras collections (mesmo CPF)
  * VERSION: v1.0.0 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+(function loadVelohubFonteEnv(here) {
+  const path = require('path');
+  const fs = require('fs');
+  let d = here;
+  for (let i = 0; i < 14; i++) {
+    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
+    if (fs.existsSync(loader)) {
+      require(loader).loadFrom(here);
+      return;
+    }
+    const parent = path.dirname(d);
+    if (parent === d) break;
+    d = parent;
+  }
+})(__dirname);
+
  *
  * Contexto: import só com planilha (sem coluna nome) deixa nome vazio. Este script cruza CPF com:
  * reclamacoes_bacen, reclamacoes_n2Pix, reclamacoes_procon, reclamacoes_judicial.
@@ -16,7 +32,6 @@
  * --overwrite: também reescreve registros que já têm nome (útil após correção das fontes)
  */
 
-require('dotenv').config();
 const { MongoClient } = require('mongodb');
 
 const MONGODB_URI = process.env.MONGO_ENV || 'mongodb+srv://REDACTED';

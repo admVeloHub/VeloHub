@@ -1,6 +1,22 @@
 /**
  * Script de Migração: Converter campos de data STRING → Date
  * VERSION: v1.1.0 | DATE: 2026-03-05 | AUTHOR: VeloHub Development Team
+(function loadVelohubFonteEnv(here) {
+  const path = require('path');
+  const fs = require('fs');
+  let d = here;
+  for (let i = 0; i < 14; i++) {
+    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
+    if (fs.existsSync(loader)) {
+      require(loader).loadFrom(here);
+      return;
+    }
+    const parent = path.dirname(d);
+    if (parent === d) break;
+    d = parent;
+  }
+})(__dirname);
+
  *
  * Mudanças v1.1.0:
  * - reclamacoes_n2Pix: removidos dataEntrada e dataEntradaAtendimento (schema: apenas dataEntradaN2)
@@ -12,7 +28,6 @@
  *   node backend/scripts/normalizar-datas-string-para-date.js [--dry-run]
  */
 
-require('dotenv').config();
 const { MongoClient } = require('mongodb');
 
 const MONGODB_URI = process.env.MONGO_ENV || 'mongodb+srv://REDACTED';

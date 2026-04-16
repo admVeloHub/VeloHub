@@ -1,12 +1,27 @@
 /**
  * Limpeza: hub_escalacoes.erros_bugs
  * Apaga registros com createdAt anterior a 15/03/2026
+(function loadVelohubFonteEnv(here) {
+  const path = require('path');
+  const fs = require('fs');
+  let d = here;
+  for (let i = 0; i < 14; i++) {
+    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
+    if (fs.existsSync(loader)) {
+      require(loader).loadFrom(here);
+      return;
+    }
+    const parent = path.dirname(d);
+    if (parent === d) break;
+    d = parent;
+  }
+})(__dirname);
+
  * 
  * Uso:
  *   node backend/scripts/limpar-erros-bugs-antigos.js [--dry-run]
  */
 
-require('dotenv').config();
 const { MongoClient } = require('mongodb');
 
 const MONGODB_URI = process.env.MONGO_ENV || process.env.MONGODB_URI || 'mongodb+srv://REDACTED';

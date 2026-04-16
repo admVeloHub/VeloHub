@@ -1,6 +1,14 @@
 /**
  * VeloHub V3 - EscalacoesPage (Escalações Module)
- * VERSION: v1.17.1 | DATE: 2026-04-15 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.18.1 | DATE: 2026-04-16 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.18.1:
+ * - Sidebar e busca CPF da aba Solicitações: só `solicitacoes_tecnicas` (exclui entradas mescladas de `liberacao_pix_prod` no GET /solicitacoes)
+ * - FormSolicitacao (aba Solicitações): reconcile/cache contra lista já filtrada
+ * 
+ * Mudanças v1.18.0:
+ * - Aba Liberação chave pix: sidebar «Busca e acompanhamento» + modais (paridade Solicitações; lista filtrada liberacao_pix_prod / origem)
+ * - GET /solicitacoes e intervalo de refresh também na aba Liberação chave pix; logs locais separados no filho (`velotax_local_logs_chave_pix`)
  * 
  * Mudanças v1.17.1:
  * - Aba Liberação chave pix: card em largura total (removido max-w-4xl mx-auto), alinhado às demais abas
@@ -212,6 +220,21 @@ import {
 } from '../utils/escalacoesModalHelpers';
 
 /**
+ * Documento da coleção `liberacao_pix_prod` no payload mesclado de GET /escalacoes/solicitacoes
+ * (tipo Exclusão de Chave PIX + `origem` no root ou em `payload`).
+ * @param {Object|null|undefined} r
+ * @returns {boolean}
+ */
+function isDocLiberacaoChavePixAba(r) {
+  if (!r) return false;
+  if (String(r.tipo || '').trim() !== 'Exclusão de Chave PIX') return false;
+  const oTop = String(r.origem || '').trim();
+  const pl = r.payload;
+  const oPayload = pl && typeof pl === 'object' ? String(pl.origem || '').trim() : '';
+  return Boolean(oTop || oPayload);
+}
+
+/**
  * Componente Calculadora de Restituição
  * Calcula os valores dos lotes de restituição com acréscimos
  */
@@ -343,10 +366,19 @@ const EscalacoesPage = () => {
   const [requestsRaw, setRequestsRaw] = useState([]);
   const [selectedAgent, setSelectedAgent] = useState('');
   const [sidebarLocalLogs, setSidebarLocalLogs] = useState([]);
+  /** Cache local só da aba Liberação chave pix (FormSolicitacao persiste em `velotax_local_logs_chave_pix`) */
+  const [sidebarLocalLogsPix, setSidebarLocalLogsPix] = useState([]);
   const formSolicitacaoRef = useRef(null);
+  const formLiberacaoPixRef = useRef(null);
   /** Altura do card principal (aba Solicitações) para igualar base da sidebar sem flex stretch */
   const solicitacoesMainCardRef = useRef(null);
+  const liberacaoPixMainCardRef = useRef(null);
   const [solicitacoesSidebarHeightPx, setSolicitacoesSidebarHeightPx] = useState(null);
+  const [liberacaoPixSidebarHeightPx, setLiberacaoPixSidebarHeightPx] = useState(null);
+  const [searchCpfPix, setSearchCpfPix] = useState('');
+  const [searchLoadingPix, setSearchLoadingPix] = useState(false);
+  const [searchResultsPix, setSearchResultsPix] = useState([]);
+  const [searchCpfErrorPix, setSearchCpfErrorPix] = useState('');
   const prevRequestsRef = useRef([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [backendUrl, setBackendUrl] = useState('');
@@ -379,6 +411,29 @@ const EscalacoesPage = () => {
     const sync = () => {
       const h = el.offsetHeight;
       if (h > 0) setSolicitacoesSidebarHeightPx(h);
+    };
+    sync();
+    const ro = new ResizeObserver(() => {
+      sync();
+    });
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+    };
+  }, [activeTab]);
+
+  useLayoutEffect(() => {
+    if (activeTab !== 'liberacao-chave-pix') {
+      setLiberacaoPixSidebarHeightPx(null);
+      return;
+    }
+    const el = liberacaoPixMainCardRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    const sync = () => {
+      const h = el.offsetHeight;
+      if (h > 0) setLiberacaoPixSidebarHeightPx(h);
     };
     sync();
     const ro = new ResizeObserver(() => {
@@ -440,6 +495,9 @@ const EscalacoesPage = () => {
         // Recarregar busca se houver CPF pesquisado
         if (searchCpf) {
           buscarCpf();
+        }
+        if (searchCpfPix) {
+          buscarCpfPix();
         }
       } else {
         throw new Error(result?.error || 'Erro ao confirmar resposta');
@@ -717,12 +775,12 @@ const EscalacoesPage = () => {
   const norm = (s = '') => String(s).toLowerCase().trim().replace(/\s+/g, ' ');
 
   /**
-   * Cards do log na sidebar: base = tudo que já veio do servidor (mesmo filtro do contador), ordenado por data;
+   * Cards do log na sidebar: base = só `solicitacoes_tecnicas` (GET mesclado exclui liberacao_pix_prod), ordenado por data;
    * acrescenta só itens do cache local cujo requestId ainda não está nessa lista (ex.: envio recém-criado antes do próximo loadStats).
    * Nunca substituir o histórico completo do GET por só o que couber no localStorage.
    */
   const solicitacoesSidebarDisplayLogs = useMemo(() => {
-    const arr = Array.isArray(requestsRaw) ? requestsRaw : [];
+    const arr = (Array.isArray(requestsRaw) ? requestsRaw : []).filter((r) => !isDocLiberacaoChavePixAba(r));
     const base = selectedAgent
       ? arr.filter((r) => norm(r?.colaboradorNome || r?.agente || '') === norm(selectedAgent))
       : arr;
@@ -747,6 +805,9 @@ const EscalacoesPage = () => {
     );
     const extras = [];
     for (const l of Array.isArray(sidebarLocalLogs) ? sidebarLocalLogs : []) {
+      if (String(l?.tipo || '') === 'Exclusão de Chave PIX' && String(l?.origem || '').trim()) {
+        continue;
+      }
       const rid = normalizeMongoId(l?.requestId);
       if (rid && /^[a-f0-9]{24}$/.test(rid)) {
         if (seen.has(rid)) continue;
@@ -762,6 +823,76 @@ const EscalacoesPage = () => {
     });
     return merged.slice(0, 100);
   }, [sidebarLocalLogs, requestsRaw, selectedAgent]);
+
+  /** Lista GET /solicitacoes sem documentos de `liberacao_pix_prod` (reconcile do Form Solicitações). */
+  const solicitacoesTecnicasServerListOnly = useMemo(
+    () => (Array.isArray(requestsRaw) ? requestsRaw : []).filter((r) => !isDocLiberacaoChavePixAba(r)),
+    [requestsRaw]
+  );
+
+  const liberacaoPixSidebarDisplayLogs = useMemo(() => {
+    const arr = Array.isArray(requestsRaw) ? requestsRaw : [];
+    const onlyPix = arr.filter(isDocLiberacaoChavePixAba);
+    const base = selectedAgent
+      ? onlyPix.filter((r) => norm(r?.colaboradorNome || r?.agente || '') === norm(selectedAgent))
+      : onlyPix;
+    const sortedServer = [...base].sort((a, b) => {
+      const ta = new Date(a?.createdAt || 0).getTime();
+      const tb = new Date(b?.createdAt || 0).getTime();
+      return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+    });
+    const fromServer = sortedServer.slice(0, 100).map((r) => ({
+      requestId: normalizeMongoId(r._id ?? r.id) || undefined,
+      cpf: String(r.cpf || '').replace(/\D/g, ''),
+      tipo: r.tipo,
+      origem: String(r.origem || r?.payload?.origem || '').trim() || undefined,
+      status: getStatusChamado(r),
+      createdAt: r.createdAt,
+      reply: Array.isArray(r.reply) ? r.reply : undefined,
+      enviado: true,
+    }));
+    const seen = new Set(
+      fromServer
+        .map((x) => normalizeMongoId(x.requestId))
+        .filter((id) => /^[a-f0-9]{24}$/.test(id))
+    );
+    const extras = [];
+    for (const l of Array.isArray(sidebarLocalLogsPix) ? sidebarLocalLogsPix : []) {
+      const isPixCache =
+        String(l?.tipo || '') === 'Exclusão de Chave PIX' && String(l?.origem || '').trim();
+      if (!isPixCache) continue;
+      const rid = normalizeMongoId(l?.requestId);
+      if (rid && /^[a-f0-9]{24}$/.test(rid)) {
+        if (seen.has(rid)) continue;
+        seen.add(rid);
+      }
+      extras.push(l);
+    }
+    const merged = [...fromServer, ...extras];
+    merged.sort((a, b) => {
+      const ta = new Date(a?.createdAt || 0).getTime();
+      const tb = new Date(b?.createdAt || 0).getTime();
+      return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+    });
+    return merged.slice(0, 100);
+  }, [sidebarLocalLogsPix, requestsRaw, selectedAgent]);
+
+  const liberacaoPixStats = useMemo(() => {
+    const arr = Array.isArray(requestsRaw) ? requestsRaw : [];
+    const onlyPix = arr.filter(isDocLiberacaoChavePixAba);
+    const base = selectedAgent
+      ? onlyPix.filter((r) => norm(r?.colaboradorNome || r?.agente || '') === norm(selectedAgent))
+      : onlyPix;
+    const todayStr = new Date().toDateString();
+    const today = base.filter(
+      (r) => new Date(r?.createdAt || 0).toDateString() === todayStr
+    ).length;
+    const done = base.filter(
+      (r) => String(getStatusChamado(r) || '').toLowerCase() === 'feito'
+    ).length;
+    const pending = base.length - done;
+    return { today, pending, done };
+  }, [requestsRaw, selectedAgent]);
 
   /**
    * Registrar log local
@@ -801,7 +932,7 @@ const EscalacoesPage = () => {
   }, []);
 
   useEffect(() => {
-    if (activeTab !== 'solicitacoes') return undefined;
+    if (activeTab !== 'solicitacoes' && activeTab !== 'liberacao-chave-pix') return undefined;
     loadStats();
     const refreshInterval = setInterval(loadStats, 3 * 60 * 1000);
     return () => clearInterval(refreshInterval);
@@ -956,9 +1087,9 @@ const EscalacoesPage = () => {
     };
   }, [backendUrl, myAgent]);
 
-  // Calcular estatísticas baseadas nas solicitações
+  // Calcular estatísticas baseadas nas solicitações (só solicitacoes_tecnicas — sem liberacao_pix_prod mesclado)
   useEffect(() => {
-    const arr = Array.isArray(requestsRaw) ? requestsRaw : [];
+    const arr = (Array.isArray(requestsRaw) ? requestsRaw : []).filter((r) => !isDocLiberacaoChavePixAba(r));
     const base = selectedAgent
       ? arr.filter((r) => norm(r?.colaboradorNome || r?.agente || '') === norm(selectedAgent))
       : arr;
@@ -1103,12 +1234,41 @@ const EscalacoesPage = () => {
     setSearchLoading(true);
     try {
       const result = await solicitacoesAPI.getByCpf(digits);
-      setSearchResults(Array.isArray(result.data) ? result.data : []);
+      const list = Array.isArray(result.data) ? result.data : [];
+      setSearchResults(list.filter((r) => !isDocLiberacaoChavePixAba(r)));
     } catch (err) {
       console.error('Erro ao buscar CPF:', err);
       setSearchResults([]);
     }
     setSearchLoading(false);
+  };
+
+  /**
+   * Buscar por CPF apenas chamados Liberação chave pix (coleção liberacao_pix_prod / origem).
+   */
+  const buscarCpfPix = async () => {
+    const digits = String(searchCpfPix || '').replace(/\D/g, '');
+    if (!digits) {
+      setSearchResultsPix([]);
+      setSearchCpfErrorPix('CPF inválido. Digite os 11 dígitos.');
+      return;
+    }
+    if (digits.length !== 11) {
+      setSearchResultsPix([]);
+      setSearchCpfErrorPix('CPF inválido. Digite os 11 dígitos.');
+      return;
+    }
+    setSearchCpfErrorPix('');
+    setSearchLoadingPix(true);
+    try {
+      const result = await solicitacoesAPI.getByCpf(digits);
+      const list = Array.isArray(result.data) ? result.data : [];
+      setSearchResultsPix(list.filter(isDocLiberacaoChavePixAba));
+    } catch (err) {
+      console.error('Erro ao buscar CPF (Liberação chave pix):', err);
+      setSearchResultsPix([]);
+    }
+    setSearchLoadingPix(false);
   };
 
   const mergeSolicitacaoDocIntoCaches = useCallback((doc) => {
@@ -1125,6 +1285,7 @@ const EscalacoesPage = () => {
     };
     setRequestsRaw((prev) => patch(prev));
     setSearchResults((prev) => patch(prev));
+    setSearchResultsPix((prev) => patch(prev));
   }, []);
 
   const atualizarSolicitacaoNoModal = async (solicitacaoId) => {
@@ -1164,6 +1325,7 @@ const EscalacoesPage = () => {
       toast.success('Resposta N1 registrada.');
       await loadStats();
       if (searchCpf) await buscarCpf();
+      if (searchCpfPix) await buscarCpfPix();
     } catch (err) {
       console.error('[EscalacoesPage] handleModalSalvarRespostaN1:', err);
       toast.error(err.message || 'Erro ao salvar resposta');
@@ -1186,6 +1348,7 @@ const EscalacoesPage = () => {
       toast.success('Solicitação cancelada.');
       await loadStats();
       if (searchCpf) await buscarCpf();
+      if (searchCpfPix) await buscarCpfPix();
     } catch (err) {
       console.error('[EscalacoesPage] handleModalCancelarSolicitacao:', err);
       toast.error(err.message || 'Erro ao cancelar solicitação');
@@ -1375,7 +1538,7 @@ const EscalacoesPage = () => {
               ref={formSolicitacaoRef}
               registrarLog={registrarLog}
               onLocalLogsChange={setSidebarLocalLogs}
-              solicitacoesServerList={requestsRaw}
+              solicitacoesServerList={solicitacoesTecnicasServerListOnly}
               solicitacoesStatsLoading={statsLoading}
               onRefreshSolicitacoesForLogs={loadStats}
             />
@@ -1725,15 +1888,462 @@ const EscalacoesPage = () => {
             )}
 
             {activeTab === 'liberacao-chave-pix' && hasChavePix === true && (
-              <div className="flex-1 min-w-0 bg-white dark:bg-gray-800 rounded-2xl shadow-lg pt-6 px-6 pb-4 hover:-translate-y-0.5 transition-transform">
-                <FormSolicitacao
-                  liberacaoChavePixTab
-                  registrarLog={registrarLog}
-                  onLocalLogsChange={setSidebarLocalLogs}
-                  solicitacoesServerList={requestsRaw}
-                  solicitacoesStatsLoading={statsLoading}
-                  onRefreshSolicitacoesForLogs={loadStats}
-                />
+              <div className="flex gap-8 items-start">
+                <div
+                  ref={liberacaoPixMainCardRef}
+                  className="flex-1 min-w-0 bg-white dark:bg-gray-800 rounded-2xl shadow-lg pt-6 px-6 pb-4 hover:-translate-y-0.5 transition-transform"
+                >
+                  <div className="mb-6 flex items-center justify-between gap-3 relative">
+                    <div
+                      className="grid grid-cols-3 gap-3 w-full max-w-xl"
+                      aria-busy={statsLoading}
+                      aria-live="polite"
+                    >
+                      <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl text-center border" style={{ borderColor: '#000058' }}>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">Hoje</div>
+                        <div className="text-2xl font-semibold text-gray-800 dark:text-gray-200">
+                          {statsLoading ? (
+                            <span className="inline-block h-6 w-16 bg-gray-200 dark:bg-gray-600 rounded animate-pulse" />
+                          ) : (
+                            liberacaoPixStats.today
+                          )}
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl text-center border" style={{ borderColor: '#000058' }}>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">Pendentes</div>
+                        <div className="text-2xl font-semibold text-gray-800 dark:text-gray-200">
+                          {statsLoading ? (
+                            <span className="inline-block h-6 w-16 bg-gray-200 dark:bg-gray-600 rounded animate-pulse" />
+                          ) : (
+                            liberacaoPixStats.pending
+                          )}
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl text-center border" style={{ borderColor: '#000058' }}>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">Feitas</div>
+                        <div className="text-2xl font-semibold text-gray-800 dark:text-gray-200">
+                          {statsLoading ? (
+                            <span className="inline-block h-6 w-16 bg-gray-200 dark:bg-gray-600 rounded animate-pulse" />
+                          ) : (
+                            liberacaoPixStats.done
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-[11px] text-gray-600 dark:text-gray-400 min-w-[120px] text-right">
+                        {lastUpdated
+                          ? `Atualizado às ${new Date(lastUpdated).toLocaleTimeString()}`
+                          : ''}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={loadStats}
+                        disabled={statsLoading}
+                        className="text-sm px-3 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700"
+                        style={{
+                          borderColor: '#006AB9',
+                          color: '#006AB9',
+                          background: 'transparent',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!statsLoading) {
+                            e.target.style.background = 'linear-gradient(135deg, #006AB9 0%, #006AB9 100%)';
+                            e.target.style.color = '#F3F7FC';
+                            e.target.style.borderColor = '#006AB9';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!statsLoading) {
+                            e.target.style.background = 'transparent';
+                            e.target.style.color = '#006AB9';
+                            e.target.style.borderColor = '#006AB9';
+                          }
+                        }}
+                      >
+                        {statsLoading ? (
+                          <svg
+                            className="animate-spin h-4 w-4"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            />
+                          </svg>
+                        ) : (
+                          'Atualizar agora'
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  <FormSolicitacao
+                    ref={formLiberacaoPixRef}
+                    liberacaoChavePixTab
+                    registrarLog={registrarLog}
+                    onLocalLogsChange={setSidebarLocalLogsPix}
+                    solicitacoesServerList={requestsRaw}
+                    solicitacoesStatsLoading={statsLoading}
+                    onRefreshSolicitacoesForLogs={loadStats}
+                  />
+                </div>
+
+                <div
+                  className="w-[400px] flex-shrink-0 self-start flex flex-col min-h-0 rounded-2xl hover:-translate-y-0.5 transition-transform"
+                  style={{
+                    ...(liberacaoPixSidebarHeightPx != null && liberacaoPixSidebarHeightPx > 0
+                      ? { height: liberacaoPixSidebarHeightPx }
+                      : {}),
+                  }}
+                  aria-label="Busca e acompanhamento — Liberação chave pix"
+                >
+                  <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-white dark:bg-gray-800 shadow-lg p-4 rounded-2xl">
+                    <div className="flex items-center gap-2 mb-2 flex-shrink-0">
+                      <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-sky-500 to-emerald-500 flex-shrink-0" />
+                      <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 leading-tight">
+                        Busca e acompanhamento
+                      </h2>
+                    </div>
+
+                    <div
+                      className="flex flex-col gap-2 flex-shrink-0"
+                      aria-busy={searchLoadingPix}
+                      aria-live="polite"
+                    >
+                      <div className="flex flex-wrap gap-2 items-stretch">
+                        <input
+                          className="min-w-0 flex-1 basis-[160px] border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                          placeholder="Digite o CPF"
+                          aria-label="CPF para busca — Liberação chave pix"
+                          value={searchCpfPix}
+                          onChange={(e) => {
+                            setSearchCpfPix(e.target.value);
+                            if (searchCpfErrorPix) setSearchCpfErrorPix('');
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              buscarCpfPix();
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={buscarCpfPix}
+                          className="bg-blue-600 text-white px-3 py-2 rounded-lg inline-flex items-center justify-center gap-2 transition-all duration-200 hover:bg-blue-700 flex-shrink-0"
+                          disabled={searchLoadingPix}
+                        >
+                          {searchLoadingPix ? (
+                            <>
+                              <svg
+                                className="animate-spin h-4 w-4"
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                              >
+                                <circle
+                                  className="opacity-25"
+                                  cx="12"
+                                  cy="12"
+                                  r="10"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                />
+                                <path
+                                  className="opacity-75"
+                                  fill="currentColor"
+                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                />
+                              </svg>
+                              Buscando...
+                            </>
+                          ) : (
+                            'Buscar'
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => formLiberacaoPixRef.current?.refreshLocalLogs?.()}
+                          className="text-xs px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700/90 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 flex-shrink-0"
+                        >
+                          Atualizar
+                        </button>
+                      </div>
+                      {searchCpfErrorPix && (
+                        <div className="text-xs text-red-600">{searchCpfErrorPix}</div>
+                      )}
+                    </div>
+
+                    <div
+                      className="mt-2 flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1 space-y-2"
+                      data-prod-read-epoch={prodReadEpoch}
+                    >
+                      {searchCpfPix && (
+                        <div className="text-sm text-gray-600 dark:text-gray-400 sticky top-0 bg-white dark:bg-gray-800 py-1 z-[1]">
+                          {searchResultsPix.length} registro(s) nesta busca
+                        </div>
+                      )}
+                      {searchLoadingPix && (
+                        <div className="space-y-2">
+                          {[...Array(4)].map((_, i) => (
+                            <div
+                              key={i}
+                              className="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 flex items-center justify-between animate-pulse"
+                            >
+                              <div>
+                                <div className="h-4 w-40 bg-gray-200 dark:bg-gray-600 rounded mb-1" />
+                                <div className="h-3 w-32 bg-gray-200 dark:bg-gray-600 rounded" />
+                              </div>
+                              <div className="h-3 w-24 bg-gray-200 dark:bg-gray-600 rounded" />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {searchResultsPix && searchResultsPix.length > 0 && !searchLoadingPix && (
+                        <div className="space-y-2">
+                          {searchResultsPix.map((r) => {
+                            const imgCount = Array.isArray(r?.payload?.previews)
+                              ? r.payload.previews.length
+                              : Array.isArray(r?.payload?.imagens)
+                              ? r.payload.imagens.length
+                              : 0;
+                            const videoCount = Array.isArray(r?.payload?.videos)
+                              ? r.payload.videos.length
+                              : 0;
+                            const total = imgCount + videoCount;
+                            const replyArr = Array.isArray(r.reply) ? r.reply : [];
+                            const repliesList = Array.isArray(r.replies) ? r.replies : [];
+                            const totalReplies = replyArr.length + repliesList.length;
+                            const requestId = r._id || r.id;
+                            const buscaCancelada = getStatusChamado(r) === 'Cancelado';
+                            const strikeCancel = buscaCancelada
+                              ? 'line-through decoration-gray-500 dark:decoration-gray-400'
+                              : '';
+                            const buscaCardProdUnread =
+                              requestId != null &&
+                              requestId !== '' &&
+                              hasUnreadProdutosInReplies(
+                                String(requestId),
+                                r.reply,
+                                STORAGE_PROD_READ_SOLICITACOES
+                              );
+                            const handleCardClick = (e) => {
+                              if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                                return;
+                              }
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setSelectedRepliesRequest(r);
+                            };
+                            const buscaCardBody = (
+                              <div
+                                role="button"
+                                tabIndex={0}
+                                onClick={handleCardClick}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    handleCardClick(e);
+                                  }
+                                }}
+                                className={`p-3 bg-gray-50 dark:bg-gray-700 cursor-pointer transition-colors ${
+                                  buscaCardProdUnread
+                                    ? 'rounded-[12px] border border-transparent hover:border-blue-300 dark:hover:border-blue-500'
+                                    : 'rounded border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                                }`}
+                                aria-label={
+                                  buscaCardProdUnread
+                                    ? 'Há mensagem do time Produtos não lida neste chamado'
+                                    : undefined
+                                }
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+                                    <div>
+                                      <div className="font-medium flex items-center gap-2 flex-wrap text-gray-800 dark:text-gray-200 text-sm">
+                                        <span>
+                                          <span className={strikeCancel}>{r.tipo}</span>
+                                          <span className="mx-0.5">—</span>
+                                          <span className={strikeCancel}>{r.cpf}</span>
+                                        </span>
+                                        {String(r.origem || r?.payload?.origem || '').trim() ? (
+                                          <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                                            ({String(r.origem || r?.payload?.origem || '').trim()})
+                                          </span>
+                                        ) : null}
+                                        {total > 0 && (
+                                          <span className="px-2 py-0.5 rounded-full bg-fuchsia-100 dark:bg-fuchsia-900 text-fuchsia-800 dark:text-fuchsia-200 text-xs">
+                                            Anexos:{' '}
+                                            {imgCount > 0 ? `${imgCount} img` : ''}
+                                            {imgCount > 0 && videoCount > 0 ? ' + ' : ''}
+                                            {videoCount > 0 ? `${videoCount} vid` : ''}
+                                          </span>
+                                        )}
+                                        {totalReplies > 0 && (
+                                          <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                                            {totalReplies} resposta{totalReplies !== 1 ? 's' : ''}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="text-xs text-gray-600 dark:text-gray-400">
+                                        Agente: {r.colaboradorNome || r.agente || '—'} • Status:{' '}
+                                        {getStatusChamado(r)}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-gray-600 dark:text-gray-400">
+                                    {new Date(r.createdAt).toLocaleString()}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                            return (
+                              <div key={`cpf-pix-${requestId}`} className="shrink-0">
+                                {buscaCardProdUnread ? (
+                                  <div
+                                    className="p-[2px] rounded-[14px]"
+                                    style={{
+                                      background:
+                                        'linear-gradient(135deg, #006AB9 0%, #FACC15 42%, #1D4ED8 100%)',
+                                    }}
+                                  >
+                                    {buscaCardBody}
+                                  </div>
+                                ) : (
+                                  buscaCardBody
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {liberacaoPixSidebarDisplayLogs && liberacaoPixSidebarDisplayLogs.length > 0 && (
+                        <div className="space-y-2">
+                          {liberacaoPixSidebarDisplayLogs.map((l, idx) => {
+                            const s = String(l.status || '').toLowerCase();
+                            const isCanceladoLog = getStatusChamado(l) === 'Cancelado';
+                            const strikeLogCancel = isCanceladoLog
+                              ? 'line-through decoration-gray-500 dark:decoration-gray-400'
+                              : '';
+                            const isDoneFail = s === 'não feito' || s === 'nao feito';
+                            const isDoneOk = s === 'feito';
+                            const sentOnly =
+                              !isDoneOk && !isDoneFail && (s === 'enviado' || l.enviado === true);
+                            const bar1 =
+                              sentOnly || isDoneOk || isDoneFail ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600';
+                            const bar2 = isDoneOk
+                              ? 'bg-emerald-500'
+                              : isDoneFail
+                                ? 'bg-red-500'
+                                : 'bg-gray-300 dark:bg-gray-600';
+                            const icon = isDoneOk ? '✅' : isDoneFail ? '❌' : sentOnly ? '📨' : '⏳';
+                            const logKey = l.requestId || l.waMessageId || `log-pix-${idx}-${String(l.createdAt)}`;
+                            const logCardProdUnread =
+                              l?.requestId &&
+                              hasUnreadProdutosInReplies(
+                                String(l.requestId),
+                                l.reply,
+                                STORAGE_PROD_READ_SOLICITACOES
+                              );
+                            const open = (e) => {
+                              if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+                              e.preventDefault();
+                              abrirModalDesdeLogLocal(l);
+                            };
+                            const logCardBody = (
+                              <div
+                                role="button"
+                                tabIndex={0}
+                                onClick={open}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    open(e);
+                                  }
+                                }}
+                                className={`p-3 bg-gray-50 dark:bg-gray-700 cursor-pointer transition-colors ${
+                                  logCardProdUnread
+                                    ? 'rounded-[12px] border border-transparent hover:border-blue-300 dark:hover:border-blue-500'
+                                    : 'rounded border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500'
+                                }`}
+                                aria-label={
+                                  logCardProdUnread
+                                    ? 'Há mensagem do time Produtos não lida neste chamado'
+                                    : undefined
+                                }
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-xl flex-shrink-0">{icon}</span>
+                                    <span className="text-sm text-gray-800 dark:text-gray-200 truncate">
+                                      <span className={strikeLogCancel}>{l.cpf}</span>
+                                      <span className="mx-0.5">—</span>
+                                      <span className={strikeLogCancel}>{l.tipo}</span>
+                                      {String(l.origem || '').trim() ? (
+                                        <span className="text-[11px] text-gray-500 dark:text-gray-400 ml-1">
+                                          ({String(l.origem || '').trim()})
+                                        </span>
+                                      ) : null}
+                                    </span>
+                                  </div>
+                                  <div className="text-[10px] text-gray-600 dark:text-gray-400 flex-shrink-0 text-right">
+                                    {l.createdAt ? new Date(l.createdAt).toLocaleString() : '—'}
+                                  </div>
+                                </div>
+                                <div
+                                  className="mt-2 flex items-center gap-1.5"
+                                  aria-label={`progresso: ${s || 'em aberto'}`}
+                                >
+                                  <span className={`h-1.5 w-8 rounded-full ${bar1}`} />
+                                  <span className={`h-1.5 w-8 rounded-full ${bar2}`} />
+                                  <span className="text-[11px] opacity-60 ml-2 text-gray-600 dark:text-gray-400">
+                                    {s || 'em aberto'}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                            return (
+                              <div key={`envio-pix-${logKey}`} className="shrink-0">
+                                {logCardProdUnread ? (
+                                  <div
+                                    className="p-[2px] rounded-[14px]"
+                                    style={{
+                                      background:
+                                        'linear-gradient(135deg, #006AB9 0%, #FACC15 42%, #1D4ED8 100%)',
+                                    }}
+                                  >
+                                    {logCardBody}
+                                  </div>
+                                ) : (
+                                  logCardBody
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {!searchLoadingPix &&
+                        (!searchResultsPix || searchResultsPix.length === 0) &&
+                        (!liberacaoPixSidebarDisplayLogs || liberacaoPixSidebarDisplayLogs.length === 0) &&
+                        !String(searchCpfPix || '').trim() && (
+                          <div className="text-sm text-gray-600 dark:text-gray-400 py-8 text-center">
+                            Busque por CPF ou envie um pedido de liberação; os itens aparecem aqui.
+                          </div>
+                        )}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -2025,6 +2635,7 @@ const EscalacoesPage = () => {
                                       });
                                       // Recarregar dados
                                       buscarCpf();
+                                      if (searchCpfPix) buscarCpfPix();
                                       loadStats();
                                     }).catch(() => {
                                       toast.error('Falha ao confirmar');

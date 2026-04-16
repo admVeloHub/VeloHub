@@ -1,12 +1,27 @@
 /**
  * Script de Verificação: Estrutura de motivoReduzido nas collections
  * VERSION: v1.0.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+(function loadVelohubFonteEnv(here) {
+  const path = require('path');
+  const fs = require('fs');
+  let d = here;
+  for (let i = 0; i < 14; i++) {
+    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
+    if (fs.existsSync(loader)) {
+      require(loader).loadFrom(here);
+      return;
+    }
+    const parent = path.dirname(d);
+    if (parent === d) break;
+    d = parent;
+  }
+})(__dirname);
+
  * 
  * Verifica como motivoReduzido está armazenado nas collections BACEN e N2Pix
  * para entender se há strings concatenadas ou arrays
  */
 
-require('dotenv').config();
 const { MongoClient } = require('mongodb');
 
 const MONGODB_URI = process.env.MONGO_ENV || 'mongodb+srv://REDACTED';

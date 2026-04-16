@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - ErrosBugsTab Component
- * VERSION: v1.29.3 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.29.4 | DATE: 2026-04-16 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.29.4:
+ * - Sidebar «Busca e acompanhamento», busca CPF, stats e cache: só documentos da coleção erros_bugs (`tipo` prefixo «Erro/Bug»)
  * 
  * Mudanças v1.29.3:
  * - Após cancelar ou salvar N1 no modal: mescla GET por id em errosBugsRaw/searchResults para o card mostrar Cancelado (paridade Solicitações + getStatusChamado por `at`)
@@ -205,6 +208,15 @@ import {
   hasProdutosNotificationBeenSent,
   markProdutosNotificationSent,
 } from '../../utils/escalacoesModalHelpers';
+
+/**
+ * Documento da coleção `erros_bugs` (tipo persistido como «Erro/Bug - …»).
+ * @param {unknown} r
+ * @returns {boolean}
+ */
+function isDocErrosBugsCollection(r) {
+  return r != null && String(r.tipo || '').startsWith('Erro/Bug');
+}
 
 /**
  * Componente de aba para Erros/Bugs
@@ -440,11 +452,12 @@ const ErrosBugsTab = () => {
       }
       
       const list = Array.isArray(data) ? data : [];
-      console.log('[ErrosBugsTab] Lista processada:', list.length, 'itens');
+      const listFiltered = list.filter(isDocErrosBugsCollection);
+      console.log('[ErrosBugsTab] Lista processada:', listFiltered.length, 'itens (coleção erros_bugs)');
       
       // Log detalhado de replies para debug (sempre, para identificar problemas)
-      if (list.length > 0) {
-        list.forEach(item => {
+      if (listFiltered.length > 0) {
+        listFiltered.forEach(item => {
           if (item.waMessageId) {
             console.log(`🔍 [ErrosBugsTab] Item recebido da API ${item._id}:`, {
               waMessageId: item.waMessageId,
@@ -458,11 +471,11 @@ const ErrosBugsTab = () => {
           }
         });
         
-        const itemsWithReplies = list.filter(item => {
+        const itemsWithReplies = listFiltered.filter(item => {
           const replies = Array.isArray(item.replies) ? item.replies : [];
           return replies.length > 0;
         });
-        console.log(`[ErrosBugsTab] Itens com replies: ${itemsWithReplies.length}/${list.length}`);
+        console.log(`[ErrosBugsTab] Itens com replies: ${itemsWithReplies.length}/${listFiltered.length}`);
         if (itemsWithReplies.length > 0) {
           itemsWithReplies.forEach(item => {
             const replies = Array.isArray(item.replies) ? item.replies : [];
@@ -471,14 +484,14 @@ const ErrosBugsTab = () => {
         }
       }
       
-      setErrosBugsRaw(list);
+      setErrosBugsRaw(listFiltered);
       setLastUpdated(new Date());
 
       // Calcular estatísticas
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      const todayCount = list.filter(item => {
+      const todayCount = listFiltered.filter(item => {
         try {
           if (!item || !item.createdAt) return false;
           const createdAt = new Date(item.createdAt);
@@ -490,12 +503,12 @@ const ErrosBugsTab = () => {
         }
       }).length;
 
-      const pendingCount = list.filter((item) => {
+      const pendingCount = listFiltered.filter((item) => {
         const status = String(getStatusChamado(item) || '').toLowerCase();
         return status === 'em aberto' || status === 'enviado';
       }).length;
 
-      const doneCount = list.filter((item) => {
+      const doneCount = listFiltered.filter((item) => {
         const status = String(getStatusChamado(item) || '').toLowerCase();
         return (
           status === 'feito' ||
@@ -857,7 +870,8 @@ const ErrosBugsTab = () => {
         throw new Error(result.message || result.error || 'Erro ao buscar CPF');
       }
       
-      setSearchResults(Array.isArray(result.data) ? result.data : []);
+      const rawList = Array.isArray(result.data) ? result.data : [];
+      setSearchResults(rawList.filter(isDocErrosBugsCollection));
     } catch (err) {
       console.error('Erro ao buscar CPF:', err);
       setSearchResults([]);
@@ -911,10 +925,10 @@ const ErrosBugsTab = () => {
           return;
         }
       }
-      const arr = Array.isArray(errosBugsRaw) ? errosBugsRaw : [];
+      const arr = (Array.isArray(errosBugsRaw) ? errosBugsRaw : []).filter(isDocErrosBugsCollection);
       const match = logItem?.waMessageId
         ? arr.find((r) => r.waMessageId === logItem.waMessageId)
-        : arr.find((r) => r.cpf === logItem.cpf && String(r.tipo || '').startsWith('Erro/Bug'));
+        : arr.find((r) => r.cpf === logItem.cpf && isDocErrosBugsCollection(r));
       if (match) {
         setSelectedRepliesRequest(match);
         return;
@@ -981,7 +995,7 @@ const ErrosBugsTab = () => {
   const norm = (s = '') => String(s).toLowerCase().trim().replace(/\s+/g, ' ');
 
   useEffect(() => {
-    const arr = Array.isArray(errosBugsRaw) ? errosBugsRaw : [];
+    const arr = (Array.isArray(errosBugsRaw) ? errosBugsRaw : []).filter(isDocErrosBugsCollection);
     const base = selectedAgent
       ? arr.filter((r) => norm(r?.colaboradorNome || r?.agente || '') === norm(selectedAgent))
       : arr;
@@ -1008,7 +1022,7 @@ const ErrosBugsTab = () => {
    * Mesma ideia da aba Solicitações: base no GET (filtrado por colaborador) + linhas do cache só para ids ainda não na lista.
    */
   const errosBugsSidebarDisplayLogs = useMemo(() => {
-    const arr = Array.isArray(errosBugsRaw) ? errosBugsRaw : [];
+    const arr = (Array.isArray(errosBugsRaw) ? errosBugsRaw : []).filter(isDocErrosBugsCollection);
     const base = selectedAgent
       ? arr.filter((r) => norm(r?.colaboradorNome || r?.agente || '') === norm(selectedAgent))
       : arr;
@@ -1034,6 +1048,7 @@ const ErrosBugsTab = () => {
     );
     const extras = [];
     for (const l of Array.isArray(localLogs) ? localLogs : []) {
+      if (!isDocErrosBugsCollection({ tipo: l?.tipo })) continue;
       const rid = normalizeMongoId(l?.requestId);
       if (rid && /^[a-f0-9]{24}$/.test(rid)) {
         if (seen.has(rid)) continue;
@@ -1061,7 +1076,7 @@ const ErrosBugsTab = () => {
       const result = agentName
         ? await errosBugsAPI.getByColaborador(agentName)
         : await errosBugsAPI.getAll();
-      const all = Array.isArray(result.data) ? result.data : [];
+      const all = (Array.isArray(result.data) ? result.data : []).filter(isDocErrosBugsCollection);
       const updated = localLogs.map((item) => {
         const match = item.waMessageId
           ? all.find((r) => r.waMessageId === item.waMessageId)

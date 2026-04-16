@@ -3,7 +3,22 @@
  * VERSION: v1.0.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
  */
 
-require('dotenv').config();
+(function loadVelohubFonteEnv(here) {
+  const path = require('path');
+  const fs = require('fs');
+  let d = here;
+  for (let i = 0; i < 14; i++) {
+    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
+    if (fs.existsSync(loader)) {
+      require(loader).loadFrom(here);
+      return;
+    }
+    const parent = path.dirname(d);
+    if (parent === d) break;
+    d = parent;
+  }
+})(__dirname);
+
 const XLSX = require('xlsx');
 const path = require('path');
 const fs = require('fs');

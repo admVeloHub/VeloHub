@@ -1,6 +1,22 @@
 /**
  * Script de Sincronização: CSV → MongoDB (Apenas Novos Casos)
  * VERSION: v1.0.1 | DATE: 2026-02-26 | AUTHOR: VeloHub Development Team
+(function loadVelohubFonteEnv(here) {
+  const path = require('path');
+  const fs = require('fs');
+  let d = here;
+  for (let i = 0; i < 14; i++) {
+    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
+    if (fs.existsSync(loader)) {
+      require(loader).loadFrom(here);
+      return;
+    }
+    const parent = path.dirname(d);
+    if (parent === d) break;
+    d = parent;
+  }
+})(__dirname);
+
  * 
  * Sincroniza dados dos arquivos CSV atualizados para MongoDB
  * Compara com casos já existentes no MongoDB e insere apenas os novos
@@ -12,7 +28,6 @@
  *   - MONGO_ENV (MongoDB connection string)
  */
 
-require('dotenv').config();
 const { MongoClient } = require('mongodb');
 const fs = require('fs');
 const path = require('path');

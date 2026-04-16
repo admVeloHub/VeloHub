@@ -1,6 +1,22 @@
 /**
  * Script de Atualização: Atualizar motivoReduzido na collection reclamacoes_n2Pix
  * VERSION: v1.1.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+(function loadVelohubFonteEnv(here) {
+  const path = require('path');
+  const fs = require('fs');
+  let d = here;
+  for (let i = 0; i < 14; i++) {
+    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
+    if (fs.existsSync(loader)) {
+      require(loader).loadFrom(here);
+      return;
+    }
+    const parent = path.dirname(d);
+    if (parent === d) break;
+    d = parent;
+  }
+})(__dirname);
+
  * 
  * Mudanças v1.1.0:
  * - Normalização de motivos para padrão "Aaaaa Aaaaa" (primeira maiúscula apenas)
@@ -20,7 +36,6 @@
  *   node backend/scripts/update-motivos-n2pix-from-excel.js [--dry-run]
  */
 
-require('dotenv').config();
 const { MongoClient } = require('mongodb');
 const path = require('path');
 const XLSX = require('xlsx');

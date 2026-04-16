@@ -2,8 +2,23 @@
 // VERSION: v1.2.1 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team
 // Mudanças v1.2.1:
 // - Adicionado logFeedback() usado pelo POST /api/chatbot/feedback (registro em user_activity)
+(function loadVelohubFonteEnv(here) {
+  const path = require('path');
+  const fs = require('fs');
+  let d = here;
+  for (let i = 0; i < 14; i++) {
+    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
+    if (fs.existsSync(loader)) {
+      require(loader).loadFrom(here);
+      return;
+    }
+    const parent = path.dirname(d);
+    if (parent === d) break;
+    d = parent;
+  }
+})(__dirname);
+
 const { MongoClient } = require('mongodb');
-require('dotenv').config();
 
 class UserActivityLogger {
   constructor() {
