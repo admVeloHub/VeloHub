@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - ListaReclamacoes Component
- * VERSION: v1.26.1 | DATE: 2026-04-07 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.27.0 | DATE: 2026-04-16 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.27.0:
+ * - Filtro e exibição: tipo Time Portabilidade (TIME_PORTABILIDADE); getDataExibicao e normalizarTipoExibicao
  * 
  * Mudanças v1.26.1:
  * - Card da lista: removida linha "Origem"; exibe "Produto" quando o campo existir
@@ -415,6 +418,9 @@ const ListaReclamacoes = () => {
     if (tipoUpper === 'BACEN') {
       return 'BACEN';
     }
+    if (tipoUpper === 'TIME_PORTABILIDADE' || tipoUpper === 'TIME PORTABILIDADE' || String(tipo).trim() === 'Time Portabilidade') {
+      return 'Time Portabilidade';
+    }
     
     return tipo; // Retornar original se não for nenhum dos casos conhecidos
   };
@@ -526,6 +532,7 @@ const ListaReclamacoes = () => {
     if (tipoUpper === 'N2' || tipoUpper === 'N2 PIX' || tipoUpper === 'OUVIDORIA') return r.dataEntradaN2;
     if (tipoUpper === 'RECLAME_AQUI' || tipoUpper === 'RECLAME AQUI' || tipoUpper === 'RECLAMEAQUI') return r.dataReclam;
     if (tipoUpper === 'PROCON') return r.dataProcon;
+    if (tipoUpper === 'TIME_PORTABILIDADE' || tipoUpper === 'TIME PORTABILIDADE') return r.dataEntrada;
     return r.dataEntrada || r.createdAt;
   };
 
@@ -590,6 +597,7 @@ const ListaReclamacoes = () => {
                     <option value="Reclame Aqui">Reclame Aqui</option>
                     <option value="Procon">Procon</option>
                     <option value="PROCESSOS">Ação Judicial</option>
+                    <option value="TIME_PORTABILIDADE">Time Portabilidade</option>
                   </select>
                 </div>
 

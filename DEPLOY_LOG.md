@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.16 | DATE: 2026-04-15 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.17 | DATE: 2026-04-16 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,19 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - Ouvidoria: tipo Time Portabilidade (reclamacoes_timePortabilidade)**
+- **Data/Hora**: 2026-04-16
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: reclamacoes API v2.20.0, FormReclamacao v3.41.0, FormReclamacaoEdit v1.39.0, ListaReclamacoes v1.27.0
+- **Arquivos Modificados**:
+  - `backend/routes/api/ouvidoria/reclamacoes.js`
+  - `src/components/Ouvidoria/FormReclamacao.js`
+  - `src/components/Ouvidoria/FormReclamacaoEdit.js`
+  - `src/components/Ouvidoria/ListaReclamacoes.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Novo tipo de reclamação Time Portabilidade (`TIME_PORTABILIDADE`): coleção `reclamacoes_timePortabilidade`, GET/POST/PUT/DELETE integrados; formulário com produto/origem/motivo fixos, data de entrada, protocolo Octadesk, descrição, canais só Pix liberado e Contrato quitado, sem anexo. Documentação de schema em `LISTA_SCHEMAS.rb` na pasta pai do workspace (fora deste repositório Git).
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - WhatsApp removido do deploy; Liberação chave pix só em liberacao_pix_prod**
 - **Data/Hora**: 2026-04-15
