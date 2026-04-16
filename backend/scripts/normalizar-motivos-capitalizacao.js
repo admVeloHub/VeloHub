@@ -1,6 +1,22 @@
 /**
  * Script de Normalização: motivoReduzido nas collections de ouvidoria (padrão 2026-03)
  * VERSION: v2.0.1 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+(function loadVelohubFonteEnv(here) {
+  const path = require('path');
+  const fs = require('fs');
+  let d = here;
+  for (let i = 0; i < 14; i++) {
+    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
+    if (fs.existsSync(loader)) {
+      require(loader).loadFrom(here);
+      return;
+    }
+    const parent = path.dirname(d);
+    if (parent === d) break;
+    d = parent;
+  }
+})(__dirname);
+
  *
  * v2.0.1: util v1.0.2 — Portabilidade chave pix → Portabilidade pix
  *
@@ -17,7 +33,6 @@
  *   node backend/scripts/normalizar-motivos-capitalizacao.js [--dry-run]
  */
 
-require('dotenv').config();
 const { MongoClient } = require('mongodb');
 const path = require('path');
 const { normalizarCampoMotivoReduzido } = require(path.join(__dirname, '../utils/motivoReduzidoNormalize'));

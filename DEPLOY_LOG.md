@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.17 | DATE: 2026-04-16 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.18 | DATE: 2026-04-16 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -51,6 +51,24 @@
   - `src/components/Ouvidoria/ListaReclamacoes.js`
   - `DEPLOY_LOG.md`
 - **Descrição**: Novo tipo de reclamação Time Portabilidade (`TIME_PORTABILIDADE`): coleção `reclamacoes_timePortabilidade`, GET/POST/PUT/DELETE integrados; formulário com produto/origem/motivo fixos, data de entrada, protocolo Octadesk, descrição, canais só Pix liberado e Contrato quitado, sem anexo. Documentação de schema em `LISTA_SCHEMAS.rb` na pasta pai do workspace (fora deste repositório Git).
+- **Status**: ✅ Concluído com sucesso
+
+### **GitHub Push - Escalações (req_prod), Relatórios Ouvidoria, scripts e serviços**
+- **Data/Hora**: 2026-04-16
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: EscalacoesPage, FormSolicitacao, ErrosBugsTab, RelatoriosOuvidoria, relatorios API (ouvidoria), botFeedbackService, userActivityLogger, userSessionLogger; + scripts em `backend/scripts/` (61 ficheiros `.js`)
+- **Arquivos Modificados** (principais):
+  - `src/pages/EscalacoesPage.js`
+  - `src/components/Escalacoes/FormSolicitacao.js`
+  - `src/components/Escalacoes/ErrosBugsTab.js`
+  - `src/components/Ouvidoria/RelatoriosOuvidoria.js`
+  - `backend/routes/api/ouvidoria/relatorios.js`
+  - `backend/services/chatbot/botFeedbackService.js`
+  - `backend/services/logging/userActivityLogger.js`
+  - `backend/services/logging/userSessionLogger.js`
+  - `backend/scripts/*.js` (61 scripts de migração, verificação e normalização ouvidoria/BACEN/N2/Reclame Aqui/Procon)
+  - `DEPLOY_LOG.md`
+- **Descrição**: Commit único com todas as alterações em ficheiros rastreados que estavam pendentes no workspace após o push só Ouvidoria Time Portabilidade, incluindo trabalho em Escalações (req_prod / Liberação PIX e Erros-Bugs), relatórios ouvidoria e restantes scripts/serviços.
 - **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - WhatsApp removido do deploy; Liberação chave pix só em liberacao_pix_prod**

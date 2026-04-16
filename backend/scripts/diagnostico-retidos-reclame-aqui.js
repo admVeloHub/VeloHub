@@ -1,5 +1,21 @@
 /**
  * Diagnóstico: Retidos no container Reclame Aqui do Dashboard
+(function loadVelohubFonteEnv(here) {
+  const path = require('path');
+  const fs = require('fs');
+  let d = here;
+  for (let i = 0; i < 14; i++) {
+    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
+    if (fs.existsSync(loader)) {
+      require(loader).loadFrom(here);
+      return;
+    }
+    const parent = path.dirname(d);
+    if (parent === d) break;
+    d = parent;
+  }
+})(__dirname);
+
  * 
  * Lista os documentos que estão sendo contados como Retidos em reclamacoes_reclameAqui
  * e exibe os campos relevantes para entender por que cada um está sendo contado.
@@ -15,8 +31,6 @@
  */
 
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../env') });
-require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const { MongoClient } = require('mongodb');
 

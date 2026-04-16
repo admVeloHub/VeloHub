@@ -1,6 +1,22 @@
 /**
  * Listar CPFs dos casos Retidos - N2 Pix, a partir de 01/01/2026
  * Salva em arquivo: retidos-n2-2026.txt
+(function loadVelohubFonteEnv(here) {
+  const path = require('path');
+  const fs = require('fs');
+  let d = here;
+  for (let i = 0; i < 14; i++) {
+    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
+    if (fs.existsSync(loader)) {
+      require(loader).loadFrom(here);
+      return;
+    }
+    const parent = path.dirname(d);
+    if (parent === d) break;
+    d = parent;
+  }
+})(__dirname);
+
  * 
  * Critério Retidos:
  * - motivoReduzido contém "Liberação Chave Pix"
@@ -12,7 +28,6 @@
  *   node backend/scripts/listar-retidos-n2-2026.js
  */
 
-require('dotenv').config();
 const { MongoClient } = require('mongodb');
 const fs = require('fs');
 const path = require('path');

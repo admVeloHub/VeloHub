@@ -1,6 +1,22 @@
 /**
  * Script de Migração: Base Bacen 2025 (XLSX) → MongoDB reclamacoes_bacen
  * VERSION: v2.0.0 | DATE: 2026-02-24 | AUTHOR: VeloHub Development Team
+(function loadVelohubFonteEnv(here) {
+  const path = require('path');
+  const fs = require('fs');
+  let d = here;
+  for (let i = 0; i < 14; i++) {
+    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
+    if (fs.existsSync(loader)) {
+      require(loader).loadFrom(here);
+      return;
+    }
+    const parent = path.dirname(d);
+    if (parent === d) break;
+    d = parent;
+  }
+})(__dirname);
+
  * 
  * Mapeamento direto por colunas do Excel:
  * - Coluna B: dataEntrada (createdAt)
@@ -12,7 +28,6 @@
  *   node backend/scripts/migrate-bacen-2025-xlsx-v2.js [--dry-run]
  */
 
-require('dotenv').config();
 const { MongoClient } = require('mongodb');
 const path = require('path');
 const XLSX = require('xlsx');

@@ -1,7 +1,9 @@
 /**
  * Normaliza campo produto em todas as coleções de reclamações (ouvidoria)
- * VERSION: v1.0.2 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.4 | DATE: 2026-04-10 | AUTHOR: VeloHub Development Team
  *
+ * v1.0.4: Se FONTE DA VERDADE não existir, fallback dotenv em backend/env e backend/.env (como server.js)
+ * v1.0.3: MONGO_ENV via FONTE DA VERDADE/.env (bootstrapFonteEnv.cjs)
  * v1.0.2: Carrega MONGO_ENV como server.js (backend/env, backend/.env, cwd)
  * v1.0.1: produto "EP" (e variações de casing / espaços) → Empréstimo Pessoal
  *
@@ -16,8 +18,24 @@
  *   node backend/scripts/normalizar-produto-reclamacoes-completo.js --dry-run
  *   node backend/scripts/normalizar-produto-reclamacoes-completo.js
  *
- * Requer: MONGO_ENV em backend/env ou backend/.env (ou ambiente), igual ao server.js.
+ * Requer: MONGO_ENV (FONTE DA VERDADE, ou backend/env / backend/.env, ou ambiente).
  */
+
+(function loadVelohubFonteEnv(here) {
+  const path = require('path');
+  const fs = require('fs');
+  let d = here;
+  for (let i = 0; i < 14; i++) {
+    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
+    if (fs.existsSync(loader)) {
+      require(loader).loadFrom(here);
+      return;
+    }
+    const parent = path.dirname(d);
+    if (parent === d) break;
+    d = parent;
+  }
+})(__dirname);
 
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', 'env') });
@@ -155,7 +173,7 @@ async function executar() {
   console.log(`🔧 Modo: ${DRY_RUN ? 'DRY-RUN' : 'ATUALIZAÇÃO REAL'}\n`);
 
   if (!MONGODB_URI || !String(MONGODB_URI).trim()) {
-    console.error('❌ Defina MONGO_ENV no .env do backend ou no ambiente.');
+    console.error('❌ Defina MONGO_ENV (backend/env, backend/.env, FONTE DA VERDADE ou variável de ambiente).');
     process.exit(1);
   }
 

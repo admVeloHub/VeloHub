@@ -1,7 +1,15 @@
 /**
  * VeloHub V3 - FormSolicitacao Component (Escalações Module)
- * VERSION: v1.20.2 | DATE: 2026-04-15 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.20.4 | DATE: 2026-04-16 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
+ * 
+ * Mudanças v1.20.4:
+ * - Aba Liberação chave pix: quadro do payload — só «Origem» até escolher origem; depois booleans visíveis exceto redundantes (ex.: origem Reclame Aqui oculta checkbox Reclame Aqui)
+ * - Booleanos implícitos pela origem gravados como true no payload/mensagem; removida legenda «Selecione pelo menos uma opção»
+ * 
+ * Mudanças v1.20.3:
+ * - Aba Liberação chave pix: cache local em `velotax_local_logs_chave_pix` (paridade sidebar Solicitações sem misturar envios)
+ * - Item do cache após create inclui `origem` para filtro da sidebar da aba
  * 
  * Mudanças v1.20.2:
  * - Cabeçalho: Liberação chave pix — backend grava só em liberacao_pix_prod (sem espelho em solicitacoes_tecnicas; API solicitacoes v1.9.0)
@@ -180,6 +188,52 @@ const ORIGENS_LIBERACAO_CHAVE_PIX = [
   'Judicial',
 ];
 
+/** Chaves de booleanos redundantes quando a origem já identifica o canal (aba Liberação chave pix). */
+const LIBERACAO_PIX_ORIGEM_OCULTA_BOOLEAN = {
+  'Reclame Aqui': 'reclameAqui',
+  Procon: 'procon',
+  'N2 Pix': 'n2Ouvidora',
+  Judicial: 'processo',
+  Bacen: 'bacen',
+};
+
+/** Rótulos dos checkboxes Exclusão de Chave PIX (ordem de exibição). */
+const LIBERACAO_PIX_BOOLEAN_ROWS = [
+  { key: 'semDebitoAberto', label: 'Sem Débito em aberto' },
+  { key: 'n2Ouvidora', label: 'N2 - Ouvidora' },
+  { key: 'procon', label: 'Procon' },
+  { key: 'reclameAqui', label: 'Reclame Aqui' },
+  { key: 'processo', label: 'Processo' },
+  { key: 'bacen', label: 'Bacen' },
+  { key: 'revogadoConsentimentoEcac', label: 'Revogado consentimento ECAC' },
+];
+
+/**
+ * Booleanos efetivos para validação, mensagem e API (origem implica true nos campos ocultos).
+ * @param {Object} form
+ * @returns {Object}
+ */
+function getLiberacaoChavePixEffectiveBooleans(form) {
+  const o = String(form?.origem || '').trim();
+  const hiddenKey = LIBERACAO_PIX_ORIGEM_OCULTA_BOOLEAN[o];
+  const implied = (k) => (hiddenKey === k ? true : form[k] === true);
+  return {
+    semDebitoAberto: form.semDebitoAberto === true,
+    n2Ouvidora: implied('n2Ouvidora'),
+    procon: implied('procon'),
+    reclameAqui: implied('reclameAqui'),
+    processo: implied('processo'),
+    bacen: implied('bacen'),
+    revogadoConsentimentoEcac: form.revogadoConsentimentoEcac === true,
+  };
+}
+
+/** @param {string} origem */
+function getLiberacaoChavePixBooleanKeyOcultoPorOrigem(origem) {
+  const o = String(origem || '').trim();
+  return LIBERACAO_PIX_ORIGEM_OCULTA_BOOLEAN[o] || null;
+}
+
 /** Tipos de solicitação técnica — exclusão de conta (app / Celcoin); mesmos checkboxes dinâmicos. */
 const TIPOS_EXCLUSAO_CONTA = ['Excluir conta - app', 'Excluir conta - Celcoin'];
 
@@ -227,6 +281,10 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
   },
   ref
 ) {
+  const localLogsStorageKey = liberacaoChavePixTab
+    ? 'velotax_local_logs_chave_pix'
+    : 'velotax_local_logs';
+
   const [form, setForm] = useState({
     agente: '',
     cpf: '',
@@ -310,7 +368,7 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
   // Cache inicial (localStorage); reconcile com o servidor só no efeito dedicado (após GET do pai)
   useEffect(() => {
     try {
-      const cached = localStorage.getItem('velotax_local_logs');
+      const cached = localStorage.getItem(localLogsStorageKey);
       if (cached) {
         const parsed = JSON.parse(cached);
         setLocalLogs(parsed);
@@ -321,22 +379,22 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
     } catch (err) {
       console.error('Erro ao carregar cache:', err);
     }
-  }, []);
+  }, [localLogsStorageKey]);
 
   useEffect(() => {
     if (solicitacoesStatsLoading) return;
     try {
-      const raw = localStorage.getItem('velotax_local_logs');
+      const raw = localStorage.getItem(localLogsStorageKey);
       const parsed = raw ? JSON.parse(raw) : [];
       const requests = Array.isArray(solicitacoesServerList) ? solicitacoesServerList : [];
       const next = reconcileEscalacoesLocalLogs(parsed, requests);
       setLocalLogs(next);
       onLocalLogsChangeRef.current?.(next);
-      localStorage.setItem('velotax_local_logs', JSON.stringify(next));
+      localStorage.setItem(localLogsStorageKey, JSON.stringify(next));
     } catch (e) {
       console.error('[FormSolicitacao] Reconcile log local vs lista do servidor:', e);
     }
-  }, [solicitacoesServerList, solicitacoesStatsLoading]);
+  }, [solicitacoesServerList, solicitacoesStatsLoading, localLogsStorageKey]);
 
   // Garantir formatação quando componente monta com Telefone como padrão
   useEffect(() => {
@@ -372,11 +430,11 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
     setLocalLogs(items);
     onLocalLogsChangeRef.current?.(items);
     try {
-      localStorage.setItem('velotax_local_logs', JSON.stringify(items));
+      localStorage.setItem(localLogsStorageKey, JSON.stringify(items));
     } catch (err) {
       console.error('Erro ao salvar cache:', err);
     }
-  }, []);
+  }, [localLogsStorageKey]);
 
   /**
    * Buscar solicitações por CPF
@@ -736,13 +794,25 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
         msg += `Nome: ${String(form.nomeCliente || '').trim() || '—'}\n`;
         msg += `Origem: ${String(form.origem || '').trim() || '—'}\n`;
       }
-      msg += `Sem Débito em aberto: ${simNao(form.semDebitoAberto)}\n`;
-      msg += `N2 - Ouvidora: ${simNao(form.n2Ouvidora)}\n`;
-      msg += `Procon: ${simNao(form.procon)}\n`;
-      msg += `Reclame Aqui: ${simNao(form.reclameAqui)}\n`;
-      msg += `Processo: ${simNao(form.processo)}\n`;
-      msg += `Bacen: ${simNao(form.bacen)}\n`;
-      msg += `Revogado consentimento ECAC: ${simNao(form.revogadoConsentimentoEcac)}\n`;
+      const pixB =
+        liberacaoChavePixTab && String(form.origem || '').trim()
+          ? getLiberacaoChavePixEffectiveBooleans(form)
+          : {
+              semDebitoAberto: form.semDebitoAberto,
+              n2Ouvidora: form.n2Ouvidora,
+              procon: form.procon,
+              reclameAqui: form.reclameAqui,
+              processo: form.processo,
+              bacen: form.bacen,
+              revogadoConsentimentoEcac: form.revogadoConsentimentoEcac,
+            };
+      msg += `Sem Débito em aberto: ${simNao(!!pixB.semDebitoAberto)}\n`;
+      msg += `N2 - Ouvidora: ${simNao(!!pixB.n2Ouvidora)}\n`;
+      msg += `Procon: ${simNao(!!pixB.procon)}\n`;
+      msg += `Reclame Aqui: ${simNao(!!pixB.reclameAqui)}\n`;
+      msg += `Processo: ${simNao(!!pixB.processo)}\n`;
+      msg += `Bacen: ${simNao(!!pixB.bacen)}\n`;
+      msg += `Revogado consentimento ECAC: ${simNao(!!pixB.revogadoConsentimentoEcac)}\n`;
       if (form.prazoMaximo) {
         // Formatar data de YYYY-MM-DD para DD/MM/YYYY
         const dataFormatada = form.prazoMaximo.split('-').reverse().join('/');
@@ -810,9 +880,35 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
       showNotification('Informe o nome.', 'error');
       return;
     }
-    if (form.tipo === 'Exclusão de Chave PIX' && !form.semDebitoAberto && !form.n2Ouvidora && !form.procon && !form.reclameAqui && !form.processo && !form.bacen && !form.revogadoConsentimentoEcac) {
-      showNotification('Para Exclusão de Chave PIX, selecione pelo menos uma opção: Sem Débito em aberto, N2 - Ouvidora, Procon, Reclame Aqui, Processo, Bacen ou Revogado consentimento ECAC.', 'error');
-      return;
+    if (form.tipo === 'Exclusão de Chave PIX') {
+      const pixEff = liberacaoChavePixTab
+        ? getLiberacaoChavePixEffectiveBooleans(form)
+        : {
+            semDebitoAberto: form.semDebitoAberto,
+            n2Ouvidora: form.n2Ouvidora,
+            procon: form.procon,
+            reclameAqui: form.reclameAqui,
+            processo: form.processo,
+            bacen: form.bacen,
+            revogadoConsentimentoEcac: form.revogadoConsentimentoEcac,
+          };
+      if (
+        !pixEff.semDebitoAberto &&
+        !pixEff.n2Ouvidora &&
+        !pixEff.procon &&
+        !pixEff.reclameAqui &&
+        !pixEff.processo &&
+        !pixEff.bacen &&
+        !pixEff.revogadoConsentimentoEcac
+      ) {
+        showNotification(
+          liberacaoChavePixTab
+            ? 'Marque pelo menos uma opção entre as condições exibidas (ou confira a origem: ela já pode cobrir N2, Procon, Reclame Aqui, Processo ou Bacen).'
+            : 'Para Exclusão de Chave PIX, selecione pelo menos uma opção: Sem Débito em aberto, N2 - Ouvidora, Procon, Reclame Aqui, Processo, Bacen ou Revogado consentimento ECAC.',
+          'error'
+        );
+        return;
+      }
     }
     if (isTipoExclusaoConta(form.tipo)) {
       const tri = [
@@ -890,6 +986,16 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
         payload.exclusaoContaSemChavePixAssociada = form.exclusaoContaSemChavePixAssociada === true;
         payload.exclusaoContaSemValorSaldo = form.exclusaoContaSemValorSaldo === true;
       }
+      if (liberacaoChavePixTab && form.tipo === 'Exclusão de Chave PIX') {
+        const eff = getLiberacaoChavePixEffectiveBooleans(form);
+        payload.semDebitoAberto = eff.semDebitoAberto;
+        payload.n2Ouvidora = eff.n2Ouvidora;
+        payload.procon = eff.procon;
+        payload.reclameAqui = eff.reclameAqui;
+        payload.processo = eff.processo;
+        payload.bacen = eff.bacen;
+        payload.revogadoConsentimentoEcac = eff.revogadoConsentimentoEcac;
+      }
       const solicitacaoData = {
         agente: agenteNorm || form.agente,
         cpf: cpfApenasNumeros,
@@ -945,6 +1051,9 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
         requestId,
         cpf: cpfApenasNumeros,
         tipo: form.tipo,
+        ...(liberacaoChavePixTab
+          ? { origem: String(form.origem || '').trim() || undefined }
+          : {}),
         waMessageId: null,
         status: 'enviado',
         enviado: true,
@@ -1248,85 +1357,48 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
                 </select>
               </div>
             )}
-            <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">* Selecione pelo menos uma opção:</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
-              <label className="flex items-center gap-2 min-h-[1.75rem]">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 shrink-0"
-                  checked={form.semDebitoAberto || false}
-                  onChange={(e) => atualizar('semDebitoAberto', e.target.checked)}
-                />
-                <span>Sem Débito em aberto</span>
-              </label>
-              <label className="flex items-center gap-2 min-h-[1.75rem]">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 shrink-0"
-                  checked={form.n2Ouvidora || false}
-                  onChange={(e) => atualizar('n2Ouvidora', e.target.checked)}
-                />
-                <span>N2 - Ouvidora</span>
-              </label>
-              <label className="flex items-center gap-2 min-h-[1.75rem]">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 shrink-0"
-                  checked={form.procon || false}
-                  onChange={(e) => atualizar('procon', e.target.checked)}
-                />
-                <span>Procon</span>
-              </label>
-              <label className="flex items-center gap-2 min-h-[1.75rem]">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 shrink-0"
-                  checked={form.reclameAqui || false}
-                  onChange={(e) => atualizar('reclameAqui', e.target.checked)}
-                />
-                <span>Reclame Aqui</span>
-              </label>
-              <label className="flex items-center gap-2 min-h-[1.75rem]">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 shrink-0"
-                  checked={form.processo || false}
-                  onChange={(e) => atualizar('processo', e.target.checked)}
-                />
-                <span>Processo</span>
-              </label>
-              <label className="flex items-center gap-2 min-h-[1.75rem]">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 shrink-0"
-                  checked={form.bacen || false}
-                  onChange={(e) => atualizar('bacen', e.target.checked)}
-                />
-                <span>Bacen</span>
-              </label>
-              <label className="flex items-center gap-2 min-h-[1.75rem]">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 shrink-0"
-                  checked={form.revogadoConsentimentoEcac || false}
-                  onChange={(e) => atualizar('revogadoConsentimentoEcac', e.target.checked)}
-                />
-                <span>Revogado consentimento ECAC</span>
-              </label>
-            </div>
-            
-            {/* Campo Prazo Máximo - aparece quando qualquer checkbox relevante estiver marcado */}
-            {(form.reclameAqui || form.bacen || form.procon || form.processo || form.n2Ouvidora) && (
-              <div className="mt-4">
-                <label className="text-sm text-gray-700 dark:text-gray-300 mb-1 block">Prazo Máximo</label>
-                <input
-                  type="date"
-                  className="w-auto px-3 py-2 border border-gray-400 dark:border-gray-500 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500"
-                  value={form.prazoMaximo || ''}
-                  onChange={(e) => atualizar('prazoMaximo', e.target.value)}
-                />
+            {(!liberacaoChavePixTab || String(form.origem || '').trim()) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+                {LIBERACAO_PIX_BOOLEAN_ROWS.filter(({ key }) => {
+                  if (!liberacaoChavePixTab) return true;
+                  const oculto = getLiberacaoChavePixBooleanKeyOcultoPorOrigem(form.origem);
+                  return oculto !== key;
+                }).map(({ key, label }) => (
+                  <label key={key} className="flex items-center gap-2 min-h-[1.75rem]">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 shrink-0"
+                      checked={form[key] || false}
+                      onChange={(e) => atualizar(key, e.target.checked)}
+                    />
+                    <span>{label}</span>
+                  </label>
+                ))}
               </div>
             )}
+
+            {/* Prazo máximo: aba Liberação usa booleanos efetivos (origem pode implicar canal) */}
+            {(() => {
+              const e =
+                liberacaoChavePixTab && String(form.origem || '').trim()
+                  ? getLiberacaoChavePixEffectiveBooleans(form)
+                  : null;
+              const showPrazo = e
+                ? e.reclameAqui || e.bacen || e.procon || e.processo || e.n2Ouvidora
+                : form.reclameAqui || form.bacen || form.procon || form.processo || form.n2Ouvidora;
+              if (!showPrazo) return null;
+              return (
+                <div className="mt-4">
+                  <label className="text-sm text-gray-700 dark:text-gray-300 mb-1 block">Prazo Máximo</label>
+                  <input
+                    type="date"
+                    className="w-auto px-3 py-2 border border-gray-400 dark:border-gray-500 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500"
+                    value={form.prazoMaximo || ''}
+                    onChange={(e) => atualizar('prazoMaximo', e.target.value)}
+                  />
+                </div>
+              );
+            })()}
           </div>
         )}
 

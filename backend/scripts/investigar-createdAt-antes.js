@@ -1,5 +1,21 @@
 /**
  * Investigar: quantos casos têm createdAt ANTES da data de entrada em cada collection
+(function loadVelohubFonteEnv(here) {
+  const path = require('path');
+  const fs = require('fs');
+  let d = here;
+  for (let i = 0; i < 14; i++) {
+    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
+    if (fs.existsSync(loader)) {
+      require(loader).loadFrom(here);
+      return;
+    }
+    const parent = path.dirname(d);
+    if (parent === d) break;
+    d = parent;
+  }
+})(__dirname);
+
  * 
  * Regra de negócio: createdAt nunca deveria ser anterior à data de entrada.
  * Este script conta e lista os casos que violam essa regra.
@@ -8,8 +24,6 @@
  */
 
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../env') });
-require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const { MongoClient } = require('mongodb');
 

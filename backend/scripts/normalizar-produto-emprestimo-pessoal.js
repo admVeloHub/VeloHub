@@ -1,10 +1,11 @@
 /**
  * Normaliza campo produto na ouvidoria (Empréstimo Pessoal + Crédito Trabalhador)
- * VERSION: v1.1.0 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.1.1 | DATE: 2026-04-10 | AUTHOR: VeloHub Development Team
  *
  * ⚠️ Para typos (Velopriime, VeloPrime), casing e mais grafias, use:
  *    backend/scripts/normalizar-produto-reclamacoes-completo.js
  *
+ * v1.1.1: MONGO_ENV via FONTE DA VERDADE/.env (bootstrapFonteEnv.cjs)
  * v1.1.0: Segunda fase — substituições exatas Credito Pessoal / trabalhador (várias grafias)
  * v1.0.1: URI apenas via MONGO_ENV (sem fallback com credenciais no repositório)
  *
@@ -18,7 +19,22 @@
  *   node backend/scripts/normalizar-produto-emprestimo-pessoal.js [--dry-run]
  */
 
-require('dotenv').config();
+(function loadVelohubFonteEnv(here) {
+  const path = require('path');
+  const fs = require('fs');
+  let d = here;
+  for (let i = 0; i < 14; i++) {
+    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
+    if (fs.existsSync(loader)) {
+      require(loader).loadFrom(here);
+      return;
+    }
+    const parent = path.dirname(d);
+    if (parent === d) break;
+    d = parent;
+  }
+})(__dirname);
+
 const { MongoClient } = require('mongodb');
 
 const MONGODB_URI = process.env.MONGO_ENV;
