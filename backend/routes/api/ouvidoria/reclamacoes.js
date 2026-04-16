@@ -1,6 +1,11 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Reclamações
- * VERSION: v2.19.0 | DATE: 2026-04-07 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.20.0 | DATE: 2026-04-16 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v2.20.0:
+ * - Tipo TIME_PORTABILIDADE (Time Portabilidade) → coleção reclamacoes_timePortabilidade
+ * - GET lista / :id sem tipo: inclui a 6ª coleção; filtro de data por dataEntrada; índices na inicialização
+ * - POST: validação de tipo atualizada para incluir TIME_PORTABILIDADE
  *
  * Mudanças v2.19.0:
  * - GET /reclamacoes: filtro opcional query `produto` (campo existente `produto`, match exato)
@@ -253,6 +258,9 @@ const getCollectionByType = (db, tipo) => {
     case 'AÇÃO JUDICIAL':
     case 'ACAO JUDICIAL':
       return db.collection('reclamacoes_judicial');
+    case 'TIME_PORTABILIDADE':
+    case 'TIME PORTABILIDADE':
+      return db.collection('reclamacoes_timePortabilidade');
     default:
       // Fallback para BACEN se tipo não especificado
       return db.collection('reclamacoes_bacen');
@@ -308,6 +316,7 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         await createIndexes(db.collection('reclamacoes_reclameAqui'), 'reclamacoes_reclameAqui');
         await createIndexes(db.collection('reclamacoes_procon'), 'reclamacoes_procon');
         await createIndexes(db.collection('reclamacoes_judicial'), 'reclamacoes_judicial');
+        await createIndexes(db.collection('reclamacoes_timePortabilidade'), 'reclamacoes_timePortabilidade');
         
         // Criar índices específicos para Reclame Aqui
         const reclameAquiCollection = db.collection('reclamacoes_reclameAqui');
@@ -394,7 +403,7 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         if (collectionName === 'reclamacoes_n2Pix') {
           return { $or: [{ dataEntradaN2: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } }, { dataEntradaN2: { $exists: true, $ne: null, $type: 'string', $gte: dataInicio, $lte: dataFim } }] };
         }
-        if (collectionName === 'reclamacoes_bacen' || collectionName === 'reclamacoes_judicial') {
+        if (collectionName === 'reclamacoes_bacen' || collectionName === 'reclamacoes_judicial' || collectionName === 'reclamacoes_timePortabilidade') {
           return { $or: [{ dataEntrada: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } }, { dataEntrada: { $exists: true, $ne: null, $type: 'string', $gte: dataInicio, $lte: dataFim } }] };
         }
         if (collectionName === 'reclamacoes_reclameAqui') {
@@ -431,6 +440,7 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
           : (tipoUpper === 'N2' || tipoUpper === 'N2 PIX' || tipoUpper === 'OUVIDORIA') ? 'reclamacoes_n2Pix'
           : (tipoUpper === 'RECLAME AQUI' || tipoUpper === 'RECLAME_AQUI' || tipoUpper === 'RECLAMEAQUI') ? 'reclamacoes_reclameAqui'
           : tipoUpper === 'PROCON' ? 'reclamacoes_procon'
+          : (tipoUpper === 'TIME_PORTABILIDADE' || tipoUpper === 'TIME PORTABILIDADE') ? 'reclamacoes_timePortabilidade'
           : 'reclamacoes_judicial';
         const filter = mesclarFilter(collectionName);
 
@@ -455,18 +465,21 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
           tipoParaAdicionar = 'N2 Pix';
         } else if (tipoUpper === 'PROCON') {
           tipoParaAdicionar = 'Procon';
+        } else if (tipoUpper === 'TIME_PORTABILIDADE' || tipoUpper === 'TIME PORTABILIDADE') {
+          tipoParaAdicionar = 'Time Portabilidade';
         }
         
         // Adicionar tipo aos resultados
         reclamacoes = reclamacoes.map(r => ({ ...r, tipo: tipoParaAdicionar }));
       } else {
-        // Buscar em todas as coleções (5 collections - reclamacoes_ouvidoria descontinuada/renomeada para n2Pix)
-        const [bacen, n2Pix, reclameAqui, procon, judicial] = await Promise.all([
+        // Buscar em todas as coleções (6 collections - reclamacoes_ouvidoria descontinuada/renomeada para n2Pix)
+        const [bacen, n2Pix, reclameAqui, procon, judicial, timePortabilidade] = await Promise.all([
           db.collection('reclamacoes_bacen').find(mesclarFilter('reclamacoes_bacen')).toArray(),
           db.collection('reclamacoes_n2Pix').find(mesclarFilter('reclamacoes_n2Pix')).toArray(),
           db.collection('reclamacoes_reclameAqui').find(mesclarFilter('reclamacoes_reclameAqui')).toArray(),
           db.collection('reclamacoes_procon').find(mesclarFilter('reclamacoes_procon')).toArray(),
-          db.collection('reclamacoes_judicial').find(mesclarFilter('reclamacoes_judicial')).toArray()
+          db.collection('reclamacoes_judicial').find(mesclarFilter('reclamacoes_judicial')).toArray(),
+          db.collection('reclamacoes_timePortabilidade').find(mesclarFilter('reclamacoes_timePortabilidade')).toArray()
         ]);
         
         // Adicionar tipo aos resultados (n2Pix inclui N2 e OUVIDORIA - collection unificada)
@@ -475,7 +488,8 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
           ...n2Pix.map(r => ({ ...r, tipo: 'N2 Pix' })),
           ...reclameAqui.map(r => ({ ...r, tipo: 'Reclame Aqui' })),
           ...procon.map(r => ({ ...r, tipo: 'Procon' })),
-          ...judicial.map(r => ({ ...r, tipo: 'Ação Judicial' }))
+          ...judicial.map(r => ({ ...r, tipo: 'Ação Judicial' })),
+          ...timePortabilidade.map(r => ({ ...r, tipo: 'Time Portabilidade' }))
         ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         
         totalCount = todas.length;
@@ -539,16 +553,17 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         const collection = getCollectionByType(db, tipo);
         reclamacao = await collection.findOne({ _id: new ObjectId(id) });
       } else {
-        // Buscar em todas as coleções (5 collections - reclamacoes_ouvidoria descontinuada)
-        const [bacen, n2Pix, reclameAqui, procon, judicial] = await Promise.all([
+        // Buscar em todas as coleções (6 collections - reclamacoes_ouvidoria descontinuada)
+        const [bacen, n2Pix, reclameAqui, procon, judicial, timePortabilidade] = await Promise.all([
           db.collection('reclamacoes_bacen').findOne({ _id: new ObjectId(id) }),
           db.collection('reclamacoes_n2Pix').findOne({ _id: new ObjectId(id) }),
           db.collection('reclamacoes_reclameAqui').findOne({ _id: new ObjectId(id) }),
           db.collection('reclamacoes_procon').findOne({ _id: new ObjectId(id) }),
-          db.collection('reclamacoes_judicial').findOne({ _id: new ObjectId(id) })
+          db.collection('reclamacoes_judicial').findOne({ _id: new ObjectId(id) }),
+          db.collection('reclamacoes_timePortabilidade').findOne({ _id: new ObjectId(id) })
         ]);
         
-        reclamacao = bacen || n2Pix || reclameAqui || procon || judicial;
+        reclamacao = bacen || n2Pix || reclameAqui || procon || judicial || timePortabilidade;
         if (reclamacao) {
           // Adicionar tipo ao resultado
           if (bacen) reclamacao.tipo = 'BACEN';
@@ -556,6 +571,7 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
           else if (reclameAqui) reclamacao.tipo = 'Reclame Aqui';
           else if (procon) reclamacao.tipo = 'Procon';
           else if (judicial) reclamacao.tipo = 'Ação Judicial';
+          else if (timePortabilidade) reclamacao.tipo = 'Time Portabilidade';
         }
       }
 
@@ -603,7 +619,7 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
       if (!dados.tipo) {
         return res.status(400).json({
           success: false,
-          message: 'Campo obrigatório: tipo (BACEN, OUVIDORIA, RECLAME_AQUI, PROCON ou PROCESSOS/AÇÃO JUDICIAL)'
+          message: 'Campo obrigatório: tipo (BACEN, OUVIDORIA, RECLAME_AQUI, PROCON, PROCESSOS/AÇÃO JUDICIAL ou TIME_PORTABILIDADE)'
         });
       }
 

@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - FormReclamacaoEdit Component
- * VERSION: v1.38.0 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.39.0 | DATE: 2026-04-16 | AUTHOR: VeloHub Development Team
+ * 
+ * Mudanças v1.39.0:
+ * - Time Portabilidade (TIME_PORTABILIDADE): conversão, edição, validação, PUT e seções Reclamação + Canais (Pix / Contrato) sem anexo nem protocolos completos
  * 
  * Mudanças v1.38.0:
  * - MOTIVOS_REDUZIDOS e MOTIVOS_RECLAME_AQUI: "Juros abusivos" — alinhado FormReclamacao v3.40
@@ -235,6 +238,11 @@ const MOTIVOS_REDUZIDOS = [
   'Superendividamento',
 ];
 
+const TIME_PORTABILIDADE_TIPO = 'TIME_PORTABILIDADE';
+const TIME_PORT_PRODUTO = 'Antecipação 2026';
+const TIME_PORT_ORIGEM = 'Atendimento';
+const TIME_PORT_MOTIVO_FIXO = ['Liberação chave pix'];
+
 /** Rótulos antigos (BACEN/N2/Procon) → novos ao carregar edição */
 const LEGADO_MOTIVO_REDUZIDOS = {
   Cobrança: 'Em cobrança',
@@ -396,6 +404,11 @@ const converterParaFormData = (reclamacao) => {
     tipoUpper === 'AÇÃO JUDICIAL' || tipoUpper === 'ACAO JUDICIAL' || tipoStr === 'Ação Judicial'
   ) {
     tipoNormalizado = 'PROCESSOS';
+  } else if (
+    tipoUpper === 'TIME_PORTABILIDADE' || tipoUpper === 'TIME PORTABILIDADE' ||
+    tipoStr === 'Time Portabilidade'
+  ) {
+    tipoNormalizado = 'TIME_PORTABILIDADE';
   }
 
   return {
@@ -429,6 +442,9 @@ const converterParaFormData = (reclamacao) => {
       }
       if (tipoNormalizado === 'BACEN' || tipoNormalizado === 'OUVIDORIA' || tipoNormalizado === 'PROCON') {
         return normalizarMotivosReduzidosAoCarregar(arr);
+      }
+      if (tipoNormalizado === 'TIME_PORTABILIDADE') {
+        return arr.length ? arr : [...TIME_PORT_MOTIVO_FIXO];
       }
       return arr;
     })(),
@@ -497,6 +513,7 @@ const converterParaFormData = (reclamacao) => {
     situacaoAudiencia: reclamacao.situacaoAudiencia || '',
     subsidios: reclamacao.subsidios || '',
     outrosProtocolos: reclamacao.outrosProtocolos || '',
+    protocoloOctadesk: reclamacao.protocoloOctadesk != null ? String(reclamacao.protocoloOctadesk) : '',
   };
 };
 
@@ -576,7 +593,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
     situacaoAudiencia: '',
     subsidios: '',
     outrosProtocolos: '',
-    localizarAtendimentos: '',
+    protocoloOctadesk: '',
   });
 
   const [loading, setLoading] = useState(false);
@@ -829,6 +846,18 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
         novosErros.motivoReduzido = 'Selecione pelo menos um motivo';
       }
     }
+
+    if (formData.tipo === 'TIME_PORTABILIDADE') {
+      if (!formData.dataEntrada) {
+        novosErros.dataEntrada = 'Data de entrada é obrigatória';
+      }
+      if (!String(formData.protocoloOctadesk || '').trim()) {
+        novosErros.protocoloOctadesk = 'Protocolo Octadesk é obrigatório';
+      }
+      if (!String(formData.motivoDetalhado || '').trim()) {
+        novosErros.motivoDetalhado = 'Descrição é obrigatória';
+      }
+    }
     
     // Validações RECLAME_AQUI
     if (formData.tipo === 'RECLAME_AQUI') {
@@ -855,6 +884,14 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
     const erroData = camposDataEntrada.find(c => errors[c]);
     if (erroData) {
       toast.error(errors[erroData]);
+      return;
+    }
+    if (errors.protocoloOctadesk) {
+      toast.error(errors.protocoloOctadesk);
+      return;
+    }
+    if (errors.motivoDetalhado) {
+      toast.error(errors.motivoDetalhado);
       return;
     }
     toast.error('Por favor, preencha todos os campos obrigatórios');
@@ -1022,6 +1059,19 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           subsidios: formData.subsidios || '',
           outrosProtocolos: formData.outrosProtocolos || '',
           anexos: formData.anexos,
+        };
+      } else if (formData.tipo === 'TIME_PORTABILIDADE') {
+        payload = {
+          ...payload,
+          dataEntrada: formData.dataEntrada,
+          origem: TIME_PORT_ORIGEM,
+          produto: TIME_PORT_PRODUTO,
+          motivoReduzido: [...TIME_PORT_MOTIVO_FIXO],
+          motivoDetalhado: String(formData.motivoDetalhado || '').trim(),
+          protocoloOctadesk: String(formData.protocoloOctadesk || '').trim(),
+          pixLiberado: formData.pixLiberado === true,
+          statusContratoQuitado: formData.statusContratoQuitado === true,
+          statusContratoAberto: formData.statusContratoQuitado !== true,
         };
       }
 
@@ -1844,7 +1894,8 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
       const todasReclamacoes = resultado.data || resultado || [];
       const outrosProtocolos = todasReclamacoes.filter(r => {
         const tipo = String(r.tipo || '').toUpperCase().trim();
-        return tipo !== 'PROCESSOS' && tipo !== 'JUDICIAL' && tipo !== 'AÇÃO JUDICIAL';
+        return tipo !== 'PROCESSOS' && tipo !== 'JUDICIAL' && tipo !== 'AÇÃO JUDICIAL'
+          && tipo !== 'TIME_PORTABILIDADE' && tipo !== 'TIME PORTABILIDADE';
       });
       if (outrosProtocolos.length === 0) {
         toast('Nenhum outro protocolo encontrado para este CPF.');
@@ -2107,6 +2158,102 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
         </div>
       )}
     </>
+  );
+
+  const renderCamposTimePortabilidade = () => (
+    <div className="velohub-card">
+      <h3 className="text-xl font-semibold mb-4 velohub-title">Reclamação</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+        <div>
+          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Produto</label>
+          <input
+            type="text"
+            readOnly
+            value={TIME_PORT_PRODUTO}
+            className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Origem</label>
+          <input
+            type="text"
+            readOnly
+            value={TIME_PORT_ORIGEM}
+            className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Data de Entrada *</label>
+          <input
+            type="date"
+            value={formData.dataEntrada}
+            onChange={(e) => setFormData(prev => ({ ...prev, dataEntrada: e.target.value }))}
+            className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+            required
+          />
+          {errors.dataEntrada && <span className="text-red-500 text-xs">{errors.dataEntrada}</span>}
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Motivo</label>
+          <input
+            type="text"
+            readOnly
+            value={TIME_PORT_MOTIVO_FIXO[0] || ''}
+            className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Protocolo Octadesk *</label>
+          <input
+            type="text"
+            value={formData.protocoloOctadesk}
+            onChange={(e) => setFormData(prev => ({ ...prev, protocoloOctadesk: e.target.value }))}
+            className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+            placeholder="Protocolo Octadesk"
+          />
+          {errors.protocoloOctadesk && <span className="text-red-500 text-xs">{errors.protocoloOctadesk}</span>}
+        </div>
+      </div>
+      <div className="mb-4">
+        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Descrição *</label>
+        <textarea
+          value={formData.motivoDetalhado}
+          onChange={(e) => setFormData(prev => ({ ...prev, motivoDetalhado: e.target.value }))}
+          rows={4}
+          className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+          placeholder="Descrição da reclamação..."
+        />
+        {errors.motivoDetalhado && <span className="text-red-500 text-xs">{errors.motivoDetalhado}</span>}
+      </div>
+    </div>
+  );
+
+  const renderCanaisTimePortabilidade = () => (
+    <div className="velohub-card">
+      <h3 className="text-xl font-semibold mb-4 velohub-title">Canais de Atendimento e Protocolos Acionados</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-xl">
+        <label className="flex items-center">
+          <input
+            type="checkbox"
+            checked={formData.pixLiberado === true}
+            onChange={(e) => setFormData(prev => ({ ...prev, pixLiberado: e.target.checked }))}
+            className="mr-2"
+          />
+          <span>Pix Liberado</span>
+        </label>
+        <label className="flex items-center">
+          <input
+            type="checkbox"
+            checked={formData.statusContratoQuitado === true}
+            onChange={(e) => setFormData(prev => ({ ...prev, statusContratoQuitado: e.target.checked }))}
+            className="mr-2"
+          />
+          <span>Contrato quitado</span>
+        </label>
+      </div>
+    </div>
   );
 
   /**
@@ -3338,12 +3485,15 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
       {formData.tipo === 'RECLAME_AQUI' && renderCamposReclameAqui()}
       {formData.tipo === 'PROCON' && renderCamposProcon()}
       {formData.tipo === 'PROCESSOS' && renderCamposProcessos()}
+      {formData.tipo === 'TIME_PORTABILIDADE' && renderCamposTimePortabilidade()}
 
       {/* Tentativas de Contato (BACEN/N2 apenas) */}
       {(formData.tipo === 'BACEN' || formData.tipo === 'OUVIDORIA') && renderTentativasContato()}
 
       {/* Protocolos (BACEN/N2/Reclame Aqui) */}
       {(formData.tipo === 'BACEN' || formData.tipo === 'OUVIDORIA' || formData.tipo === 'RECLAME_AQUI') && renderProtocolos()}
+
+      {formData.tipo === 'TIME_PORTABILIDADE' && renderCanaisTimePortabilidade()}
 
       {/* Botões de Ação */}
       <div className="flex justify-end gap-4 relative">
