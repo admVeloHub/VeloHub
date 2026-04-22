@@ -13,7 +13,7 @@
 # Apos limpar working tree e novo commit, rodar de novo para validar; historico antigo permanece ate filter-repo + force push (requer aprovacao).
 # Credential pattern hits in git history (git log -S)
 
-## Pattern (redacted key): mongodb+srv://REDACTED
+## Pattern A: URI MongoDB com usuario legado (git log -S)
 04423bf chore(repo): remover painel de servi├ºos legado; alinhar Ouvidoria produto e scripts
 6ab1314 feat(escalacoes): paridade Erros/Bugs, sidebar unificada e helpers compartilhados
 81105a9 Backend Ouvidoria, Chatbot, scripts diagn├│stico e asset telef
@@ -49,7 +49,7 @@ f6d4c03 Atualiza├º├úo de modelos P2PConversation e SalaMessage, adicionado
 be49658 Update server files and routes
 807942f Initial commit: VeloChat Server setup
 
-## Pattern (redacted key): nKQu8bSN6iZl8FPo...
+## Pattern B: segmento de senha legada na URI (git log -S)
 04423bf chore(repo): remover painel de servi├ºos legado; alinhar Ouvidoria produto e scripts
 6ab1314 feat(escalacoes): paridade Erros/Bugs, sidebar unificada e helpers compartilhados
 81105a9 Backend Ouvidoria, Chatbot, scripts diagn├│stico e asset telef
@@ -85,7 +85,7 @@ f6d4c03 Atualiza├º├úo de modelos P2PConversation e SalaMessage, adicionado
 be49658 Update server files and routes
 807942f Initial commit: VeloChat Server setup
 
-## Pattern (redacted key): AIzaSyAVoOWyvMjk29hm...
+## Pattern C: prefixo de chave Firebase legada (git log -S)
 04423bf chore(repo): remover painel de servi├ºos legado; alinhar Ouvidoria produto e scripts
 6ab1314 feat(escalacoes): paridade Erros/Bugs, sidebar unificada e helpers compartilhados
 81105a9 Backend Ouvidoria, Chatbot, scripts diagn├│stico e asset telef
@@ -121,7 +121,7 @@ f6d4c03 Atualiza├º├úo de modelos P2PConversation e SalaMessage, adicionado
 be49658 Update server files and routes
 807942f Initial commit: VeloChat Server setup
 
-## Pattern (redacted key): bacen-n2.firebaseio....
+## Pattern D: host Realtime Database Firebase legado (git log -S)
 04423bf chore(repo): remover painel de servi├ºos legado; alinhar Ouvidoria produto e scripts
 6ab1314 feat(escalacoes): paridade Erros/Bugs, sidebar unificada e helpers compartilhados
 81105a9 Backend Ouvidoria, Chatbot, scripts diagn├│stico e asset telef

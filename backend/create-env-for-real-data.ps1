@@ -1,5 +1,6 @@
 # VeloHub V3 - Script para Criar .env com Dados Reais
-# VERSION: v1.0.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+# VERSION: v1.0.1 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
+# v1.0.1: Placeholders genéricos — sem Client ID de projeto no repositório
 
 Write-Host "🔧 VeloHub V3 - Configuração para Dados Reais" -ForegroundColor Cyan
 Write-Host ""
@@ -40,7 +41,7 @@ GEMINI_API_KEY=AI-your-gemini-key-here
 # GOOGLE SERVICES - DADOS REAIS
 # ===========================================
 # Google OAuth (para SSO)
-GOOGLE_CLIENT_ID=278491073220-eb4ogvn3aifu0ut9mq3rvu5r9r9l3137.apps.googleusercontent.com
+GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-google-client-secret-here
 
 # Google Sheets API (para logs)

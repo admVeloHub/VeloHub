@@ -240,7 +240,7 @@ Implementar sistema de chat integrado diretamente no VeloHub deployado no GCP, c
   // Configurações no painel admin do Rocket.Chat
   {
     "OAuth_Google": true,
-    "OAuth_Google_client_id": "278491073220-eb4ogvn3aifu0ut9mq3rvu5r9r9l3137.apps.googleusercontent.com",
+    "OAuth_Google_client_id": "<seu-client-id>.apps.googleusercontent.com",
     "OAuth_Google_server_url": "https://accounts.google.com",
     "OAuth_Google_scope": "openid email profile",
     "OAuth_Google_merge_users": true,
