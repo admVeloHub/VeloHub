@@ -1,6 +1,15 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.50.6 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.50.9 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v2.50.9:
+ * - oauth-client-id: mesma variável semântica que o front — lê REACT_APP_GOOGLE_CLIENT_ID primeiro, depois GOOGLE_CLIENT_ID (Cloud Run costuma mapear o secret com este último nome)
+ *
+ * Mudanças v2.50.8:
+ * - oauth-client-id: fallback regex se JSON malformado; GOOGLE_CLIENT_ID || GOOGLE_OAUTH_CLIENT_ID
+ *
+ * Mudanças v2.50.7:
+ * - GET /api/auth/oauth-client-id: normaliza GOOGLE_CLIENT_ID (trim, JSON credentials web, aspas) — evita invalid_client no GIS
  *
  * Mudanças v2.50.6:
  * - GET /api/auth/oauth-client-id: expõe GOOGLE_CLIENT_ID do runtime (GIS no browser quando o build não tem REACT_APP_GOOGLE_CLIENT_ID)
@@ -2527,11 +2536,52 @@ Use APENAS a inteligência acima para desenvolver o e-mail conforme o template d
   }
 });
 
-// GET /api/auth/oauth-client-id — Client ID OAuth Web (público por desenho; não expõe client_secret)
+/** Extrai OAuth Web Client ID (o mesmo valor que REACT_APP_GOOGLE_CLIENT_ID no build): string, JSON credentials ou aspas. */
+function normalizeGoogleWebClientIdFromEnv(raw) {
+  if (raw == null || raw === '') return '';
+  let s = String(raw).trim();
+  if (s.charCodeAt(0) === 0xfeff) s = s.slice(1).trim();
+  if (
+    (s.startsWith('"') && s.endsWith('"')) ||
+    (s.startsWith("'") && s.endsWith("'"))
+  ) {
+    s = s.slice(1, -1).trim();
+  }
+  if (s.startsWith('{')) {
+    try {
+      const j = JSON.parse(s);
+      const cid =
+        (j.web && j.web.client_id) ||
+        j.client_id ||
+        (j.installed && j.installed.client_id);
+      return cid ? String(cid).trim() : '';
+    } catch (_) {
+      const m = s.match(
+        /"client_id"\s*:\s*"([0-9]+-[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com)"/
+      );
+      if (m) return m[1];
+      return '';
+    }
+  }
+  return s;
+}
+
+// GET /api/auth/oauth-client-id — mesmo identificador que REACT_APP_GOOGLE_CLIENT_ID (GIS); nomes aceites no container abaixo
 app.get('/api/auth/oauth-client-id', (req, res) => {
-  const clientId = process.env.GOOGLE_CLIENT_ID || '';
-  res.setHeader('Cache-Control', 'private, max-age=300');
-  res.json({ success: true, clientId });
+  const raw =
+    process.env.REACT_APP_GOOGLE_CLIENT_ID ||
+    process.env.GOOGLE_CLIENT_ID ||
+    process.env.GOOGLE_OAUTH_CLIENT_ID ||
+    '';
+  const clientId = normalizeGoogleWebClientIdFromEnv(raw);
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.type('application/json');
+  res.json({
+    success: true,
+    clientId,
+    /** Alias explícito: igual a REACT_APP_GOOGLE_CLIENT_ID no bundle CRA */
+    REACT_APP_GOOGLE_CLIENT_ID: clientId
+  });
 });
 
 // ===== API DE AUTENTICAÇÃO - LOGIN COM EMAIL/SENHA =====

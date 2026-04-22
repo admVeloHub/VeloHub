@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.25 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.26 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -16,7 +16,7 @@
 ### 🌐 Variáveis de Ambiente do Container
 | Variável | Valor | Tipo |
 |---|---|---|
-| `REACT_APP_GOOGLE_CLIENT_ID` | *(injetado no build a partir do Secret Manager `google-client-id`; sem literal no repositório)* | Variável de Ambiente |
+| `REACT_APP_GOOGLE_CLIENT_ID` | *(build CRA; no container o mesmo valor pode ser `GOOGLE_CLIENT_ID` ou `REACT_APP_GOOGLE_CLIENT_ID` — ver GET `/api/auth/oauth-client-id`)* | Variável de Ambiente |
 | `REACT_APP_AUTHORIZED_DOMAIN` | `@velotax.com.br` | Variável de Ambiente |
 | `CHATBOT_LOG_SHEET_NAME` | `Log_IA_Usage` | Variável de Ambiente |
 
@@ -39,6 +39,15 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push — VeloHub: OAuth GIS — same-origin, env REACT_APP_* alinhado, normalização secret**
+- **Data/Hora**: 2026-04-22
+- **Tipo**: GitHub Push
+- **Repositório**: `https://github.com/admVeloHub/VeloHub.git` · branch `main`
+- **Versão**: `server.js` v2.50.9; `LoginPage.js` v3.0.5; `google-config.js` v1.3.3; `DEPLOY_LOG.md` v1.1.26
+- **Arquivos**: `backend/server.js`, `src/components/LoginPage.js`, `src/config/google-config.js`, `DEPLOY_LOG.md`
+- **Descrição**: Fetch do client id em `${origin}/api/auth/oauth-client-id`; Node lê `REACT_APP_GOOGLE_CLIENT_ID` || `GOOGLE_CLIENT_ID`; resposta inclui campo homónimo; prioridade API vs bundle; normalização JSON/regex; cache `no-store`.
+- **Status**: Commit e `git push origin main` nesta ação
 
 ### **GitHub Push — VeloHub: OAuth Google via GOOGLE_CLIENT_ID no runtime (GIS)**
 - **Data/Hora**: 2026-04-22

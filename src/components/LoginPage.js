@@ -1,4 +1,11 @@
-// VERSION: v3.0.2 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
+// VERSION: v3.0.5 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
+// Mudanças v3.0.5:
+// - Resposta oauth-client-id: usa data.REACT_APP_GOOGLE_CLIENT_ID || data.clientId (mesmo valor; nome alinhado ao CRA)
+// Mudanças v3.0.4:
+// - OAuth client-id: fetch same-origin `${origin}/api/auth/...` (não API_BASE_URL) — evita CORS/host errado com domínio customizado ou REACT_APP_API_URL desactualizado
+// Mudanças v3.0.3:
+// - Client ID: prioridade GET /api/auth/oauth-client-id (runtime) sobre REACT_APP_* — evita invalid_client quando o bundle tem ID errado/placeholder
+// - renderButton: width em px (GSI rejeita "100%")
 // Mudanças v3.0.2:
 // - Client ID Google: fallback GET /api/auth/oauth-client-id quando REACT_APP_GOOGLE_CLIENT_ID vazio (Cloud Run com secret só no runtime)
 // Mudanças v3.0.1:
@@ -40,6 +47,13 @@ import {
 } from '../services/auth';
 import { getClientId } from '../config/google-config';
 import { API_BASE_URL } from '../config/api-config';
+
+/** Formato típico: 123456-abc.apps.googleusercontent.com */
+function looksLikeGoogleWebClientId(value) {
+  if (!value || typeof value !== 'string') return false;
+  const t = value.trim();
+  return t.length >= 20 && /\.apps\.googleusercontent\.com$/i.test(t);
+}
 
 // Componente de ícone do Google personalizado
 const GoogleIcon = ({ className = "h-5 w-5" }) => (
@@ -192,16 +206,37 @@ const LoginPage = ({ onLoginSuccess }) => {
     script.onload = async () => {
       if (!window.google) return;
 
-      let clientId = getClientId();
-      if (!clientId) {
-        try {
-          const r = await fetch(`${API_BASE_URL}/auth/oauth-client-id`);
-          const data = await r.json();
-          if (data && data.success && data.clientId) {
-            clientId = data.clientId;
-          }
-        } catch (_) {
-          /* silencioso: sem clientId o fluxo OAuth fica indisponível */
+      let clientId = '';
+      try {
+        const oauthUrl =
+          typeof window !== 'undefined' && window.location?.origin
+            ? `${window.location.origin}/api/auth/oauth-client-id`
+            : `${API_BASE_URL}/auth/oauth-client-id`;
+        const r = await fetch(oauthUrl, {
+          method: 'GET',
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: { Accept: 'application/json' }
+        });
+        if (!r.ok) throw new Error(`oauth-client-id HTTP ${r.status}`);
+        const data = await r.json();
+        const fromApi =
+          data &&
+          data.success &&
+          (data.REACT_APP_GOOGLE_CLIENT_ID || data.clientId);
+        if (fromApi) {
+          clientId = String(
+            data.REACT_APP_GOOGLE_CLIENT_ID || data.clientId
+          ).trim();
+        }
+      } catch (_) {
+        /* rede / CORS */
+      }
+
+      if (!looksLikeGoogleWebClientId(clientId)) {
+        const fromEnv = String(getClientId() || '').trim();
+        if (looksLikeGoogleWebClientId(fromEnv)) {
+          clientId = fromEnv;
         }
       }
 
@@ -221,10 +256,12 @@ const LoginPage = ({ onLoginSuccess }) => {
       setTimeout(() => {
         const buttonDiv = document.getElementById('google-signin-button');
         if (buttonDiv && window.google.accounts.id) {
+          const bw = buttonDiv.offsetWidth;
+          const w = bw > 0 ? Math.min(400, Math.max(240, bw)) : 384;
           window.google.accounts.id.renderButton(buttonDiv, {
             theme: 'outline',
             size: 'large',
-            width: '100%',
+            width: w,
             text: 'continue_with',
             shape: 'rectangular',
             logo_alignment: 'center'
