@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.50.3 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.50.4 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v2.50.4:
+ * - Removidos middlewares de debug de /api/chatbot/ask (headers/body/resposta em log — risco PII/tokens)
  *
  * Mudanças v2.50.3:
  * - Logs de arranque e GCS: sem substring de MONGO_ENV, GOOGLE_CREDENTIALS ou chave privada (auditoria de segredos)
@@ -405,43 +408,6 @@ app.use((err, req, res, next) => {
       message: err.message 
     });
   }
-});
-
-// Middleware de debug para capturar problemas de JSON
-app.use((req, res, next) => {
-  if (req.path === '/api/chatbot/ask') {
-    console.log('🔍 Debug: Headers recebidos:', JSON.stringify(req.headers, null, 2));
-    console.log('🔍 Debug: Body recebido:', JSON.stringify(req.body, null, 2));
-  }
-  next();
-});
-
-// Middleware para capturar bytes brutos da resposta (diagnóstico)
-app.use((req, res, next) => {
-  const oldWrite = res.write;
-  const oldEnd = res.end;
-  const chunks = [];
-
-  res.write = function(chunk, ...args) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    return oldWrite.apply(res, [chunk, ...args]);
-  };
-  
-  res.end = function(chunk, ...args) {
-    if (chunk) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    const bodyBuf = Buffer.concat(chunks);
-    
-    if (req.path === '/api/chatbot/ask' && res.get('Content-Type')?.includes('application/json')) {
-      console.log('--- OUTGOING RAW BYTES (first 200) ---');
-      console.log('UTF8:', bodyBuf.slice(0,200).toString('utf8'));
-      console.log('HEX:', bodyBuf.slice(0,50));
-      console.log('First byte:', bodyBuf[0], '(', String.fromCharCode(bodyBuf[0]), ')');
-    }
-    
-    return oldEnd.apply(res, [chunk, ...args]);
-  };
-  
-  next();
 });
 
 // Função para formatar conteúdo de artigos seguindo padrões do schema

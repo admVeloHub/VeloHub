@@ -1,7 +1,10 @@
 /**
  * VeloHub V3 - AnaliseDiaria Component
- * VERSION: v2.7.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
- * 
+ * VERSION: v2.7.1 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v2.7.1:
+ * - Removidos fetch de instrumentação 127.0.0.1:7244 e logs DEBUG verbosos (auditoria)
+ *
  * Mudanças v2.7.0:
  * - MOTIVOS_REDUZIDOS: padrão Xxxxx xxxxx xxxx, alinhado a FormReclamacao e motivoReduzidoNormalize
  * 
@@ -147,42 +150,10 @@ const AnaliseDiaria = () => {
         dataFim,
         tipo
       });
-      // #region agent log
-      console.log('🔍 [DEBUG] API Response completo:', JSON.stringify(resultado, null, 2));
-      console.log('🔍 [DEBUG] Resultado estrutura:', {
-        keys: Object.keys(resultado),
-        hasData: !!resultado.data,
-        dataKeys: resultado.data ? Object.keys(resultado.data) : [],
-        bacenKeys: resultado.data?.bacen ? Object.keys(resultado.data.bacen) : [],
-        n2Keys: resultado.data?.n2 ? Object.keys(resultado.data.n2) : [],
-        bacenNaturezaLength: resultado.data?.bacen?.naturezaPorDia?.length,
-        n2ChamadosLength: resultado.data?.n2?.chamadosPorDia?.length,
-        firstNaturezaItem: resultado.data?.bacen?.naturezaPorDia?.[0],
-        firstChamadoItem: resultado.data?.n2?.chamadosPorDia?.[0],
-        allNaturezaItems: resultado.data?.bacen?.naturezaPorDia,
-        allPixItems: resultado.data?.bacen?.pixRetiradoPorDia,
-        allMotivosItems: resultado.data?.bacen?.motivosPorDia
-      });
-      fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c90fc9'},body:JSON.stringify({sessionId:'c90fc9',location:'AnaliseDiaria.js:gerarAnalise',message:'API response received',data:{dataInicio,dataFim,tipo,resultadoStructure:Object.keys(resultado),hasData:!!resultado.data,dataKeys:resultado.data?Object.keys(resultado.data):[],bacenKeys:resultado.data?.bacen?Object.keys(resultado.data.bacen):[],n2Keys:resultado.data?.n2?Object.keys(resultado.data.n2):[],bacenNaturezaLength:resultado.data?.bacen?.naturezaPorDia?.length,n2ChamadosLength:resultado.data?.n2?.chamadosPorDia?.length,firstNaturezaItem:resultado.data?.bacen?.naturezaPorDia?.[0],firstChamadoItem:resultado.data?.n2?.chamadosPorDia?.[0]},timestamp:Date.now(),runId:'initial',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       const dadosProcessados = resultado.data || resultado;
-      // #region agent log
-      console.log('🔍 [DEBUG] Dados processados:', dadosProcessados);
-      console.log('🔍 [DEBUG] Amostras:', {
-        bacenNaturezaSample: dadosProcessados?.bacen?.naturezaPorDia?.slice(0, 3),
-        bacenPixSample: dadosProcessados?.bacen?.pixRetiradoPorDia?.slice(0, 3),
-        bacenMotivosSample: dadosProcessados?.bacen?.motivosPorDia?.slice(0, 3),
-        bacenMotivosLength: dadosProcessados?.bacen?.motivosPorDia?.length,
-        bacenMotivosTodos: dadosProcessados?.bacen?.motivosPorDia
-      });
-      fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c90fc9'},body:JSON.stringify({sessionId:'c90fc9',location:'AnaliseDiaria.js:gerarAnalise',message:'Data processed and set',data:{dadosProcessadosKeys:Object.keys(dadosProcessados),bacenNaturezaSample:dadosProcessados?.bacen?.naturezaPorDia?.slice(0,3),bacenPixSample:dadosProcessados?.bacen?.pixRetiradoPorDia?.slice(0,3),bacenMotivosSample:dadosProcessados?.bacen?.motivosPorDia?.slice(0,3),bacenMotivosLength:dadosProcessados?.bacen?.motivosPorDia?.length,bacenMotivosTodos:dadosProcessados?.bacen?.motivosPorDia},timestamp:Date.now(),runId:'initial',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       setDadosDiarios(dadosProcessados);
       toast.success('Análise diária gerada com sucesso!');
     } catch (error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c90fc9'},body:JSON.stringify({sessionId:'c90fc9',location:'AnaliseDiaria.js:gerarAnalise',message:'Error occurred',data:{errorMessage:error.message,errorStack:error.stack},timestamp:Date.now(),runId:'initial',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
       console.error('Erro ao gerar análise diária:', error);
       toast.error('Erro ao gerar análise diária');
     } finally {
@@ -208,10 +179,6 @@ const AnaliseDiaria = () => {
       dias.push(`${ano}-${mes}-${dia}`);
     }
     
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c90fc9'},body:JSON.stringify({sessionId:'c90fc9',location:'AnaliseDiaria.js:gerarDiasNoPeriodo',message:'Array de dias gerado',data:{dataInicio,dataFim,diasLength:dias.length,diasPrimeiros:dias.slice(0,5),diasUltimos:dias.slice(-5)},timestamp:Date.now(),runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-    // #endregion
-    
     return dias;
   }, [dataInicio, dataFim]);
 
@@ -220,34 +187,12 @@ const AnaliseDiaria = () => {
    */
     const processarNaturezaBacen = useMemo(() => {
     if (!dadosDiarios?.bacen?.naturezaPorDia) {
-      // #region agent log
-      console.log('⚠️ [DEBUG] Sem dados de natureza:', {
-        hasDadosDiarios: !!dadosDiarios,
-        hasBacen: !!dadosDiarios?.bacen,
-        hasNaturezaPorDia: !!dadosDiarios?.bacen?.naturezaPorDia
-      });
-      fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c90fc9'},body:JSON.stringify({sessionId:'c90fc9',location:'AnaliseDiaria.js:processarNaturezaBacen',message:'No data available',data:{hasDadosDiarios:!!dadosDiarios,hasBacen:!!dadosDiarios?.bacen,hasNaturezaPorDia:!!dadosDiarios?.bacen?.naturezaPorDia},timestamp:Date.now(),runId:'initial',hypothesisId:'D'})}).catch(()=>{});
-      // #endregion
       return null;
     }
 
     const dias = gerarDiasNoPeriodo;
     // NATUREZA = origem (schema 471): Bacen Celcoin, Bacen Via Capital, Consumidor.Gov
     const naturezas = ['Bacen Celcoin', 'Bacen Via Capital', 'Consumidor.Gov'];
-    
-    // #region agent log
-    console.log('🔍 [DEBUG] Processando natureza:', {
-      diasCount: dias.length,
-      dias: dias.slice(0, 5),
-      naturezaPorDiaLength: dadosDiarios.bacen.naturezaPorDia.length,
-      firstItem: dadosDiarios.bacen.naturezaPorDia[0],
-      sampleItems: dadosDiarios.bacen.naturezaPorDia.slice(0, 5),
-      naturezasEsperadas: naturezas,
-      allNaturezaItems: dadosDiarios.bacen.naturezaPorDia,
-      uniqueNaturezas: [...new Set(dadosDiarios.bacen.naturezaPorDia.map(d => d._id.natureza))]
-    });
-    fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c90fc9'},body:JSON.stringify({sessionId:'c90fc9',location:'AnaliseDiaria.js:processarNaturezaBacen',message:'Processing natureza data',data:{diasCount:dias.length,naturezaPorDiaLength:dadosDiarios.bacen.naturezaPorDia.length,firstItem:dadosDiarios.bacen.naturezaPorDia[0],sampleItems:dadosDiarios.bacen.naturezaPorDia.slice(0,5)},timestamp:Date.now(),runId:'initial',hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
     
     const tabela = naturezas.map(natureza => {
       const valores = dias.map(dia => {
@@ -259,22 +204,6 @@ const AnaliseDiaria = () => {
       const total = valores.reduce((sum, val) => sum + val, 0);
       return { natureza, valores, total };
     });
-
-    // #region agent log
-    console.log('🔍 [DEBUG] Tabela processada:', {
-      tabelaLength: tabela.length,
-      firstRow: tabela[0],
-      allRows: tabela.map(r => ({ 
-        natureza: r.natureza, 
-        total: r.total, 
-        valoresCount: r.valores.length,
-        valores: r.valores,
-        valoresSum: r.valores.reduce((a, b) => a + b, 0)
-      })),
-      tabelaCompleta: tabela
-    });
-    fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c90fc9'},body:JSON.stringify({sessionId:'c90fc9',location:'AnaliseDiaria.js:processarNaturezaBacen',message:'Processed tabela result',data:{tabelaLength:tabela.length,firstRow:tabela[0],totalFirstRow:tabela[0]?.total},timestamp:Date.now(),runId:'initial',hypothesisId:'F'})}).catch(()=>{});
-    // #endregion
 
     return { tabela, dias };
   }, [dadosDiarios, gerarDiasNoPeriodo]);
@@ -360,11 +289,6 @@ const AnaliseDiaria = () => {
         return { motivo: grupo.motivo, valores, total };
       })
       .sort((a, b) => String(a.motivo || '').localeCompare(String(b.motivo || '')));
-
-    // #region agent log
-    const motivosComDados = tabela.filter(t => t.total > 0);
-    fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c90fc9'},body:JSON.stringify({sessionId:'c90fc9',location:'AnaliseDiaria.js:processarMotivosBacen',message:'tabela processada',data:{tabelaLength:tabela.length,motivosComDados:motivosComDados.map(t=>({motivo:t.motivo,total:t.total}))},timestamp:Date.now(),runId:'run1',hypothesisId:'H'})}).catch(()=>{});
-    // #endregion
 
     return { tabela, dias };
   }, [dadosDiarios, gerarDiasNoPeriodo]);

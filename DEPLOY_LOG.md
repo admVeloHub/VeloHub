@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.19 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.22 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -40,11 +40,25 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **Alteração local — mitigações pós-auditoria (sem deploy GCP)**
+- **Data/Hora**: 2026-04-22
+- **Tipo**: Limpeza de segurança e documentação (sem deploy)
+- **Versão**: `server.js` v2.50.4; `anexos.js` v1.1.0; `erros-bugs.js` v1.9.1; `SECURITY_AUDIT_REPORT.md` v1.1.0; `AnaliseDiaria.js` v2.7.1; VeloChat `server.js` v2.21.1; VeloChat `middleware/auth.js` v1.0.2
+- **Arquivos**: remoção de logs/instrumentação de debug (`/api/chatbot/ask`, 7243/7244, AnaliseDiaria); Ouvidoria upload com email só da sessão (`req.user`); relatório actualizado (plano P0, esclarecimentos CORS/Escalações/ping/XSS/Cloud Run)
+- **Descrição**: Redução de vazamento de PII em logs; eliminação de chamadas locais de debug; anti-spoofing de email em anexos; push não realizado.
+
+### **Alteração local — auditoria completa de segurança (relatório)**
+- **Data/Hora**: 2026-04-22
+- **Tipo**: Documentação / auditoria (sem deploy GCP nesta ação)
+- **Versão**: `SECURITY_AUDIT_REPORT.md` v1.0.1; `DEPLOY_LOG.md` v1.1.21
+- **Arquivos**: [SECURITY_AUDIT_REPORT.md](SECURITY_AUDIT_REPORT.md) (novo — inventário de superfície, segredos na working tree, `npm audit` nos três `package.json`, achados P0–P2 e plano de remediação por aprovação)
+- **Descrição**: Execução do plano de auditoria do ecossistema (VeloHub, VeloChat Server, política `.env`); nenhuma alteração de endpoints ou schemas; push não realizado.
+
 ### **Alteração local — auditoria de credenciais (working tree)**
 - **Data/Hora**: 2026-04-22
 - **Tipo**: Limpeza de repositório (sem deploy GCP nesta ação)
-- **Versão**: backend `server.js` v2.50.3; `config-local.js` v1.0.2; `google-config.js` v1.3.1; `LoginPage.js` v3.0.1; `cloudbuild.yaml` v1.2.4; `app.yaml` v1.2.6
-- **Arquivos**: removidos scripts legados em `backend/scripts/` (mantido `smoke-ouvidoria-dashboard.js`); `security-scan-history-report.txt` (varredura histórico por `git log -S`); ajustes de logs e YAML; `docs/archive/diagnostico_cloud_run.md` (exemplo sem URI/chave literal)
+- **Versão**: backend `server.js` v2.50.3; `config-local.js` v1.0.2; `backend/package.json` v1.5.6; `google-config.js` v1.3.1; `LoginPage.js` v3.0.1; `cloudbuild.yaml` v1.2.4; `app.yaml` v1.2.6
+- **Arquivos**: removida pasta `backend/scripts/` por completo (sem uso em produção; smoke e npm scripts `smoke:ouvidoria-dashboard` / `verify:ouvidoria-routes` eliminados); `security-scan-history-report.txt` (varredura histórico por `git log -S`); ajustes de logs e YAML; `docs/archive/diagnostico_cloud_run.md` (exemplo sem URI/chave literal)
 - **Descrição**: Eliminação de URIs/chaves hardcoded nos scripts; logs sem prefixo de `MONGO_ENV`/`GOOGLE_CREDENTIALS`; Client ID OAuth só via env/substituição de build; rotação Atlas/Secret Manager já feita pelo time — histórico Git ainda pode conter strings antigas até `git filter-repo` + push com aprovação.
 
 ### **GitHub Push - Ouvidoria: tipo Time Portabilidade (reclamacoes_timePortabilidade)**

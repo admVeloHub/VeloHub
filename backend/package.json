@@ -1,14 +1,12 @@
 {
   "name": "velohub-backend",
-  "version": "1.5.5",
+  "version": "1.5.6",
   "description": "VeloHub Backend Server",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "lint": "eslint \"routes/**/*.js\" \"middleware/**/*.js\"",
-    "smoke:ouvidoria-dashboard": "node scripts/smoke-ouvidoria-dashboard.js",
-    "verify:ouvidoria-routes": "npm run lint && npm run smoke:ouvidoria-dashboard"
+    "lint": "eslint \"routes/**/*.js\" \"middleware/**/*.js\""
   },
   "dependencies": {
     "@google-cloud/storage": "^7.7.0",

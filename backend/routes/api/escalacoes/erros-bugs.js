@@ -1,8 +1,11 @@
 /**
  * VeloHub V3 - Escalações API Routes - Erros/Bugs
- * VERSION: v1.9.0 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.9.1 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
  * Branch: main (recuperado de escalacoes)
- * 
+ *
+ * Mudanças v1.9.1:
+ * - Removida instrumentação de debug (fetch 127.0.0.1:7243)
+ *
  * Mudanças v1.9.0:
  * - POST /:id/reply — mesmo contrato que solicitações (N1/Produtos + cancelarSolicitacao); coleção erros_bugs
  * - GET / e GET /:id — normalização de reply[] (array vazio se ausente)
@@ -68,9 +71,6 @@ const router = express.Router();
  * @param {Object} services - Serviços disponíveis (userActivityLogger, etc.)
  */
 const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:47',message:'initErrosBugsRoutes ENTRY',data:{hasClient:!!client,hasConnectToMongo:typeof connectToMongo==='function',servicesKeys:Object.keys(services)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
   const { userActivityLogger } = services;
 
   /**
@@ -159,9 +159,6 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
   router.get('/', async (req, res) => {
     // Adicionar headers CORS antes de processar a requisição
     setCorsHeaders(req, res);
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:54',message:'router.get(/) HANDLER CALLED',data:{path:req.path,method:req.method,url:req.url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
     try {
       console.log('🔍 [GET /erros-bugs] Iniciando busca de erros/bugs...');
       
@@ -440,9 +437,6 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
   router.post('/', async (req, res) => {
     // Adicionar headers CORS antes de processar a requisição
     setCorsHeaders(req, res);
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:172',message:'router.post(/) HANDLER CALLED',data:{path:req.path,method:req.method,url:req.url,bodyKeys:Object.keys(req.body||{})},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
     try {
       if (!client) {
         return res.status(503).json({
@@ -747,9 +741,6 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
     }
   });
 
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:605',message:'initErrosBugsRoutes RETURN',data:{routerType:typeof router,routerIsFunction:typeof router==='function',hasGet:typeof router.get==='function',hasPost:typeof router.post==='function'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
   return router;
 };
 

@@ -1,7 +1,10 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Anexos
- * VERSION: v1.0.0 | DATE: 2025-02-20 | AUTHOR: VeloHub Development Team
- * 
+ * VERSION: v1.1.0 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v1.1.0:
+ * - Email do uploader: somente a partir de req.user (sessão ouvidoriaAccess); header/body divergente → 403
+ *
  * Rotas para upload de anexos de reclamações para Google Cloud Storage
  */
 
@@ -39,7 +42,6 @@ const initAnexosRoutes = (client, connectToMongo, services = {}) => {
    */
   router.post('/upload', upload.single('anexo'), async (req, res) => {
     try {
-      const userEmail = req.headers['x-user-email'] || req.body?.userEmail;
       const tipo = req.body?.tipo || 'BACEN';
 
       if (!req.file) {
@@ -49,12 +51,27 @@ const initAnexosRoutes = (client, connectToMongo, services = {}) => {
         });
       }
 
-      if (!userEmail) {
+      const sessionEmail = (req.user && req.user.email) ? String(req.user.email).trim() : '';
+      if (!sessionEmail) {
         return res.status(400).json({
           success: false,
-          error: 'Email do usuário é obrigatório'
+          error: 'Email do usuário não disponível na sessão'
         });
       }
+
+      const headerOrBody = (req.headers['x-user-email'] || req.body?.userEmail || '').toString().trim();
+      if (headerOrBody) {
+        const a = sessionEmail.toLowerCase();
+        const b = headerOrBody.toLowerCase();
+        if (a !== b) {
+          return res.status(403).json({
+            success: false,
+            error: 'Email informado não confere com a sessão'
+          });
+        }
+      }
+
+      const userEmail = sessionEmail;
 
       // Preparar nome do arquivo: timestamp-originalname
       const timestamp = Date.now();
