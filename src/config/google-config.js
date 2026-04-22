@@ -1,6 +1,7 @@
 // Configurações do Google OAuth 2.0 para VeloHub
-// VERSION: v1.3.1 | DATE: 2026-04-22 | AUTHOR: Lucas Gravina - VeloHub Development Team
-// v1.3.1: CLIENT_ID apenas via REACT_APP_GOOGLE_CLIENT_ID (build/Secret Manager); sem fallback literal nem logs de debug
+// VERSION: v1.3.2 | DATE: 2026-04-22 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// v1.3.2: Em produção sem REACT_APP no build, LoginPage obtém clientId via GET /api/auth/oauth-client-id (GOOGLE_CLIENT_ID no container)
+// v1.3.1: CLIENT_ID via REACT_APP_GOOGLE_CLIENT_ID (build); sem fallback literal nem logs de debug
 // 
 // INSTRUÇÕES:
 // 1. Acesse https://console.cloud.google.com/

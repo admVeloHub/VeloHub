@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.50.5 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.50.6 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v2.50.6:
+ * - GET /api/auth/oauth-client-id: expõe GOOGLE_CLIENT_ID do runtime (GIS no browser quando o build não tem REACT_APP_GOOGLE_CLIENT_ID)
  *
  * Mudanças v2.50.5:
  * - Corrigido SyntaxError em checks de placeholder de GOOGLE_CREDENTIALS (redacção Git quebrou literais PEM multilinha → uso de includes('REDACTED'))
@@ -2522,6 +2525,13 @@ Use APENAS a inteligência acima para desenvolver o e-mail conforme o template d
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
+});
+
+// GET /api/auth/oauth-client-id — Client ID OAuth Web (público por desenho; não expõe client_secret)
+app.get('/api/auth/oauth-client-id', (req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID || '';
+  res.setHeader('Cache-Control', 'private, max-age=300');
+  res.json({ success: true, clientId });
 });
 
 // ===== API DE AUTENTICAÇÃO - LOGIN COM EMAIL/SENHA =====

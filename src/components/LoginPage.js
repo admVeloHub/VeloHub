@@ -1,4 +1,6 @@
-// VERSION: v3.0.1 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
+// VERSION: v3.0.2 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
+// Mudanças v3.0.2:
+// - Client ID Google: fallback GET /api/auth/oauth-client-id quando REACT_APP_GOOGLE_CLIENT_ID vazio (Cloud Run com secret só no runtime)
 // Mudanças v3.0.1:
 // - Removidos logs de debug do OAuth (Client ID / process.env) — auditoria de segredos
 // Mudanças v3.0.0:
@@ -187,38 +189,48 @@ const LoginPage = ({ onLoginSuccess }) => {
     script.defer = true;
     document.head.appendChild(script);
 
-    script.onload = () => {
-      if (window.google) {
-        const clientId = getClientId();
+    script.onload = async () => {
+      if (!window.google) return;
 
-        if (!clientId) {
-          console.error('ERRO: Client ID não está definido!');
-          return;
-        }
-        
-        window.google.accounts.id.initialize({
-          client_id: clientId,
-          callback: handleCredentialResponse,
-          auto_select: false,
-          cancel_on_tap_outside: true
-        });
-        console.log('Google Sign-In inicializado');
-        
-        // Renderizar o botão do Google automaticamente
-        setTimeout(() => {
-          const buttonDiv = document.getElementById('google-signin-button');
-          if (buttonDiv && window.google.accounts.id) {
-            window.google.accounts.id.renderButton(buttonDiv, {
-              theme: 'outline',
-              size: 'large',
-              width: '100%',
-              text: 'continue_with',
-              shape: 'rectangular',
-              logo_alignment: 'center'
-            });
+      let clientId = getClientId();
+      if (!clientId) {
+        try {
+          const r = await fetch(`${API_BASE_URL}/auth/oauth-client-id`);
+          const data = await r.json();
+          if (data && data.success && data.clientId) {
+            clientId = data.clientId;
           }
-        }, 100);
+        } catch (_) {
+          /* silencioso: sem clientId o fluxo OAuth fica indisponível */
+        }
       }
+
+      if (!clientId) {
+        console.error('ERRO: Client ID não está definido!');
+        return;
+      }
+
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleCredentialResponse,
+        auto_select: false,
+        cancel_on_tap_outside: true
+      });
+      console.log('Google Sign-In inicializado');
+
+      setTimeout(() => {
+        const buttonDiv = document.getElementById('google-signin-button');
+        if (buttonDiv && window.google.accounts.id) {
+          window.google.accounts.id.renderButton(buttonDiv, {
+            theme: 'outline',
+            size: 'large',
+            width: '100%',
+            text: 'continue_with',
+            shape: 'rectangular',
+            logo_alignment: 'center'
+          });
+        }
+      }, 100);
     };
 
     return () => {

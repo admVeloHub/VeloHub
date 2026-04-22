@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.24 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.25 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,16 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push — VeloHub: OAuth Google via GOOGLE_CLIENT_ID no runtime (GIS)**
+- **Data/Hora**: 2026-04-22
+- **Tipo**: GitHub Push
+- **Repositório**: `https://github.com/admVeloHub/VeloHub.git` · branch `main`
+- **Versão**: `server.js` v2.50.6; `LoginPage.js` v3.0.2; `google-config.js` v1.3.2; `DEPLOY_LOG.md` v1.1.25
+- **Arquivos**: `backend/server.js` (GET `/api/auth/oauth-client-id`); `src/components/LoginPage.js`; `src/config/google-config.js`; `DEPLOY_LOG.md`
+- **Problema resolvido**: Botão OAuth omitido quando o bundle não tinha `REACT_APP_GOOGLE_CLIENT_ID` no build; Cloud Run já expõe `GOOGLE_CLIENT_ID` ao Node.
+- **Descrição**: Fallback no front para obter o Client ID público via API; sem alteração de schemas nem de contratos de rotas existentes além do novo GET.
+- **Status**: Commit e `git push origin main` nesta ação
 
 ### **GitHub Push — VeloHub: correção arranque Cloud Run (SyntaxError pós-redacção + ordem listen)**
 - **Data/Hora**: 2026-04-22
