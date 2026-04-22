@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Anexos
- * VERSION: v1.1.0 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.1.1 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v1.1.1:
+ * - Placeholder GOOGLE_CREDENTIALS: comparação PEM multilinha inválida após redacção → includes('REDACTED')
  *
  * Mudanças v1.1.0:
  * - Email do uploader: somente a partir de req.user (sessão ouvidoriaAccess); header/body divergente → 403
@@ -100,10 +103,8 @@ const initAnexosRoutes = (client, connectToMongo, services = {}) => {
             try {
               const credentials = JSON.parse(googleCredentials);
               
-              if (credentials.project_id === 'your-project-id' || 
-                  credentials.private_key === '-----BEGIN PRIVATE KEY-----
-REDACTED
------END PRIVATE KEY-----\n' ||
+              if (credentials.project_id === 'your-project-id' ||
+                  (credentials.private_key && String(credentials.private_key).includes('REDACTED')) ||
                   credentials.private_key?.includes('...')) {
                 console.error('❌ GOOGLE_CREDENTIALS contém valores placeholder');
                 return res.status(500).json({

@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.22 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.24 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,36 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push — VeloHub: correção arranque Cloud Run (SyntaxError pós-redacção + ordem listen)**
+- **Data/Hora**: 2026-04-22
+- **Tipo**: GitHub Push
+- **Repositório**: `https://github.com/admVeloHub/VeloHub.git` · branch `main`
+- **Versão (componentes)**: `backend/server.js` v2.50.5; `backend/routes/api/ouvidoria/anexos.js` v1.1.1; `DEPLOY_LOG.md` v1.1.24
+- **Arquivos modificados**:
+  - `backend/server.js` — comparações placeholder `GOOGLE_CREDENTIALS` sem literais PEM multilinha inválidos (`includes('REDACTED')`); `app.listen` no fim do ficheiro; Ouvidoria/Sociais sem `throw` no registo de rotas; `process.on` cedo
+  - `backend/routes/api/ouvidoria/anexos.js` — mesmo ajuste de placeholder PEM
+  - `DEPLOY_LOG.md` — esta entrada
+- **Descrição**: Corrige falha de revisão Cloud Run (contentor não escutava em `PORT=8080`) causada por **SyntaxError** após redacção Git em strings de código; alinha arranque com boas práticas Express. Sem alteração de contratos de API nem schemas MongoDB.
+- **Status**: Commit e `git push origin main` nesta ação; validar build/deploy Cloud Run no console
+
+### **GitHub Push — VeloHub: mitigações pós-auditoria + reescrita de histórico (redacção)**
+- **Data/Hora**: 2026-04-22
+- **Tipo**: GitHub Push (force push após `git filter-repo`)
+- **Repositório**: `https://github.com/admVeloHub/VeloHub.git` · branch `main`
+- **HEAD pós-push (local)**: `2ed0792` — *security: mitigacoes pos-auditoria, relatorio, anexos por sessao, remocao de instrumentacao e logs sensiveis*
+- **Histórico**: substituição em todo o histórico com `git-filter-repo --force --replace-text` (ficheiro de regras no workspace pai: `git-history-redact-rules.txt` — URIs MongoDB, chaves estilo API, blocos PEM)
+- **Descrição**: Publicação das mitigações de segurança e censura retroactiva de strings sensíveis no histórico Git; todos os clones devem refetch/rebase. Rotação de credenciais continua recomendada se alguma chave chegou a estar em commits antigos.
+- **Status**: Concluído (forced update `main`)
+
+### **GitHub Push — velochat_server: instrumentação removida + reescrita de histórico (redacção)**
+- **Data/Hora**: 2026-04-22
+- **Tipo**: GitHub Push (force push após `git filter-repo`)
+- **Repositório**: `https://github.com/admVeloHub/velochat_server.git` · branch `main`
+- **HEAD pós-push (local)**: `9bb8362` — *security: remocao de instrumentacao de debug (auditoria VeloChat)*
+- **Histórico**: mesmo processo `--replace-text` que no VeloHub (regras partilhadas)
+- **Descrição**: Push do commit de remoção de debug + redacção retroactiva no histórico; equipa com forks/clones antigos deve sincronizar com o novo `main`.
+- **Status**: Concluído (forced update `main`)
 
 ### **Alteração local — mitigações pós-auditoria (sem deploy GCP)**
 - **Data/Hora**: 2026-04-22

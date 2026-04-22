@@ -1,6 +1,10 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.50.4 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.50.5 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v2.50.5:
+ * - Corrigido SyntaxError em checks de placeholder de GOOGLE_CREDENTIALS (redacção Git quebrou literais PEM multilinha → uso de includes('REDACTED'))
+ * - app.listen movido para o fim do ficheiro (após static + SPA); Ouvidoria/Sociais sem throw no registo de rotas; process.on global cedo
  *
  * Mudanças v2.50.4:
  * - Removidos middlewares de debug de /api/chatbot/ask (headers/body/resposta em log — risco PII/tokens)
@@ -369,6 +373,13 @@ try {
 const app = express();
 // Cloud Run injeta PORT=8080. Em dev local sem PORT: 8090 (api-config.js: front 8080 → API 8090)
 const PORT = process.env.PORT || 8090;
+
+process.on('uncaughtException', (error) => {
+  console.error('❌ Erro não capturado:', error);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('❌ Promise rejeitada não tratada:', reason);
+});
 
 // Middleware
 app.use(cors({
@@ -3251,10 +3262,8 @@ app.post('/api/auth/profile/upload-photo', async (req, res) => {
             const credentials = JSON.parse(googleCredentials);
             
             // Verificar se credenciais são placeholders
-            if (credentials.project_id === 'your-project-id' || 
-                credentials.private_key === '-----BEGIN PRIVATE KEY-----
-REDACTED
------END PRIVATE KEY-----\n' ||
+            if (credentials.project_id === 'your-project-id' ||
+                (credentials.private_key && String(credentials.private_key).includes('REDACTED')) ||
                 credentials.private_key?.includes('...')) {
               console.error('❌ GOOGLE_CREDENTIALS contém valores placeholder. Configure credenciais reais no arquivo backend/env');
               return res.status(500).json({
@@ -3470,10 +3479,8 @@ app.get('/api/auth/profile/get-upload-url', async (req, res) => {
             console.log('🔍 [get-upload-url] Private key length:', credentials.private_key ? credentials.private_key.length : 'N/A');
             
             // Verificar se credenciais são placeholders
-            if (credentials.project_id === 'your-project-id' || 
-                credentials.private_key === '-----BEGIN PRIVATE KEY-----
-REDACTED
------END PRIVATE KEY-----\n' ||
+            if (credentials.project_id === 'your-project-id' ||
+                (credentials.private_key && String(credentials.private_key).includes('REDACTED')) ||
                 credentials.private_key?.includes('...')) {
               console.warn('⚠️ [get-upload-url] GOOGLE_CREDENTIALS contém valores placeholder. Tentando usar Application Default Credentials...');
               // Não retornar erro, tentar usar ADC
@@ -3721,10 +3728,8 @@ app.post('/api/auth/profile/confirm-upload', async (req, res) => {
             const credentials = JSON.parse(googleCredentials);
             
             // Verificar se credenciais são placeholders
-            if (credentials.project_id === 'your-project-id' || 
-                credentials.private_key === '-----BEGIN PRIVATE KEY-----
-REDACTED
------END PRIVATE KEY-----\n' ||
+            if (credentials.project_id === 'your-project-id' ||
+                (credentials.private_key && String(credentials.private_key).includes('REDACTED')) ||
                 credentials.private_key?.includes('...')) {
               console.error('❌ GOOGLE_CREDENTIALS contém valores placeholder. Configure credenciais reais no arquivo backend/env');
               return res.status(500).json({
@@ -3995,10 +4000,8 @@ app.post('/api/chat/attachments/get-upload-url', async (req, res) => {
             }
             
             // Verificar se credenciais são placeholders
-            if (credentials.project_id === 'your-project-id' || 
-                credentials.private_key === '-----BEGIN PRIVATE KEY-----
-REDACTED
------END PRIVATE KEY-----\n' ||
+            if (credentials.project_id === 'your-project-id' ||
+                (credentials.private_key && String(credentials.private_key).includes('REDACTED')) ||
                 credentials.private_key?.includes('...')) {
               console.warn('⚠️ [chat-attachments/get-upload-url] GOOGLE_CREDENTIALS contém valores placeholder. Tentando usar Application Default Credentials...');
               // Não retornar erro, tentar usar ADC
@@ -5305,65 +5308,6 @@ app.get('/api/velo-news/acknowledgments/:userEmail', async (req, res) => {
   }
 });
 
-// Iniciar servidor
-console.log('🔄 Iniciando servidor...');
-console.log(`📍 Porta configurada: ${PORT}`);
-console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-console.log(`📁 Diretório de trabalho: ${process.cwd()}`);
-console.log(`📁 Arquivos no diretório:`, require('fs').readdirSync('.'));
-
-console.log('🚀 Tentando iniciar servidor na porta', PORT);
-
-const server = app.listen(PORT, '0.0.0.0', (error) => {
-  if (error) {
-    console.error('❌ Erro ao iniciar servidor:', error);
-    process.exit(1);
-  }
-  
-  console.log(`✅ Servidor backend rodando na porta ${PORT}`);
-  console.log(`🌐 Acessível em: http://localhost:${PORT}`);
-  console.log(`🌐 Acessível na rede local: http://0.0.0.0:${PORT}`);
-  console.log(`📡 Endpoint principal: http://localhost:${PORT}/api/data`);
-  console.log(`📡 Teste a API em: http://localhost:${PORT}/api/test`);
-  
-  // Tentar conectar ao MongoDB em background (não bloqueia o startup)
-  connectToMongo().catch(error => {
-    console.warn('⚠️ MongoDB: Falha na conexão inicial, tentando reconectar...', error.message);
-  });
-  
-  // Inicializar cache de status dos módulos
-  setTimeout(async () => {
-    try {
-      console.log('🚀 Inicializando cache de status dos módulos...');
-      await getModuleStatus();
-      console.log('✅ Cache de status inicializado com sucesso');
-    } catch (error) {
-      console.error('❌ Erro ao inicializar cache de status:', error);
-    }
-  }, 2000); // Aguardar 2 segundos para MongoDB conectar
-});
-
-// Log de erro se o servidor não conseguir iniciar
-server.on('error', (error) => {
-  console.error('❌ Erro no servidor:', error);
-  process.exit(1);
-});
-
-server.on('listening', () => {
-  console.log('🎉 Servidor está escutando na porta', PORT);
-});
-
-// Tratamento de erros não capturados
-process.on('uncaughtException', (error) => {
-  console.error('❌ Erro não capturado:', error);
-  // Não encerrar o processo, apenas logar o erro
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Promise rejeitada não tratada:', reason);
-  // Não encerrar o processo, apenas logar o erro
-});
-
 // ========================================
 // SISTEMA DE CONTROLE DE STATUS DOS MÓDULOS
 // ========================================
@@ -6509,9 +6453,6 @@ try {
   console.error('❌ Erro ao registrar rotas de Ouvidoria:', error.message);
   console.error('Stack:', error.stack);
   console.error('Detalhes do erro:', error);
-  // NÃO permitir que o servidor continue sem as rotas de ouvidoria
-  // Isso garante que o problema seja detectado imediatamente
-  throw error;
 }
 
 // ===== API PARA MÓDULO SOCIAIS =====
@@ -6527,7 +6468,7 @@ try {
   console.log('✅ Rotas do módulo Sociais registradas: /api/sociais/*');
 } catch (error) {
   console.error('❌ Erro ao registrar rotas de Sociais:', error.message);
-  throw error;
+  console.error('Stack:', error.stack);
 }
 
 // ===== API PARA MÓDULO VELOCHAT =====
@@ -6823,10 +6764,8 @@ app.get('/api/pilulas/list', async (req, res) => {
             const credentials = JSON.parse(googleCredentials);
             
             // Verificar se credenciais são placeholders
-            if (credentials.project_id === 'your-project-id' || 
-                credentials.private_key === '-----BEGIN PRIVATE KEY-----
-REDACTED
------END PRIVATE KEY-----\n' ||
+            if (credentials.project_id === 'your-project-id' ||
+                (credentials.private_key && String(credentials.private_key).includes('REDACTED')) ||
                 credentials.private_key?.includes('...')) {
               console.error('❌ [pilulas/list] GOOGLE_CREDENTIALS contém valores placeholder');
               return res.status(500).json({
@@ -7071,4 +7010,44 @@ app.all('*', (req, res, next) => {
       method: req.method
     });
   }
+});
+
+// Iniciar servidor após todas as rotas e ficheiros estáticos (Cloud Run: PORT=8080)
+console.log('🔄 Iniciando servidor...');
+console.log(`📍 Porta configurada: ${PORT}`);
+console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+console.log(`📁 Diretório de trabalho: ${process.cwd()}`);
+console.log(`📁 Arquivos no diretório:`, require('fs').readdirSync('.'));
+
+console.log('🚀 Tentando iniciar servidor na porta', PORT);
+
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Servidor backend rodando na porta ${PORT}`);
+  console.log(`🌐 Acessível em: http://localhost:${PORT}`);
+  console.log(`🌐 Acessível na rede local: http://0.0.0.0:${PORT}`);
+  console.log(`📡 Endpoint principal: http://localhost:${PORT}/api/data`);
+  console.log(`📡 Teste a API em: http://localhost:${PORT}/api/test`);
+
+  connectToMongo().catch((err) => {
+    console.warn('⚠️ MongoDB: Falha na conexão inicial, tentando reconectar...', err.message);
+  });
+
+  setTimeout(async () => {
+    try {
+      console.log('🚀 Inicializando cache de status dos módulos...');
+      await getModuleStatus();
+      console.log('✅ Cache de status inicializado com sucesso');
+    } catch (err) {
+      console.error('❌ Erro ao inicializar cache de status:', err);
+    }
+  }, 2000);
+});
+
+server.on('error', (err) => {
+  console.error('❌ Erro no servidor:', err);
+  process.exit(1);
+});
+
+server.on('listening', () => {
+  console.log('🎉 Servidor está escutando na porta', PORT);
 });
