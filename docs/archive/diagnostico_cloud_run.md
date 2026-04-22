@@ -60,12 +60,12 @@ gcloud run services update velohub-278491073220 \
     --set-secrets="OPENAI_API_KEY=OPENAI_API_KEY:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,MONGO_ENV=MONGO_ENV:latest"
 ```
 
-### OPÇÃO 2: USAR VARIÁVEIS DE AMBIENTE DIRETAS
+### OPÇÃO 2: VARIÁVEIS DIRETAS (EVITAR EM PRODUÇÃO)
+Não colocar chaves ou URI Mongo em linha de comando versionada. Preferir sempre `--set-secrets` ou Secret Manager. Exemplo genérico (valores fictícios):
 ```bash
-# Atualizar serviço com variáveis diretas (temporário)
-gcloud run services update velohub-278491073220 \
+gcloud run services update NOME_DO_SERVICO \
     --region=us-east1 \
-    --set-env-vars="OPENAI_API_KEY=sk-...,GEMINI_API_KEY=AIza...,MONGO_ENV=mongodb+srv://REDACTED"
+    --set-secrets="OPENAI_API_KEY=OPENAI_API_KEY:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,MONGO_ENV=MONGO_ENV:latest"
 ```
 
 ### OPÇÃO 3: VERIFICAR APP.YAML

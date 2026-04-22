@@ -1,0 +1,158 @@
+﻿# === Proximo passo (Fase 4 plano): reescrita de historico ===
+# Requer aprovacao explicita para git push --force.
+# Fluxo sugerido (por clone espelho de backup):
+#   git clone --mirror <url> velohub-mirror.git
+#   cd velohub-mirror.git
+#   git filter-repo --replace-text ../replacements.txt
+# Onde replacements.txt contem linhas: literal_antigo==>REDACTED
+# Depois: git push --force --all && git push --force --tags
+# Coordenar com o time (SHAs mudam).
+
+# Relatorio de varredura (substituto Gitleaks/TruffleHog nao instalados no ambiente)
+# Metodo: git log -S"<padrao>" em admVeloHub/VeloHub e velochat_server (commits que tocaram a string).
+# Apos limpar working tree e novo commit, rodar de novo para validar; historico antigo permanece ate filter-repo + force push (requer aprovacao).
+# Credential pattern hits in git history (git log -S)
+
+## Pattern (redacted key): mongodb+srv://REDACTED
+04423bf chore(repo): remover painel de servi├ºos legado; alinhar Ouvidoria produto e scripts
+6ab1314 feat(escalacoes): paridade Erros/Bugs, sidebar unificada e helpers compartilhados
+81105a9 Backend Ouvidoria, Chatbot, scripts diagn├│stico e asset telef
+d63ae16 Atualiza├º├Áes M├│dulos Ouvidoria, Escala├º├Áes e Novos Scripts de Importa├º├úo
+8ca1f0d Atualiza├º├Áes Depend├¬ncias, Scripts XLSX e Melhorias M├│dulos
+0eab707 Atualiza├º├úo: novos componentes VelonewsCommentThread e avatarUtils, ajustes no App e API
+6b41ca9 Atualiza├º├úo: componentes de loading, estilos e ajustes no App
+da8d7ed Commit inicial - reposit├│rio limpo sem secrets
+fd381a4 Atualiza├º├úo: .gitignore, reorganiza├º├úo de arquivos e novos componentes VeloChat
+3e42f5a Atualiza├º├úo: .gitignore, reorganiza├º├úo de arquivos e novos componentes VeloChat
+cdf40cc Corre├º├úo de status do painel de escala├º├Áes e atualiza├º├úo do servi├ºo WhatsApp
+2711287 Corre├º├úo de status do painel de escala├º├Áes e atualiza├º├úo do servi├ºo WhatsApp
+8e19af3 feat: melhorias no header, footer e hist├│rico do agente - Header: gradiente azul no tema escuro, logo adaptativo, bot├Áes de navega├º├úo com cores atualizadas - Footer: adicionado com altura reduzida - Hist├│rico do agente: altura fixa e scroll├ível nas abas Solicita├º├Áes e Erros/Bugs
+07db456 feat: melhorias no header, footer e hist├│rico do agente - Header: gradiente azul no tema escuro, logo adaptativo, bot├Áes de navega├º├úo com cores atualizadas - Footer: adicionado com altura reduzida - Hist├│rico do agente: altura fixa e scroll├ível nas abas Solicita├º├Áes e Erros/Bugs
+882c369 Atualiza├º├úo completa do projeto - escalacoes e melhorias
+d0b849f Atualiza├º├úo completa do projeto - escalacoes e melhorias
+21dbb01 feat: M├│dulo Apoio - Padroniza├º├úo, desativa├º├úo de cards e remo├º├úo de bypass de acesso - v2.1.78
+e8b5f01 feat: Sistema de tickets completo com bypass de usu├írio e melhorias de UI
+d8ee3b2 feat: Sistema de tickets completo com bypass de usu├írio e melhorias de UI
+8016042 refactor: Refatora├º├úo endpoints PUT Apoio v2.27.0
+9808111 refactor: Refatora├º├úo endpoints PUT Apoio v2.27.0
+f6722f3 feat: Otimiza├º├úo completa do VeloBot - Ponto 3 com clarification e performance otimizada
+43f09f7 feat: Otimiza├º├úo completa do VeloBot - Ponto 3 com clarification e performance otimizada
+ad4fb3f feat: Implementa├º├úo completa de formata├º├úo consistente
+b5dc953 feat: Implementa├º├úo completa de formata├º├úo consistente
+4ca2a5a feat: Implementa├º├úo do Sistema de Controle de Status dos M├│dulos
+e84c1f2 feat: Implementa├º├úo do Sistema de Controle de Status dos M├│dulos
+174e25a Atualiza├º├úo do chatbot: melhorias no backend e frontend - v1.2.0
+99be581 Atualiza├º├úo do chatbot: melhorias no backend e frontend - v1.2.0
+4b14ea6 feat: Refatora├º├úo completa do sistema de chatbot
+ad229cb Atualiza├º├úo de modelos, rotas e configura├º├Áes do servidor
+f6d4c03 Atualiza├º├úo de modelos P2PConversation e SalaMessage, adicionado arquivo de an├ílise
+be49658 Update server files and routes
+807942f Initial commit: VeloChat Server setup
+
+## Pattern (redacted key): nKQu8bSN6iZl8FPo...
+04423bf chore(repo): remover painel de servi├ºos legado; alinhar Ouvidoria produto e scripts
+6ab1314 feat(escalacoes): paridade Erros/Bugs, sidebar unificada e helpers compartilhados
+81105a9 Backend Ouvidoria, Chatbot, scripts diagn├│stico e asset telef
+d63ae16 Atualiza├º├Áes M├│dulos Ouvidoria, Escala├º├Áes e Novos Scripts de Importa├º├úo
+8ca1f0d Atualiza├º├Áes Depend├¬ncias, Scripts XLSX e Melhorias M├│dulos
+0eab707 Atualiza├º├úo: novos componentes VelonewsCommentThread e avatarUtils, ajustes no App e API
+6b41ca9 Atualiza├º├úo: componentes de loading, estilos e ajustes no App
+da8d7ed Commit inicial - reposit├│rio limpo sem secrets
+fd381a4 Atualiza├º├úo: .gitignore, reorganiza├º├úo de arquivos e novos componentes VeloChat
+3e42f5a Atualiza├º├úo: .gitignore, reorganiza├º├úo de arquivos e novos componentes VeloChat
+cdf40cc Corre├º├úo de status do painel de escala├º├Áes e atualiza├º├úo do servi├ºo WhatsApp
+2711287 Corre├º├úo de status do painel de escala├º├Áes e atualiza├º├úo do servi├ºo WhatsApp
+8e19af3 feat: melhorias no header, footer e hist├│rico do agente - Header: gradiente azul no tema escuro, logo adaptativo, bot├Áes de navega├º├úo com cores atualizadas - Footer: adicionado com altura reduzida - Hist├│rico do agente: altura fixa e scroll├ível nas abas Solicita├º├Áes e Erros/Bugs
+07db456 feat: melhorias no header, footer e hist├│rico do agente - Header: gradiente azul no tema escuro, logo adaptativo, bot├Áes de navega├º├úo com cores atualizadas - Footer: adicionado com altura reduzida - Hist├│rico do agente: altura fixa e scroll├ível nas abas Solicita├º├Áes e Erros/Bugs
+882c369 Atualiza├º├úo completa do projeto - escalacoes e melhorias
+d0b849f Atualiza├º├úo completa do projeto - escalacoes e melhorias
+21dbb01 feat: M├│dulo Apoio - Padroniza├º├úo, desativa├º├úo de cards e remo├º├úo de bypass de acesso - v2.1.78
+e8b5f01 feat: Sistema de tickets completo com bypass de usu├írio e melhorias de UI
+d8ee3b2 feat: Sistema de tickets completo com bypass de usu├írio e melhorias de UI
+8016042 refactor: Refatora├º├úo endpoints PUT Apoio v2.27.0
+9808111 refactor: Refatora├º├úo endpoints PUT Apoio v2.27.0
+f6722f3 feat: Otimiza├º├úo completa do VeloBot - Ponto 3 com clarification e performance otimizada
+43f09f7 feat: Otimiza├º├úo completa do VeloBot - Ponto 3 com clarification e performance otimizada
+ad4fb3f feat: Implementa├º├úo completa de formata├º├úo consistente
+b5dc953 feat: Implementa├º├úo completa de formata├º├úo consistente
+4ca2a5a feat: Implementa├º├úo do Sistema de Controle de Status dos M├│dulos
+e84c1f2 feat: Implementa├º├úo do Sistema de Controle de Status dos M├│dulos
+174e25a Atualiza├º├úo do chatbot: melhorias no backend e frontend - v1.2.0
+99be581 Atualiza├º├úo do chatbot: melhorias no backend e frontend - v1.2.0
+4b14ea6 feat: Refatora├º├úo completa do sistema de chatbot
+ad229cb Atualiza├º├úo de modelos, rotas e configura├º├Áes do servidor
+f6d4c03 Atualiza├º├úo de modelos P2PConversation e SalaMessage, adicionado arquivo de an├ílise
+be49658 Update server files and routes
+807942f Initial commit: VeloChat Server setup
+
+## Pattern (redacted key): AIzaSyAVoOWyvMjk29hm...
+04423bf chore(repo): remover painel de servi├ºos legado; alinhar Ouvidoria produto e scripts
+6ab1314 feat(escalacoes): paridade Erros/Bugs, sidebar unificada e helpers compartilhados
+81105a9 Backend Ouvidoria, Chatbot, scripts diagn├│stico e asset telef
+d63ae16 Atualiza├º├Áes M├│dulos Ouvidoria, Escala├º├Áes e Novos Scripts de Importa├º├úo
+8ca1f0d Atualiza├º├Áes Depend├¬ncias, Scripts XLSX e Melhorias M├│dulos
+0eab707 Atualiza├º├úo: novos componentes VelonewsCommentThread e avatarUtils, ajustes no App e API
+6b41ca9 Atualiza├º├úo: componentes de loading, estilos e ajustes no App
+da8d7ed Commit inicial - reposit├│rio limpo sem secrets
+fd381a4 Atualiza├º├úo: .gitignore, reorganiza├º├úo de arquivos e novos componentes VeloChat
+3e42f5a Atualiza├º├úo: .gitignore, reorganiza├º├úo de arquivos e novos componentes VeloChat
+cdf40cc Corre├º├úo de status do painel de escala├º├Áes e atualiza├º├úo do servi├ºo WhatsApp
+2711287 Corre├º├úo de status do painel de escala├º├Áes e atualiza├º├úo do servi├ºo WhatsApp
+8e19af3 feat: melhorias no header, footer e hist├│rico do agente - Header: gradiente azul no tema escuro, logo adaptativo, bot├Áes de navega├º├úo com cores atualizadas - Footer: adicionado com altura reduzida - Hist├│rico do agente: altura fixa e scroll├ível nas abas Solicita├º├Áes e Erros/Bugs
+07db456 feat: melhorias no header, footer e hist├│rico do agente - Header: gradiente azul no tema escuro, logo adaptativo, bot├Áes de navega├º├úo com cores atualizadas - Footer: adicionado com altura reduzida - Hist├│rico do agente: altura fixa e scroll├ível nas abas Solicita├º├Áes e Erros/Bugs
+882c369 Atualiza├º├úo completa do projeto - escalacoes e melhorias
+d0b849f Atualiza├º├úo completa do projeto - escalacoes e melhorias
+21dbb01 feat: M├│dulo Apoio - Padroniza├º├úo, desativa├º├úo de cards e remo├º├úo de bypass de acesso - v2.1.78
+e8b5f01 feat: Sistema de tickets completo com bypass de usu├írio e melhorias de UI
+d8ee3b2 feat: Sistema de tickets completo com bypass de usu├írio e melhorias de UI
+8016042 refactor: Refatora├º├úo endpoints PUT Apoio v2.27.0
+9808111 refactor: Refatora├º├úo endpoints PUT Apoio v2.27.0
+f6722f3 feat: Otimiza├º├úo completa do VeloBot - Ponto 3 com clarification e performance otimizada
+43f09f7 feat: Otimiza├º├úo completa do VeloBot - Ponto 3 com clarification e performance otimizada
+ad4fb3f feat: Implementa├º├úo completa de formata├º├úo consistente
+b5dc953 feat: Implementa├º├úo completa de formata├º├úo consistente
+4ca2a5a feat: Implementa├º├úo do Sistema de Controle de Status dos M├│dulos
+e84c1f2 feat: Implementa├º├úo do Sistema de Controle de Status dos M├│dulos
+174e25a Atualiza├º├úo do chatbot: melhorias no backend e frontend - v1.2.0
+99be581 Atualiza├º├úo do chatbot: melhorias no backend e frontend - v1.2.0
+4b14ea6 feat: Refatora├º├úo completa do sistema de chatbot
+ad229cb Atualiza├º├úo de modelos, rotas e configura├º├Áes do servidor
+f6d4c03 Atualiza├º├úo de modelos P2PConversation e SalaMessage, adicionado arquivo de an├ílise
+be49658 Update server files and routes
+807942f Initial commit: VeloChat Server setup
+
+## Pattern (redacted key): bacen-n2.firebaseio....
+04423bf chore(repo): remover painel de servi├ºos legado; alinhar Ouvidoria produto e scripts
+6ab1314 feat(escalacoes): paridade Erros/Bugs, sidebar unificada e helpers compartilhados
+81105a9 Backend Ouvidoria, Chatbot, scripts diagn├│stico e asset telef
+d63ae16 Atualiza├º├Áes M├│dulos Ouvidoria, Escala├º├Áes e Novos Scripts de Importa├º├úo
+8ca1f0d Atualiza├º├Áes Depend├¬ncias, Scripts XLSX e Melhorias M├│dulos
+0eab707 Atualiza├º├úo: novos componentes VelonewsCommentThread e avatarUtils, ajustes no App e API
+6b41ca9 Atualiza├º├úo: componentes de loading, estilos e ajustes no App
+da8d7ed Commit inicial - reposit├│rio limpo sem secrets
+fd381a4 Atualiza├º├úo: .gitignore, reorganiza├º├úo de arquivos e novos componentes VeloChat
+3e42f5a Atualiza├º├úo: .gitignore, reorganiza├º├úo de arquivos e novos componentes VeloChat
+cdf40cc Corre├º├úo de status do painel de escala├º├Áes e atualiza├º├úo do servi├ºo WhatsApp
+2711287 Corre├º├úo de status do painel de escala├º├Áes e atualiza├º├úo do servi├ºo WhatsApp
+8e19af3 feat: melhorias no header, footer e hist├│rico do agente - Header: gradiente azul no tema escuro, logo adaptativo, bot├Áes de navega├º├úo com cores atualizadas - Footer: adicionado com altura reduzida - Hist├│rico do agente: altura fixa e scroll├ível nas abas Solicita├º├Áes e Erros/Bugs
+07db456 feat: melhorias no header, footer e hist├│rico do agente - Header: gradiente azul no tema escuro, logo adaptativo, bot├Áes de navega├º├úo com cores atualizadas - Footer: adicionado com altura reduzida - Hist├│rico do agente: altura fixa e scroll├ível nas abas Solicita├º├Áes e Erros/Bugs
+882c369 Atualiza├º├úo completa do projeto - escalacoes e melhorias
+d0b849f Atualiza├º├úo completa do projeto - escalacoes e melhorias
+21dbb01 feat: M├│dulo Apoio - Padroniza├º├úo, desativa├º├úo de cards e remo├º├úo de bypass de acesso - v2.1.78
+e8b5f01 feat: Sistema de tickets completo com bypass de usu├írio e melhorias de UI
+d8ee3b2 feat: Sistema de tickets completo com bypass de usu├írio e melhorias de UI
+8016042 refactor: Refatora├º├úo endpoints PUT Apoio v2.27.0
+9808111 refactor: Refatora├º├úo endpoints PUT Apoio v2.27.0
+f6722f3 feat: Otimiza├º├úo completa do VeloBot - Ponto 3 com clarification e performance otimizada
+43f09f7 feat: Otimiza├º├úo completa do VeloBot - Ponto 3 com clarification e performance otimizada
+ad4fb3f feat: Implementa├º├úo completa de formata├º├úo consistente
+b5dc953 feat: Implementa├º├úo completa de formata├º├úo consistente
+4ca2a5a feat: Implementa├º├úo do Sistema de Controle de Status dos M├│dulos
+e84c1f2 feat: Implementa├º├úo do Sistema de Controle de Status dos M├│dulos
+174e25a Atualiza├º├úo do chatbot: melhorias no backend e frontend - v1.2.0
+99be581 Atualiza├º├úo do chatbot: melhorias no backend e frontend - v1.2.0
+4b14ea6 feat: Refatora├º├úo completa do sistema de chatbot
+ad229cb Atualiza├º├úo de modelos, rotas e configura├º├Áes do servidor
+f6d4c03 Atualiza├º├úo de modelos P2PConversation e SalaMessage, adicionado arquivo de an├ílise
+be49658 Update server files and routes
+807942f Initial commit: VeloChat Server setup

@@ -1,5 +1,6 @@
 // Configurações do Google OAuth 2.0 para VeloHub
-// VERSION: v1.3.0 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v1.3.1 | DATE: 2026-04-22 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// v1.3.1: CLIENT_ID apenas via REACT_APP_GOOGLE_CLIENT_ID (build/Secret Manager); sem fallback literal nem logs de debug
 // 
 // INSTRUÇÕES:
 // 1. Acesse https://console.cloud.google.com/
@@ -19,8 +20,8 @@
 // 7. Copie o Client ID gerado e substitua abaixo
 
 export const GOOGLE_CONFIG = {
-  // Client ID do Google Cloud Console para VeloHub
-  CLIENT_ID: process.env.REACT_APP_GOOGLE_CLIENT_ID || "278491073220-eb4ogvn3aifu0ut9mq3rvu5r9r9l3137.apps.googleusercontent.com",
+  // Client ID: injetado no build (ex.: Cloud Build a partir do Secret Manager)
+  CLIENT_ID: process.env.REACT_APP_GOOGLE_CLIENT_ID || '',
   
   // Domínio de email autorizado
   AUTHORIZED_DOMAIN: process.env.REACT_APP_AUTHORIZED_DOMAIN || "velotax.com.br",
@@ -40,10 +41,5 @@ export function isAuthorizedDomain(email) {
 
 // Função para obter o Client ID
 export function getClientId() {
-  console.log('=== DEBUG GOOGLE CONFIG ===');
-  console.log('GOOGLE_CONFIG.CLIENT_ID:', GOOGLE_CONFIG.CLIENT_ID);
-  console.log('process.env.REACT_APP_GOOGLE_CLIENT_ID:', process.env.REACT_APP_GOOGLE_CLIENT_ID);
-  console.log('Tipo do CLIENT_ID:', typeof GOOGLE_CONFIG.CLIENT_ID);
-  console.log('========================');
   return GOOGLE_CONFIG.CLIENT_ID;
 }

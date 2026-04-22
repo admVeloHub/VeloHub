@@ -1,4 +1,6 @@
-// VERSION: v3.0.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+// VERSION: v3.0.1 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
+// Mudanças v3.0.1:
+// - Removidos logs de debug do OAuth (Client ID / process.env) — auditoria de segredos
 // Mudanças v3.0.0:
 // - REFATORAÇÃO: Removida TODA lógica de criação de sessionId do LoginPage
 // - LoginPage agora apenas valida credenciais (OAuth ou email/senha) e verifica acesso Velohub
@@ -188,15 +190,7 @@ const LoginPage = ({ onLoginSuccess }) => {
     script.onload = () => {
       if (window.google) {
         const clientId = getClientId();
-        console.log('=== DEBUG GOOGLE OAUTH ===');
-        console.log('Client ID recebido:', clientId);
-        console.log('Tipo do Client ID:', typeof clientId);
-        console.log('Client ID é undefined?', clientId === undefined);
-        console.log('Client ID é null?', clientId === null);
-        console.log('Client ID é string vazia?', clientId === '');
-        console.log('process.env.REACT_APP_GOOGLE_CLIENT_ID:', process.env.REACT_APP_GOOGLE_CLIENT_ID);
-        console.log('========================');
-        
+
         if (!clientId) {
           console.error('ERRO: Client ID não está definido!');
           return;
@@ -208,7 +202,7 @@ const LoginPage = ({ onLoginSuccess }) => {
           auto_select: false,
           cancel_on_tap_outside: true
         });
-        console.log('Google Sign-In inicializado com Client ID:', clientId);
+        console.log('Google Sign-In inicializado');
         
         // Renderizar o botão do Google automaticamente
         setTimeout(() => {

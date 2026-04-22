@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.50.2 | DATE: 2026-04-07 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.50.3 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v2.50.3:
+ * - Logs de arranque e GCS: sem substring de MONGO_ENV, GOOGLE_CREDENTIALS ou chave privada (auditoria de segredos)
  *
  * Mudanças v2.50.2:
  * - Removidos logs de configuração WhatsApp na subida (integração descontinuada; sem WHATSAPP_* em config)
@@ -290,7 +293,6 @@ const { Storage } = require('@google-cloud/storage');
 // Log para debug - verificar se env foi carregado
 if (process.env.MONGO_ENV) {
   console.log('✅ Arquivo env carregado - MONGO_ENV encontrado');
-  console.log('🔍 MONGO_ENV (primeiros 50 chars):', process.env.MONGO_ENV.substring(0, 50) + '...');
 } else {
   console.warn('⚠️ MONGO_ENV não definido');
   console.warn('⚠️ Verifique FONTE DA VERDADE/.env (desenvolvimento local)');
@@ -459,9 +461,7 @@ const uri = process.env.MONGO_ENV;
 
 console.log('🔍 Verificando configuração MongoDB...');
 console.log('🔍 MONGO_ENV definida:', !!uri);
-if (uri) {
-  console.log('🔍 MONGO_ENV (primeiros 50 chars):', uri.substring(0, 50) + '...');
-} else {
+if (!uri) {
   console.warn('⚠️ MONGO_ENV não configurada - servidor iniciará sem MongoDB');
   console.warn('⚠️ APIs que dependem do MongoDB não funcionarão');
 }
@@ -3464,9 +3464,9 @@ app.get('/api/auth/profile/get-upload-url', async (req, res) => {
       const gcpProjectId = process.env.GCP_PROJECT_ID;
       
       console.log('🔍 [get-upload-url] Verificando credenciais...');
-      console.log('🔍 [get-upload-url] GCP_PROJECT_ID:', gcpProjectId ? `${gcpProjectId.substring(0, 20)}...` : 'NÃO DEFINIDO');
-      console.log('🔍 [get-upload-url] GOOGLE_CREDENTIALS:', googleCredentials ? `${googleCredentials.substring(0, 50)}...` : 'NÃO DEFINIDO');
-      console.log('🔍 [get-upload-url] GOOGLE_APPLICATION_CREDENTIALS:', googleApplicationCredentials || 'NÃO DEFINIDO');
+      console.log('🔍 [get-upload-url] GCP_PROJECT_ID:', gcpProjectId && gcpProjectId !== 'your-gcp-project-id' ? 'definido' : 'NÃO DEFINIDO');
+      console.log('🔍 [get-upload-url] GOOGLE_CREDENTIALS:', googleCredentials ? 'definida' : 'NÃO DEFINIDO');
+      console.log('🔍 [get-upload-url] GOOGLE_APPLICATION_CREDENTIALS:', googleApplicationCredentials ? 'definida (caminho)' : 'NÃO DEFINIDO');
       
       // Verificar se variáveis necessárias estão definidas
       if (!gcpProjectId || gcpProjectId === 'your-gcp-project-id') {
@@ -3501,9 +3501,7 @@ app.get('/api/auth/profile/get-upload-url', async (req, res) => {
             
             console.log('🔍 [get-upload-url] Credenciais parseadas com sucesso');
             console.log('🔍 [get-upload-url] Project ID nas credenciais:', credentials.project_id);
-            console.log('🔍 [get-upload-url] Client email:', credentials.client_email);
             console.log('🔍 [get-upload-url] Private key length:', credentials.private_key ? credentials.private_key.length : 'N/A');
-            console.log('🔍 [get-upload-url] Private key preview:', credentials.private_key ? credentials.private_key.substring(0, 50) + '...' : 'N/A');
             
             // Verificar se credenciais são placeholders
             if (credentials.project_id === 'your-project-id' || 
@@ -3957,9 +3955,9 @@ app.post('/api/chat/attachments/get-upload-url', async (req, res) => {
       let gcpProjectId = process.env.GCP_PROJECT_ID;
       
       console.log('🔍 [chat-attachments/get-upload-url] Verificando credenciais...');
-      console.log('🔍 [chat-attachments/get-upload-url] GCP_PROJECT_ID:', gcpProjectId ? `${gcpProjectId.substring(0, 20)}...` : 'NÃO DEFINIDO');
-      console.log('🔍 [chat-attachments/get-upload-url] GOOGLE_CREDENTIALS:', googleCredentials ? `${googleCredentials.substring(0, 50)}...` : 'NÃO DEFINIDO');
-      console.log('🔍 [chat-attachments/get-upload-url] GOOGLE_APPLICATION_CREDENTIALS:', googleApplicationCredentials || 'NÃO DEFINIDO');
+      console.log('🔍 [chat-attachments/get-upload-url] GCP_PROJECT_ID:', gcpProjectId && gcpProjectId !== 'your-gcp-project-id' ? 'definido' : 'NÃO DEFINIDO');
+      console.log('🔍 [chat-attachments/get-upload-url] GOOGLE_CREDENTIALS:', googleCredentials ? 'definida' : 'NÃO DEFINIDO');
+      console.log('🔍 [chat-attachments/get-upload-url] GOOGLE_APPLICATION_CREDENTIALS:', googleApplicationCredentials ? 'definida (caminho)' : 'NÃO DEFINIDO');
       
       // Tentar obter project_id das credenciais se GCP_PROJECT_ID não estiver definido
       if ((!gcpProjectId || gcpProjectId === 'your-gcp-project-id') && googleCredentials) {
@@ -4022,9 +4020,7 @@ app.post('/api/chat/attachments/get-upload-url', async (req, res) => {
             
             console.log('🔍 [chat-attachments/get-upload-url] Credenciais parseadas com sucesso');
             console.log('🔍 [chat-attachments/get-upload-url] Project ID nas credenciais:', credentials.project_id);
-            console.log('🔍 [chat-attachments/get-upload-url] Client email:', credentials.client_email);
             console.log('🔍 [chat-attachments/get-upload-url] Private key length:', credentials.private_key ? credentials.private_key.length : 'N/A');
-            console.log('🔍 [chat-attachments/get-upload-url] Private key preview:', credentials.private_key ? credentials.private_key.substring(0, 50) + '...' : 'N/A');
             
             // Usar project_id das credenciais se disponível e GCP_PROJECT_ID não foi definido
             if (credentials.project_id && (!gcpProjectId || gcpProjectId === 'your-gcp-project-id')) {

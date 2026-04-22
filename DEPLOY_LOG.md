@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.18 | DATE: 2026-04-16 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.19 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -16,7 +16,7 @@
 ### 🌐 Variáveis de Ambiente do Container
 | Variável | Valor | Tipo |
 |---|---|---|
-| `REACT_APP_GOOGLE_CLIENT_ID` | `278491073220-eb4ogvn3aifu0ut9mq3rvu5r9r9l3137.apps.googleusercontent.com` | Variável de Ambiente |
+| `REACT_APP_GOOGLE_CLIENT_ID` | *(injetado no build a partir do Secret Manager `google-client-id`; sem literal no repositório)* | Variável de Ambiente |
 | `REACT_APP_AUTHORIZED_DOMAIN` | `@velotax.com.br` | Variável de Ambiente |
 | `CHATBOT_LOG_SHEET_NAME` | `Log_IA_Usage` | Variável de Ambiente |
 
@@ -39,6 +39,13 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **Alteração local — auditoria de credenciais (working tree)**
+- **Data/Hora**: 2026-04-22
+- **Tipo**: Limpeza de repositório (sem deploy GCP nesta ação)
+- **Versão**: backend `server.js` v2.50.3; `config-local.js` v1.0.2; `google-config.js` v1.3.1; `LoginPage.js` v3.0.1; `cloudbuild.yaml` v1.2.4; `app.yaml` v1.2.6
+- **Arquivos**: removidos scripts legados em `backend/scripts/` (mantido `smoke-ouvidoria-dashboard.js`); `security-scan-history-report.txt` (varredura histórico por `git log -S`); ajustes de logs e YAML; `docs/archive/diagnostico_cloud_run.md` (exemplo sem URI/chave literal)
+- **Descrição**: Eliminação de URIs/chaves hardcoded nos scripts; logs sem prefixo de `MONGO_ENV`/`GOOGLE_CREDENTIALS`; Client ID OAuth só via env/substituição de build; rotação Atlas/Secret Manager já feita pelo time — histórico Git ainda pode conter strings antigas até `git filter-repo` + push com aprovação.
 
 ### **GitHub Push - Ouvidoria: tipo Time Portabilidade (reclamacoes_timePortabilidade)**
 - **Data/Hora**: 2026-04-16
