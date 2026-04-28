@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.27 | DATE: 2026-04-28 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.28 | DATE: 2026-04-28 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,15 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push — VeloHub: remoção de SECURITY_AUDIT_REPORT.md do repositório**
+- **Data/Hora**: 2026-04-28
+- **Tipo**: GitHub Push
+- **Repositório**: `https://github.com/admVeloHub/VeloHub.git` · branch `main`
+- **Versão**: `DEPLOY_LOG.md` v1.1.28; `.gitignore` (entrada `SECURITY_AUDIT_REPORT.md`)
+- **Arquivos**: removido `SECURITY_AUDIT_REPORT.md` do tracking; adicionado ao `.gitignore` para não voltar a ser comitado
+- **Descrição**: O relatório de auditoria não deve ser versionado; mantido apenas fora do Git localmente se necessário. **Nota:** commits anteriores no histórico ainda podem conter o ficheiro até eventual limpeza com `git filter-repo` (requer coordenação e possível force push).
+- **Status**: Commit e `git push origin main` nesta ação
 
 ### **GitHub Push — VeloHub: Req_Prod tipo «Aumento de Consultas» + relatório auditoria v1.2.0**
 - **Data/Hora**: 2026-04-28

@@ -40,3 +40,6 @@ Thumbs.db
 # Archived scripts (contain sensitive credentials)
 backend/scripts/archive/
 
+# Security audit (local only — not versioned)
+SECURITY_AUDIT_REPORT.md
+
