@@ -1,7 +1,10 @@
 /**
  * VeloHub V3 - FormSolicitacao Component (Escalações Module)
- * VERSION: v1.20.4 | DATE: 2026-04-16 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.20.5 | DATE: 2026-04-28 | AUTHOR: VeloHub Development Team
  * Branch: escalacoes
+ * 
+ * Mudanças v1.20.5:
+ * - Aba Solicitações (Req_Prod): novo tipo «Aumento de Consultas» — somente observações (sem blocos extras); mensagem WhatsApp/payload alinhados aos tipos simples
  * 
  * Mudanças v1.20.4:
  * - Aba Liberação chave pix: quadro do payload — só «Origem» até escolher origem; depois booleans visíveis exceto redundantes (ex.: origem Reclame Aqui oculta checkbox Reclame Aqui)
@@ -774,6 +777,7 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
       'Cancelamento': 'Cancelamento',
       'Reset de Senha': 'Reset de Senha',
       'Aumento de Limite Pix': 'Aumento de Limite Pix',
+      'Aumento de Consultas': 'Aumento de Consultas',
       'Devolução de Antecipação': 'Devolução de Antecipação',
       'Excluir conta - app': 'Excluir conta - app',
       'Excluir conta - Celcoin': 'Excluir conta - Celcoin',
@@ -821,6 +825,8 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
       msg += `Observações: ${form.observacoes || '—'}\n`;
     } else if (form.tipo === 'Aumento de Limite Pix') {
       msg += `Valor: ${form.valor || '—'}\n`;
+      msg += `Observações: ${form.observacoes || '—'}\n`;
+    } else if (form.tipo === 'Aumento de Consultas') {
       msg += `Observações: ${form.observacoes || '—'}\n`;
     } else if (form.tipo === 'Cancelamento') {
       msg += `Nome do Cliente: ${form.nomeCliente || '—'}\n`;
@@ -1200,6 +1206,7 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
                 onChange={(e) => atualizar('tipo', e.target.value)}
               >
                 <option>Alteração de Dados Cadastrais</option>
+                <option>Aumento de Consultas</option>
                 <option>Aumento de Limite Pix</option>
                 <option>Excluir conta - app</option>
                 <option>Excluir conta - Celcoin</option>

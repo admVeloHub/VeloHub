@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.26 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.27 | DATE: 2026-04-28 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,15 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push — VeloHub: Req_Prod tipo «Aumento de Consultas» + relatório auditoria v1.2.0**
+- **Data/Hora**: 2026-04-28
+- **Tipo**: GitHub Push
+- **Repositório**: `https://github.com/admVeloHub/VeloHub.git` · branch `main`
+- **Versão**: `FormSolicitacao.js` v1.20.5; `SECURITY_AUDIT_REPORT.md` v1.2.0; `DEPLOY_LOG.md` v1.1.27
+- **Arquivos**: `src/components/Escalacoes/FormSolicitacao.js`, `SECURITY_AUDIT_REPORT.md`, `DEPLOY_LOG.md`
+- **Descrição**: Nova opção de solicitação técnica «Aumento de Consultas» (aba Solicitações): apenas observações no corpo da mensagem, sem campos adicionais; sem alteração de endpoints nem schemas MongoDB. Relatório de segurança actualizado (secção 8, mitigações posteriores, GIS público, CI/CD).
+- **Status**: Commit e `git push origin main` nesta ação
 
 ### **GitHub Push — VeloHub: OAuth GIS — same-origin, env REACT_APP_* alinhado, normalização secret**
 - **Data/Hora**: 2026-04-22

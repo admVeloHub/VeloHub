@@ -1,10 +1,11 @@
 # Relatório de auditoria de segurança — ecossistema VeloHub
 
 <!--
-  VERSION: v1.1.0 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
+  VERSION: v1.2.0 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
+  Mudanças v1.2.0: secção 8 — actualizações posteriores à v1.1.0 (filter-repo, hotfix Cloud Run/OAuth,
+  versões de ficheiros); §3 histórico Git; tabela R7; §2.4/§2.6; mitigações §1.2 alargadas.
   Mudanças v1.1.0: plano P0 dependências; esclarecimentos CORS/Escalações/Mongo/ping/XSS/Cloud Run;
   registo de mitigações (logs chatbot, instrumentação, anexos req.user).
-  Escopo: working tree. Push/deploy não realizados por iniciativa do assistente.
 -->
 
 ## 1. Resumo executivo
@@ -48,13 +49,20 @@ Esta auditoria cobre o **VeloHub** (React + `backend/`), o **VeloChat Server** e
 - **Sem** verificação IAM Google na porta pública: **qualquer IP** pode enviar HTTP ao URL do serviço.
 - **Riscos:** abuso de rotas pouco protegidas, brute-force, scraping, custo por tráfego, fuzzing. A segurança efectiva está na **aplicação** (sessão, validação, limites). É padrão para API que autentica **na app**; exige que rotas sensíveis estejam bem protegidas.
 
-**Mitigações aplicadas em 2026-04-22 (código)**
+**Mitigações aplicadas em 2026-04-22 (código) — fase inicial (já descritas em v1.1.0)**
 
 - Removidos middlewares de log completos de **`/api/chatbot/ask`** em `backend/server.js` (v2.50.4).
 - Removida instrumentação **`127.0.0.1:7243`** em `backend/routes/api/escalacoes/erros-bugs.js` (v1.9.1).
 - Removida instrumentação **`127.0.0.1:7244`** e escrita local em WebSocket em `dev - VeloChat Server` (`server.js` v2.21.1, `middleware/auth.js` v1.0.2).
 - Removidos `fetch` de debug em `src/components/Ouvidoria/AnaliseDiaria.js` (v2.7.1).
 - **Ouvidoria anexos:** email do uploader apenas de **`req.user.email`** (sessão); header/body divergente → **403** — `backend/routes/api/ouvidoria/anexos.js` (v1.1.0).
+
+**Mitigações e correções posteriores (após a redacção inicial deste relatório)**
+
+- **Histórico Git:** `git filter-repo` com `--replace-text` (ficheiro de regras no workspace pai: `git-history-redact-rules.txt`) nos repositórios **VeloHub** e **velochat_server**; **force push** de `main` com coordenação da equipa. *Lição:* evitar substituir PEM dentro de **literais JavaScript** multilinha — corrigido com `includes('REDACTED')` e padrões seguros.
+- **Cloud Run / arranque:** `SyntaxError` em `server.js` e `anexos.js` após redacção → contentor não escutava `PORT`; corrigido (v2.50.5+ e `anexos.js` v1.1.1). **`app.listen`** passou para o **fim** do `server.js` (após static + SPA); registo de rotas **Ouvidoria** e **Sociais** sem `throw` no `catch`; `process.on` global cedo.
+- **OAuth / GIS (Google Identity Services):** novo **GET** `/api/auth/oauth-client-id` — expõe apenas o **OAuth Web Client ID** (público por desenho; não o `client_secret`). Runtime lê `REACT_APP_GOOGLE_CLIENT_ID` **ou** `GOOGLE_CLIENT_ID` **ou** `GOOGLE_OAUTH_CLIENT_ID`; normalização (trim, JSON credentials, regex de fallback); resposta com `clientId` e `REACT_APP_GOOGLE_CLIENT_ID`. **`LoginPage.js`:** `fetch` **same-origin** (`window.location.origin`), prioridade ao valor da API sobre bundle com ID inválido, largura do botão GSI em px. Referência de versões: `server.js` v2.50.9, `LoginPage.js` v3.0.5, `google-config.js` v1.3.3.
+- **Rastreio:** entradas correspondentes em [`DEPLOY_LOG.md`](DEPLOY_LOG.md) (ex.: v1.1.26).
 
 ---
 
@@ -69,7 +77,8 @@ Esta auditoria cobre o **VeloHub** (React + `backend/`), o **VeloChat Server** e
 | P2 | **GET `/api/ouvidoria/dashboard/ping`**: sem segredos na resposta; risco sobretudo **informacional** (serviço ativo). |
 | P2 | **Sessão no browser** / **localStorage**: ver §1.2 (XSS). |
 | P2 | **Cloud Run** não autenticado na borda: ver §1.2. |
-| P2 | ~~**Ouvidoria anexos** spoofing de email~~ — **endurecido** com `req.user.email` + 403 se header/body divergir (v1.1.0). |
+| P2 | ~~**Ouvidoria anexos** spoofing de email~~ — **endurecido** com `req.user.email` + 403 se header/body divergir (v1.1.0); placeholder PEM pós-redacção corrigido em **v1.1.1**. |
+| — | **Histórico Git** redigido + hotfix arranque/OAuth — ver §1.2 e **§8**; clones e SHAs antigos invalidados. |
 
 ---
 
@@ -86,6 +95,8 @@ Esta auditoria cobre o **VeloHub** (React + `backend/`), o **VeloChat Server** e
 - **`/api/ouvidoria/*`**: `ouvidoriaAccess` (exceto `GET /api/ouvidoria/dashboard/ping`).
 - **`/api/sociais`**: `sociaisAccessMiddleware`.
 
+**Rota pública (GIS):** **`GET /api/auth/oauth-client-id`** — sem middleware de sessão; resposta limitada ao **OAuth Web Client ID** (equivalente ao valor exposto no bundle quando `REACT_APP_GOOGLE_CLIENT_ID` está definido no build). Não expõe `client_secret`.
+
 ### 2.3 VeloHub — routers sem o middleware acima (registo em `server.js`)
 
 - **`/api/escalacoes/*`**: solicitações, erros-bugs, logs, apoio-n1 — **sem** `ouvidoriaAccess` / validação de sessão ao nível do `app.use`.
@@ -94,7 +105,7 @@ Esta auditoria cobre o **VeloHub** (React + `backend/`), o **VeloChat Server** e
 
 ### 2.4 VeloHub — uploads
 
-- **Ouvidoria** [`backend/routes/api/ouvidoria/anexos.js`](backend/routes/api/ouvidoria/anexos.js): `multer` memória, **10 MB**, filtro por extensão; email de auditoria alinhado à sessão (v1.1.0).
+- **Ouvidoria** [`backend/routes/api/ouvidoria/anexos.js`](backend/routes/api/ouvidoria/anexos.js): `multer` memória, **10 MB**, filtro por extensão; email de auditoria alinhado à sessão (**v1.1.0**); comparação de placeholder `GOOGLE_CREDENTIALS` segura pós-redacção Git (**v1.1.1**).
 - **Perfil / chat / GCS**: signed URLs e fluxos em `server.js` (múltiplos blocos); logs verbosos em caminhos `get-upload-url`.
 
 ### 2.5 VeloChat Server
@@ -105,7 +116,7 @@ Esta auditoria cobre o **VeloHub** (React + `backend/`), o **VeloChat Server** e
 
 ### 2.6 CI/CD (VeloHub)
 
-- [`cloudbuild.yaml`](cloudbuild.yaml): build Docker com `REACT_APP_*`; deploy Cloud Run com `--allow-unauthenticated`; substituição `_REACT_APP_GOOGLE_CLIENT_ID` pode estar vazia no ficheiro — **obrigatório** definir no trigger.
+- [`cloudbuild.yaml`](cloudbuild.yaml): build Docker com `REACT_APP_*`; deploy Cloud Run com `--allow-unauthenticated`; substituição `_REACT_APP_GOOGLE_CLIENT_ID` **continua recomendada** no trigger (client id embutido no bundle), mas **não é obrigatória** para o GIS funcionar: o runtime expõe o mesmo valor via **GET** `/api/auth/oauth-client-id` a partir de `GOOGLE_CLIENT_ID` / `REACT_APP_GOOGLE_CLIENT_ID` no contentor (ver §1.2).
 
 ### 2.7 Workspace
 
@@ -117,7 +128,7 @@ Esta auditoria cobre o **VeloHub** (React + `backend/`), o **VeloChat Server** e
 
 - Pesquisa por `mongodb+srv`, chaves `AIza`, `BEGIN PRIVATE KEY` real: **não** foram encontrados literais de produção nos caminhos de código analisados; ocorrências de `BEGIN PRIVATE KEY` referem-se a **deteção de placeholders** ou validação.
 - Nomes de secrets e variáveis documentados em [`DEPLOY_LOG.md`](DEPLOY_LOG.md) e docs — adequado como referência operacional.
-- **Histórico Git**: pode ainda conter strings antigas; remediação = `git filter-repo` / BFG + **force push** apenas com **aprovação explícita** e coordenação da equipa (fora do escopo de execução aqui).
+- **Histórico Git (actualização):** em **2026-04-22** foi executada **redacção** do histórico com `git filter-repo` + **force push** nos repositórios **VeloHub** e **velochat_server** (regras em `git-history-redact-rules.txt` no workspace pai). **Rotação** de credenciais continua recomendada se alguma chave chegou a existir em commits antigos. Após qualquer redacção em massa, validar arranque com **`node --check`** nos entrypoints Node (evitar literais PEM multilinha partidos no código).
 
 ---
 
@@ -175,7 +186,7 @@ Esta auditoria cobre o **VeloHub** (React + `backend/`), o **VeloChat Server** e
 | R4 | P1 | Desenho de **authZ uniforme** (ex.: middleware de sessão por prefixo) para escalações — **aprovação obrigatória** | Pode alterar clientes não autenticados |
 | R5 | P2 | Rate limiting / helmet em Express | Pode afetar clientes agressivos |
 | R6 | P2 | CSP e revisão XSS no React | Front apenas |
-| R7 | — | Histórico Git: filter-repo + política de force push | Repositório |
+| R7 | — | ~~Histórico Git: filter-repo + force push~~ | **Feito** 2026-04-22 (VeloHub + velochat_server); manter política para incidentes futuros |
 | R8 | P2 | ~~Ouvidoria anexos: email só da sessão~~ | **Feito** v1.1.0 |
 
 ---
@@ -184,8 +195,24 @@ Esta auditoria cobre o **VeloHub** (React + `backend/`), o **VeloChat Server** e
 
 1. Executar **§1.1** (dependências) numa branch dedicada e registar resultados.
 2. Rever **R4** se desejado endurecimento das Escalações na borda da API.
-3. Atualizar [`DEPLOY_LOG.md`](DEPLOY_LOG.md) **antes** de qualquer push real.
+3. Manter [`DEPLOY_LOG.md`](DEPLOY_LOG.md) actualizado **antes** de cada push real (prática seguida nas entregas de 2026-04-22).
 4. Repetir auditoria após mudanças grandes ou trimestralmente.
+
+---
+
+## 8. Actualizações posteriores à versão v1.1.0 deste relatório
+
+Cronologia consolidada das alterações de segurança, compliance e robustez **depois** da redacção inicial do documento (v1.1.0). Nenhuma alteração a **schemas MongoDB** nem a contratos de **endpoints existentes** (método/rota/resposta), excepto **adição** do GET `/api/auth/oauth-client-id`.
+
+| Área | Acção | Notas / versões |
+|------|--------|------------------|
+| **Repositório / histórico** | `git filter-repo --force --replace-text` (VeloHub, velochat_server) | Regras: URIs MongoDB, chaves estilo API, PEM; ficheiro `git-history-redact-rules.txt`; force push `main`; clones antigos invalidados. |
+| **Regressão código (PEM)** | Literais multilinha inválidos após redacção | `server.js` (vários blocos) e `anexos.js` **v1.1.1**: `includes('REDACTED')` em vez de string PEM partida. |
+| **Cloud Run — arranque** | `SyntaxError` / porta 8080 | `server.js` **v2.50.5+**: `app.listen` no fim; Ouvidoria/Sociais sem `throw` no registo; `process.on` cedo. |
+| **OAuth / GIS** | Client id no runtime vs build CRA | **GET** `/api/auth/oauth-client-id`; env: `REACT_APP_GOOGLE_CLIENT_ID` \|\| `GOOGLE_CLIENT_ID` \|\| `GOOGLE_OAUTH_CLIENT_ID`; normalização; `LoginPage` **v3.0.5** same-origin + prioridade API; `google-config.js` **v1.3.3**; `server.js` **v2.50.9**. |
+| **Rastreio** | [`DEPLOY_LOG.md`](DEPLOY_LOG.md) | Entradas de push e alterações locais (ex.: v1.1.26). |
+
+**Risco residual:** dependências (§1.1, §4) e autorização uniforme nas Escalações (**R4**) permanecem como trabalho principal; o OAuth Web Client ID exposto por GET é **intencional** (equivalente ao visível no bundle) e **não** substitui protecção das rotas com dados sensíveis.
 
 ---
 
