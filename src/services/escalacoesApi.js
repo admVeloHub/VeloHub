@@ -1,7 +1,10 @@
 /**
  * VeloHub V3 - Escalações API Service
- * VERSION: v1.5.0 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.5.1 | DATE: 2026-05-07 | AUTHOR: VeloHub Development Team
  * 
+ * Mudanças v1.5.1:
+ * - apoioN1API.getOverview: param origem aceita liberacao-chave-pix (visão geral Req_Prod)
+ *
  * Mudanças v1.5.0:
  * - apoioN1API: GET /escalacoes/apoio-n1/overview e /agentes (credencial Apoio N1; email em query + x-user-email)
  *
@@ -171,7 +174,7 @@ export const solicitacoesAPI = {
  */
 export const apoioN1API = {
   /**
-   * @param {Object} params - origem, dataInicio, dataFim, colaboradorNome, statusChamado
+   * @param {Object} params - origem (todos|solicitacoes|erros-bugs|liberacao-chave-pix), dataInicio, dataFim, colaboradorNome, statusChamado
    * @param {string} email - obrigatório para validação no backend
    */
   getOverview: (params = {}, email) => {

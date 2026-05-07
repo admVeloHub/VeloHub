@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.28 | DATE: 2026-04-28 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.29 | DATE: 2026-05-07 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,15 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push — VeloHub: Req_Prod visão geral (apoio-n1) + Liberação PIX + .gitignore FONTE**
+- **Data/Hora**: 2026-05-07
+- **Tipo**: GitHub Push
+- **Repositório**: `https://github.com/admVeloHub/VeloHub.git` · branch `main`
+- **Versão**: `apoio-n1.js` v1.1.0; `ApoioN1PanoramaTab.js` v1.0.4; `escalacoesApi.js` v1.5.1; `DEPLOY_LOG.md` v1.1.29; `.gitignore` (entrada `FONTE DA VERDADE/`)
+- **Arquivos**: `backend/routes/api/escalacoes/apoio-n1.js`, `src/components/Escalacoes/ApoioN1PanoramaTab.js`, `src/services/escalacoesApi.js`, `DEPLOY_LOG.md`, `.gitignore`
+- **Descrição**: Visão geral (Apoio N1) passa a unir `liberacao_pix_prod` quando o filtro é «todos» ou só essa categoria; linhas com `fonteRegistro` sem sobrescrever `origem` canal nos docs PIX; lista de agentes inclui a coleção PIX; removido o título «Visão geral» do painel; `.gitignore` ignora pasta local `FONTE DA VERDADE/` (junction / fonte central). Sem alteração de contratos de rotas existentes além do novo valor de query `origem=liberacao-chave-pix` em GET apoio-n1/overview.
+- **Status**: Commit e `git push origin main` nesta ação
 
 ### **GitHub Push — VeloHub: remoção de SECURITY_AUDIT_REPORT.md do repositório**
 - **Data/Hora**: 2026-04-28

@@ -9,6 +9,9 @@ backend/build/
 # Environment variables
 .env
 .env.local
+
+# FONTE DA VERDADE (ecossistema — junction cópia local opcional; não versionar)
+FONTE DA VERDADE/
 .env.development.local
 .env.test.local
 .env.production.local

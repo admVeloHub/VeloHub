@@ -1,6 +1,12 @@
 /**
  * VeloHub V3 - ApoioN1PanoramaTab (Req_Prod — visão geral, credencial Apoio N1)
- * VERSION: v1.0.2 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.4 | DATE: 2026-05-07 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v1.0.4:
+ * - Removido título «Visão geral» acima dos filtros (a aba já identifica o contexto)
+ *
+ * Mudanças v1.0.3:
+ * - Linhas da API usam fonteRegistro; modal e tabela via panoramaFonte (preserva doc.origem canal nos PIX)
  *
  * Mudanças v1.0.2:
  * - Removidos wrappers de card (sombra/arredondamento) e flex-wrap na barra de filtros (linha única com scroll horizontal)
@@ -8,7 +14,7 @@
  * Mudanças v1.0.1:
  * - Título do painel: "Visão geral" (sem N1 no rótulo visível)
  *
- * Listagem filtrada de solicitações e erros/bugs (todos os agentes), somente leitura.
+ * Listagem filtrada de solicitações, erros/bugs e liberação PIX (todos os agentes), somente leitura.
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
@@ -36,7 +42,14 @@ const getUserEmail = () => {
   return null;
 };
 
-const origemLabel = (o) => (o === 'erros-bugs' ? 'Erros/Bugs' : 'Solicitações');
+const origemLabel = (o) => {
+  if (o === 'erros-bugs') return 'Erros/Bugs';
+  if (o === 'liberacao-chave-pix') return 'Liberação chave pix';
+  return 'Solicitações';
+};
+
+/** Coleção/lista na visão geral (API v1.1+: fonteRegistro; legado: origem). */
+const panoramaFonte = (row) => row?.fonteRegistro || row?.origem;
 
 const AnexosReadonly = ({ doc }) => {
   const imgs = Array.isArray(doc?.payload?.imagens) ? doc.payload.imagens : [];
@@ -100,7 +113,7 @@ const PanoramaDetailModal = ({ doc, onClose }) => {
               id="apoio-n1-modal-title"
               className="text-lg font-semibold text-gray-800 dark:text-gray-200 leading-snug"
             >
-              {origemLabel(doc.origem)} — {doc.tipo || '—'} — {doc.cpf || '—'}
+              {origemLabel(panoramaFonte(doc))} — {doc.tipo || '—'} — {doc.cpf || '—'}
             </h3>
             <span
               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusChamadoBadgeClass(
@@ -307,9 +320,6 @@ const ApoioN1PanoramaTab = () => {
 
   return (
     <div className="w-full min-w-0">
-      <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">
-        Visão geral
-      </h2>
       <form onSubmit={onSubmitFilters} className="mb-6">
         <div className="flex flex-nowrap items-end gap-4 overflow-x-auto pb-1">
           <div className="shrink-0">
@@ -317,11 +327,12 @@ const ApoioN1PanoramaTab = () => {
             <select
               value={origem}
               onChange={(e) => setOrigem(e.target.value)}
-              className={`${inputClass} min-w-[180px]`}
+              className={`${inputClass} min-w-[220px]`}
             >
-              <option value="todos">Solicitações e Erros/Bugs</option>
+              <option value="todos">Todos (solicitações, erros/bugs e liberação PIX)</option>
               <option value="solicitacoes">Solicitações</option>
               <option value="erros-bugs">Erros/Bugs</option>
+              <option value="liberacao-chave-pix">Liberação chave pix</option>
             </select>
           </div>
           <div className="shrink-0">
@@ -426,7 +437,7 @@ const ApoioN1PanoramaTab = () => {
               {!loading &&
                 rows.map((r) => {
                   const id = r._id ?? r.id;
-                  const key = `${r.origem}-${id}`;
+                  const key = `${panoramaFonte(r)}-${id}`;
                   const st = r.statusChamado || getStatusChamado(r);
                   return (
                     <tr
@@ -434,7 +445,7 @@ const ApoioN1PanoramaTab = () => {
                       className="border-t border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
                       onClick={() => setDetailDoc(r)}
                     >
-                      <td className="px-4 py-3 text-gray-800 dark:text-gray-200">{origemLabel(r.origem)}</td>
+                      <td className="px-4 py-3 text-gray-800 dark:text-gray-200">{origemLabel(panoramaFonte(r))}</td>
                       <td className="px-4 py-3 max-w-[200px] truncate" title={r.tipo}>
                         {r.tipo || '—'}
                       </td>

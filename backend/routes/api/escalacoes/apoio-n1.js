@@ -1,6 +1,10 @@
 /**
  * VeloHub V3 - Escalações API — rotas restritas Apoio N1 (visão geral Req_Prod)
- * VERSION: v1.0.0 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.1.0 | DATE: 2026-05-07 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v1.1.0:
+ * - GET /overview: inclui hub_escalacoes.liberacao_pix_prod quando origem=todos ou origem=liberacao-chave-pix; linhas usam fonteRegistro (solicitacoes|erros-bugs|liberacao-chave-pix) sem sobrescrever doc.origem dos PIX
+ * - GET /agentes: distinct colaboradorNome também em liberacao_pix_prod
  *
  * Novas rotas (não altera solicitacoes/erros-bugs existentes):
  * - GET /overview — lista unificada com filtros
@@ -138,9 +142,11 @@ const initApoioN1Routes = (client, connectToMongo) => {
 
       let solicitacoes = [];
       let errosBugs = [];
+      let liberacaoPix = [];
 
       const loadSol = origem === 'todos' || origem === 'solicitacoes';
       const loadErr = origem === 'todos' || origem === 'erros-bugs';
+      const loadLiberacaoPix = origem === 'todos' || origem === 'liberacao-chave-pix';
 
       if (loadSol) {
         solicitacoes = await db
@@ -156,17 +162,41 @@ const initApoioN1Routes = (client, connectToMongo) => {
           .sort({ createdAt: -1 })
           .toArray();
       }
+      if (loadLiberacaoPix) {
+        liberacaoPix = await db
+          .collection('liberacao_pix_prod')
+          .find(mongoFilter)
+          .sort({ createdAt: -1 })
+          .toArray();
+      }
 
       const rows = [];
       for (const doc of solicitacoes) {
         const d = normalizeReplyArrays(doc);
         if (!matchesStatusFilter(statusChamado, d)) continue;
-        rows.push({ ...d, origem: 'solicitacoes', statusChamado: getStatusChamadoFromDoc(d) });
+        rows.push({
+          ...d,
+          fonteRegistro: 'solicitacoes',
+          statusChamado: getStatusChamadoFromDoc(d),
+        });
       }
       for (const doc of errosBugs) {
         const d = normalizeReplyArrays(doc);
         if (!matchesStatusFilter(statusChamado, d)) continue;
-        rows.push({ ...d, origem: 'erros-bugs', statusChamado: getStatusChamadoFromDoc(d) });
+        rows.push({
+          ...d,
+          fonteRegistro: 'erros-bugs',
+          statusChamado: getStatusChamadoFromDoc(d),
+        });
+      }
+      for (const doc of liberacaoPix) {
+        const d = normalizeReplyArrays(doc);
+        if (!matchesStatusFilter(statusChamado, d)) continue;
+        rows.push({
+          ...d,
+          fonteRegistro: 'liberacao-chave-pix',
+          statusChamado: getStatusChamadoFromDoc(d),
+        });
       }
 
       rows.sort((a, b) => {
@@ -201,13 +231,14 @@ const initApoioN1Routes = (client, connectToMongo) => {
 
       await connectToMongo();
       const db = client.db('hub_escalacoes');
-      const [sNomes, eNomes] = await Promise.all([
+      const [sNomes, eNomes, pNomes] = await Promise.all([
         db.collection('solicitacoes_tecnicas').distinct('colaboradorNome'),
         db.collection('erros_bugs').distinct('colaboradorNome'),
+        db.collection('liberacao_pix_prod').distinct('colaboradorNome'),
       ]);
 
       const set = new Set();
-      for (const n of [...sNomes, ...eNomes]) {
+      for (const n of [...sNomes, ...eNomes, ...pNomes]) {
         if (n != null && String(n).trim() !== '') set.add(String(n).trim());
       }
       const sorted = [...set].sort((a, b) => a.localeCompare(b, 'pt-BR'));
