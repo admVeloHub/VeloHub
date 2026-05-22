@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.21 | DATE: 2026-05-22 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.22 | DATE: 2026-05-22 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,16 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - Req_Prod: tipo Aumento de Consultas no formulário**
+- **Data/Hora**: 2026-05-22
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: FormSolicitacao v1.21.14, DEPLOY_LOG v1.1.22
+- **Arquivos Modificados**:
+  - `src/components/Requisicoes/FormSolicitacao.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Opção «Aumento de Consultas» no seletor de tipo de solicitação e no typeMap da mensagem (Req_Prod).
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - Apoio N1 panorama (refator), VeloAcademy GCP, DEPLOY_LOG push anterior**
 - **Data/Hora**: 2026-05-22

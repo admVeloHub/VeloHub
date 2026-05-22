@@ -1,10 +1,11 @@
 /**
  * VeloHub V3 — FormSolicitacao (módulo Requisições)
- * VERSION: v1.21.13 | DATE: 2026-05-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.21.14 | DATE: 2026-05-22 | AUTHOR: VeloHub Development Team
  *
  * Branch: requisicoes
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.21.14: Tipo de solicitação — opção «Aumento de Consultas» no seletor e typeMap da mensagem
  * - v1.21.13: Layout — CPF+Ticket mesma linha; tipo e blocos condicionais em container-secondary
  * - v1.21.12: Agente campo — escopo por userMail (`getVelotaxAgentForLoggedUser` / `setVelotaxAgentForLoggedUser`; sem cache `velotax_agent` entre contas)
  * - v1.21.11: Modal antes do POST também quando só existem solicitações já resolvidas na aba (histórico); título diferenciado sem «em aberto»
@@ -565,6 +566,7 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
       'Cancelamento': 'Cancelamento',
       'Reset de Senha': 'Reset de Senha',
       'Aumento de Limite Pix': 'Aumento de Limite Pix',
+      'Aumento de Consultas': 'Aumento de Consultas',
       'Devolução de Antecipação': 'Devolução de Antecipação',
       'Excluir conta - app': 'Excluir conta - app',
       'Excluir conta - Celcoin': 'Excluir conta - Celcoin',
@@ -1164,6 +1166,7 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
                 >
                   <option>Alteração de Dados Cadastrais</option>
                   <option>Aumento de Limite Pix</option>
+                  <option>Aumento de Consultas</option>
                   <option>Excluir conta - app</option>
                   <option>Excluir conta - Celcoin</option>
                   <option>Reativação de Conta</option>
