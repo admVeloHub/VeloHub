@@ -50,7 +50,7 @@
   - `backend/utils/resolveOctadeskTicketNumber.js`
   - `DEPLOY_LOG.md`
 - **Descrição**: Solicitar liberação aceita `protocoloOctadesk` (Time Portabilidade) antes de salvar a ocorrência; removida obrigatoriedade de marcar condições no modal.
-- **Status**: ⏳ Pendente push
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - Req_Prod: tipo Aumento de Consultas no formulário**
 - **Data/Hora**: 2026-05-22
