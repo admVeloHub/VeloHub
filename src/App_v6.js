@@ -1,8 +1,9 @@
 /**
  * VeloHub V3 — componente principal da aplicação (App_v6.js; antes App_v2-1.js)
- * VERSION: v2.19.55 | DATE: 2026-05-18 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.19.56 | DATE: 2026-05-22 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v2.19.56: Atalho header VeloAcademy — URL GCP Cloud Run (veloacademy-278491073220.us-east1.run.app)
  * - v2.19.55: Badge Reclamações (Minhas ouvid.) — reclamacoesAPI.getByColaborador com `colaboradorEmail` da sessão
  * - v2.19.54: Header Req_Prod unread — nome agente via `getVelotaxAgentForLoggedUser()` (cache escopado por userMail)
  * - v2.19.52: Home — grid de atalhos 75% da largura (−25% nos cards)
@@ -1056,7 +1057,7 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
     
     if (item === 'VeloAcademy') {
       console.log('Redirecionando para VeloAcademy...'); // Debug
-      window.open('https://veloacademy.vercel.app', '_blank');
+      window.open('https://veloacademy-278491073220.us-east1.run.app', '_blank');
       return; // N├úo muda a p├ígina ativa para VeloAcademy
     }
     

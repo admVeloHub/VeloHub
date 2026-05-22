@@ -1,25 +1,26 @@
 /**
  * VeloHub V3 - ApoioN1PanoramaTab (Req_Prod — visão geral, credencial Apoio N1)
- * VERSION: v1.0.8 | DATE: 2026-05-15 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.12 | DATE: 2026-05-22 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
- * - v1.0.8: Imports atualizados para `requisicoesApi` / `requisicoesModalHelpers`
- * - v1.0.2: Removidos wrappers de card (sombra/arredondamento) e flex-wrap na barra de filtros (linha única com scroll horizontal)
- * - v1.0.1: Título do painel: "Visão geral" (sem N1 no rótulo visível)
+ * - v1.0.12: Paginação da tabela (50/página) + subcomponentes em arquivos separados (evita stack overflow React Refresh)
+ * - v1.0.11: CPF na listagem com `text-sm` (alinhado à tabela; antes `text-xs`)
+ * - v1.0.10: Ícone copiar CPF com SVG inline (evita stack overflow do Fast Refresh com lucide Copy)
+ * - v1.0.9: Ícone copiar CPF na coluna da listagem (visão geral)
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+// @refresh reset
+
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FloatingLabelField } from '../shared/FloatingLabelField';
 import { apoioN1API } from '../../services/requisicoesApi';
 import { getUserSession } from '../../services/auth';
 import toast from 'react-hot-toast';
-import {
-  buildModalExtraPayloadCells,
-  buildProdutosN1Dialogue,
-  getStatusChamado,
-  ModalInfoGridCell,
-  statusChamadoBadgeClass,
-} from '../../utils/requisicoesModalHelpers';
+import { getStatusChamado, statusChamadoBadgeClass } from '../../utils/requisicoesModalHelpers';
+import { panoramaTipoLabel, PanoramaDetailModal } from './ApoioN1PanoramaModal';
+import { ApoioN1PanoramaCpfCell } from './ApoioN1PanoramaCpfCell';
+
+const PAGE_SIZE = 50;
 
 const inputClass =
   'border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white';
@@ -34,183 +35,12 @@ const getUserEmail = () => {
   return null;
 };
 
-const panoramaTipoLabel = (row) => {
-  const t = row?.panoramaRegistroTipo ?? row?.origem;
-  if (t === 'erros-bugs') return 'Erros/Bugs';
-  if (t === 'liberacao-chave-pix') return 'Liberação chave PIX';
-  if (t === 'solicitacoes') return 'Solicitações';
-  return typeof t === 'string' && t.trim() !== '' ? t : '—';
-};
-
 const panoramaTipoColunaValor = (r) => {
   if (r?.panoramaRegistroTipo === 'liberacao-chave-pix') return 'Liberação chave PIX';
   return r?.tipo || '—';
 };
 
-const AnexosReadonly = ({ doc }) => {
-  const imgs = Array.isArray(doc?.payload?.imagens) ? doc.payload.imagens : [];
-  const vids = Array.isArray(doc?.payload?.videos) ? doc.payload.videos : [];
-  const legacyPreviews = Array.isArray(doc?.payload?.previews) ? doc.payload.previews : [];
-  const urlsFromImagens = imgs.map((i) => i?.imagemUrl || i?.url).filter(Boolean);
-  const imageSrcs = [...legacyPreviews, ...urlsFromImagens].filter(Boolean);
-  if (imageSrcs.length === 0 && vids.length === 0) return null;
-  return (
-    <div>
-      <h4 className="font-medium mb-3 text-gray-800 dark:text-gray-200">Anexos</h4>
-      {imageSrcs.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
-          {imageSrcs.map((src, idx) => (
-            <button
-              key={`img-${idx}`}
-              type="button"
-              className="p-0 border-0 bg-transparent cursor-pointer"
-              onClick={() => window.open(src, '_blank')}
-            >
-              <img
-                src={src}
-                alt={`anexo-${idx}`}
-                className="w-full h-32 object-cover rounded-lg border border-gray-200 dark:border-gray-600"
-              />
-            </button>
-          ))}
-        </div>
-      )}
-      {vids.length > 0 && (
-        <div className="text-sm text-gray-600 dark:text-gray-400">
-          {vids.length} vídeo(s) — abrir registro no sistema de origem para reprodução se necessário.
-        </div>
-      )}
-    </div>
-  );
-};
-
-const PanoramaDetailModal = ({ doc, onClose }) => {
-  if (!doc) return null;
-  const replyArray = Array.isArray(doc.reply) ? doc.reply : [];
-  const dialogue = buildProdutosN1Dialogue(replyArray);
-  const status = getStatusChamado(doc);
-  return (
-    <div
-      className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4"
-      style={{ zIndex: 9999 }}
-      onClick={onClose}
-      role="presentation"
-    >
-      <div
-        className="bg-white dark:bg-gray-800 rounded-vh-container max-w-4xl w-full min-h-[50vh] max-h-[92vh] overflow-hidden shadow-2xl flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="apoio-n1-modal-title"
-      >
-        <div className="p-4 border-b border-gray-200 dark:border-gray-600 flex items-center justify-between gap-3 flex-shrink-0">
-          <div className="min-w-0 flex-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <h3
-              id="apoio-n1-modal-title"
-              className="text-lg font-semibold text-gray-800 dark:text-gray-200 leading-snug"
-            >
-              {panoramaTipoLabel(doc)} — {doc.tipo || '—'} — {doc.cpf || '—'}
-            </h3>
-            <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusChamadoBadgeClass(
-                status
-              )}`}
-            >
-              {status}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 text-2xl leading-none"
-            aria-label="Fechar"
-          >
-            ×
-          </button>
-        </div>
-        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
-          <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-3 gap-y-3">
-              <ModalInfoGridCell label="CPF" value={doc.cpf || '—'} />
-              <ModalInfoGridCell label="Tipo" value={doc.tipo || '—'} />
-              <ModalInfoGridCell
-                label="Data"
-                value={doc.createdAt ? new Date(doc.createdAt).toLocaleString('pt-BR') : '—'}
-              />
-              <ModalInfoGridCell label="Agente" value={doc.colaboradorNome || doc?.payload?.agente || '—'} />
-              {buildModalExtraPayloadCells(doc).map((c) => (
-                <ModalInfoGridCell key={c.key} label={c.label} value={c.value} />
-              ))}
-            </div>
-          </div>
-          <AnexosReadonly doc={doc} />
-          <div>
-            <h4 className="font-medium mb-3 text-gray-800 dark:text-gray-200">Respostas do time</h4>
-            {dialogue.length === 0 ? (
-              <div className="text-sm text-gray-500 dark:text-gray-400 py-4 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-dashed border-gray-200 dark:border-gray-600">
-                Nenhuma mensagem de Produtos ou N1 registrada.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {dialogue.map((b) => {
-                  if (b.role === 'produtos') {
-                    return (
-                      <div key={b.key} className="flex justify-start">
-                        <div className="max-w-[min(100%,28rem)] rounded-vh-card px-3 py-2.5 border-l-4 border-[#006AB9] bg-sky-50 dark:bg-sky-950/35 dark:border-sky-500 shadow-sm">
-                          <div className="text-xs font-semibold text-[#006AB9] dark:text-sky-300 mb-1">
-                            Time Produtos
-                          </div>
-                          <div className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
-                            {b.text}
-                          </div>
-                          {b.at ? (
-                            <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1.5">{b.at}</div>
-                          ) : null}
-                        </div>
-                      </div>
-                    );
-                  }
-                  if (b.role === 'n1') {
-                    return (
-                      <div key={b.key} className="flex justify-end">
-                        <div className="max-w-[min(100%,28rem)] rounded-vh-card px-3 py-2.5 border-r-4 border-amber-500 bg-amber-50 dark:bg-amber-950/35 dark:border-amber-400 shadow-sm">
-                          <div className="text-xs font-semibold text-amber-800 dark:text-amber-200 mb-1 text-right">
-                            N1
-                          </div>
-                          <div className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words text-left">
-                            {b.text}
-                          </div>
-                          {b.at ? (
-                            <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1.5 text-left">{b.at}</div>
-                          ) : null}
-                        </div>
-                      </div>
-                    );
-                  }
-                  return (
-                    <div key={b.key} className="flex justify-center">
-                      <div className="text-xs text-center text-gray-600 dark:text-gray-400 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
-                        {b.text}
-                        {b.at ? <span className="block text-[10px] text-gray-500 mt-0.5">{b.at}</span> : null}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="border-t border-gray-200 dark:border-gray-600 p-3 flex-shrink-0 bg-gray-50 dark:bg-gray-900/30">
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Visualização somente leitura (Apoio N1). Ações de resposta usam as abas Solicitações, Erros/Bugs ou Liberação chave PIX.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const ApoioN1PanoramaTab = () => {
+function ApoioN1PanoramaTab() {
   const [email, setEmail] = useState('');
   const [origem, setOrigem] = useState('todos');
   const [dataInicio, setDataInicio] = useState('');
@@ -222,6 +52,7 @@ const ApoioN1PanoramaTab = () => {
   const [loading, setLoading] = useState(false);
   const [agentesLoading, setAgentesLoading] = useState(false);
   const [detailDoc, setDetailDoc] = useState(null);
+  const [page, setPage] = useState(0);
 
   useEffect(() => {
     const em = getUserEmail();
@@ -263,10 +94,12 @@ const ApoioN1PanoramaTab = () => {
         em
       );
       setRows(Array.isArray(res.data) ? res.data : []);
+      setPage(0);
     } catch (e) {
       console.error('[ApoioN1PanoramaTab] overview:', e);
       toast.error(e.message || 'Erro ao carregar visão geral');
       setRows([]);
+      setPage(0);
     } finally {
       setLoading(false);
     }
@@ -293,12 +126,16 @@ const ApoioN1PanoramaTab = () => {
           },
           email
         );
-        if (!cancelled) setRows(Array.isArray(res.data) ? res.data : []);
+        if (!cancelled) {
+          setRows(Array.isArray(res.data) ? res.data : []);
+          setPage(0);
+        }
       } catch (e) {
         if (!cancelled) {
           console.error('[ApoioN1PanoramaTab] overview inicial:', e);
           toast.error(e.message || 'Erro ao carregar visão geral');
           setRows([]);
+          setPage(0);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -309,10 +146,28 @@ const ApoioN1PanoramaTab = () => {
     };
   }, [email]);
 
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(rows.length / PAGE_SIZE)),
+    [rows.length]
+  );
+
+  const safePage = page >= totalPages ? Math.max(0, totalPages - 1) : page;
+
+  useEffect(() => {
+    if (page >= totalPages) setPage(Math.max(0, totalPages - 1));
+  }, [page, totalPages]);
+
+  const pageRows = useMemo(() => {
+    const start = safePage * PAGE_SIZE;
+    return rows.slice(start, start + PAGE_SIZE);
+  }, [rows, safePage]);
+
   const onSubmitFilters = (e) => {
     e.preventDefault();
     loadOverview();
   };
+
+  const showPagination = !loading && rows.length > PAGE_SIZE;
 
   return (
     <div className="w-full min-w-0">
@@ -409,70 +264,103 @@ const ApoioN1PanoramaTab = () => {
 
       <div className="overflow-x-auto min-w-0">
         <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 dark:bg-gray-700/80 text-gray-700 dark:text-gray-200">
+          <thead className="bg-gray-50 dark:bg-gray-700/80 text-gray-700 dark:text-gray-200">
+            <tr>
+              <th className="px-4 py-3 font-medium">Registro</th>
+              <th className="px-4 py-3 font-medium">Tipo</th>
+              <th className="px-4 py-3 font-medium">CPF</th>
+              <th className="px-4 py-3 font-medium">Agente</th>
+              <th className="px-4 py-3 font-medium">Data</th>
+              <th className="px-4 py-3 font-medium">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading && (
               <tr>
-                <th className="px-4 py-3 font-medium">Registro</th>
-                <th className="px-4 py-3 font-medium">Tipo</th>
-                <th className="px-4 py-3 font-medium">CPF</th>
-                <th className="px-4 py-3 font-medium">Agente</th>
-                <th className="px-4 py-3 font-medium">Data</th>
-                <th className="px-4 py-3 font-medium">Status</th>
+                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                  Carregando…
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                    Carregando…
-                  </td>
-                </tr>
-              )}
-              {!loading && rows.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                    Nenhum registro encontrado.
-                  </td>
-                </tr>
-              )}
-              {!loading &&
-                rows.map((r) => {
-                  const id = r._id ?? r.id;
-                  const keyId = `${r.panoramaRegistroTipo ?? r.origem}-${id}`;
-                  const st = r.statusChamado || getStatusChamado(r);
-                  return (
-                    <tr
-                      key={keyId}
-                      className="border-t border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
-                      onClick={() => setDetailDoc(r)}
+            )}
+            {!loading && rows.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                  Nenhum registro encontrado.
+                </td>
+              </tr>
+            )}
+            {!loading &&
+              pageRows.map((r) => {
+                const id = r._id ?? r.id;
+                const keyId = `${r.panoramaRegistroTipo ?? r.origem}-${id}`;
+                const st = r.statusChamado || getStatusChamado(r);
+                return (
+                  <tr
+                    key={keyId}
+                    className="border-t border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
+                    onClick={() => setDetailDoc(r)}
+                  >
+                    <td className="px-4 py-3 text-gray-800 dark:text-gray-200">{panoramaTipoLabel(r)}</td>
+                    <td className="px-4 py-3 max-w-[200px] truncate" title={panoramaTipoColunaValor(r)}>
+                      {panoramaTipoColunaValor(r)}
+                    </td>
+                    <td
+                      className="px-4 py-3 font-mono text-sm text-gray-800 dark:text-gray-200"
+                      onClick={(e) => {
+                        if (e.target.closest('[data-copy-cpf]')) e.stopPropagation();
+                      }}
                     >
-                      <td className="px-4 py-3 text-gray-800 dark:text-gray-200">{panoramaTipoLabel(r)}</td>
-                      <td className="px-4 py-3 max-w-[200px] truncate" title={panoramaTipoColunaValor(r)}>
-                        {panoramaTipoColunaValor(r)}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs">{r.cpf || '—'}</td>
-                      <td className="px-4 py-3 max-w-[160px] truncate">{r.colaboradorNome || '—'}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-gray-600 dark:text-gray-400">
-                        {r.createdAt ? new Date(r.createdAt).toLocaleString('pt-BR') : '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusChamadoBadgeClass(
-                            st
-                          )}`}
-                        >
-                          {st}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-            </tbody>
+                      <ApoioN1PanoramaCpfCell cpf={r.cpf} />
+                    </td>
+                    <td className="px-4 py-3 max-w-[160px] truncate">{r.colaboradorNome || '—'}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-gray-600 dark:text-gray-400">
+                      {r.createdAt ? new Date(r.createdAt).toLocaleString('pt-BR') : '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusChamadoBadgeClass(
+                          st
+                        )}`}
+                      >
+                        {st}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+          </tbody>
         </table>
       </div>
+
+      {showPagination && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-gray-700 dark:text-gray-300">
+          <span>
+            {rows.length} registro{rows.length !== 1 ? 's' : ''} — página {safePage + 1} de {totalPages}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={safePage <= 0}
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              className="px-3 py-1.5 rounded-lg border border-gray-400 dark:border-gray-500 disabled:opacity-40"
+            >
+              Anterior
+            </button>
+            <button
+              type="button"
+              disabled={safePage >= totalPages - 1}
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              className="px-3 py-1.5 rounded-lg border border-gray-400 dark:border-gray-500 disabled:opacity-40"
+            >
+              Próxima
+            </button>
+          </div>
+        </div>
+      )}
 
       {detailDoc ? <PanoramaDetailModal doc={detailDoc} onClose={() => setDetailDoc(null)} /> : null}
     </div>
   );
-};
+}
 
 export default ApoioN1PanoramaTab;

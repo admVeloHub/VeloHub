@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.20 | DATE: 2026-05-21 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.21 | DATE: 2026-05-22 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -40,6 +40,19 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push - Apoio N1 panorama (refator), VeloAcademy GCP, DEPLOY_LOG push anterior**
+- **Data/Hora**: 2026-05-22
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: ApoioN1PanoramaTab (refator), ApoioN1PanoramaCpfCell v1.0.0, ApoioN1PanoramaModal v1.0.0, App_v6 v2.19.56, DEPLOY_LOG v1.1.21
+- **Arquivos Modificados**:
+  - `src/components/Requisicoes/ApoioN1PanoramaTab.js`
+  - `src/components/Requisicoes/ApoioN1PanoramaCpfCell.js` (novo)
+  - `src/components/Requisicoes/ApoioN1PanoramaModal.js` (novo)
+  - `src/App_v6.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Visão geral Req_Prod: extração de célula CPF e modal de detalhe em componentes dedicados. Atalho VeloAcademy no header aponta para Cloud Run (`veloacademy-278491073220.us-east1.run.app`). Registro de conclusão do push 2026-05-21 no DEPLOY_LOG.
+- **Status**: ✅ Concluído com sucesso
+
 ### **GitHub Push - Ouvidoria, Requisições, Octadesk, VeloBot, higiene repositório**
 - **Data/Hora**: 2026-05-21
 - **Tipo**: GitHub Push
@@ -53,8 +66,8 @@
   - `src/components/LoginPage.js`, `LoadingPage.js`, assets `public/`
   - `.gitignore` — xlsx, `__pycache__`, `.local-output`, logs Cursor debug
   - Removidos do índice Git: `backend/scripts/retidos-n2-2026.txt`, `backend/scripts/__pycache__/`
-- **Descrição**: Integração Octadesk (tickets na abertura de reclamação); módulo Requisições (rename Escalacoes); Ouvidoria fusão/chargeback/protocolos canônicos; VeloBot RAG/guardrails; login/loading com V6BG e vídeo. Higiene: remoção instrumentação debug localhost:7635; CPFs de retidos N2 só em `.local-output/` (não versionados); relatórios `.xlsx` ignorados.
-- **Status**: ⏳ Commit/push em andamento
+- **Descrição**: Integração Octadesk (tickets na abertura de reclamação); módulo Requisições (rename Escalacoes); Ouvidoria fusão/chargeback/protocolos canônicos; VeloBot RAG/guardrails; login/loading com V6BG e vídeo. Higiene: remoção instrumentação debug localhost:7635; CPFs de retidos N2 só em `.local-output/` (não versionados); relatórios `.xlsx` ignorados. Force push após divergência remota; backup em `backup-pre-forcepush-2026-05-21` → `6d516e3`.
+- **Status**: ✅ Concluído com sucesso (`942bba7` em `main`)
 
 ### **Alteração local - Login e Loading: fundo V6BGcomLogo, vídeo loadingPage**
 - **Data/Hora**: 2026-04-17
