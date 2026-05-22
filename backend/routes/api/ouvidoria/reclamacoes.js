@@ -1,104 +1,23 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Reclamações
- * VERSION: v2.20.0 | DATE: 2026-04-16 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.29.3 | DATE: 2026-05-21 | AUTHOR: VeloHub Development Team
  *
- * Mudanças v2.20.0:
- * - Tipo TIME_PORTABILIDADE (Time Portabilidade) → coleção reclamacoes_timePortabilidade
- * - GET lista / :id sem tipo: inclui a 6ª coleção; filtro de data por dataEntrada; índices na inicialização
- * - POST: validação de tipo atualizada para incluir TIME_PORTABILIDADE
- *
- * Mudanças v2.19.0:
- * - GET /reclamacoes: filtro opcional query `produto` (campo existente `produto`, match exato)
- *
- * Mudanças v2.18.0:
- * - BACEN / N2 Pix: prazoBacen e prazoOuvidoria preenchidos automaticamente na API (2 dias corridos UTC após createdAt do registro); valores enviados pelo cliente nesses campos são ignorados
- * - PUT: recalcula prazo a partir do createdAt já persistido (mantém regra alinhada à criação)
- *
- * Mudanças v2.17.0:
- * - DELETE /reclamacoes/:id?tipo=: exclui documento na coleção correspondente (tipo obrigatório, mesmo mapeamento do PUT)
- *
- * Mudanças v2.16.0:
- * - POST/PUT: motivoReduzido persistido via utils/motivoReduzidoNormalize (sentence case pt-BR + renomeações)
- *
- * Mudanças v2.15.0:
- * - GET /reclamacoes: adicionado filtro status (resolvido / em_andamento) via Finalizado.Resolvido
- * 
- * Mudanças v2.14.0:
- * - GET /reclamacoes: adicionados filtros dataInicio, dataFim e motivo (motivoReduzido)
- * - Filtro de data usa campo correto por coleção (dataEntrada, dataEntradaN2, dataReclam, dataProcon)
- * 
- * Mudanças v2.13.0:
- * - Exibição: tipo retornado como 'N2 Pix' (antes 'Ouvidoria'/'N2') em listagens e getById
- * - getCollectionByType: adicionado case 'N2 PIX'
- * 
- * Mudanças v2.12.0:
- * - Garantir que campos de data sejam salvos como Date (não string)
- * - Função normalizarCamposDataParaDate() converte strings YYYY-MM-DD para Date
- * - Aplicado em POST (criação) e PUT (atualização) antes de persistir
- * 
- * Mudanças v2.11.0:
- * - CORRIGIDO: OUVIDORIA agora usa reclamacoes_n2Pix (reclamacoes_ouvidoria foi renomeada/descontinuada)
- * - Removidas todas as referências à collection reclamacoes_ouvidoria
- * - Busca sem filtro agora usa 5 collections (bacen, n2Pix, reclameAqui, procon, judicial)
- * - Corrige erros de contagem causados por envio de registros para collection descontinuada
- * 
- * Mudanças v2.10.0:
- * - Adicionado suporte para tipo AÇÃO JUDICIAL (PROCESSOS) na função getCollectionByType
- * - Criados índices específicos para reclamacoes_judicial (nroProcesso)
- * - Atualizada mensagem de validação para incluir PROCESSOS
- * 
- * Mudanças v2.9.0:
- * - Adicionado suporte para tipo PROCON na função getCollectionByType
- * - Criados índices específicos para reclamacoes_procon (codigoProcon)
- * - Atualizada mensagem de validação para incluir PROCON
- * 
- * Mudanças v2.8.0:
- * - Adicionado suporte para tipo RECLAME_AQUI na função getCollectionByType
- * - Atualizada mensagem de validação para incluir RECLAME_AQUI
- * 
- * Mudanças v2.7.0:
- * - Atualizado mapeamento de tipos para todas as coleções corretas:
- *   - BACEN → reclamacoes_bacen
- *   - N2 / OUVIDORIA → reclamacoes_n2Pix (reclamacoes_ouvidoria descontinuada)
- *   - Reclame Aqui → reclamacoes_reclameAqui
- *   - Procon → reclamacoes_procon
- *   - Ação Judicial (PROCESSOS) → reclamacoes_judicial
- * - Busca sem filtro agora inclui todas as 5 coleções (ouvidoria descontinuada)
- * - Índices criados para todas as coleções na inicialização
- * - Função getCollectionByType atualizada com todos os tipos corretos
- * 
- * Mudanças v2.6.0:
- * - Corrigido filtro de tipo: agora adiciona campo 'tipo' aos resultados quando há filtro
- * - Adicionado suporte para filtro "N2" (mapeado para OUVIDORIA)
- * - Adicionado suporte para filtro "RA-PROCON" (busca em reclamacoes_reclameAqui e reclamacoes_procon)
- * - Função getCollectionByType atualizada para tratar novos tipos
- * 
- * Mudanças v2.4.0:
- * - Removido campo status (usar Finalizado.Resolvido para determinar se está em andamento ou resolvido)
- * - Removido filtro idSecao
- * - Removidos filtros deletada/deletedAt (soft delete não será mais usado)
- * - Removida rota DELETE (soft delete)
- * - Removido índice de status
- * 
- * Mudanças v2.3.0:
- * - Removida rota GET /colaboradores (movida para arquivo separado colaboradores.js)
- * 
- * Mudanças v2.2.0:
- * - Implementada paginação no endpoint GET /api/ouvidoria/reclamacoes
- * - Adicionados parâmetros page e limit (padrão: page=1, limit=20)
- * - Resposta inclui total, totalPages, page e limit para controle de paginação
- * - Limite máximo de 100 itens por página para performance
- * 
- * Mudanças v2.1.0:
- * - Removidos vestígios da metodologia anterior
- * - Suporte apenas para criação de reclamações BACEN e OUVIDORIA
- * 
- * Mudanças v2.0.0:
- * - Separação em coleções: reclamacoes_bacen, reclamacoes_n2Pix
- * - Função helper getCollectionByType para obter coleção correta
- * - Índices criados para cada coleção separadamente
- * 
- * Rotas para gerenciamento de reclamações BACEN e Ouvidoria
+ * Referência (duas entradas; detalhes no Git):
+ * - v2.29.3: gerar-ticket — persiste ticketRegistro após POST; já existente retorna 200 p/ sincronizar UI
+ * - v2.29.2: gerar-ticket-octadesk — api001: description no POST; sem PUT (404 na instância)
+ * - v2.29.1: gerar-ticket-octadesk — PUT pós-create (comentários + Resolvido); POST só título/solicitante nesta instância
+ * - v2.29.0: gerar-ticket-octadesk — payload mínimo no POST (CPF, categoria, comentário interno, Resolvido); sem PUT pós-create
+ * - v2.28.0: Fusão — `liberacaoAnterior=true` no par quando um dos tickets tem `pixLiberado=true`
+ * - v2.27.0: Protocolos canônicos — syncNativoParaBloco792 no POST/PUT; mirrorTicketRegistro no gerar-ticket-octadesk
+ * - v2.26.1: gerar-ticket-octadesk reforça comentário interno com descrição da reclamação e tenta status Em Andamento após criação
+ * - v2.26.0: POST /:id/gerar-ticket-octadesk; PUT resolvido → Octadesk; campo ticketRegistro
+ * - v2.25.1: Removidos logs NDJSON de sessão debug (enrich/colab GET)
+ * - v2.25.0: GET reclamações — query opcional `colaboradorEmail`; com nome + email (`Minhas`): match por responsavelEmail ou legado só responsavel nome exato; lista só nome mantém substring
+ * - v2.24.1: SLA automático BACEN: prazoBacen = createdAt + 10 dias corridos UTC (N2/Ouvidoria permanece +2 dias)
+ * - v2.24.0: Estado fundido apenas em Fusao — Finalizado só Resolvido/dataResolucao; filtros e PUT alinhados
+ * - v2.23.0: Fusão — parentProtocolo/childProtocolo; childProtocolos; demotion enriquecida
+ * - v2.20.0: Tipo TIME_PORTABILIDADE (Time Portabilidade) → coleção reclamacoes_timePortabilidade
+ * - v2.19.0: GET /reclamacoes: filtro opcional query `produto` (campo existente `produto`, match exato)
  */
 
 const express = require('express');
@@ -106,16 +25,145 @@ const path = require('path');
 const router = express.Router();
 const { ObjectId } = require('mongodb');
 const { normalizarCampoMotivoReduzido } = require(path.join(__dirname, '../../../utils/motivoReduzidoNormalize'));
+const {
+  compareTier,
+  tierIndexFromCollectionName,
+} = require(path.join(__dirname, '../../../utils/ouvidoriaTierHierarchy'));
+const {
+  getSuggestedNumeroProtocolo,
+  allocateNextNumeroProtocolo,
+} = require(path.join(__dirname, '../../../utils/protocoloOuvidoria'));
+const { getStatusChamadoFromDoc } = require(path.join(__dirname, '../../../utils/escalacoesReplyStatus'));
+const { resolveOctadeskTicketFromReclamacao } = require(path.join(__dirname, '../../../utils/resolveOctadeskTicketNumber'));
+const {
+  syncNativoParaBloco792,
+  mirrorTicketRegistro,
+} = require(path.join(__dirname, '../../../utils/ouvidoriaProtocolosCanon'));
 
-/** Lista de campos que devem ser Date (não string) */
-const CAMPOS_DATA = [
-  'dataEntrada', 'dataEntradaN2', 'dataReclam', 'dataProcon',
-  'prazoBacen', 'prazoOuvidoria', 'processoEncaminhadoData', 'dataProcessoEncerrado',
-  'dataAudiencia', 'dataEntradaProcesso'
+/** Campos do bloco 792-800 propagados após sync nativo→protocolos */
+const CAMPOS_BLOCO_PROTOCOLOS_SYNC = [
+  'acionouCentral',
+  'protocolosCentral',
+  'n2SegundoNivel',
+  'protocolosN2',
+  'reclameAqui',
+  'protocolosReclameAqui',
+  'procon',
+  'protocolosProcon',
+  'protocolosBacen',
 ];
 
 /**
+ * Aplica sync conservador e retorna apenas campos de protocolos alterados/preenchidos.
+ * @param {Record<string, unknown>} existente
+ * @param {Record<string, unknown>} payload
+ * @param {string} tipo
+ * @returns {Record<string, unknown>}
+ */
+function aplicarSyncProtocolosNoPayload(existente, payload, tipo) {
+  const merged = { ...(existente || {}), ...(payload || {}) };
+  const synced = syncNativoParaBloco792(merged, tipo);
+  const patch = {};
+  for (const key of CAMPOS_BLOCO_PROTOCOLOS_SYNC) {
+    if (synced[key] !== undefined) patch[key] = synced[key];
+  }
+  return patch;
+}
+const {
+  buildCreateTicketFromReclamacao,
+  createTicket,
+  finalizeReclamacaoTicketAfterCreate,
+  markTicketResolved,
+  octadeskSyncFireAndForget,
+  isOctadeskConfigured,
+} = require(path.join(__dirname, '../../../services/octadesk/octadeskTicketsService'));
+const config = require(path.join(__dirname, '../../../config'));
+
+const HIERARQUIAS_FUSAO = new Set(['superior', 'inferior', 'redundante']);
+
+const OUVIDORIA_COLLECTION_NAMES = [
+  'reclamacoes_timePortabilidade',
+  'reclamacoes_n2Pix',
+  'reclamacoes_reclameAqui',
+  'reclamacoes_bacen',
+  'reclamacoes_procon',
+  'reclamacoes_judicial',
+];
+
+/** Metacaracteres em string para usar como literal dentro de `$regex` do MongoDB. */
+function escaparRegexMongoLiteral(raw) {
+  return String(raw).replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+}
+
+/** @param {unknown} doc */
+const numeroProtocoloDeDoc = (doc) => {
+  const raw = doc && typeof doc === 'object' ? doc.numeroProtocolo : null;
+  const s = raw != null ? String(raw).trim() : '';
+  return s.slice(0, 120);
+};
+
+/** Critério MongoDB: ticket absorvido (Fusao é fonte única do «fundido» passivo). */
+const MONGO_MATCH_FUSAO_ABSORVIDO = {
+  $and: [
+    { 'Fusao.fundido': true },
+    {
+      $or: [
+        { 'Fusao.hierarquia': 'inferior' },
+        {
+          $and: [
+            { 'Fusao.hierarquia': 'redundante' },
+            { 'Fusao.parentId': { $exists: true, $ne: null } },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+/** @param {unknown} doc */
+const isFusaoAbsorvoAlvoDocMongo = (doc) => {
+  const fu = doc?.Fusao;
+  if (!fu || typeof fu !== 'object' || fu.fundido !== true) return false;
+  const h = String(fu.hierarquia || '')
+    .toLowerCase()
+    .trim();
+  if (h === 'inferior') return true;
+  if (h === 'redundante' && fu.parentId != null && fu.parentId !== '') return true;
+  return false;
+};
+
+/**
+ * Remove chaves espelho legadas; cliente não deve enviar Finalizado.Fundido.
+ * @param {unknown} fin
+ * @returns {Record<string, unknown>|undefined}
+ */
+const sanitizarFinalizadoSemEspelhosFusao = (fin) => {
+  if (fin == null || typeof fin !== 'object') return undefined;
+  /** @type {Record<string, unknown>} */
+  const out = { ...fin };
+  delete out.Fundido;
+  delete out.dataFundido;
+  return Object.keys(out).length ? out : undefined;
+};
+
+/**
+ * Após fusão absorvindo o atual: garante Resolvido false e sem espelhos em Finalizado.
+ * @param {Record<string, unknown>|null|undefined} docExistente
+ */
+const mergeFinalizadoAoAbsorverEmFusao = (docExistente) => {
+  const prev =
+    docExistente?.Finalizado != null && typeof docExistente.Finalizado === 'object'
+      ? { ...docExistente.Finalizado }
+      : {};
+  delete prev.Fundido;
+  delete prev.dataFundido;
+  prev.Resolvido = false;
+  return prev;
+};
+
+/**
  * Converte string de data (YYYY-MM-DD) para Date. Retorna null se inválido.
+ * (Definido cedo — usado por sanitizarFusao antes de CAMPOS_DATA.)
  */
 const parsearDataParaDate = (valor) => {
   if (!valor) return null;
@@ -128,11 +176,514 @@ const parsearDataParaDate = (valor) => {
 };
 
 /**
- * Prazo automático Ouvidoria: data limite = 2 dias corridos (UTC) após a data de criação do registro.
+ * @param {Record<string, unknown>|null|undefined} fusao
+ * @returns {Record<string, unknown>|undefined}
+ */
+const sanitizarFusao = (fusao) => {
+  if (fusao == null || typeof fusao !== 'object') return undefined;
+  const out = {};
+  if (typeof fusao.fundido === 'boolean') out.fundido = fusao.fundido;
+  if (fusao.dataFundido != null) {
+    const d =
+      fusao.dataFundido instanceof Date
+        ? fusao.dataFundido
+        : parsearDataParaDate(String(fusao.dataFundido));
+    if (d) out.dataFundido = d;
+  }
+  const h = String(fusao.hierarquia || '')
+    .toLowerCase()
+    .trim();
+  if (HIERARQUIAS_FUSAO.has(h)) out.hierarquia = h;
+  if (fusao.parentId != null && fusao.parentId !== '' && ObjectId.isValid(String(fusao.parentId))) {
+    out.parentId = new ObjectId(String(fusao.parentId));
+  }
+  if (fusao.childId != null && fusao.childId !== '' && ObjectId.isValid(String(fusao.childId))) {
+    out.childId = new ObjectId(String(fusao.childId));
+  }
+  const pp = numeroProtocoloDeDoc({ numeroProtocolo: fusao.parentProtocolo });
+  if (pp) out.parentProtocolo = pp;
+  const cp = numeroProtocoloDeDoc({ numeroProtocolo: fusao.childProtocolo });
+  if (cp) out.childProtocolo = cp;
+  if (Array.isArray(fusao.childProtocolos)) {
+    const arr = fusao.childProtocolos
+      .map((x) => numeroProtocoloDeDoc({ numeroProtocolo: x }))
+      .filter(Boolean)
+      .slice(0, 50);
+    if (arr.length) out.childProtocolos = [...new Set(arr)];
+  }
+  return Object.keys(out).length ? out : undefined;
+};
+
+/**
+ * @param {readonly string[]} protos
+ */
+const mergeDedupProtos = (...protos) => {
+  const out = [];
+  const seen = new Set();
+  for (const chunk of protos) {
+    const list = chunk || [];
+    for (const p of list) {
+      const s = String(p || '').trim();
+      if (!s || seen.has(s)) continue;
+      seen.add(s);
+      out.push(s);
+      if (out.length >= 50) return out;
+    }
+  }
+  return out;
+};
+
+/**
+ * Anexa snapshot Req_Prod (liberacao_pix_prod) e status efetivo do reply quando há filtro por colaborador.
+ * @param {import('mongodb').MongoClient} client
+ * @param {Array<Record<string, unknown>>} reclamacoes
+ */
+async function enrichReclamacoesComReqProd(client, reclamacoes) {
+  if (!Array.isArray(reclamacoes) || reclamacoes.length === 0) return;
+  const ids = reclamacoes.map((r) => r._id).filter(Boolean);
+  if (!ids.length) return;
+
+  const escDb = client.db('hub_escalacoes');
+  const libColl = escDb.collection('liberacao_pix_prod');
+  const libs = await libColl
+    .find(
+      { ouvidoriaReclamacaoId: { $in: ids } },
+      { projection: { reply: 1, ouvidoriaNumeroProtocolo: 1, pixLiberado: 1, createdAt: 1, updatedAt: 1, ouvidoriaReclamacaoId: 1 } }
+    )
+    .toArray();
+
+  /** @type {Map<string, Record<string, unknown>>} */
+  const byReclamId = new Map();
+  for (const lib of libs) {
+    const k = lib.ouvidoriaReclamacaoId != null ? String(lib.ouvidoriaReclamacaoId) : '';
+    if (!k) continue;
+    const prev = byReclamId.get(k);
+    if (!prev || new Date(lib.createdAt || 0) > new Date(prev.createdAt || 0)) {
+      byReclamId.set(k, lib);
+    }
+  }
+
+  for (const r of reclamacoes) {
+    const k = r._id != null ? String(r._id) : '';
+    const lib = k ? byReclamId.get(k) : null;
+    if (!lib) {
+      r.reqProdLiberacaoPix = null;
+      r.reqProdStatusEfetivo = null;
+      r.reqProdStatusAt = null;
+      continue;
+    }
+    r.reqProdLiberacaoPix = lib;
+    const { status, atMs } = getStatusChamadoFromDoc(lib);
+    r.reqProdStatusEfetivo = status;
+    r.reqProdStatusAt = atMs > 0 ? new Date(atMs) : null;
+  }
+}
+
+/**
+ * Corpo opcional no POST create: fusão aplicada após insert (sem currentId no cliente).
+ * @param {unknown} raw
+ * @returns {{ targetId: string, targetTipo: string, cenario: string, redundantePapel?: string }|null}
+ */
+function sanitizarFusaoPendente(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const targetId = raw.targetId;
+  const targetTipo = raw.targetTipo;
+  const cenario = raw.cenario;
+  if (!ObjectId.isValid(String(targetId)) || !targetTipo || !cenario) return null;
+  const cen = String(cenario).trim().toLowerCase();
+  if (!['current_inferior', 'current_superior', 'redundante'].includes(cen)) return null;
+  const out = {
+    targetId: String(targetId),
+    targetTipo: String(targetTipo),
+    cenario: cen,
+  };
+  if (cen === 'redundante' && raw.redundantePapel != null) {
+    out.redundantePapel = String(raw.redundantePapel).trim();
+  }
+  return out;
+}
+
+/**
+ * Remove espelhos legados Finalizado.* de fusão quando o papel é receptor.
+ * @param {Record<string, unknown>|null|undefined} doc
+ */
+const finalizadoLimparEspelhosLegadosFusao = (doc) => {
+  const prev = doc?.Finalizado != null && typeof doc.Finalizado === 'object' ? { ...doc.Finalizado } : {};
+  delete prev.Fundido;
+  delete prev.dataFundido;
+  return Object.keys(prev).length ? prev : undefined;
+};
+
+/** @param {unknown} tipo */
+const tipoSuportaLiberacaoAnteriorFusao = (tipo) => {
+  const t = String(tipo || '').toUpperCase().trim();
+  return t !== 'TIME_PORTABILIDADE' && t !== 'TIME PORTABILIDADE';
+};
+
+/**
+ * Se um dos dois tem pixLiberado, o outro (elegível e sem PIX) recebe liberacaoAnterior.
+ * @param {Record<string, unknown>} cur
+ * @param {Record<string, unknown>} tgt
+ */
+const patchLiberacaoAnteriorFusao = (cur, tgt) => {
+  const anyPix = cur.pixLiberado === true || tgt.pixLiberado === true;
+  const curExtra = {};
+  const tgtExtra = {};
+  if (!anyPix) return { cur: curExtra, tgt: tgtExtra };
+  if (cur.pixLiberado !== true && tipoSuportaLiberacaoAnteriorFusao(cur.tipo)) {
+    curExtra.liberacaoAnterior = true;
+  }
+  if (tgt.pixLiberado !== true && tipoSuportaLiberacaoAnteriorFusao(tgt.tipo)) {
+    tgtExtra.liberacaoAnterior = true;
+  }
+  return { cur: curExtra, tgt: tgtExtra };
+};
+
+/**
+ * Confirma fusão entre dois documentos (mesmo CPF). Opcional `session` para transação com insert.
+ * @returns {Promise<string[]>} protocolos rebaixados em demotion (apenas cenário current_superior)
+ */
+async function executarFusaoOuvidoria(db, params, options = {}) {
+  const { session } = options;
+  const sessOpts = session ? { session } : {};
+
+  const {
+    cpfLimpo,
+    currentId,
+    currentTipo,
+    targetId,
+    targetTipo,
+    cenario,
+    redundantePapel,
+  } = params;
+
+  const collCurrent = getCollectionByType(db, currentTipo);
+  const collTarget = getCollectionByType(db, targetTipo);
+  const cur = await collCurrent.findOne({ _id: new ObjectId(String(currentId)) }, sessOpts);
+  const tgt = await collTarget.findOne({ _id: new ObjectId(String(targetId)) }, sessOpts);
+
+  if (!cur || !tgt) {
+    const err = new Error('Documento não encontrado');
+    err.code = 'FUSAO_NOT_FOUND';
+    throw err;
+  }
+
+  const curCpf = String(cur.cpf || '').replace(/\D/g, '');
+  const tgtCpf = String(tgt.cpf || '').replace(/\D/g, '');
+  if (curCpf !== cpfLimpo || tgtCpf !== cpfLimpo) {
+    const err = new Error('CPF dos documentos não confere');
+    err.code = 'FUSAO_CPF';
+    throw err;
+  }
+
+  const cmp = compareTier(currentTipo, targetTipo);
+  const cen = String(cenario).trim().toLowerCase();
+  if (cen === 'current_inferior' && cmp >= 0) {
+    const err = new Error('Cenário current_inferior inconsistente com os níveis informados');
+    err.code = 'FUSAO_CENARIO';
+    throw err;
+  }
+  if (cen === 'current_superior' && cmp <= 0) {
+    const err = new Error('Cenário current_superior inconsistente com os níveis informados');
+    err.code = 'FUSAO_CENARIO';
+    throw err;
+  }
+  if (cen === 'redundante' && cmp !== 0) {
+    const err = new Error('Cenário redundante exige mesmo nível');
+    err.code = 'FUSAO_CENARIO';
+    throw err;
+  }
+
+  const now = new Date();
+  const curOid = new ObjectId(String(currentId));
+  const tgtOid = new ObjectId(String(targetId));
+  const curProt = numeroProtocoloDeDoc(cur);
+  const tgtProt = numeroProtocoloDeDoc(tgt);
+  const laPatch = patchLiberacaoAnteriorFusao(cur, tgt);
+
+  let protosDemovidos = [];
+  if (cen === 'current_superior') {
+    protosDemovidos = await demoteFormerSuperiors(
+      db,
+      cpfLimpo,
+      currentId,
+      collCurrent.collectionName,
+      now,
+      session
+    );
+  }
+
+  if (cen === 'current_inferior') {
+    await collCurrent.updateOne(
+      { _id: curOid },
+      {
+        $set: {
+          ...laPatch.cur,
+          Fusao: {
+            fundido: true,
+            dataFundido: now,
+            hierarquia: 'inferior',
+            parentId: tgtOid,
+            childId: null,
+            ...(tgtProt ? { parentProtocolo: tgtProt } : {}),
+          },
+          Finalizado: mergeFinalizadoAoAbsorverEmFusao(cur),
+          updatedAt: now,
+        },
+      },
+      sessOpts
+    );
+    const protosPai = mergeDedupProtos(tgt?.Fusao?.childProtocolos || [], curProt ? [curProt] : []);
+    await collTarget.updateOne(
+      { _id: tgtOid },
+      {
+        $set: {
+          ...laPatch.tgt,
+          Fusao: {
+            fundido: true,
+            dataFundido: now,
+            hierarquia: 'superior',
+            parentId: null,
+            childId: curOid,
+            ...(curProt ? { childProtocolo: curProt } : {}),
+            ...(protosPai.length ? { childProtocolos: protosPai } : {}),
+          },
+          ...(finalizadoLimparEspelhosLegadosFusao(tgt)
+            ? { Finalizado: finalizadoLimparEspelhosLegadosFusao(tgt), updatedAt: now }
+            : { updatedAt: now }),
+        },
+      },
+      sessOpts
+    );
+  } else if (cen === 'current_superior') {
+    const prevChild = tgt.Fusao && tgt.Fusao.childId ? tgt.Fusao.childId : null;
+    await collTarget.updateOne(
+      { _id: tgtOid },
+      {
+        $set: {
+          ...laPatch.tgt,
+          Fusao: {
+            fundido: true,
+            dataFundido: now,
+            hierarquia: 'inferior',
+            parentId: curOid,
+            childId: prevChild ? new ObjectId(String(prevChild)) : null,
+            ...(curProt ? { parentProtocolo: curProt } : {}),
+          },
+          Finalizado: mergeFinalizadoAoAbsorverEmFusao(tgt),
+          updatedAt: now,
+        },
+      },
+      sessOpts
+    );
+
+    const mergedChildProtos = mergeDedupProtos(
+      protosDemovidos,
+      cur?.Fusao?.childProtocolos || [],
+      tgtProt ? [tgtProt] : []
+    );
+
+    await collCurrent.updateOne(
+      { _id: curOid },
+      {
+        $set: {
+          ...laPatch.cur,
+          Fusao: {
+            fundido: true,
+            dataFundido: now,
+            hierarquia: 'superior',
+            parentId: null,
+            childId: tgtOid,
+            ...(tgtProt ? { childProtocolo: tgtProt } : {}),
+            ...(mergedChildProtos.length ? { childProtocolos: mergedChildProtos } : {}),
+          },
+          ...(finalizadoLimparEspelhosLegadosFusao(cur)
+            ? { Finalizado: finalizadoLimparEspelhosLegadosFusao(cur), updatedAt: now }
+            : { updatedAt: now }),
+        },
+      },
+      sessOpts
+    );
+  } else {
+    const asParent =
+      redundantePapel === 'current_parent' || redundantePapel === 'parent';
+    if (asParent) {
+      await collCurrent.updateOne(
+        { _id: curOid },
+        {
+          $set: {
+            ...laPatch.cur,
+            Fusao: {
+              fundido: true,
+              dataFundido: now,
+              hierarquia: 'redundante',
+              parentId: null,
+              childId: tgtOid,
+              ...(tgtProt ? { childProtocolo: tgtProt } : {}),
+              childProtocolos: mergeDedupProtos(cur?.Fusao?.childProtocolos || [], tgtProt ? [tgtProt] : []),
+            },
+            ...(finalizadoLimparEspelhosLegadosFusao(cur)
+              ? { Finalizado: finalizadoLimparEspelhosLegadosFusao(cur), updatedAt: now }
+              : { updatedAt: now }),
+          },
+        },
+        sessOpts
+      );
+      await collTarget.updateOne(
+        { _id: tgtOid },
+        {
+          $set: {
+            ...laPatch.tgt,
+            Fusao: {
+              fundido: true,
+              dataFundido: now,
+              hierarquia: 'redundante',
+              parentId: curOid,
+              childId: null,
+              ...(curProt ? { parentProtocolo: curProt } : {}),
+            },
+            Finalizado: mergeFinalizadoAoAbsorverEmFusao(tgt),
+            updatedAt: now,
+          },
+        },
+        sessOpts
+      );
+    } else {
+      await collTarget.updateOne(
+        { _id: tgtOid },
+        {
+          $set: {
+            ...laPatch.tgt,
+            Fusao: {
+              fundido: true,
+              dataFundido: now,
+              hierarquia: 'redundante',
+              parentId: null,
+              childId: curOid,
+              ...(curProt ? { childProtocolo: curProt } : {}),
+              childProtocolos: mergeDedupProtos(tgt?.Fusao?.childProtocolos || [], curProt ? [curProt] : []),
+            },
+            ...(finalizadoLimparEspelhosLegadosFusao(tgt)
+              ? { Finalizado: finalizadoLimparEspelhosLegadosFusao(tgt), updatedAt: now }
+              : { updatedAt: now }),
+          },
+        },
+        sessOpts
+      );
+      await collCurrent.updateOne(
+        { _id: curOid },
+        {
+          $set: {
+            ...laPatch.cur,
+            Fusao: {
+              fundido: true,
+              dataFundido: now,
+              hierarquia: 'redundante',
+              parentId: tgtOid,
+              childId: null,
+              ...(tgtProt ? { parentProtocolo: tgtProt } : {}),
+            },
+            Finalizado: mergeFinalizadoAoAbsorverEmFusao(cur),
+            updatedAt: now,
+          },
+        },
+        sessOpts
+      );
+    }
+  }
+
+  return protosDemovidos;
+}
+
+/**
+ * Novo apex (mesmo CPF): tickets fundidos como superior em tier inferior ao novo passam a inferior apontando para o novo.
+ * @returns {Promise<string[]>} números de protocolo dos documentos rebaixados (para agrupamento no pai)
+ */
+async function demoteFormerSuperiors(db, cpfLimpo, newTopId, newTopCollectionName, now, session = null) {
+  const protosOut = [];
+  const sessOpts = session ? { session } : {};
+  const newIdx = tierIndexFromCollectionName(newTopCollectionName);
+  if (newIdx < 0) return protosOut;
+  const cpfFilter = { $regex: `^${cpfLimpo}$`, $options: 'i' };
+  const newOid = new ObjectId(String(newTopId));
+
+  const parentColl = db.collection(newTopCollectionName);
+  const parentSnap = await parentColl.findOne(
+    { _id: newOid },
+    { projection: { numeroProtocolo: 1 }, ...(session ? { session } : {}) }
+  );
+  const parentProt = numeroProtocoloDeDoc(parentSnap || {});
+
+  for (const colName of OUVIDORIA_COLLECTION_NAMES) {
+    const idxDoc = tierIndexFromCollectionName(colName);
+    if (idxDoc < 0 || idxDoc >= newIdx) continue;
+
+    const col = db.collection(colName);
+    const docs = await col
+      .find(
+        {
+          cpf: cpfFilter,
+          'Fusao.fundido': true,
+          'Fusao.hierarquia': 'superior',
+          _id: { $ne: newOid },
+        },
+        sessOpts
+      )
+      .toArray();
+
+    for (const d of docs) {
+      const prev = d.Fusao && typeof d.Fusao === 'object' ? d.Fusao : {};
+      const prevChildOid =
+        prev.childId != null && ObjectId.isValid(String(prev.childId))
+          ? new ObjectId(String(prev.childId))
+          : null;
+      const dp = numeroProtocoloDeDoc(d);
+      if (dp) protosOut.push(dp);
+      await col.updateOne(
+        { _id: d._id },
+        {
+          $set: {
+            Fusao: {
+              ...prev,
+              fundido: true,
+              hierarquia: 'inferior',
+              parentId: newOid,
+              dataFundido: now,
+              ...(parentProt ? { parentProtocolo: parentProt } : {}),
+              childId: prevChildOid,
+            },
+            Finalizado: mergeFinalizadoAoAbsorverEmFusao(d),
+            updatedAt: now,
+          },
+        },
+        sessOpts
+      );
+    }
+  }
+
+  return protosOut;
+}
+
+/** Lista de campos que devem ser Date (não string) */
+const CAMPOS_DATA = [
+  'dataEntrada', 'dataEntradaN2', 'dataReclam', 'dataProcon',
+  'prazoBacen', 'prazoOuvidoria', 'processoEncaminhadoData', 'dataProcessoEncerrado',
+  'dataAudiencia', 'dataEntradaProcesso'
+];
+
+/** SLA automático: dias corridos (UTC) somados ao createdAt. */
+const SLA_DIAS_CORRIDOS_BACEN = 10;
+const SLA_DIAS_CORRIDOS_N2_OUVIDORIA = 2;
+
+/**
+ * Data limite = N dias corridos (UTC) após a data de criação do registro.
  * @param {Date|string|null|undefined} createdAt
+ * @param {number} diasCorridos
  * @returns {Date}
  */
-const prazoAutomaticoDoisDiasAposCriacao = (createdAt) => {
+const prazoAutomaticoDiasUtcAposCriacao = (createdAt, diasCorridos) => {
+  const n = Number(diasCorridos);
+  const dias = Number.isFinite(n) && n > 0 ? n : 2;
   const base =
     createdAt instanceof Date
       ? createdAt
@@ -141,7 +692,7 @@ const prazoAutomaticoDoisDiasAposCriacao = (createdAt) => {
         : new Date();
   if (isNaN(base.getTime())) return new Date();
   const d = new Date(base.getTime());
-  d.setUTCDate(d.getUTCDate() + 2);
+  d.setUTCDate(d.getUTCDate() + dias);
   return d;
 };
 
@@ -153,12 +704,11 @@ const prazoAutomaticoDoisDiasAposCriacao = (createdAt) => {
  */
 const aplicarPrazoAutomaticoPorColecao = (alvo, collectionName, createdAtRef) => {
   if (!alvo || typeof alvo !== 'object') return;
-  const prazo = prazoAutomaticoDoisDiasAposCriacao(createdAtRef);
   if (collectionName === 'reclamacoes_bacen') {
-    alvo.prazoBacen = prazo;
+    alvo.prazoBacen = prazoAutomaticoDiasUtcAposCriacao(createdAtRef, SLA_DIAS_CORRIDOS_BACEN);
     delete alvo.prazoOuvidoria;
   } else if (collectionName === 'reclamacoes_n2Pix') {
-    alvo.prazoOuvidoria = prazo;
+    alvo.prazoOuvidoria = prazoAutomaticoDiasUtcAposCriacao(createdAtRef, SLA_DIAS_CORRIDOS_N2_OUVIDORIA);
     delete alvo.prazoBacen;
   }
 };
@@ -200,6 +750,10 @@ const normalizarCamposDataParaDate = (obj) => {
     if (dataResolucao) {
       result.Finalizado = { ...result.Finalizado, dataResolucao };
     }
+  }
+  if (result.Fusao?.dataFundido != null && typeof result.Fusao.dataFundido === 'string') {
+    const dfd = parsearDataParaDate(result.Fusao.dataFundido);
+    if (dfd) result.Fusao = { ...result.Fusao, dataFundido: dfd };
   }
   if (result.tentativasContato?.lista) {
     result.tentativasContato = {
@@ -289,6 +843,9 @@ const createIndexes = async (collection, collectionName) => {
     // Criar índice em email se existir
     await collection.createIndex({ email: 1 }, { sparse: true });
     console.log(`✅ Índice criado em ${collectionName}: email`);
+
+    await collection.createIndex({ numeroProtocolo: 1 }, { unique: true, sparse: true });
+    console.log(`✅ Índice criado em ${collectionName}: numeroProtocolo (unique sparse)`);
   } catch (error) {
     console.error(`❌ Erro ao criar índices em ${collectionName}:`, error);
   }
@@ -346,6 +903,13 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         } catch (error) {
           console.error('❌ Erro ao criar índices específicos para reclamacoes_judicial:', error);
         }
+
+        try {
+          await db.collection('protocolo_sequencia_diaria').createIndex({ dataKey: 1, abbr: 1 }, { unique: true });
+          console.log('✅ Índice criado em protocolo_sequencia_diaria: dataKey+abbr');
+        } catch (error) {
+          console.error('❌ Erro ao criar índices em protocolo_sequencia_diaria:', error);
+        }
       }
     } catch (error) {
       console.error('❌ Erro ao criar índices MongoDB:', error);
@@ -371,14 +935,58 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
       const db = client.db('hub_ouvidoria');
 
       // Filtros opcionais
-      const { cpf, colaboradorNome, tipo, dataInicio, dataFim, motivo, produto, status, page = '1', limit = '20' } = req.query;
+      const {
+        cpf,
+        colaboradorNome,
+        colaboradorEmail,
+        tipo,
+        dataInicio,
+        dataFim,
+        motivo,
+        produto,
+        status,
+        page = '1',
+        limit = '20',
+      } = req.query;
 
       const baseFilter = {};
       if (cpf) {
         baseFilter.cpf = { $regex: String(cpf).replace(/\D/g, ''), $options: 'i' };
       }
-      if (colaboradorNome) {
-        baseFilter.responsavel = { $regex: String(colaboradorNome), $options: 'i' };
+      const colabNomeTrim = colaboradorNome != null ? String(colaboradorNome).trim() : '';
+      const colabEmailLc =
+        colaboradorEmail != null ? String(colaboradorEmail).trim().toLowerCase() : '';
+      if (colabNomeTrim || colabEmailLc) {
+        if (colabNomeTrim && colabEmailLc) {
+          const emailEsc = escaparRegexMongoLiteral(colabEmailLc);
+          const nomeEsc = escaparRegexMongoLiteral(colabNomeTrim);
+          baseFilter.$or = [
+            {
+              responsavelEmail: { $regex: `^${emailEsc}$`, $options: 'i' },
+            },
+            {
+              $and: [
+                {
+                  $or: [
+                    { responsavelEmail: { $exists: false } },
+                    { responsavelEmail: null },
+                    { responsavelEmail: '' },
+                  ],
+                },
+                {
+                  responsavel: { $regex: `^${nomeEsc}$`, $options: 'i' },
+                },
+              ],
+            },
+          ];
+        } else if (colabEmailLc) {
+          baseFilter.responsavelEmail = {
+            $regex: `^${escaparRegexMongoLiteral(colabEmailLc)}$`,
+            $options: 'i',
+          };
+        } else if (colabNomeTrim) {
+          baseFilter.responsavel = { $regex: colabNomeTrim, $options: 'i' };
+        }
       }
       if (motivo && String(motivo).trim()) {
         baseFilter.motivoReduzido = String(motivo).trim();
@@ -392,6 +1000,14 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
           baseFilter['Finalizado.Resolvido'] = true;
         } else if (statusVal === 'em_andamento' || statusVal === 'emandamento') {
           baseFilter['Finalizado.Resolvido'] = { $ne: true };
+          if (!baseFilter.$and) baseFilter.$and = [];
+          /** Exclui absorvido por Fusao e legado Finalizado.Fundido até limpeza na base */
+          baseFilter.$and.push({ $nor: [MONGO_MATCH_FUSAO_ABSORVIDO, { 'Finalizado.Fundido': true }] });
+        } else if (statusVal === 'fundido') {
+          if (!baseFilter.$and) baseFilter.$and = [];
+          baseFilter.$and.push({
+            $or: [MONGO_MATCH_FUSAO_ABSORVIDO, { 'Finalizado.Fundido': true }],
+          });
         }
       }
 
@@ -425,7 +1041,10 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         return f;
       };
 
-      // Parâmetros de paginação
+      // Parâmetros de paginação (desativada quando há filtro por CPF: retorno completo para Consultar / fusão)
+      const cpfDigits = cpf ? String(cpf).replace(/\D/g, '') : '';
+      const skipPaginationForCpf = Boolean(cpf && cpfDigits.length === 11);
+
       const pageNum = Math.max(1, parseInt(page, 10) || 1);
       const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20)); // Máximo 100, mínimo 1
       const skip = (pageNum - 1) * limitNum;
@@ -446,12 +1065,12 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
 
         // Buscar na coleção específica
         totalCount = await collection.countDocuments(filter);
-        reclamacoes = await collection
-          .find(filter)
-          .sort({ createdAt: -1 })
-          .skip(skip)
-          .limit(limitNum)
-          .toArray();
+        const cursor = collection.find(filter).sort({ createdAt: -1 });
+        if (skipPaginationForCpf) {
+          reclamacoes = await cursor.toArray();
+        } else {
+          reclamacoes = await cursor.skip(skip).limit(limitNum).toArray();
+        }
         
         // Mapear tipo para exibição (normalizar nomes)
         let tipoParaAdicionar = tipoUpper;
@@ -493,12 +1112,23 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         
         totalCount = todas.length;
-        reclamacoes = todas.slice(skip, skip + limitNum);
+        reclamacoes = skipPaginationForCpf ? todas : todas.slice(skip, skip + limitNum);
       }
 
-      const totalPages = Math.ceil(totalCount / limitNum);
+      const totalPages = skipPaginationForCpf
+        ? 1
+        : Math.max(1, Math.ceil(totalCount / limitNum));
 
       console.log(`✅ Reclamações encontradas: ${reclamacoes.length} de ${totalCount} (página ${pageNum}/${totalPages})`);
+
+      const colabTrim = colabNomeTrim || colabEmailLc;
+      if (colabTrim && client) {
+        try {
+          await enrichReclamacoesComReqProd(client, reclamacoes);
+        } catch (enrichErr) {
+          console.error('❌ enrichReclamacoesComReqProd:', enrichErr);
+        }
+      }
 
       res.json({
         success: true,
@@ -515,6 +1145,159 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         success: false,
         message: 'Erro ao buscar reclamações',
         error: error.message
+      });
+    }
+  });
+
+  /**
+   * GET /api/ouvidoria/reclamacoes/proximo-numero-protocolo-sugerido?tipo=
+   * Prévia read-only do próximo número (não consome sequência).
+   */
+  router.get('/proximo-numero-protocolo-sugerido', async (req, res) => {
+    try {
+      if (!client) {
+        return res.status(503).json({
+          success: false,
+          message: 'MongoDB não configurado',
+        });
+      }
+      const { tipo } = req.query;
+      if (!tipo || !String(tipo).trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Query tipo é obrigatória',
+        });
+      }
+      await connectToMongo();
+      const db = client.db('hub_ouvidoria');
+      const collection = getCollectionByType(db, tipo);
+      const r = await getSuggestedNumeroProtocolo(db, collection, tipo);
+      if (!r.success) {
+        return res.status(400).json({
+          success: false,
+          message: r.message || 'Tipo inválido para protocolo',
+        });
+      }
+      return res.json({
+        success: true,
+        data: {
+          numeroProtocolo: r.numeroProtocolo,
+          sugestaoDisplay: r.numeroProtocolo,
+        },
+      });
+    } catch (error) {
+      console.error('❌ Erro ao sugerir protocolo:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Erro ao sugerir protocolo',
+        error: error.message,
+      });
+    }
+  });
+
+  /**
+   * POST /api/ouvidoria/reclamacoes/:id/gerar-ticket-octadesk?tipo=
+   * Cria ticket no Octadesk e persiste ticketRegistro na reclamação.
+   */
+  router.post('/:id/gerar-ticket-octadesk', async (req, res) => {
+    try {
+      if (!client) {
+        return res.status(503).json({ success: false, message: 'MongoDB não configurado' });
+      }
+
+      const { id } = req.params;
+      const tipo = req.query.tipo || req.body?.tipo;
+
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).json({ success: false, message: 'ID inválido' });
+      }
+      if (!tipo || !String(tipo).trim()) {
+        return res.status(400).json({ success: false, message: 'Query tipo é obrigatória' });
+      }
+
+      const tipoStr = String(tipo).trim();
+      const tipoUp = tipoStr.toUpperCase();
+      if (tipoUp === 'TIME_PORTABILIDADE' || tipoUp === 'TIME PORTABILIDADE') {
+        return res.status(400).json({
+          success: false,
+          message: 'Gerar Ticket não se aplica ao tipo Time Portabilidade',
+        });
+      }
+
+      if (!isOctadeskConfigured()) {
+        return res.status(503).json({
+          success: false,
+          message: 'Integração Octadesk não configurada no servidor',
+        });
+      }
+
+      await connectToMongo();
+      const db = client.db('hub_ouvidoria');
+      const collection = getCollectionByType(db, tipoStr);
+      const existente = await collection.findOne({ _id: new ObjectId(id) });
+
+      if (!existente) {
+        return res.status(404).json({ success: false, message: 'Reclamação não encontrada' });
+      }
+
+      const prevReg = String(existente.ticketRegistro != null ? existente.ticketRegistro : '').trim();
+      if (prevReg) {
+        return res.json({
+          success: true,
+          message: 'Ticket de registro já vinculado a esta ocorrência',
+          data: { ticketRegistro: prevReg, alreadyExists: true },
+        });
+      }
+
+      let createBody;
+      try {
+        createBody = buildCreateTicketFromReclamacao(existente, tipoStr);
+      } catch (buildErr) {
+        const msg = buildErr && buildErr.message ? buildErr.message : String(buildErr);
+        return res.status(503).json({
+          success: false,
+          message: msg,
+        });
+      }
+
+      const octa = await createTicket(createBody);
+      if (!octa.ok || octa.ticketNumber == null) {
+        const isConfig =
+          octa.error && String(octa.error).includes('OCTADESK_STATUS_RESOLVIDO_ID');
+        return res.status(isConfig ? 503 : 502).json({
+          success: false,
+          message: octa.error || 'Falha ao criar ticket no Octadesk',
+        });
+      }
+
+      const ticketRegistro = String(octa.ticketNumber).trim();
+      const now = new Date();
+      const mirrorPatch = mirrorTicketRegistro(existente, tipoStr, ticketRegistro);
+      await collection.updateOne(
+        { _id: existente._id },
+        { $set: { ...mirrorPatch, updatedAt: now } }
+      );
+
+      const fin = await finalizeReclamacaoTicketAfterCreate(ticketRegistro, existente, tipoStr);
+      if (!fin.ok && !fin.skipped) {
+        return res.json({
+          success: true,
+          message: 'Ticket Octadesk criado (comentário/status pós-create não aplicados nesta instância)',
+          data: { ticketRegistro, octadeskFinalizeWarning: fin.error || true },
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: 'Ticket Octadesk criado',
+        data: { ticketRegistro },
+      });
+    } catch (error) {
+      console.error('❌ Erro gerar-ticket-octadesk:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Erro ao gerar ticket Octadesk',
+        error: error.message,
       });
     }
   });
@@ -672,21 +1455,102 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         dados.tentativasContato = { lista: [] };
       }
 
-      // Preparar documento (remover tipo do documento pois já está na coleção)
-      const { tipo, ...dadosSemTipo } = dados;
+      // Metadados de integração (não vão no documento além do que for explícito abaixo)
+      const {
+        tipo,
+        fusaoPendente: fusaoPendenteRaw,
+        liberacaoPixProdIdAssociado: libPixAssocRaw,
+        numeroProtocolo: _numeroClienteIgnorado,
+        ...dadosSemTipo
+      } = dados;
+
+      const fusaoPendenteBloc = sanitizarFusaoPendente(fusaoPendenteRaw);
+      let libPixAssoc = null;
+      if (libPixAssocRaw != null && String(libPixAssocRaw).trim() && ObjectId.isValid(String(libPixAssocRaw))) {
+        libPixAssoc = String(libPixAssocRaw).trim();
+      }
+
+      let numeroProtocolo;
+      try {
+        numeroProtocolo = await allocateNextNumeroProtocolo(db, collection, tipo);
+      } catch (allocErr) {
+        console.error('allocateNextNumeroProtocolo:', allocErr);
+        return res.status(400).json({
+          success: false,
+          message: allocErr.message || 'Não foi possível atribuir número de protocolo',
+        });
+      }
+
       const documento = aplicarMotivoReduzidoNormalizado(
         normalizarCamposDataParaDate({
           ...dadosSemTipo,
+          numeroProtocolo,
           createdAt: new Date(),
           updatedAt: new Date(),
         })
       );
 
+      const fusaoSanBoot = sanitizarFusao(dados.Fusao);
+      if (fusaoSanBoot) documento.Fusao = fusaoSanBoot;
+
+      if (documento.Finalizado != null && typeof documento.Finalizado === 'object') {
+        const finSan = sanitizarFinalizadoSemEspelhosFusao(documento.Finalizado);
+        if (finSan) documento.Finalizado = finSan;
+        else delete documento.Finalizado;
+      }
+
+      Object.assign(documento, syncNativoParaBloco792(documento, tipo));
+
       aplicarPrazoAutomaticoPorColecao(documento, collection.collectionName, documento.createdAt);
 
-      const resultado = await collection.insertOne(documento);
+      let resultado;
+      if (fusaoPendenteBloc) {
+        const session = client.startSession();
+        try {
+          await session.withTransaction(async () => {
+            resultado = await collection.insertOne(documento, { session });
+            await executarFusaoOuvidoria(
+              db,
+              {
+                cpfLimpo: dados.cpf,
+                currentId: resultado.insertedId.toString(),
+                currentTipo: tipo,
+                targetId: fusaoPendenteBloc.targetId,
+                targetTipo: fusaoPendenteBloc.targetTipo,
+                cenario: fusaoPendenteBloc.cenario,
+                redundantePapel: fusaoPendenteBloc.redundantePapel,
+              },
+              { session }
+            );
+          });
+        } finally {
+          await session.endSession();
+        }
+      } else {
+        resultado = await collection.insertOne(documento);
+      }
 
       console.log(`✅ Reclamação criada na coleção ${collection.collectionName}: ${resultado.insertedId}`);
+
+      if (libPixAssoc) {
+        try {
+          const escDb = client.db('hub_escalacoes');
+          const nowLib = new Date();
+          await escDb.collection('liberacao_pix_prod').updateOne(
+            { _id: new ObjectId(libPixAssoc) },
+            {
+              $set: {
+                ouvidoriaNumeroProtocolo: numeroProtocolo,
+                ouvidoriaReclamacaoId: resultado.insertedId,
+                ouvidoriaReclamacaoTipo: String(tipo).trim(),
+                updatedAt: nowLib,
+              },
+            }
+          );
+        } catch (libErr) {
+          console.error('[reclamacoes POST] sync liberacao_pix_prod:', libErr);
+        }
+      }
 
       // Log de atividade se disponível
       if (userActivityLogger && dados.responsavel) {
@@ -721,6 +1585,83 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         success: false,
         message: 'Erro ao criar reclamação',
         error: error.message
+      });
+    }
+  });
+
+  /**
+   * POST /api/ouvidoria/reclamacoes/fusao
+   * Confirma fusão entre dois documentos existentes (mesmo CPF).
+   * Body: { cpf, currentId, currentTipo, targetId, targetTipo, cenario, redundantePapel? }
+   * cenario: current_inferior | current_superior | redundante
+   */
+  router.post('/fusao', async (req, res) => {
+    try {
+      if (!client) {
+        return res.status(503).json({ success: false, message: 'MongoDB não configurado' });
+      }
+
+      await connectToMongo();
+      const db = client.db('hub_ouvidoria');
+
+      const body = req.body || {};
+      const {
+        cpf,
+        currentId,
+        currentTipo,
+        targetId,
+        targetTipo,
+        cenario,
+        redundantePapel,
+      } = body;
+
+      const cpfLimpo = cpf ? String(cpf).replace(/\D/g, '') : '';
+      if (cpfLimpo.length !== 11) {
+        return res.status(400).json({ success: false, message: 'CPF inválido (11 dígitos)' });
+      }
+      if (!ObjectId.isValid(String(currentId)) || !ObjectId.isValid(String(targetId))) {
+        return res.status(400).json({ success: false, message: 'IDs inválidos' });
+      }
+      if (!currentTipo || !targetTipo || !cenario) {
+        return res.status(400).json({
+          success: false,
+          message: 'Campos obrigatórios: currentTipo, targetTipo, cenario',
+        });
+      }
+
+      const cen = String(cenario).trim().toLowerCase();
+      if (!['current_inferior', 'current_superior', 'redundante'].includes(cen)) {
+        return res.status(400).json({ success: false, message: 'Cenário inválido' });
+      }
+
+      try {
+        await executarFusaoOuvidoria(db, {
+          cpfLimpo,
+          currentId: String(currentId),
+          currentTipo,
+          targetId: String(targetId),
+          targetTipo,
+          cenario: cen,
+          redundantePapel,
+        });
+      } catch (fusErr) {
+        const code = fusErr && fusErr.code;
+        if (code === 'FUSAO_NOT_FOUND') {
+          return res.status(404).json({ success: false, message: fusErr.message });
+        }
+        if (code === 'FUSAO_CPF' || code === 'FUSAO_CENARIO') {
+          return res.status(400).json({ success: false, message: fusErr.message });
+        }
+        throw fusErr;
+      }
+
+      res.json({ success: true, message: 'Fusão registrada com sucesso' });
+    } catch (error) {
+      console.error('❌ Erro ao registrar fusão:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erro ao registrar fusão',
+        error: error.message,
       });
     }
   });
@@ -794,12 +1735,46 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
       const { tipo: tipoRemovido, ...dadosSemTipo } = dados;
       
       // Atualizar documento (normalizar datas para Date)
-      const updateDoc = aplicarMotivoReduzidoNormalizado(
+      const updateDocRaw = aplicarMotivoReduzidoNormalizado(
         normalizarCamposDataParaDate({
           ...dadosSemTipo,
           updatedAt: new Date(),
         })
       );
+      if (updateDocRaw.Finalizado != null && typeof updateDocRaw.Finalizado === 'object') {
+        const finSan = sanitizarFinalizadoSemEspelhosFusao(updateDocRaw.Finalizado);
+        if (finSan) updateDocRaw.Finalizado = finSan;
+        else delete updateDocRaw.Finalizado;
+      }
+      const updateDoc = updateDocRaw;
+
+      if (isFusaoAbsorvoAlvoDocMongo(existente)) {
+        const finIn =
+          updateDoc.Finalizado != null && typeof updateDoc.Finalizado === 'object'
+            ? updateDoc.Finalizado
+            : null;
+        if (finIn != null && finIn.Resolvido === true) {
+          return res.status(400).json({
+            success: false,
+            message: 'Ticket absorvido por fusão: não marcar Finalizado.Resolvido.',
+          });
+        }
+      }
+
+      if (existente?.Fusao?.fundido === true) {
+        delete updateDoc.Fusao;
+      }
+
+      if (existente?.Fusao?.fundido !== true && Object.prototype.hasOwnProperty.call(dados, 'Fusao')) {
+        const fusaoSan = sanitizarFusao(dados.Fusao);
+        if (fusaoSan) updateDoc.Fusao = fusaoSan;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(updateDoc, 'numeroProtocolo')) {
+        delete updateDoc.numeroProtocolo;
+      }
+
+      Object.assign(updateDoc, aplicarSyncProtocolosNoPayload(existente, updateDoc, tipo));
 
       aplicarPrazoAutomaticoPorColecao(updateDoc, collection.collectionName, existente.createdAt);
 
@@ -817,9 +1792,27 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
 
       console.log(`✅ Reclamação atualizada: ${id}`);
 
+      const atualizado = await collection.findOne({ _id: new ObjectId(id) });
+      const finNovo =
+        updateDoc.Finalizado != null && typeof updateDoc.Finalizado === 'object'
+          ? updateDoc.Finalizado
+          : null;
+      const resolvidoAgora = finNovo?.Resolvido === true;
+      const eraResolvido = existente?.Finalizado?.Resolvido === true;
+
+      if (resolvidoAgora && !eraResolvido && atualizado) {
+        const ticketNum = resolveOctadeskTicketFromReclamacao(atualizado);
+        if (ticketNum) {
+          octadeskSyncFireAndForget(
+            () => markTicketResolved(ticketNum),
+            `reclamacao-resolvida-${id}`
+          );
+        }
+      }
+
       res.json({
         success: true,
-        message: 'Reclamação atualizada com sucesso'
+        message: 'Reclamação atualizada com sucesso',
       });
     } catch (error) {
       console.error('❌ Erro ao atualizar reclamação:', error);

@@ -1,41 +1,30 @@
 /**
  * Listar CPFs dos casos Retidos - N2 Pix, a partir de 01/01/2026
- * Salva em arquivo: retidos-n2-2026.txt
-(function loadVelohubFonteEnv(here) {
-  const path = require('path');
-  const fs = require('fs');
-  let d = here;
-  for (let i = 0; i < 14; i++) {
-    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
-    if (fs.existsSync(loader)) {
-      require(loader).loadFrom(here);
-      return;
-    }
-    const parent = path.dirname(d);
-    if (parent === d) break;
-    d = parent;
-  }
-})(__dirname);
-
- * 
+ * VERSION: v1.0.2 | DATE: 2026-05-21
+ * v1.0.2: Saída em backend/scripts/.local-output/ (gitignored; não versionar CPFs)
+ * Salva em: .local-output/retidos-n2-2026.txt
+ *
  * Critério Retidos:
  * - motivoReduzido contém "Liberação Chave Pix"
  * - Finalizado.Resolvido === true
  * - pixLiberado === false
  * - dataEntradaN2 >= 2026-01-01
- * 
+ *
  * Uso:
  *   node backend/scripts/listar-retidos-n2-2026.js
+ *
+ * Requer MONGO_ENV (ou MONGODB_URI), ex.: FONTE DA VERDADE/. em desenvolvimento.
  */
 
 const { MongoClient } = require('mongodb');
 const fs = require('fs');
 const path = require('path');
 
-const MONGODB_URI = process.env.MONGO_ENV || 'mongodb+srv://lucasgravina:nKQu8bSN6iZl8FPo@velohubcentral.od7vwts.mongodb.net/?retryWrites=true&w=majority&appName=VelohubCentral';
+const { MONGODB_URI } = require('./loadMongoUri');
 const DATABASE_NAME = 'hub_ouvidoria';
 const DATA_INICIO = new Date('2026-01-01T00:00:00.000Z');
-const OUTPUT_FILE = path.join(__dirname, 'retidos-n2-2026.txt');
+const OUTPUT_DIR = path.join(__dirname, '.local-output');
+const OUTPUT_FILE = path.join(OUTPUT_DIR, 'retidos-n2-2026.txt');
 
 function normalizarMotivoParaComparacao(motivoReduzido) {
   if (!motivoReduzido) return '';
@@ -83,6 +72,7 @@ function isRetido(doc) {
     ...cpfs
   ].join('\n');
 
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   fs.writeFileSync(OUTPUT_FILE, conteudo, 'utf8');
 
   console.log(`✅ Lista salva em: ${OUTPUT_FILE}`);

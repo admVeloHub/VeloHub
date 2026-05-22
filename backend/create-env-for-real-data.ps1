@@ -1,5 +1,6 @@
 # VeloHub V3 - Script para Criar .env com Dados Reais
-# VERSION: v1.0.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+# VERSION: v1.0.1 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
+# v1.0.1: template sem URIs nem chaves que imitem credenciais reais (apenas marcadores).
 
 Write-Host "🔧 VeloHub V3 - Configuração para Dados Reais" -ForegroundColor Cyan
 Write-Host ""
@@ -19,32 +20,26 @@ Write-Host "📝 Criando arquivo .env para dados reais..." -ForegroundColor Gree
 # Criar conteúdo do .env
 $envContent = @"
 # VeloHub V3 - Configuração para Testes com Dados Reais
-# VERSION: v1.0.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+# Substitua cada <definir_...> pelos valores reais (ou use FONTE DA VERDADE/. em dev).
 
 # ===========================================
 # BANCO DE DADOS - DADOS REAIS
 # ===========================================
-# MongoDB Connection String (usar string real do MongoDB Atlas)
-MONGO_ENV=mongodb+srv://usuario:senha@cluster.mongodb.net/console_conteudo
+# String de conexão MongoDB (Atlas ou local) — não commitar valores reais neste repo
+MONGO_ENV=<definir_uri_mongodb>
 
 # ===========================================
 # APIs DE INTELIGÊNCIA ARTIFICIAL - DADOS REAIS
 # ===========================================
-# OpenAI API Key (para fallback)
-OPENAI_API_KEY=sk-your-openai-key-here
-
-# Google Gemini API Key (IA primária)
-GEMINI_API_KEY=AI-your-gemini-key-here
+OPENAI_API_KEY=<definir_openai>
+GEMINI_API_KEY=<definir_gemini>
 
 # ===========================================
 # GOOGLE SERVICES - DADOS REAIS
 # ===========================================
-# Google OAuth (para SSO)
-GOOGLE_CLIENT_ID=278491073220-eb4ogvn3aifu0ut9mq3rvu5r9r9l3137.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=your-google-client-secret-here
-
-# Google Sheets API (para logs)
-GOOGLE_CREDENTIALS=your-google-credentials-json-here
+GOOGLE_CLIENT_ID=<definir_google_oauth_client_id>
+GOOGLE_CLIENT_SECRET=<definir_google_oauth_client_secret>
+GOOGLE_CREDENTIALS=<definir_google_credentials_json_ou_caminho>
 
 # ===========================================
 # CONFIGURAÇÕES DO SERVIDOR
@@ -68,8 +63,8 @@ CHATBOT_CACHE_TIMEOUT=300000
 # CONFIGURAÇÕES OPCIONAIS
 # ===========================================
 # Ponto Mais API (se necessário)
-PONTO_MAIS_API_KEY=your-ponto-mais-key-here
-PONTO_MAIS_COMPANY_ID=your-company-id-here
+PONTO_MAIS_API_KEY=<definir>
+PONTO_MAIS_COMPANY_ID=<definir>
 "@
 
 # Escrever arquivo .env

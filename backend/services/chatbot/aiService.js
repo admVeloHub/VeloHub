@@ -1,21 +1,30 @@
 // AI Service - Integração híbrida com IA para respostas inteligentes
-// VERSION: v2.5.0 | DATE: 2024-12-19 | AUTHOR: VeloHub Development Team
-// VERSION: v2.6.8 | DATE: 2025-01-10 | AUTHOR: Lucas Gravina - VeloHub Development Team
-// VERSION: v2.7.0 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
-// VERSION: v2.7.1 | DATE: 2025-01-30 | AUTHOR: Lucas Gravina - VeloHub Development Team
-// VERSION: v2.7.2 | DATE: 2025-03-18 | AUTHOR: VeloHub Development Team
-// Mudanças v2.7.2: Corrigido caractere extra no template getEmailPersona; payload nomeOperador/inteligencia via contexto
-// Mudanças v2.7.3: getWhatsAppPersona renomeado para getTelefonePersona; formatType 'telefone' para atendimento telefônico
-// OTIMIZAÇÃO: Handshake inteligente com ping HTTP + TTL 3min + testes paralelos
+// VERSION: v3.1.1 | DATE: 2026-05-18 | AUTHOR: VeloHub Development Team
+//
+// Referência (duas entradas; detalhes no Git):
+// - v3.1.1: guardrail tripwire — preview truncado da resposta bloqueada com VELOHUB_AI_DEBUG=1
+// - v3.1.0: Chat primário — persona velobotChatPersona, stores hardcoded, gpt-5.4-mini, histórico 10, guardrail alucinação
+// - v3.0.5: _buildOpenAiResponsesInput — mensagens assistant no histórico com output_text (API /v1/responses rejeita input_text no papel assistant; corrige 400 no 2º turno)
+
 const { OpenAI } = require('openai');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const config = require('../../config');
+const { getRefinarRascunhoPersona } = require('./refinarRascunhoPersona');
+const { getVelobotChatPersona } = require('./velobotChatPersona');
+const {
+  getPrimaryVelobotVectorStoreIds,
+  getVelobotResponsesModel,
+  VELOBOT_RAG_HISTORY_LIMIT
+} = require('./velobotRagConstants');
+const { checkVelobotHallucinationGuardrail } = require('./velobotGuardrails');
 
 class AIService {
   constructor() {
     this.openai = null;
     this.gemini = null;
     this.openaiModel = "gpt-4o-mini"; // Modelo OpenAI (primário)
+    /** Modelo /v1/responses (chat primário VeloBot); override via OPENAI_VELOBOT_RESPONSES_MODEL */
+    this.openaiResponsesModel = getVelobotResponsesModel(config.OPENAI_VELOBOT_RESPONSES_MODEL);
     this.geminiModel = "gemini-2.5-pro"; // Modelo Gemini (fallback)
     
     // Cache de status das IAs (TTL 3min - OTIMIZADO)
@@ -69,11 +78,31 @@ class AIService {
       if (primaryAI === 'OpenAI' && this.isOpenAIConfigured()) {
         try {
           console.log('AI Service: Tentando OpenAI (primaria) para usuario', userId || 'anonimo');
-          const response = await this._generateWithOpenAI(question, context, sessionHistory, userId, email, searchResults, formatType);
+          let response = null;
+          let modelUsed = this.openaiModel;
+          if (this.isVelobotVectorStoreConfigured()) {
+            try {
+              response = await this._generateWithOpenAIVectorStore(
+                question,
+                sessionHistory,
+                formatType,
+                userId
+              );
+              modelUsed = this.openaiResponsesModel;
+              console.log('AI Service: OpenAI vector store (Responses) concluiu com sucesso');
+            } catch (vsErr) {
+              console.warn('AI Service: Vector store / Responses falhou, usando chat com contexto:', vsErr.message);
+              response = null;
+            }
+          }
+          if (!response) {
+            response = await this._generateWithOpenAI(question, context, sessionHistory, userId, email, searchResults, formatType);
+            modelUsed = this.openaiModel;
+          }
           return {
             response: response,
             provider: 'OpenAI',
-            model: this.openaiModel,
+            model: modelUsed,
             success: true
           };
         } catch (openaiError) {
@@ -141,11 +170,11 @@ class AIService {
   }
 
   /**
-   * Obtém a persona padrão do VeloBot
-   * @returns {string} Persona formatada
+   * Persona conversacional do chat principal (POST /api/chatbot/ask).
+   * @returns {string}
    */
   getPersona() {
-    return '# VELOBOT - ASSISTENTE OFICIAL VELOTAX\n\n## IDENTIDADE\n- Nome: VeloBot\n- Empresa: Velotax\n- Funcao: Assistente de atendimento ao cliente\n- Tom: Profissional, direto, prestativo, conversacional, solidario.\n\n## COMPORTAMENTO\n- Responda APENAS com a informacao solicitada\n- Seja direto, sem preambulos ou confirmacoes\n- Use portugues brasileiro claro e objetivo\n- As interacoes esperadas sao de chunho textual, sem adicionar informacoes genericas, criadas, ou realizar pesquisas externas.\n- Apenas os conhecimentos fornecidos sao validos. Nao invente informacoes.\n- NAO use conhecimento externo ou associacoes que nao estejam nos dados fornecidos.\n- Se a resposta contiver muitos termos tecnicos, simplifique para um nivel de facil compreensao.\n- Se nao souber, diga: "Nao encontrei essa informacao na base de conhecimento disponivel"\n\n## FONTES DE INFORMACAO\n- Base de dados: Bot_perguntas (MongoDB)\n- Artigos: Documentacao interna\n- Prioridade: Informacao solida > IA generativa\n\n## FORMATO DE RESPOSTA\n- Direto ao ponto\n- Sem "Entendi", "Compreendo", etc.\n- Maximo 200 palavras\n- Foco na solucao pratica';
+    return getVelobotChatPersona();
   }
 
   /**
@@ -471,6 +500,341 @@ Atenciosamente,
   }
 
   /**
+   * IDs das vector stores do chat primário (hardcoded).
+   * @returns {string[]}
+   */
+  _resolvePrimaryRagVectorStoreIds() {
+    return getPrimaryVelobotVectorStoreIds();
+  }
+
+  /**
+   * IDs para file_search (chat primário e generateResponse com vector store).
+   * @returns {string[]}
+   */
+  _getVelobotVectorStoreIds() {
+    return getPrimaryVelobotVectorStoreIds();
+  }
+
+  /**
+   * Log estruturado opcional: defina VELOHUB_AI_DEBUG=1 no ambiente.
+   * @param {string} label
+   * @param {Object} payload
+   */
+  _aiDebug(label, payload) {
+    if (String(process.env.VELOHUB_AI_DEBUG || '').trim() !== '1') return;
+    try {
+      console.log('[AI DEBUG]', label, JSON.stringify(payload, null, 0));
+    } catch (_) {
+      console.log('[AI DEBUG]', label, payload);
+    }
+  }
+
+  /**
+   * Modo primário VeloBot: OpenAI configurada + stores fixas em código.
+   */
+  isPrimaryVelobotRagConfigured() {
+    const ok = this.isOpenAIConfigured();
+    this._aiDebug('isPrimaryVelobotRagConfigured', {
+      ok,
+      storeCount: getPrimaryVelobotVectorStoreIds().length,
+      openAI: this.isOpenAIConfigured()
+    });
+    return ok;
+  }
+
+  /**
+   * Resposta exclusiva do modo primário (sem fallback interno para chat.completions/Gemini).
+   * @param {string} question
+   * @param {Array} sessionHistory
+   * @param {string|null} userId
+   * @param {string} formatType
+   * @returns {Promise<{success:boolean,response:string|null,model:string|null,provider:string,error?:string}>}
+   */
+  async generatePrimaryVelobotVectorResponse(
+    question,
+    sessionHistory = [],
+    userId = null,
+    formatType = 'conversational'
+  ) {
+    const pair = this._resolvePrimaryRagVectorStoreIds();
+    if (!this.isOpenAIConfigured()) {
+      this._aiDebug('generatePrimaryVelobotVectorResponse:skip', {
+        reason: 'openai_nao_configurado'
+      });
+      return {
+        success: false,
+        response: null,
+        model: null,
+        provider: 'OpenAI',
+        error: 'RAG primario VeloBot nao configurado (OPENAI_API_KEY ausente)'
+      };
+    }
+    try {
+      const text = await this._generatePrimaryOpenAiFileSearchResponse(
+        question,
+        sessionHistory,
+        formatType,
+        userId,
+        pair
+      );
+
+      const guardrail = await checkVelobotHallucinationGuardrail(text);
+      if (guardrail.tripwire) {
+        this._aiDebug('guardrail_hallucination_blocked', {
+          failedStoreId: guardrail.failedStoreId || null,
+          failedStoreLabel: guardrail.failedStoreLabel || null,
+          reasoning: guardrail.reasoning || null,
+          responseLength: text.length,
+          responsePreview:
+            String(process.env.VELOHUB_AI_DEBUG || '').trim() === '1'
+              ? text.length > 500
+                ? text.slice(0, 500) + `… (+${text.length - 500} chars)`
+                : text
+              : undefined
+        });
+        return {
+          success: false,
+          response: null,
+          model: this.openaiResponsesModel,
+          provider: 'OpenAI',
+          error: 'guardrail_hallucination',
+          guardrailFailedStoreId: guardrail.failedStoreId || null,
+          guardrailReason: guardrail.reasoning || null
+        };
+      }
+
+      return {
+        success: true,
+        response: text,
+        model: this.openaiResponsesModel,
+        provider: 'OpenAI'
+      };
+    } catch (err) {
+      console.warn('AI Service: generatePrimaryVelobotVectorResponse falhou:', err.message);
+      return {
+        success: false,
+        response: null,
+        model: null,
+        provider: 'OpenAI',
+        error: err.message
+      };
+    }
+  }
+  /**
+   * VeloBot pode usar Responses API + file_search quando há API key e ao menos um vector store.
+   */
+  isVelobotVectorStoreConfigured() {
+    return this.isOpenAIConfigured();
+  }
+
+  /**
+   * Monta itens de entrada da API /v1/responses (mensagens user/assistant).
+   * User: content com type input_text; assistant/bot no histórico: output_text (exigência da API).
+   * Evita duplicar a pergunta atual se já existir como última mensagem user no histórico.
+   * @param {Array} sessionHistory
+   * @param {string} question
+   * @returns {Array<Object>}
+   */
+  _buildOpenAiResponsesInput(sessionHistory, question) {
+    const input = [];
+    const hist = Array.isArray(sessionHistory) ? sessionHistory.slice(-VELOBOT_RAG_HISTORY_LIMIT) : [];
+    const q = String(question || '').trim();
+    for (const h of hist) {
+      const r = String(h.role || '').toLowerCase();
+      const role = r === 'assistant' || r === 'bot' ? 'assistant' : 'user';
+      const content = typeof h.content === 'string' ? h.content : '';
+      if (!content.trim()) continue;
+      const text = content.trim();
+      input.push({
+        role,
+        content: [
+          {
+            type: role === 'assistant' ? 'output_text' : 'input_text',
+            text
+          }
+        ]
+      });
+    }
+    const last = input[input.length - 1];
+    if (
+      last &&
+      last.role === 'user' &&
+      Array.isArray(last.content) &&
+      last.content[0] &&
+      last.content[0].type === 'input_text' &&
+      String(last.content[0].text || '').trim() === q
+    ) {
+      return input;
+    }
+    input.push({
+      role: 'user',
+      content: [{ type: 'input_text', text: q }]
+    });
+    return input;
+  }
+
+  /**
+   * Resposta primária: uma chamada Responses + file_search com instruções para store pública vs interna.
+   * @param {string} question
+   * @param {Array} sessionHistory
+   * @param {string} formatType
+   * @param {string|null} userId
+   * @param {string[]} vectorStoreIds
+   * @returns {Promise<string>}
+   */
+  async _generatePrimaryOpenAiFileSearchResponse(
+    question,
+    sessionHistory,
+    formatType,
+    userId,
+    vectorStoreIds
+  ) {
+    const basePersona = this._getPersonaByFormat(formatType);
+    const fontesBlock =
+      '\n\n## file_search\n' +
+      '- Consulte as duas bases indexadas antes de responder.\n' +
+      '- Não invente fatos além do retorno da busca.\n';
+    const instructions = basePersona + fontesBlock;
+
+    const input = this._buildOpenAiResponsesInput(sessionHistory, question);
+    const payload = {
+      model: this.openaiResponsesModel,
+      instructions,
+      input,
+      tools: [
+        {
+          type: 'file_search',
+          vector_store_ids: vectorStoreIds,
+          max_num_results: 15
+        }
+      ],
+      tool_choice: 'auto',
+      temperature: 0.1,
+      max_output_tokens: 512
+    };
+    if (userId && String(userId).trim()) {
+      payload.safety_identifier = String(userId).trim().slice(0, 64);
+    }
+
+    console.log(
+      'OpenAI Responses (file_search primario): usuario',
+      userId || 'anonimo',
+      '| vector stores:',
+      vectorStoreIds.length
+    );
+    const data = await this._postOpenAiResponses(payload);
+    const text = this._extractTextFromOpenAiResponsesBody(data);
+    if (!text || !String(text).trim()) {
+      throw new Error('OpenAI Responses retornou texto vazio');
+    }
+    console.log('OpenAI Responses primario: resposta gerada', text.length, 'caracteres');
+    return text.trim();
+  }
+
+  /**
+   * Extrai texto final do corpo JSON retornado por POST /v1/responses.
+   * @param {Object} data
+   * @returns {string}
+   */
+  _extractTextFromOpenAiResponsesBody(data) {
+    if (!data) return '';
+    if (typeof data.output_text === 'string' && data.output_text) {
+      return data.output_text;
+    }
+    const out = data.output;
+    if (!Array.isArray(out)) return '';
+    let acc = '';
+    for (const item of out) {
+      if (item.type === 'message' && item.role === 'assistant' && Array.isArray(item.content)) {
+        for (const c of item.content) {
+          if (c && c.type === 'output_text' && c.text) acc += c.text;
+        }
+      }
+    }
+    return acc;
+  }
+
+  /**
+   * Chama OpenAI Responses API (para file_search / vector stores).
+   * @param {Object} payload
+   * @returns {Promise<Object>}
+   */
+  async _postOpenAiResponses(payload) {
+    const res = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + config.OPENAI_API_KEY
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg =
+        (data && data.error && data.error.message) || res.statusText || 'Erro OpenAI Responses';
+      this._aiDebug('OpenAI Responses HTTP erro', { status: res.status, bodySnippet: JSON.stringify(data).slice(0, 500) });
+      throw new Error(msg + ' (' + res.status + ')');
+    }
+    return data;
+  }
+
+  /**
+   * Resposta VeloBot via vector store (file_search). Não utiliza o bloco de contexto Mongo montado no prompt legado.
+   * @param {string} question
+   * @param {Array} sessionHistory
+   * @param {string} formatType
+   * @param {string|null} userId
+   * @returns {Promise<string>}
+   */
+  async _generateWithOpenAIVectorStore(question, sessionHistory, formatType, userId) {
+    if (!this.isVelobotVectorStoreConfigured()) {
+      throw new Error('Vector store VeloBot nao configurado');
+    }
+    const vectorStoreIds = this._getVelobotVectorStoreIds();
+    const basePersona = this._getPersonaByFormat(formatType);
+    const instructions =
+      basePersona +
+      '\n\n## FONTE VETORIAL (file_search)\n' +
+      '- A base de fatos vem dos arquivos indexados na vector store da OpenAI.\n' +
+      '- Use a busca em arquivos quando precisar de prazos, regras, produtos ou processos.\n' +
+      '- Nao invente: se a busca nao trouxer suporte, diga que nao encontrou na base disponivel.\n';
+
+    const input = this._buildOpenAiResponsesInput(sessionHistory, question);
+    const payload = {
+      model: this.openaiResponsesModel,
+      instructions,
+      input,
+      tools: [
+        {
+          type: 'file_search',
+          vector_store_ids: vectorStoreIds,
+          max_num_results: 15
+        }
+      ],
+      tool_choice: 'auto',
+      temperature: 0.1,
+      max_output_tokens: 512
+    };
+    if (userId && String(userId).trim()) {
+      payload.safety_identifier = String(userId).trim().slice(0, 64);
+    }
+
+    console.log(
+      'OpenAI Responses (file_search): usuario',
+      userId || 'anonimo',
+      '| vector stores:',
+      vectorStoreIds.length
+    );
+    const data = await this._postOpenAiResponses(payload);
+    const text = this._extractTextFromOpenAiResponsesBody(data);
+    if (!text || !String(text).trim()) {
+      throw new Error('OpenAI Responses retornou texto vazio');
+    }
+    console.log('OpenAI Responses: resposta gerada', text.length, 'caracteres');
+    return text.trim();
+  }
+
+  /**
    * Gera resposta usando OpenAI (IA FALLBACK)
    */
   async _generateWithOpenAI(question, context, sessionHistory, userId, email, searchResults = null, formatType = 'conversational') {
@@ -649,6 +1013,7 @@ Atenciosamente,
    * @returns {Object} Status das configurações
    */
   getConfigurationStatus() {
+    const vsIds = this._getVelobotVectorStoreIds();
     return {
       gemini: {
         configured: this.isGeminiConfigured(),
@@ -658,7 +1023,13 @@ Atenciosamente,
       openai: {
         configured: this.isOpenAIConfigured(),
         model: this.openaiModel,
-        priority: 'fallback'
+        priority: 'fallback',
+        velobotVectorStores: {
+          configured: vsIds.length > 0,
+          count: vsIds.length,
+          responsesModel: this.openaiResponsesModel,
+          primaryRagConfigured: this.isPrimaryVelobotRagConfigured()
+        }
       },
       anyAvailable: this.isConfigured()
     };
@@ -699,7 +1070,7 @@ Atenciosamente,
       const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s timeout
       
       const response = await fetch('https://api.openai.com/v1/models', {
-        method: 'HEAD',
+        method: 'GET',
         headers: {
           'Authorization': 'Bearer ' + config.OPENAI_API_KEY,
           'User-Agent': 'VeloHub-Bot/1.0'
@@ -708,6 +1079,11 @@ Atenciosamente,
       });
       
       clearTimeout(timeoutId);
+      try {
+        await response.text();
+      } catch (_) {
+        /* ignorar */
+      }
       const isAvailable = response.ok;
       
       if (isAvailable) {
@@ -728,7 +1104,8 @@ Atenciosamente,
   }
 
   /**
-   * Ping HTTP para Gemini (OTIMIZADO)
+   * Ping HTTP para Gemini (OTIMIZADO).
+   * A API generativelanguage.googleapis.com não trata HEAD em /v1/models como sucesso (404); usar GET leve.
    * @returns {Promise<boolean>} Status da conexão
    */
   async _pingGemini() {
@@ -738,8 +1115,10 @@ Atenciosamente,
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s timeout
       
-      const response = await fetch('https://generativelanguage.googleapis.com/v1/models', {
-        method: 'HEAD',
+      const url =
+        'https://generativelanguage.googleapis.com/v1/models?pageSize=1';
+      const response = await fetch(url, {
+        method: 'GET',
         headers: { 
           'x-goog-api-key': config.GEMINI_API_KEY,
           'User-Agent': 'VeloHub-Bot/1.0'
@@ -748,6 +1127,11 @@ Atenciosamente,
       });
       
       clearTimeout(timeoutId);
+      try {
+        await response.text();
+      } catch (_) {
+        /* ignorar falha ao drenar corpo */
+      }
       const isAvailable = response.ok;
       
       if (isAvailable) {
@@ -899,6 +1283,62 @@ Atenciosamente,
     }
 
     return results;
+  }
+
+  /**
+   * VeloBot «Refinar Rascunho»: somente Gemini, persona dedicada (página Processos).
+   * @param {{ rascunho: string, nomeOperador?: string, userId?: string }} params
+   * @returns {Promise<{ success: boolean, response?: string, provider?: string, model?: string, error?: string }>}
+   */
+  async generateRefinarRascunhoWithGemini({ rascunho, nomeOperador, userId }) {
+    if (!this.isGeminiConfigured()) {
+      return {
+        success: false,
+        error: 'Gemini não configurado',
+        response: null
+      };
+    }
+    try {
+      const gemini = this._initializeGemini();
+      if (!gemini) {
+        return { success: false, error: 'Falha ao inicializar Gemini', response: null };
+      }
+
+      const model = gemini.getGenerativeModel({ model: this.geminiModel });
+      const systemPrompt = getRefinarRascunhoPersona();
+      const nome = String(nomeOperador || '').trim() || 'não informado';
+
+      const userBlock =
+        '## Dados desta solicitação\n\n' +
+        '- **Nome do operador** (usar no lugar de [Nome do Operador] no template; se for "não informado", use cumprimento profissional sem inventar nome): ' +
+        nome +
+        '\n\n' +
+        '- **Rascunho do colaborador** (única fonte do desenvolvimento; não invente prazos, valores nem procedimentos):\n\n' +
+        String(rascunho || '').trim() +
+        '\n\n' +
+        '## Tarefa\n\n' +
+        'Aplique a persona (travas, estrutura do e-mail). **Saída:** somente o corpo do e-mail refinado em português brasileiro, texto simples, sem rascunho repetido, sem análise, sem seções, sem preâmbulo.\n';
+
+      const fullPrompt = systemPrompt + '\n\n' + userBlock;
+      console.log('Gemini Refinar Rascunho: processando para', userId || 'anonimo');
+
+      const result = await model.generateContent(fullPrompt);
+      const response = result.response.text();
+
+      return {
+        success: true,
+        response,
+        provider: 'Gemini',
+        model: this.geminiModel
+      };
+    } catch (error) {
+      console.error('AIService generateRefinarRascunhoWithGemini:', error.message);
+      return {
+        success: false,
+        error: error.message,
+        response: null
+      };
+    }
   }
 }
 

@@ -1,66 +1,26 @@
 /**
  * Script de Atualização: Base N2 Pix (XLSX) → MongoDB reclamacoes_n2Pix
- * VERSION: v1.4.0 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
-(function loadVelohubFonteEnv(here) {
-  const path = require('path');
-  const fs = require('fs');
-  let d = here;
-  for (let i = 0; i < 14; i++) {
-    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
-    if (fs.existsSync(loader)) {
-      require(loader).loadFrom(here);
-      return;
-    }
-    const parent = path.dirname(d);
-    if (parent === d) break;
-    d = parent;
-  }
-})(__dirname);
-
+ * VERSION: v1.4.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
  *
- * Mudanças v1.4.0:
- * - motivoReduzido via utils/motivoReduzidoNormalize.js (renomeações + sentence case pt-BR)
+ * (function loadVelohubFonteEnv(here) {
+ *   const path = require('path');
+ *   const fs = require('fs');
+ *   let d = here;
+ *   for (let i = 0; i < 14; i++) {
+ *     const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
+ *     if (fs.existsSync(loader)) {
+ *       require(loader).loadFrom(here);
+ *       return;
+ *     }
+ *     const parent = path.dirname(d);
+ *     if (parent === d) break;
+ *     d = parent;
+ *   }
+ * })(__dirname);
  *
- * Mudanças v1.3.0:
- * - CORRIGIDO: Função converterPixLiberado() melhorada para aceitar boolean, número, string e null/undefined
- * - Agora processa corretamente valores da coluna V (pixLiberado) da planilha Excel
- * - Suporta valores booleanos diretos, números (1/0), strings ("SIM", "NÃO", "LIBERADO", etc.)
- * 
- * Mudanças v1.2.0:
- * - Adicionada função normalizarMotivoIndividual() para converter "Chave Pix" → "Liberação Chave Pix" em arrays
- * - MotivoReduzido agora normaliza "Chave Pix" para "Liberação Chave Pix" em cada elemento do array
- * 
- * Mudanças v1.1.0:
- * - Adicionada função normalizarNome() para converter nomes para primeira maiúscula (title case)
- * - Nomes agora são normalizados respeitando preposições e artigos em português
- * 
- * Mudanças v1.0.0:
- * 
- * Mapeamento de colunas Excel → Schema MongoDB:
- * - Coluna F → nome
- * - Coluna G → cpf
- * - Coluna K → telefones.lista
- * - Coluna X → observacoes
- * - Coluna E → responsavel
- * - Coluna A → dataEntradaN2
- * - Coluna I → motivoReduzido (array)
- * - Coluna H → origem
- * - Coluna J → motivoDetalhado
- * - Coluna L → tentativasContato.lista
- * - Coluna O → acionouCentral
- * - Coluna U → protocolosCentral
- * - Coluna Q → reclameAqui
- * - Coluna R → bacen
- * - Coluna S → procon
- * - Coluna V → pixLiberado
- * - Coluna W → statusContratoQuitado
- * - Coluna D → enviarParaCobranca
- * - Coluna C → se preenchida: Finalizado.Resolvido = true, Finalizado.dataResolucao = C
- * - Coluna B → createdAt
- * - updatedAt = data de hoje
- * 
- * Uso:
- *   node backend/scripts/update-n2pix-from-excel.js [--dry-run]
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.4.0: motivoReduzido via utils/motivoReduzidoNormalize.js (renomeações + sentence case pt-BR)
+ * - v1.3.0: CORRIGIDO: Função converterPixLiberado() melhorada para aceitar boolean, número, string e null/undefined
  */
 
 const { MongoClient } = require('mongodb');
@@ -70,7 +30,7 @@ const fs = require('fs');
 const { normalizarMotivosDeCelula } = require(path.join(__dirname, '../utils/motivoReduzidoNormalize'));
 
 // Configuração MongoDB
-const MONGODB_URI = process.env.MONGO_ENV || 'mongodb+srv://lucasgravina:nKQu8bSN6iZl8FPo@velohubcentral.od7vwts.mongodb.net/?retryWrites=true&w=majority&appName=VelohubCentral';
+const { MONGODB_URI } = require('./loadMongoUri');
 const DATABASE_NAME = 'hub_ouvidoria';
 const COLLECTION_NAME = 'reclamacoes_n2Pix';
 

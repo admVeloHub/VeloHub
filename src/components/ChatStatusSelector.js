@@ -1,18 +1,13 @@
 /**
  * ChatStatusSelector - Seletor de Status do Chat
- * VERSION: v1.2.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
- * 
+ * VERSION: v1.2.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ *
  * Componente para selecionar e atualizar o status do chat do usuário
  * (online, offline, ausente)
- * 
- * Mudanças v1.2.0:
- * - Melhorada lógica de verificação de sessionId com função auxiliar
- * - Adicionado retry com timeout se sessionId não estiver disponível
- * - Tratamento de resposta melhorado (aceita resposta mesmo sem success: true)
- * 
- * Mudanças v1.1.0:
- * - Alterado comportamento: agora abre menu de seleção ao invés de toggle direto
- * - Menu dropdown com opções "Online" e "Ausente"
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.2.0: Melhorada lógica de verificação de sessionId com função auxiliar
+ * - v1.1.0: Alterado comportamento: agora abre menu de seleção ao invés de toggle direto
  */
 
 import React, { useState, useEffect, useRef } from 'react';

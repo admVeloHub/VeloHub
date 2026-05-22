@@ -1,49 +1,14 @@
 /**
  * VeloHub V3 - WhatsApp Service para Módulo Escalações
- * VERSION: v1.6.0 | DATE: 2026-04-07 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.6.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ *
  * Branch: escalacoes
- * 
  * Integração WhatsApp descontinuada: sendMessage/sendImage não realizam chamadas HTTP (solicitações não usam WhatsApp).
  * Mantidos formatJid e parseMetaFromText para compatibilidade com rotas que ainda referenciam o módulo.
- * 
- * Mudanças v1.6.0:
- * - sendMessage: retorno imediato { ok: false } — sem URLs, secrets ou rede
- * 
- * Mudanças v1.5.0:
- * - SIMPLIFICAÇÃO: Removida lógica do Skynet, usando apenas ngrok para todos os ambientes
- * - Sempre usa WHATSAPP_API_URL ou fallback para ngrok padrão
- * - Sempre usa endpoint /send (padrão do ngrok)
- * - Removida toda detecção de Skynet e lógica condicional complexa
- * - Código simplificado e mais fácil de manter
- * 
- * Mudanças v1.4.5:
- * - CORREÇÃO: Corrigida detecção de Skynet/GCP que identificava incorretamente o próprio backend
- * - Adicionada validação para evitar loop quando apiUrl aponta para o próprio backend
- * - Melhorada construção de URL para evitar barras duplas
- * 
- * Mudanças v1.4.4:
- * - Alterada URL de produção para https://carmina-peskier-balletically.ngrok-free.dev
- * 
- * Mudanças v1.4.3:
- * - Alterada URL de produção para https://genes-conservation-perth-beverages.trycloudflare.com
- * 
- * Mudanças v1.4.2:
- * - Alterado fallback de desenvolvimento para localhost:3001
- * - Adicionado suporte para detecção de localhost:3001 como SKYNET
- * 
- * Mudanças v1.4.1:
- * - Adicionados logs de instrumentação para debug do fluxo de envio
- * - Melhorado tratamento de erros da API WhatsApp
- * 
- * Mudanças v1.4.0:
- * - Suporte para ambas as URLs: SKYNET (dev) e Cloudflare Tunnel (produção)
- * - Seleção automática de URL baseada em NODE_ENV
- * - Seleção automática de endpoint baseada na URL detectada
- * - Logs de diagnóstico detalhados para troubleshooting
- * 
- * Estrutura:
- * - Produção: WHATSAPP_API_URL (ngrok) → endpoint /send
- * - Desenvolvimento: SKYNET_API_URL ou localhost:3001 → endpoint /api/whatsapp/send
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.6.0: sendMessage: retorno imediato { ok: false } — sem URLs, secrets ou rede
+ * - v1.5.0: SIMPLIFICAÇÃO: Removida lógica do Skynet, usando apenas ngrok para todos os ambientes
  */
 
 /**

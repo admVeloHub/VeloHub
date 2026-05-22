@@ -1,13 +1,13 @@
 /**
  * VeloHub V3 - SociaisPage (Módulo Sociais)
- * VERSION: v1.2.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.2.3 | DATE: 2026-05-15 | AUTHOR: VeloHub Development Team
  *
  * Página principal do módulo Sociais com 4 abas:
  * Entrada de Dados, Dashboard, Feed de Atendimento, Relatórios
  *
- * Mudanças v1.2.0:
- * - Seletor de abas padronizado conforme Ouvidoria/Escalações
- * - Removidos wrappers app, tabs-container, tabs-wrapper, main-content
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.2.3: Comentário — abas conforme Ouvidoria/Requisições (naming módulo Req_Prod)
+ * - v1.2.0: Seletor de abas padronizado conforme Ouvidoria/Escalações
  */
 
 import React, { useState } from 'react';
@@ -37,7 +37,7 @@ const SociaisPage = () => {
     <div className="w-full py-12" style={{ paddingLeft: '20px', paddingRight: '20px' }}>
       {/* Sistema de Abas */}
       <div className="mb-8" style={{ marginTop: '-15px' }}>
-        <div className="flex justify-center mb-2" style={{ gap: '2rem' }}>
+        <div className="flex justify-start flex-wrap mb-2" style={{ gap: '2rem' }}>
           {tabs.map((tab) => (
             <button
               key={tab.id}

@@ -30,7 +30,7 @@ const TermosPage = () => {
 
       {/* Conteúdo */}
       <main className="max-w-4xl mx-auto px-6 py-8">
-        <div className="bg-white dark:bg-[#323a42] rounded-xl shadow-lg p-8 space-y-8">
+        <div className="bg-white dark:bg-[#323a42] rounded-vh-container shadow-lg p-8 space-y-8">
           
           {/* Seção 1 */}
           <section>

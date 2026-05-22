@@ -1,16 +1,10 @@
 /**
  * VeloHub V3 - Feed (Sociais)
- * VERSION: v1.3.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.3.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
  *
- * Mudanças v1.3.0:
- * - Filtro rede social: opção LinkedIn
- *
- * Mudanças v1.2.0:
- * - Botão Filtrar; filtros aplicados apenas ao clicar
- *
- * Mudanças v1.1.0:
- * - Layout em linha para metadados (feed-card-row)
- * - Contorno do card por sentimento em vez de barra por rede social
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.3.0: Filtro rede social: opção LinkedIn
+ * - v1.2.0: Botão Filtrar; filtros aplicados apenas ao clicar
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -105,7 +99,7 @@ const Feed = ({ selectedWord, wordCloudWords = [] }) => {
     return (
       <div className="velohub-container">
         <div className="section-title" style={{ marginBottom: '16px' }}>Feed de Atendimento</div>
-        <div style={{ padding: '20px', backgroundColor: '#fff3cd', border: '1px solid #ffc107', borderRadius: '8px', color: '#856404' }}>
+        <div style={{ padding: '20px', backgroundColor: '#fff3cd', border: '1px solid #ffc107', borderRadius: 'var(--velohub-radius-card)', color: '#856404' }}>
           <strong>Erro ao carregar feed:</strong> {error}<br />
           <small>Verifique se o servidor está online e tente novamente.</small>
         </div>

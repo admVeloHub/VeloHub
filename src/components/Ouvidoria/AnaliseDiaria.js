@@ -1,109 +1,24 @@
 /**
  * VeloHub V3 - AnaliseDiaria Component
- * VERSION: v2.7.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v2.7.0:
- * - MOTIVOS_REDUZIDOS: padrão Xxxxx xxxxx xxxx, alinhado a FormReclamacao e motivoReduzidoNormalize
- * 
- * Mudanças v2.6.0:
- * - Adicionadas opções Reclame Aqui, Procon e Ação Judicial ao filtro de tipo
- * - Tabelas Número de Chamados e Motivos para os novos tipos (mesma estrutura de N2)
- * 
- * Mudanças v2.5.0:
- * - CORRIGIDO: formatarData usa parsing direto de YYYY-MM-DD para evitar deslocamento de 1 dia por timezone
- *   (new Date('2026-03-01') = UTC midnight → em pt-BR virava 28/02; agora exibe 01/03 corretamente)
- * 
- * Mudanças v2.4.0:
- * - Padronização de grafias em MOTIVOS_REDUZIDOS: Abatimento de Juros, Liberação Chave Pix, Contestação de Valores, Encerramento de Conta, Exclusão de Conta, Não Recebeu Restituição
- * 
- * Mudanças v2.3.0:
- * - CORRIGIDO: Natureza = origem (schema 471); Motivos = motivoReduzido (schema 475); dias = dataEntrada (470)
- * - Tabela Natureza: apenas Bacen Celcoin, Bacen Via Capital, Consumidor.Gov (removido Chave PIX)
- * - Tabela Motivos: exclui naturezas; backend e frontend alinhados ao schema
- * 
- * Mudanças v2.2.0:
- * - Removida normalização/agrupamento de motivos - cada motivo individual aparece em sua própria linha
- * - Motivos são exibidos exatamente como estão no banco, sem agrupar variações (ex: "CHAVE PIX" e "Chave PIX" são linhas separadas)
- * - Quando um registro tem múltiplos motivos no array, cada um é contado separadamente em sua própria linha
- * - Correção aplicada em processarMotivosBacen e processarMotivosN2
- * 
- * Mudanças v1.3.0:
- * - CORRIGIDO: processarMotivosBacen e processarMotivosN2 agora usam valores reais do banco como linhas (não lista fixa)
- * - Normalização automática agrupa variações como "CHAVE PIX" e "Chave PIX" em uma única linha
- * - Função normalizarMotivo() agrupa variações case-insensitive e normaliza espaços
- * - CORRIGIDO: gerarDiasNoPeriodo usa UTC explicitamente para evitar problemas de timezone
+ * VERSION: v2.8.5 | DATE: 2026-05-20 | AUTHOR: VeloHub Development Team
  *
- * Mudanças v1.2.0:
- * - CORRIGIDO quadro Motivos: linhas passam a ser a lista fixa de motivos (MOTIVOS_REDUZIDOS), não mais valores vindos da API
- * - Naturezas (Bacen Celcoin, Consumidor.Gov, etc.) deixam de aparecer como linhas; apenas motivos reais (Abatimento Juros, Chave PIX, etc.)
- * - processarMotivosBacen e processarMotivosN2 usam MOTIVOS_REDUZIDOS como linhas e preenchem com contagem por dia ou 0
- *
- * Mudanças v1.1.0:
- * - CORRIGIDO: Container secundário não expande mais horizontalmente além do frame
- * - CSS atualizado: overflow-x: hidden e min-width: 0 no container-secondary
- * - Divs internos com overflow-x-auto agora têm width: 100% e maxWidth: 100% explícitos
- * - Tabelas ajustadas: removido min-w-full, usando minWidth: 'max-content' para scroll interno correto
- * - Container pai em OuvidoriaPage.js agora tem minWidth: 0, maxWidth: '100%' e overflow: 'hidden' para garantir limitação correta
- * 
- * Mudanças v1.0.8:
- * - Container-secondary agora limitado ao tamanho do frame (max-width: 100%, width: 100%, box-sizing: border-box)
- * - Overflow hidden no container para evitar vazamento
- * - Scroll horizontal apenas dentro do div interno com overflow-x-auto
- * 
- * Mudanças v1.0.7:
- * - CORRIGIDO scroll: usando exatamente o mesmo padrão do RelatoriosOuvidoria (sem estilos inline)
- * - CORRIGIDO dados de Motivos: filtrando apenas itens com campo 'motivo' (não 'natureza')
- * - Adicionado log de erro detalhado quando backend retorna estrutura incorreta
- * - Tabelas agora usam className="w-full border-collapse min-w-full" como em RelatoriosOuvidoria
- * 
- * Mudanças v1.0.6:
- * - CORRIGIDO: Container com width: '100%', maxWidth: '100%', overflow: 'hidden' para não vazar
- * - Div interno com overflow-x-auto e width: '100%' para scroll horizontal apenas dentro
- * - Tabela com minWidth: 'max-content' para permitir crescimento interno sem forçar container
- * - Scroll agora funciona APENAS dentro do container, sem causar scroll na tela inteira
- * 
- * Mudanças v1.0.5:
- * - Corrigido scroll: usando mesmo padrão do RelatoriosOuvidoria
- * - Container com apenas className="overflow-x-auto" (sem estilos inline que causavam problemas)
- * - Tabela com className="w-full border-collapse min-w-full" para scroll interno correto
- * - Scroll agora funciona apenas dentro do container, não na tela inteira
- * 
- * Mudanças v1.0.4:
- * - CRÍTICO: Corrigido scroll infinito da tela - scroll agora é apenas dentro do container
- * - Containers com width: '100%' e maxWidth: '100%' para não vazar para fora
- * - overflowY: 'hidden' para evitar scroll vertical indesejado
- * - Tabelas com minWidth: 'max-content' mas sem width: '100%' para permitir scroll interno
- * 
- * Mudanças v1.0.3:
- * - Corrigido scroll horizontal: containers agora sempre têm overflow-x-auto ativo
- * - Removida condição que limitava scroll apenas quando há mais de 7 dias
- * - Adicionado WebkitOverflowScrolling: 'touch' para melhor experiência em dispositivos móveis
- * - Tabelas com minWidth: 'max-content' garantem largura adequada para scroll
- * 
- * Mudanças v1.0.2:
- * - Ajustados tamanhos dos campos de filtro (min-w-[180px] para datas, min-w-[150px] para tipo)
- * - Implementado scroll horizontal em todos os containers de tabelas quando há mais de 7 dias
- * - Tabelas agora usam minWidth: 'max-content' para garantir largura adequada
- * - Containers com maxWidth: '100%' para permitir scroll quando necessário
- * 
- * Mudanças v1.0.1:
- * - Adicionada verificação para detectar se motivosPorDia está retornando dados de natureza
- * - Previne exibição de dados incorretos quando backend retorna estrutura errada
- * 
- * Componente para análise diária de reclamações BACEN e N2
- * - Filtros: data início, data fim, tipo (BACEN/N2)
- * - Tabelas por tipo:
- *   BACEN: Natureza, PIX Retirado, Motivos
- *   N2: Número de Chamados, PIX Retirado, Motivos
+ * Referência (duas entradas; detalhes no Git):
+ * - v2.8.5: Removidos logs de instrumentação ingest 127.0.0.1:7244 e `console.log` `[DEBUG]` (Análise diária)
+ * - v2.8.4: MOTIVOS_REDUZIDOS: «Elegibilidade» (referência alinhada ao form)
+ * - v2.7.0: MOTIVOS_REDUZIDOS: padrão Xxxxx xxxxx xxxx, alinhado a FormReclamacao e motivoReduzidoNormalize
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { FloatingLabelField } from '../shared/FloatingLabelField';
 import { relatoriosAPI } from '../../services/ouvidoriaApi';
 import { formatDateRegistro } from '../../utils/dateUtils';
 import toast from 'react-hot-toast';
 
-/** Naturezas (origem, schema 471) - NÃO confundir com Motivos (motivoReduzido, schema 475) */
-const NATUREZAS_BACEN = ['Bacen Celcoin', 'Bacen Via Capital', 'Consumidor.Gov'];
+/** Origens BACEN nos quadros diários (Consumidor.Gov no fluxo Procon). */
+const ORIGENS_QUADRO_BACEN_ANALISE = ['Bacen Celcoin', 'Bacen Via Capital'];
+
+/** Texto de origem/natureza a excluir da tabela Motivos BACEN (histórico Consumidor.Gov no campo motivo). */
+const ROTULOS_ORIGEM_EXCLUIR_DE_MOTIVOS_BACEN = [...ORIGENS_QUADRO_BACEN_ANALISE, 'Consumidor.Gov'];
 
 /** Lista fixa de motivos reduzidos (BACEN/N2) - referência. Tabela Motivos usa dados da API (motivoReduzido). Padrão: Xxxxx xxxxx xxxx */
 const MOTIVOS_REDUZIDOS = [
@@ -115,6 +30,7 @@ const MOTIVOS_REDUZIDOS = [
   'Em cobrança',
   'Alega fraude',
   'Erro app',
+  'Elegibilidade',
   'Encerramento cta celcoin',
   'Encerramento cta app',
   'Superendividamento',
@@ -123,6 +39,9 @@ const MOTIVOS_REDUZIDOS = [
   'Chave pix',
   'Conta'
 ];
+
+/** Linhas «Número de Chamados» Procon — origens canónicas (`chamadosPorDiaPorOrigem` na API diário). */
+const ORIGENS_PROCON_NUMERO_CHAMADOS = ['Procon', 'Consumidor.gov.br'];
 
 const AnaliseDiaria = () => {
   const [dataInicio, setDataInicio] = useState('');
@@ -147,42 +66,10 @@ const AnaliseDiaria = () => {
         dataFim,
         tipo
       });
-      // #region agent log
-      console.log('🔍 [DEBUG] API Response completo:', JSON.stringify(resultado, null, 2));
-      console.log('🔍 [DEBUG] Resultado estrutura:', {
-        keys: Object.keys(resultado),
-        hasData: !!resultado.data,
-        dataKeys: resultado.data ? Object.keys(resultado.data) : [],
-        bacenKeys: resultado.data?.bacen ? Object.keys(resultado.data.bacen) : [],
-        n2Keys: resultado.data?.n2 ? Object.keys(resultado.data.n2) : [],
-        bacenNaturezaLength: resultado.data?.bacen?.naturezaPorDia?.length,
-        n2ChamadosLength: resultado.data?.n2?.chamadosPorDia?.length,
-        firstNaturezaItem: resultado.data?.bacen?.naturezaPorDia?.[0],
-        firstChamadoItem: resultado.data?.n2?.chamadosPorDia?.[0],
-        allNaturezaItems: resultado.data?.bacen?.naturezaPorDia,
-        allPixItems: resultado.data?.bacen?.pixRetiradoPorDia,
-        allMotivosItems: resultado.data?.bacen?.motivosPorDia
-      });
-      fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c90fc9'},body:JSON.stringify({sessionId:'c90fc9',location:'AnaliseDiaria.js:gerarAnalise',message:'API response received',data:{dataInicio,dataFim,tipo,resultadoStructure:Object.keys(resultado),hasData:!!resultado.data,dataKeys:resultado.data?Object.keys(resultado.data):[],bacenKeys:resultado.data?.bacen?Object.keys(resultado.data.bacen):[],n2Keys:resultado.data?.n2?Object.keys(resultado.data.n2):[],bacenNaturezaLength:resultado.data?.bacen?.naturezaPorDia?.length,n2ChamadosLength:resultado.data?.n2?.chamadosPorDia?.length,firstNaturezaItem:resultado.data?.bacen?.naturezaPorDia?.[0],firstChamadoItem:resultado.data?.n2?.chamadosPorDia?.[0]},timestamp:Date.now(),runId:'initial',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       const dadosProcessados = resultado.data || resultado;
-      // #region agent log
-      console.log('🔍 [DEBUG] Dados processados:', dadosProcessados);
-      console.log('🔍 [DEBUG] Amostras:', {
-        bacenNaturezaSample: dadosProcessados?.bacen?.naturezaPorDia?.slice(0, 3),
-        bacenPixSample: dadosProcessados?.bacen?.pixRetiradoPorDia?.slice(0, 3),
-        bacenMotivosSample: dadosProcessados?.bacen?.motivosPorDia?.slice(0, 3),
-        bacenMotivosLength: dadosProcessados?.bacen?.motivosPorDia?.length,
-        bacenMotivosTodos: dadosProcessados?.bacen?.motivosPorDia
-      });
-      fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c90fc9'},body:JSON.stringify({sessionId:'c90fc9',location:'AnaliseDiaria.js:gerarAnalise',message:'Data processed and set',data:{dadosProcessadosKeys:Object.keys(dadosProcessados),bacenNaturezaSample:dadosProcessados?.bacen?.naturezaPorDia?.slice(0,3),bacenPixSample:dadosProcessados?.bacen?.pixRetiradoPorDia?.slice(0,3),bacenMotivosSample:dadosProcessados?.bacen?.motivosPorDia?.slice(0,3),bacenMotivosLength:dadosProcessados?.bacen?.motivosPorDia?.length,bacenMotivosTodos:dadosProcessados?.bacen?.motivosPorDia},timestamp:Date.now(),runId:'initial',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       setDadosDiarios(dadosProcessados);
       toast.success('Análise diária gerada com sucesso!');
     } catch (error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c90fc9'},body:JSON.stringify({sessionId:'c90fc9',location:'AnaliseDiaria.js:gerarAnalise',message:'Error occurred',data:{errorMessage:error.message,errorStack:error.stack},timestamp:Date.now(),runId:'initial',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
       console.error('Erro ao gerar análise diária:', error);
       toast.error('Erro ao gerar análise diária');
     } finally {
@@ -208,10 +95,6 @@ const AnaliseDiaria = () => {
       dias.push(`${ano}-${mes}-${dia}`);
     }
     
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c90fc9'},body:JSON.stringify({sessionId:'c90fc9',location:'AnaliseDiaria.js:gerarDiasNoPeriodo',message:'Array de dias gerado',data:{dataInicio,dataFim,diasLength:dias.length,diasPrimeiros:dias.slice(0,5),diasUltimos:dias.slice(-5)},timestamp:Date.now(),runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-    // #endregion
-    
     return dias;
   }, [dataInicio, dataFim]);
 
@@ -220,34 +103,12 @@ const AnaliseDiaria = () => {
    */
     const processarNaturezaBacen = useMemo(() => {
     if (!dadosDiarios?.bacen?.naturezaPorDia) {
-      // #region agent log
-      console.log('⚠️ [DEBUG] Sem dados de natureza:', {
-        hasDadosDiarios: !!dadosDiarios,
-        hasBacen: !!dadosDiarios?.bacen,
-        hasNaturezaPorDia: !!dadosDiarios?.bacen?.naturezaPorDia
-      });
-      fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c90fc9'},body:JSON.stringify({sessionId:'c90fc9',location:'AnaliseDiaria.js:processarNaturezaBacen',message:'No data available',data:{hasDadosDiarios:!!dadosDiarios,hasBacen:!!dadosDiarios?.bacen,hasNaturezaPorDia:!!dadosDiarios?.bacen?.naturezaPorDia},timestamp:Date.now(),runId:'initial',hypothesisId:'D'})}).catch(()=>{});
-      // #endregion
       return null;
     }
 
     const dias = gerarDiasNoPeriodo;
-    // NATUREZA = origem (schema 471): Bacen Celcoin, Bacen Via Capital, Consumidor.Gov
-    const naturezas = ['Bacen Celcoin', 'Bacen Via Capital', 'Consumidor.Gov'];
-    
-    // #region agent log
-    console.log('🔍 [DEBUG] Processando natureza:', {
-      diasCount: dias.length,
-      dias: dias.slice(0, 5),
-      naturezaPorDiaLength: dadosDiarios.bacen.naturezaPorDia.length,
-      firstItem: dadosDiarios.bacen.naturezaPorDia[0],
-      sampleItems: dadosDiarios.bacen.naturezaPorDia.slice(0, 5),
-      naturezasEsperadas: naturezas,
-      allNaturezaItems: dadosDiarios.bacen.naturezaPorDia,
-      uniqueNaturezas: [...new Set(dadosDiarios.bacen.naturezaPorDia.map(d => d._id.natureza))]
-    });
-    fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c90fc9'},body:JSON.stringify({sessionId:'c90fc9',location:'AnaliseDiaria.js:processarNaturezaBacen',message:'Processing natureza data',data:{diasCount:dias.length,naturezaPorDiaLength:dadosDiarios.bacen.naturezaPorDia.length,firstItem:dadosDiarios.bacen.naturezaPorDia[0],sampleItems:dadosDiarios.bacen.naturezaPorDia.slice(0,5)},timestamp:Date.now(),runId:'initial',hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
+    // Quadro Número de Chamados: apenas origens BACEN atuais (schema 471).
+    const naturezas = [...ORIGENS_QUADRO_BACEN_ANALISE];
     
     const tabela = naturezas.map(natureza => {
       const valores = dias.map(dia => {
@@ -260,23 +121,12 @@ const AnaliseDiaria = () => {
       return { natureza, valores, total };
     });
 
-    // #region agent log
-    console.log('🔍 [DEBUG] Tabela processada:', {
-      tabelaLength: tabela.length,
-      firstRow: tabela[0],
-      allRows: tabela.map(r => ({ 
-        natureza: r.natureza, 
-        total: r.total, 
-        valoresCount: r.valores.length,
-        valores: r.valores,
-        valoresSum: r.valores.reduce((a, b) => a + b, 0)
-      })),
-      tabelaCompleta: tabela
-    });
-    fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c90fc9'},body:JSON.stringify({sessionId:'c90fc9',location:'AnaliseDiaria.js:processarNaturezaBacen',message:'Processed tabela result',data:{tabelaLength:tabela.length,firstRow:tabela[0],totalFirstRow:tabela[0]?.total},timestamp:Date.now(),runId:'initial',hypothesisId:'F'})}).catch(()=>{});
-    // #endregion
+    const totaisPorDia = dias.map((_, idx) =>
+      tabela.reduce((sum, linha) => sum + linha.valores[idx], 0)
+    );
+    const totalGeral = tabela.reduce((sum, linha) => sum + linha.total, 0);
 
-    return { tabela, dias };
+    return { tabela, dias, totaisPorDia, totalGeral };
   }, [dadosDiarios, gerarDiasNoPeriodo]);
 
   /**
@@ -286,8 +136,7 @@ const AnaliseDiaria = () => {
     if (!dadosDiarios?.bacen?.pixRetiradoPorDia) return null;
 
     const dias = gerarDiasNoPeriodo;
-    // PIX Retirado agrupado por natureza (origem)
-    const naturezas = ['Bacen Celcoin', 'Bacen Via Capital', 'Consumidor.Gov'];
+    const naturezas = [...ORIGENS_QUADRO_BACEN_ANALISE];
     
     const tabela = naturezas.map(natureza => {
       const valores = dias.map(dia => {
@@ -325,7 +174,7 @@ const AnaliseDiaria = () => {
 
     const dias = gerarDiasNoPeriodo;
     const dadosParaProcessar = (dadosDiarios.bacen.motivosPorDia || []).filter(
-      item => item._id?.motivo && !NATUREZAS_BACEN.includes(item._id.motivo)
+      item => item._id?.motivo && !ROTULOS_ORIGEM_EXCLUIR_DE_MOTIVOS_BACEN.includes(item._id.motivo)
     );
 
     // Agrupar por motivo: criar mapa { motivo: { contagensPorDia } }
@@ -360,11 +209,6 @@ const AnaliseDiaria = () => {
         return { motivo: grupo.motivo, valores, total };
       })
       .sort((a, b) => String(a.motivo || '').localeCompare(String(b.motivo || '')));
-
-    // #region agent log
-    const motivosComDados = tabela.filter(t => t.total > 0);
-    fetch('http://127.0.0.1:7244/ingest/2a8deb5a-b094-407b-b92c-d784ff86433f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c90fc9'},body:JSON.stringify({sessionId:'c90fc9',location:'AnaliseDiaria.js:processarMotivosBacen',message:'tabela processada',data:{tabelaLength:tabela.length,motivosComDados:motivosComDados.map(t=>({motivo:t.motivo,total:t.total}))},timestamp:Date.now(),runId:'run1',hypothesisId:'H'})}).catch(()=>{});
-    // #endregion
 
     return { tabela, dias };
   }, [dadosDiarios, gerarDiasNoPeriodo]);
@@ -485,15 +329,48 @@ const AnaliseDiaria = () => {
     return { tabela, dias };
   }, [dadosDiarios?.reclameAqui, gerarDiasNoPeriodo]);
 
+  /** Procon — chamados por dia e por origem (Procon vs Consumidor.gov.br); compatível se API só enviar chamadosPorDia. */
   const processarChamadosProcon = useMemo(() => {
     const dados = dadosDiarios?.procon;
-    if (!dados?.chamadosPorDia) return null;
     const dias = gerarDiasNoPeriodo;
-    const valores = dias.map(dia => {
-      const item = dados.chamadosPorDia.find(d => d._id.dia === dia);
-      return item ? item.count : 0;
+    if (!dados || dias.length === 0) return null;
+
+    const porOrigem = dados.chamadosPorDiaPorOrigem;
+
+    if (Array.isArray(porOrigem) && porOrigem.length > 0) {
+      const tabela = ORIGENS_PROCON_NUMERO_CHAMADOS.map((origem) => {
+        const valores = dias.map((dia) => {
+          const item = porOrigem.find(
+            (row) =>
+              row &&
+              row._id &&
+              row._id.dia === dia &&
+              String(row._id.origem) === origem
+          );
+          return item ? item.count || 0 : 0;
+        });
+        const total = valores.reduce((sum, val) => sum + val, 0);
+        return { origem, valores, total };
+      });
+      const totaisPorDia = dias.map((_, idx) =>
+        tabela.reduce((sum, linha) => sum + linha.valores[idx], 0)
+      );
+      const totalGeral = tabela.reduce((sum, linha) => sum + linha.total, 0);
+      return { tabela, dias, totaisPorDia, totalGeral };
+    }
+
+    if (!Array.isArray(dados.chamadosPorDia) || dados.chamadosPorDia.length === 0) return null;
+    const valores = dias.map((dia) => {
+      const item = dados.chamadosPorDia.find((d) => d._id?.dia === dia);
+      return item ? item.count || 0 : 0;
     });
-    return { valores, dias, total: valores.reduce((s, v) => s + v, 0) };
+    const totalGeral = valores.reduce((sum, val) => sum + val, 0);
+    return {
+      tabela: [{ origem: 'Total', valores, total: totalGeral }],
+      dias,
+      totaisPorDia: [...valores],
+      totalGeral,
+    };
   }, [dadosDiarios?.procon, gerarDiasNoPeriodo]);
 
   const processarMotivosProcon = useMemo(() => {
@@ -561,44 +438,41 @@ const AnaliseDiaria = () => {
       <div className="velohub-card mb-6">
         <div className="flex items-end gap-4 flex-wrap">
           <div className="min-w-[180px]">
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Data Início *
-            </label>
-            <input
-              type="date"
-              value={dataInicio}
-              onChange={(e) => setDataInicio(e.target.value)}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            />
+            <FloatingLabelField id="analise-diaria-inicio" label="Data Início" required value={dataInicio}>
+              <input
+                type="date"
+                value={dataInicio}
+                onChange={(e) => setDataInicio(e.target.value)}
+                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              />
+            </FloatingLabelField>
           </div>
 
           <div className="min-w-[180px]">
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Data Fim *
-            </label>
-            <input
-              type="date"
-              value={dataFim}
-              onChange={(e) => setDataFim(e.target.value)}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            />
+            <FloatingLabelField id="analise-diaria-fim" label="Data Fim" required value={dataFim}>
+              <input
+                type="date"
+                value={dataFim}
+                onChange={(e) => setDataFim(e.target.value)}
+                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              />
+            </FloatingLabelField>
           </div>
 
           <div className="min-w-[150px]">
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Tipo *
-            </label>
-            <select
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value)}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="BACEN">BACEN</option>
-              <option value="N2">N2 Pix</option>
-              <option value="RECLAME_AQUI">Reclame Aqui</option>
-              <option value="PROCON">Procon</option>
-              <option value="PROCESSOS">Ação Judicial</option>
-            </select>
+            <FloatingLabelField id="analise-diaria-tipo" label="Tipo" required value={tipo}>
+              <select
+                value={tipo}
+                onChange={(e) => setTipo(e.target.value)}
+                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              >
+                <option value="BACEN">BACEN</option>
+                <option value="N2">N2 Pix</option>
+                <option value="RECLAME_AQUI">Reclame Aqui</option>
+                <option value="PROCON">Procon</option>
+                <option value="PROCESSOS">Ação Judicial</option>
+              </select>
+            </FloatingLabelField>
           </div>
 
           <div className="flex-shrink-0">
@@ -635,15 +509,15 @@ const AnaliseDiaria = () => {
       {/* Tabelas BACEN */}
       {tipo === 'BACEN' && dadosDiarios?.bacen && (
         <>
-          {/* Tabela Natureza */}
+          {/* Número de chamados por origem (BACEN — `naturezaPorDia`: origem/schema 471) */}
           {processarNaturezaBacen && (
             <div className="container-secondary mb-6">
-              <h3 className="text-lg font-semibold mb-4">Natureza</h3>
+              <h3 className="text-lg font-semibold mb-4">Número de Chamados</h3>
               <div className="overflow-x-auto" style={{ width: '100%', maxWidth: '100%' }}>
                 <table className="border-collapse" style={{ minWidth: 'max-content', width: '100%' }}>
                   <thead>
                     <tr>
-                      <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left text-sm font-medium">Natureza</th>
+                      <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left text-sm font-medium">Origem</th>
                       {processarNaturezaBacen.dias.map(dia => (
                         <th key={dia} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
                           {formatDateRegistro(dia, '')}
@@ -666,6 +540,19 @@ const AnaliseDiaria = () => {
                         </td>
                       </tr>
                     ))}
+                    {processarNaturezaBacen.tabela.length > 1 && Array.isArray(processarNaturezaBacen.totaisPorDia) && (
+                      <tr className="bg-gray-100 font-semibold dark:bg-gray-800">
+                        <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm">Total</td>
+                        {processarNaturezaBacen.totaisPorDia.map((valor, idx) => (
+                          <td key={idx} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm whitespace-nowrap">
+                            {valor}
+                          </td>
+                        ))}
+                        <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm">
+                          {processarNaturezaBacen.totalGeral}
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -680,7 +567,7 @@ const AnaliseDiaria = () => {
                 <table className="border-collapse" style={{ minWidth: 'max-content', width: '100%' }}>
                   <thead>
                     <tr>
-                      <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left text-sm font-medium">Natureza</th>
+                      <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left text-sm font-medium">Origem</th>
                       {processarPixRetiradoBacen.dias.map(dia => (
                         <th key={dia} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
                           {formatDateRegistro(dia, '')}
@@ -938,6 +825,9 @@ const AnaliseDiaria = () => {
                 <table className="border-collapse" style={{ minWidth: 'max-content', width: '100%' }}>
                   <thead>
                     <tr>
+                      <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left text-sm font-medium">
+                        Origem
+                      </th>
                       {processarChamadosProcon.dias.map(dia => (
                         <th key={dia} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
                           {formatDateRegistro(dia, '')}
@@ -947,16 +837,32 @@ const AnaliseDiaria = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      {processarChamadosProcon.valores.map((valor, idx) => (
-                        <td key={idx} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm whitespace-nowrap">
-                          {valor}
+                    {processarChamadosProcon.tabela.map((linha, rowIdx) => (
+                      <tr key={rowIdx} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm">{linha.origem}</td>
+                        {linha.valores.map((valor, idx) => (
+                          <td key={idx} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm whitespace-nowrap">
+                            {valor}
+                          </td>
+                        ))}
+                        <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-semibold">
+                          {linha.total}
                         </td>
-                      ))}
-                      <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-semibold">
-                        {processarChamadosProcon.total}
-                      </td>
-                    </tr>
+                      </tr>
+                    ))}
+                    {processarChamadosProcon.tabela.length > 1 && Array.isArray(processarChamadosProcon.totaisPorDia) && (
+                      <tr className="bg-gray-100 font-semibold dark:bg-gray-800">
+                        <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm">Total</td>
+                        {processarChamadosProcon.totaisPorDia.map((valor, idx) => (
+                          <td key={idx} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm whitespace-nowrap">
+                            {valor}
+                          </td>
+                        ))}
+                        <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm">
+                          {processarChamadosProcon.totalGeral}
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

@@ -66,7 +66,7 @@ const KeywordFilter = ({ value, onChange, options = [], placeholder = 'Digite ou
         )}
       </div>
       {isOpen && filteredOptions.length > 0 && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#1e2130', border: '1px solid #2d3142', borderRadius: '4px', marginTop: '4px', maxHeight: '200px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#1e2130', border: '1px solid #2d3142', borderRadius: 'var(--velohub-radius-container)', marginTop: '4px', maxHeight: '200px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
           {filteredOptions.map((option, index) => (
             <div
               key={index}

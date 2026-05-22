@@ -1,29 +1,12 @@
 /**
  * VeloHub V3 - Chatbot Component
- * VERSION: v1.10.10 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v1.10.10:
- * - Logs de atividade/feedback: envia colaboradorNome (sessão / qualidade_funcionarios) em vez de apenas e-mail como identificação
- * 
- * Mudanças v1.10.9:
- * - Velobot: segunda linha de serviços deslocada 1 coluna (célula vazia), evitando Seguro Cel sob o título
- * 
- * Mudanças v1.10.8:
- * - Velobot: cabeçalho "Serviços Online" na primeira linha do quadro junto com os primeiros serviços (grid 5 colunas)
- * 
- * Mudanças v1.10.7:
- * - Demonstrador Serviços Online: mesma lista da Home (8 itens); grid 3 colunas com título em linha completa
- * 
- * Mudanças v1.10.6:
- * - Botão WhatsApp substituído por botão atendimento telefônico (ícone telef.png, formatType: telefone)
- * 
- * Mudanças v1.10.5:
- * - Novo fluxo email: payload com nomeOperador (primeiro nome da sessão) e inteligencia (conteúdo a formatar)
- * 
- * Mudanças v1.10.4:
- * - Atualizada lista de serviços online: adicionados Clube Velotax e Divida Zero
- * - Renomeados serviços: "Seguro Cred." → "Prestamista", "Seguro Cel." → "Seguro Celular"
- * - Grid de serviços atualizado para exibir todos os 9 serviços
+ * VERSION: v1.10.29 | DATE: 2026-05-18 | AUTHOR: VeloHub Development Team
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.10.29: Ações da resposta do bot alinhadas à direita — ordem: Copiar, telefone, e-mail, positivo, negativo
+ * - v1.10.28: Botão Copiar (texto) no padrão secundário do projeto, no lugar do ícone 📋
+ * - v1.10.27: Container do VeloBot com altura fixa (`80vh` + `max-h`) e `overflow-hidden`; removidos `lg:h-full`/`lg:max-h-full`; área de mensagens com `overscroll-y-contain` (reduz “scroll chaining” para a página)
+ * - v1.10.26: Log pós-`/chatbot/init`: IA primária lida de `initData.aiStatus.primaryAI` (API não expõe `primaryAI` na raiz; evita `undefined` no console)
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -31,11 +14,45 @@ import { Send, Bot, BookOpen, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { getUserSession } from '../services/auth';
 import { API_BASE_URL } from '../config/api-config';
 
+/** Cabeçalho status serviços: PNG em `public/titles and logos/serviços.png` (encodeURI como na Home). */
+function chatbotServicosTitleImgSrc() {
+    const root = process.env.PUBLIC_URL || '';
+    return encodeURI(`${root}/titles and logos/serviços.png`);
+}
+
+function mascoteThinkingImgSrc() {
+    const root = process.env.PUBLIC_URL || '';
+    return encodeURI(`${root}/mascote thinking.png`);
+}
+
+function mascoteEurekaImgSrc() {
+    const root = process.env.PUBLIC_URL || '';
+    return encodeURI(`${root}/mascote eureka.png`);
+}
+
+/** Esclarecimento (menu de opções): manter mascote «thinking». */
+function isVelobotClarificationMessage(msg) {
+    const d = msg.clarificationData;
+    if (!d) return false;
+    if (d.status === 'clarification_needed') return true;
+    return Array.isArray(d.options) && d.options.length > 0;
+}
+
+function velobotMascotSrcForBotMessage(msg) {
+    return isVelobotClarificationMessage(msg) ? mascoteThinkingImgSrc() : mascoteEurekaImgSrc();
+}
+
+/** Classe única para tamanho dos mascotes nas mensagens (7rem). */
+const VELOBOT_MASCOT_IMG_CLASS = 'w-28 h-28 rounded-full object-cover shrink-0';
+
+/** Bolha do utilizador mantém menor; bolhas do bot / artigos / typing alargadas (menos quebras verticais). */
+const VELOBOT_BOT_BUBBLE_MAX = 'max-w-4xl';
+const VELOBOT_USER_BUBBLE_MAX = 'max-w-2xl';
+
 // Log da configuração da API para debug
 console.log('🔧 Chatbot - API_BASE_URL:', API_BASE_URL);
 
 // Componente do Chatbot Inteligente - Mantendo Layout Original
-// VERSION: v1.10.10 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team
 const Chatbot = ({ prompt }) => {
     const [messages, setMessages] = useState([]);
     const [inputValue, setInputValue] = useState('');
@@ -150,7 +167,9 @@ const Chatbot = ({ prompt }) => {
                 const initResponse = await fetch(`${API_BASE_URL}/chatbot/init?userId=${encodeURIComponent(userId)}`);
                 if (initResponse.ok) {
                     const initData = await initResponse.json();
-                    console.log('✅ VeloBot: Inicialização completa - IA primária:', initData.primaryAI);
+                    const primaryFromInit =
+                        initData.aiStatus?.primaryAI ?? initData.primaryAI ?? null;
+                    console.log('✅ VeloBot: Inicialização completa - IA primária:', primaryFromInit);
                     console.log('✅ VeloBot: Bot_perguntas carregado em cache');
                 } else {
                     console.warn('⚠️ VeloBot: Inicialização falhou - status:', initResponse.status);
@@ -251,16 +270,10 @@ const Chatbot = ({ prompt }) => {
         fetchModuleStatus();
         
         // Configurar refresh automático
-        const interval = setInterval(fetchModuleStatus, 3 * 60 * 1000); // 3 minutos (consistente com o sistema)
+        const interval = setInterval(fetchModuleStatus, 60 * 1000); // 1 minuto
         
         return () => clearInterval(interval);
     }, []);
-
-    useEffect(() => {
-        if (prompt) {
-            handleSendMessage(prompt.text);
-        }
-    }, [prompt]);
 
     useEffect(() => {
         if (chatBoxRef.current) {
@@ -445,9 +458,7 @@ const Chatbot = ({ prompt }) => {
             .replace(/<(\w+)[^>]*>\s*<\/\1>/g, '')
             .replace(/\s{3,}/g, ' ')
             .replace(/\n{3,}/g, '\n\n');
-        
-        console.log(`🔧 Chatbot: Texto formatado (${source}) - ${cleanText.length} chars`);
-        
+
         return cleanText;
     };
 
@@ -602,7 +613,22 @@ const Chatbot = ({ prompt }) => {
             const data = await response.json();
 
             if (data.success) {
-                console.log('✅ Chatbot: Resposta recebida da API:', data);
+                const rawResp =
+                    typeof data.response === 'string'
+                        ? data.response
+                        : typeof data.message === 'string'
+                          ? data.message
+                          : '';
+                console.log(
+                    '✅ Chatbot: Resposta OK —',
+                    'source=',
+                    data.source || 'n/d',
+                    '| chars=',
+                    rawResp.length,
+                    '| messageId=',
+                    data.messageId || 'n/d',
+                    '(objeto completo: expanda `data` no passo seguinte se precisar)'
+                );
 
                 // Atualizar sessionId se fornecido
                 if (data.sessionId) {
@@ -725,6 +751,27 @@ const Chatbot = ({ prompt }) => {
         }
     };
 
+    /** Ref estável: efeito FAQ deve usar a mesma função que Enter/enviar (POST /chatbot/ask). */
+    const handleSendMessageRef = useRef(handleSendMessage);
+    handleSendMessageRef.current = handleSendMessage;
+    /** Evita reenvio do mesmo clique FAQ (ex.: Strict Mode). */
+    const faqProcessedPromptIdRef = useRef(null);
+
+    // FAQ (Processos): igual a digitar e enviar — preenche input, chama /api/chatbot/ask após sessão pronta
+    useEffect(() => {
+        if (!prompt || prompt.text == null) return;
+        const q = String(prompt.text).trim();
+        if (!q) return;
+        if (userId == null) return;
+        if (isTyping) return;
+        const pid = prompt.id;
+        if (pid != null && faqProcessedPromptIdRef.current === pid) return;
+        if (pid != null) faqProcessedPromptIdRef.current = pid;
+
+        setInputValue(q);
+        void handleSendMessageRef.current(q);
+    }, [prompt, userId, isTyping]);
+
     // Função para enviar feedback
     const handleFeedback = async (messageId, feedbackType, comment = '') => {
         try {
@@ -800,13 +847,21 @@ const Chatbot = ({ prompt }) => {
 
     return (
         <>
-            <div className="flex flex-col h-[80vh] velohub-modal" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', border: '1px solid var(--cor-borda)'}}>
+            <div
+                className="velohub-modal flex min-h-0 w-full max-h-[80vh] h-[80vh] flex-col overflow-hidden"
+                style={{borderRadius: 'var(--velohub-radius-container)', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', border: '1px solid var(--cor-borda)'}}
+            >
         {/* Header - Sistema de Status de Serviços */}
         <div className="flex-shrink-0 p-3" style={{borderBottom: '1px solid var(--cor-borda)'}}>
             {/* Grid 5 colunas: linha 1 = título + 4 serviços; linha 2 = 1 col vazia + 4 serviços (alinhados às colunas 2–5) */}
             <div className="grid grid-cols-5 gap-1">
                 <div className="flex items-center text-xs p-1 min-w-0">
-                    <h2 className="text-2xl font-semibold velohub-title leading-tight" style={{fontFamily: 'Poppins, sans-serif'}}>Serviços Online</h2>
+                    <img
+                        src={chatbotServicosTitleImgSrc()}
+                        alt="Status dos Serviços"
+                        className="h-8 sm:h-9 w-auto max-w-full object-contain object-left"
+                        loading="lazy"
+                    />
                 </div>
                 {renderModuleStatus('antecipacao', 'Antecipação')}
                 {renderModuleStatus('credito-pessoal', 'Cr. Pessoal')}
@@ -821,7 +876,7 @@ const Chatbot = ({ prompt }) => {
                 </div>
 
                 {/* Chat Box - MANTENDO EXATAMENTE IGUAL */}
-                <div ref={chatBoxRef} className="flex-grow p-6 overflow-y-auto space-y-6">
+                <div ref={chatBoxRef} className="min-h-0 flex-1 space-y-6 overflow-y-auto overflow-x-hidden overscroll-y-contain p-6">
                     {messages.length === 0 && !isTyping && (
                         <div className="flex justify-center items-center h-full">
                             <div className="text-center">
@@ -837,8 +892,8 @@ const Chatbot = ({ prompt }) => {
                         if (msg.type === 'articles') {
                             return (
                                 <div key={msg.id} className="flex gap-3 justify-start">
-                                    <img src="/mascote avatar.png" alt="Bot" className="w-14 h-14 rounded-full" />
-                                    <div className="max-w-md p-4 rounded-2xl rounded-bl-none" style={{backgroundColor: 'var(--cor-container)', border: '1px solid var(--cor-borda)'}}>
+                                    <img src={mascoteEurekaImgSrc()} alt="Velobot" className={VELOBOT_MASCOT_IMG_CLASS} />
+                                    <div className={`${VELOBOT_BOT_BUBBLE_MAX} p-4 rounded-vh-card rounded-bl-none`} style={{backgroundColor: 'var(--cor-container)', border: '1px solid var(--cor-borda)'}}>
                                         <h4 className="font-semibold text-sm mb-2" style={{color: 'var(--blue-dark)'}}>Artigos relacionados:</h4>
                                         <ul className="space-y-2">
                                             {msg.articles.map(article => (
@@ -858,8 +913,14 @@ const Chatbot = ({ prompt }) => {
                         }
                         return (
                             <div key={msg.id} className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                {msg.sender === 'bot' && <img src="/mascote avatar.png" alt="Bot" className="w-14 h-14 rounded-full" />}
-                                <div className={`max-w-md p-3 rounded-2xl ${msg.sender === 'user' ? 'rounded-br-none' : 'rounded-bl-none'}`} 
+                                {msg.sender === 'bot' && (
+                                    <img
+                                        src={velobotMascotSrcForBotMessage(msg)}
+                                        alt={isVelobotClarificationMessage(msg) ? 'Velobot — esclarecimento' : 'Velobot'}
+                                        className={VELOBOT_MASCOT_IMG_CLASS}
+                                    />
+                                )}
+                                <div className={`${msg.sender === 'user' ? VELOBOT_USER_BUBBLE_MAX : VELOBOT_BOT_BUBBLE_MAX} p-3 rounded-vh-card ${msg.sender === 'user' ? 'rounded-br-none' : 'rounded-bl-none'}`} 
                                      style={msg.sender === 'user' ? 
                                         {backgroundColor: 'var(--blue-medium)', color: 'var(--white)'} : 
                                         {backgroundColor: 'var(--cor-container)', color: 'var(--cor-texto-principal)', border: '1px solid var(--cor-borda)'}
@@ -867,54 +928,85 @@ const Chatbot = ({ prompt }) => {
                                     {/* Texto principal */}
                                     <div dangerouslySetInnerHTML={{ __html: formatResponseText(msg.text, 'bot') }} />
                                     
-                                    {/* Ícones de feedback e IA em linha separada */}
-                                    <div className="flex justify-between items-center mt-2">
-                                        <div className="flex gap-2">
+                                    {/* Ações da resposta do bot — alinhadas à direita */}
+                                    {msg.sender === 'bot' && (
+                                        <div className="flex justify-end items-center gap-2 mt-2 flex-wrap">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleCopyText(msg.text)}
+                                                className="px-3 py-1 rounded-md text-xs font-medium transition-colors"
+                                                style={{
+                                                    color: 'var(--cor-texto-principal)',
+                                                    border: '1px solid var(--cor-borda)',
+                                                    backgroundColor: 'transparent'
+                                                }}
+                                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--cor-borda)'; }}
+                                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                            >
+                                                Copiar
+                                            </button>
+                                            {msg.originalQuestion && (
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleAIButton(msg.originalQuestion, msg.botPerguntaResponse, msg.articleContent, 'telefone')}
+                                                        title="Formatação para atendimento telefônico"
+                                                        className="p-1 transition-colors rounded-md"
+                                                        style={{ color: 'var(--cor-texto-secundario)' }}
+                                                        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--blue-medium)'; }}
+                                                        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--cor-texto-secundario)'; }}
+                                                    >
+                                                        <img
+                                                            src="/telef.png"
+                                                            alt="Atendimento telefônico"
+                                                            style={{ width: '20px', height: '20px', display: 'block' }}
+                                                        />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleAIButton(msg.originalQuestion, msg.botPerguntaResponse, msg.articleContent, 'email')}
+                                                        title="Formatação para E-mail formal"
+                                                        className="p-1 transition-colors rounded-md"
+                                                        style={{ color: 'var(--cor-texto-secundario)' }}
+                                                        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--blue-medium)'; }}
+                                                        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--cor-texto-secundario)'; }}
+                                                    >
+                                                        <img
+                                                            src="/octa logo.png"
+                                                            alt="E-mail"
+                                                            style={{ width: '20px', height: '20px', display: 'block' }}
+                                                        />
+                                                    </button>
+                                                </>
+                                            )}
                                             {msg.feedbackState === 'pending' && (
                                                 <>
-                                                    <button onClick={() => handleFeedback(msg.id, 'positive')} className="p-1 transition-colors" style={{color: 'var(--cor-texto-secundario)'}} onMouseEnter={(e) => e.target.style.color = 'var(--blue-medium)'} onMouseLeave={(e) => e.target.style.color = 'var(--cor-texto-secundario)'}><ThumbsUp size={16}/></button>
-                                                    <button onClick={() => openFeedbackModal(msg)} className="p-1 transition-colors" style={{color: 'var(--cor-texto-secundario)'}} onMouseEnter={(e) => e.target.style.color = 'var(--yellow)'} onMouseLeave={(e) => e.target.style.color = 'var(--cor-texto-secundario)'}><ThumbsDown size={16}/></button>
-                                                    <button 
-                                                        onClick={() => handleCopyText(msg.text)} 
-                                                        className="p-1 transition-colors" 
-                                                        style={{color: 'var(--cor-texto-secundario)'}} 
-                                                        onMouseEnter={(e) => e.target.style.color = 'var(--blue-medium)'} 
-                                                        onMouseLeave={(e) => e.target.style.color = 'var(--cor-texto-secundario)'}
-                                                        title="Copiar texto"
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleFeedback(msg.id, 'positive')}
+                                                        className="p-1 transition-colors"
+                                                        style={{ color: 'var(--cor-texto-secundario)' }}
+                                                        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--blue-medium)'; }}
+                                                        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--cor-texto-secundario)'; }}
+                                                        title="Feedback positivo"
                                                     >
-                                                        📋
+                                                        <ThumbsUp size={16} />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openFeedbackModal(msg)}
+                                                        className="p-1 transition-colors"
+                                                        style={{ color: 'var(--cor-texto-secundario)' }}
+                                                        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--yellow)'; }}
+                                                        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--cor-texto-secundario)'; }}
+                                                        title="Feedback negativo"
+                                                    >
+                                                        <ThumbsDown size={16} />
                                                     </button>
                                                 </>
                                             )}
                                         </div>
-                                        
-                                        {/* Botões IA - Telefone e E-mail */}
-                                        {msg.sender === 'bot' && msg.originalQuestion && (
-                                            <div className="flex gap-2">
-                                                <button 
-                                                    onClick={() => handleAIButton(msg.originalQuestion, msg.botPerguntaResponse, msg.articleContent, 'telefone')}
-                                                    title="Formatação para atendimento telefônico"
-                                                >
-                                                    <img 
-                                                        src="/telef.png" 
-                                                        alt="Atendimento telefônico" 
-                                                        style={{ width: '20px', height: '20px' }}
-                                                    />
-                                                </button>
-                                                
-                                                <button 
-                                                    onClick={() => handleAIButton(msg.originalQuestion, msg.botPerguntaResponse, msg.articleContent, 'email')}
-                                                    title="Formatação para E-mail formal"
-                                                >
-                                                    <img 
-                                                        src="/octa logo.png" 
-                                                        alt="E-mail" 
-                                                        style={{ width: '20px', height: '20px' }}
-                                                    />
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
+                                    )}
                                     
                                     {/* Linha divisória e Tabulação */}
                                     {msg.sender === 'bot' && msg.tabulacao && (
@@ -954,14 +1046,31 @@ const Chatbot = ({ prompt }) => {
                     })}
                     
                     {isTyping && (
-                        <div className="flex gap-3 justify-start">
-                            <img src="/mascote avatar.png" alt="Bot" className="w-14 h-14 rounded-full" />
-                            <div className="max-w-md p-3 rounded-2xl rounded-bl-none" style={{backgroundColor: 'var(--cor-container)', color: 'var(--cor-texto-principal)', border: '1px solid var(--cor-borda)'}}>
-                                <div className="flex items-center gap-1">
-                                    <span className="h-2 w-2 rounded-full animate-bounce [animation-delay:-0.3s]" style={{backgroundColor: 'var(--blue-medium)'}}></span>
-                                    <span className="h-2 w-2 rounded-full animate-bounce [animation-delay:-0.15s]" style={{backgroundColor: 'var(--blue-medium)'}}></span>
-                                    <span className="h-2 w-2 rounded-full animate-bounce" style={{backgroundColor: 'var(--blue-medium)'}}></span>
-                                </div>
+                        <div className="flex gap-3 justify-start items-center">
+                            <img
+                                src={mascoteThinkingImgSrc()}
+                                alt="Velobot processando pergunta"
+                                className={VELOBOT_MASCOT_IMG_CLASS}
+                            />
+                            <div
+                                className={`${VELOBOT_BOT_BUBBLE_MAX} px-6 py-4 rounded-vh-card rounded-bl-none flex items-center justify-center`}
+                                style={{
+                                    backgroundColor: 'var(--cor-container)',
+                                    border: '1px solid var(--cor-borda)'
+                                }}
+                            >
+                                <div
+                                    className="rounded-full border-[3px] border-solid animate-spin"
+                                    style={{
+                                        width: '3rem',
+                                        height: '3rem',
+                                        borderColor: 'var(--cor-borda)',
+                                        borderTopColor: 'var(--blue-medium)',
+                                        borderRightColor: 'var(--blue-dark)'
+                                    }}
+                                    role="status"
+                                    aria-label="Carregando"
+                                />
                             </div>
                         </div>
                     )}
@@ -991,7 +1100,7 @@ const Chatbot = ({ prompt }) => {
             {/* Modal de Artigo - MESMO MODAL DA PÁGINA DE ARTIGOS */}
             {selectedArticle && (
                 <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
-                    <div className="rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden bg-white dark:bg-gray-800" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'}}>
+                    <div className="rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden bg-white dark:bg-gray-800" style={{borderRadius: 'var(--velohub-radius-container)', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'}}>
                         <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
                             <div>
                                 <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full text-sm font-medium">

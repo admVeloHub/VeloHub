@@ -65,7 +65,7 @@ gcloud run services update velohub-278491073220 \
 # Atualizar serviço com variáveis diretas (temporário)
 gcloud run services update velohub-278491073220 \
     --region=us-east1 \
-    --set-env-vars="OPENAI_API_KEY=sk-...,GEMINI_API_KEY=AIza...,MONGO_ENV=mongodb+srv://..."
+    --set-env-vars="OPENAI_API_KEY=<definir>,GEMINI_API_KEY=<definir>,MONGO_ENV=<definir>"
 ```
 
 ### OPÇÃO 3: VERIFICAR APP.YAML

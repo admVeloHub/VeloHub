@@ -1,11 +1,9 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Colaboradores
- * VERSION: v1.1.0 | DATE: 2025-02-20 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v1.1.0:
- * - Removido campo idSecao do retorno
- * 
- * Rotas para listagem de colaboradores com acesso à Ouvidoria
+ * VERSION: v1.1.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.1.0: Removido campo idSecao do retorno
  */
 
 const express = require('express');

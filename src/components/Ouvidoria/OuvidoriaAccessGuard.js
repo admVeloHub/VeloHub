@@ -1,15 +1,10 @@
 /**
  * VeloHub V3 - OuvidoriaAccessGuard Component
- * VERSION: v1.2.0 | DATE: 2025-02-19 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v1.2.0:
- * - Adicionado bypass para conta do desenvolvedor (Lucas Gravina)
- * 
- * Mudanças v1.1.0:
- * - Adicionado suporte para sessionId nas requisições de verificação
- * - Headers x-session-id e x-user-email incluídos nas requisições
- * 
- * Componente que verifica acesso ao módulo Ouvidoria antes de renderizar conteúdo
+ * VERSION: v1.2.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.2.0: Adicionado bypass para conta do desenvolvedor (Lucas Gravina)
+ * - v1.1.0: Adicionado suporte para sessionId nas requisições de verificação
  */
 
 // Lista de emails com bypass de acesso (desenvolvedores/admin)

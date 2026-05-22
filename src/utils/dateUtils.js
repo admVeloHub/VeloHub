@@ -1,12 +1,9 @@
 /**
  * VeloHub V3 - dateUtils
- * VERSION: v1.1.0 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.1.3 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
  *
- * Mudanças v1.1.0:
- * - SLA Ouvidoria: helpers para badge nas listagens (prazoBacen / prazoOuvidoria), comparação por dia civil local
- *
- * Regra: a data exibida deve ser SEMPRE a data no registro (sem adaptação de fuso).
- * Evita deslocamento por timezone (ex: 2026-03-01T00:00:00Z em pt-BR virava 28/02).
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.1.0: SLA Ouvidoria: helpers para badge nas listagens (prazoBacen / prazoOuvidoria), comparação por dia civil local
  */
 
 /**

@@ -1,21 +1,10 @@
 /**
  * VeloHub V3 - API Service
- * VERSION: v1.4.0 | DATE: 2026-03-26 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v1.4.0:
- * - articlesAPI.getCategories: GET /articles/categories (ordem oficial a partir de artigos_categorias)
- * 
- * Mudanças v1.3.0:
- * - Melhorado tratamento de erros em apiRequest para operações de escrita (PUT/POST/DELETE)
- * - Adicionada validação de Content-Type antes de fazer parse JSON
- * - Operações de escrita agora sempre lançam erro ao invés de retornar dados vazios
- * 
- * Mudanças v1.2.0:
- * - Adicionada função addComment para adicionar comentários ao thread do Velonews
- * 
- * Mudanças v1.1.0:
- * - getRecent agora passa limit como query parameter ao backend
- * - Removida ordenação e limitação no cliente (backend já faz isso)
+ * VERSION: v1.5.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.4.0: articlesAPI.getCategories: GET /articles/categories (ordem oficial a partir de artigos_categorias)
+ * - v1.3.0: Melhorado tratamento de erros em apiRequest para operações de escrita (PUT/POST/DELETE)
  */
 
 import { API_BASE_URL } from '../config/api-config';
@@ -129,6 +118,11 @@ export const articlesAPI = {
   getById: (id) => apiRequest(`/articles/${id}`),
 };
 
+/** Conhecimento — aba Tutoriais: vídeos da playlist YouTube (backend chama Data API v3) */
+export const tutorialsAPI = {
+  getPlaylistVideos: () => apiRequest('/tutorials'),
+};
+
 // API para FAQ (mantida para compatibilidade)
 export const faqAPI = {
   // Buscar todas as perguntas frequentes
@@ -145,6 +139,7 @@ export default {
   main: mainAPI,
   veloNews: veloNewsAPI,
   articles: articlesAPI,
+  tutorials: tutorialsAPI,
   faq: faqAPI,
   test: testAPI,
 };

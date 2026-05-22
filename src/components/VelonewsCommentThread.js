@@ -1,13 +1,10 @@
 /**
  * Componente de Thread de Comentários do Velonews
- * VERSION: v1.0.2 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v1.0.2:
- * - Corrigida mensagem de erro que mencionava porta 8090 (agora usa mensagem genérica)
- * 
- * Mudanças v1.0.1:
- * - Melhorado tratamento de erros com mensagens mais específicas
- * - Adicionado tratamento de erro ao carregar avatar no useEffect
+ * VERSION: v1.0.3 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.0.2: Corrigida mensagem de erro que mencionava porta 8090 (agora usa mensagem genérica)
+ * - v1.0.1: Melhorado tratamento de erros com mensagens mais específicas
  */
 
 import React, { useState, useEffect, useRef } from 'react';

@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.18 | DATE: 2026-04-16 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.20 | DATE: 2026-05-21 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,32 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - Ouvidoria, Requisições, Octadesk, VeloBot, higiene repositório**
+- **Data/Hora**: 2026-05-21
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: DEPLOY_LOG v1.1.20; octadeskTicketsService v1.3.3; auth v1.8.2; ouvidoriaApi v2.13.2; config backend v1.7.1; LoginPage/LoadingPage; App_v6
+- **Arquivos Modificados** (principais):
+  - `backend/routes/api/ouvidoria/reclamacoes.js`, `relatorios.js`, `dashboard.js`, `chargeback.js` (novo)
+  - `backend/services/octadesk/` (novo), `backend/routes/api/escalacoes/solicitacoes.js`, `erros-bugs.js`
+  - `backend/services/chatbot/` (VeloBot persona, guardrails, telemetria)
+  - `src/components/Ouvidoria/` (fusão protocolos, chargeback, Octadesk ticket bar, formulários)
+  - `src/pages/RequisicoesPage.js`, `src/components/Requisicoes/`, `src/App_v6.js`, `src/index.js`
+  - `src/components/LoginPage.js`, `LoadingPage.js`, assets `public/`
+  - `.gitignore` — xlsx, `__pycache__`, `.local-output`, logs Cursor debug
+  - Removidos do índice Git: `backend/scripts/retidos-n2-2026.txt`, `backend/scripts/__pycache__/`
+- **Descrição**: Integração Octadesk (tickets na abertura de reclamação); módulo Requisições (rename Escalacoes); Ouvidoria fusão/chargeback/protocolos canônicos; VeloBot RAG/guardrails; login/loading com V6BG e vídeo. Higiene: remoção instrumentação debug localhost:7635; CPFs de retidos N2 só em `.local-output/` (não versionados); relatórios `.xlsx` ignorados.
+- **Status**: ⏳ Commit/push em andamento
+
+### **Alteração local - Login e Loading: fundo V6BGcomLogo, vídeo loadingPage**
+- **Data/Hora**: 2026-04-17
+- **Tipo**: Alteração de código e assets (incluída no push 2026-05-21)
+- **Versão (componentes)**: LoginPage v3.0.1, LoadingPage v2.2.0
+- **Arquivos Modificados**:
+  - `public/V6BGcomLogo.png`, `public/loadingPage.mp4`
+  - `src/components/LoginPage.js`, `src/components/LoadingPage.js`
+- **Descrição**: Fundo da tela de login `V6BGcomLogo.png`; loading com vídeo `/loadingPage.mp4` em tela cheia; removidos imagem estática legada e faixa de mensagens.
+- **Status**: ✅ Incluído no push 2026-05-21
 
 ### **GitHub Push - Ouvidoria: tipo Time Portabilidade (reclamacoes_timePortabilidade)**
 - **Data/Hora**: 2026-04-16

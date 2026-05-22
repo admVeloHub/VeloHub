@@ -1,15 +1,10 @@
 /**
  * Padronização de texto de um item de motivoReduzido (ouvidoria)
- * VERSION: v1.4.0 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.4.2 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
  *
- * Mudanças v1.4.0:
- * - RENOMEACOES_EXATAS: juros abusivos → Juros abusivos (canônico igual ao form BACEN/RA)
- *
- * Padrão de grafia: Xxxxx xxxxx xxxx (apenas primeira letra da primeira palavra maiúscula).
- *
- * Regras:
- * 1) Renomeações exatas (comparação case-insensitive) → texto canônico no padrão Xxxxx xxxxx xxxx
- * 2) Demais valores: sentence case pt-BR (primeira letra maiúscula, resto minúsculo)
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.4.2: RENOMEACOES_EXATAS: elegibilidade → Elegibilidade
+ * - v1.4.0: RENOMEACOES_EXATAS: juros abusivos → Juros abusivos (canônico igual ao form BACEN/RA)
  */
 
 'use strict';
@@ -62,6 +57,7 @@ const RENOMEACOES_EXATAS = new Map([
   ['duvidas sobre restituiçao', 'Dúvidas sobre restituição'],
   ['desativada não considerar reclamação', 'Desativada - não considerar reclamação'],
   ['desativada nao considerar reclamação', 'Desativada - não considerar reclamação'],
+  ['elegibilidade', 'Elegibilidade'],
   ['juros abusivos', 'Juros abusivos'],
 ]);
 

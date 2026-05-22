@@ -1,26 +1,10 @@
 /**
  * VeloHub V3 - Histórico Cliente Component
- * VERSION: v1.5.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v1.5.0:
- * - Data exibida: usa formatDateRegistro (data do registro, sem adaptação de fuso)
- * 
- * Mudanças v1.4.0:
- * - Adicionada máscara progressiva de CPF no campo de busca
- * - Máscara aplicada durante digitação (000.000.000-00)
- * 
- * Mudanças v1.3.0:
- * - Removido ícone do título "Buscar Cliente"
- * - Botão atualizar movido para parte superior junto ao título
- * - Botão buscar adequado ao padrão do projeto (estilo EscalacoesPage)
- * 
- * Mudanças v1.2.0:
- * - Botão atualizar adicionado junto ao botão buscar cliente
- * 
- * Mudanças v1.1.0:
- * - Containers padronizados com classes velohub-card conforme LAYOUT_GUIDELINES.md
- * 
- * Componente para busca e exibição de histórico de cliente por CPF
+ * VERSION: v1.7.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.5.0: Data exibida: usa formatDateRegistro (data do registro, sem adaptação de fuso)
+ * - v1.4.0: Adicionada máscara progressiva de CPF no campo de busca
  */
 
 import React from 'react';

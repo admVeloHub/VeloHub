@@ -1,18 +1,10 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Clientes
- * VERSION: v2.2.0 | DATE: 2026-03-05 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v2.2.0:
- * - Exibição: tipo retornado como 'N2 Pix' (antes 'OUVIDORIA') em histórico de cliente
- * 
- * Mudanças v2.1.0:
- * - Removida referência à coleção reclamacoes_chatbot (formulário ChatBot foi removido)
- * - Busca apenas em reclamacoes_bacen e reclamacoes_n2Pix
- * 
- * Mudanças v2.0.0:
- * - Busca em todas as coleções (reclamacoes_bacen, reclamacoes_n2Pix)
- * 
- * Rotas para busca de histórico de clientes
+ * VERSION: v2.2.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v2.2.0: Exibição: tipo retornado como 'N2 Pix' (antes 'OUVIDORIA') em histórico de cliente
+ * - v2.1.0: Removida referência à coleção reclamacoes_chatbot (formulário ChatBot foi removido)
  */
 
 const express = require('express');

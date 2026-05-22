@@ -1,13 +1,10 @@
 /**
  * Utilitário para gerenciar avatares de usuários
- * VERSION: v1.0.2 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v1.0.2:
- * - Adicionada validação de Content-Type antes de fazer parse JSON
- * - Melhorado tratamento de erros ao buscar avatar do MongoDB
- * 
- * Mudanças v1.0.1:
- * - Corrigido para usar API_BASE_URL de api-config.js ao invés de variável de ambiente direta
+ * VERSION: v1.0.3 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.0.2: Adicionada validação de Content-Type antes de fazer parse JSON
+ * - v1.0.1: Corrigido para usar API_BASE_URL de api-config.js ao invés de variável de ambiente direta
  */
 
 import { API_BASE_URL } from '../config/api-config';

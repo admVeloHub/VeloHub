@@ -1,5 +1,11 @@
 // Sistema de Autenticação Centralizado para VeloHub
-// VERSION: v1.7.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+// VERSION: v1.8.2 | DATE: 2026-05-21 | AUTHOR: VeloHub Development Team
+// v1.8.2: Removida instrumentação agent log (localhost:7635) em ensureSessionId
+// Mudanças v1.8.1:
+// - CRÍTICO: `velotax_agent` vinculado ao `userMail` da sessão (`velotax_agent_for_email`): troca de conta ou cache sem dono descarta valor antigo; logout limpa esse cache — evita «mesmo colaborador» entre Google e conta senha
+// - Helpers exportados `getVelotaxAgentForLoggedUser` / `setVelotaxAgentForLoggedUser`; `logout` e falha auth limpam o par
+// - saveUserSession: compara email anterior ao novo e remove velohub_session_id se divergir
+// - registerLoginSession: só reutiliza sessionId existente se alinhado ao userData/email na sessão local
 // Mudanças v1.7.0:
 // - CORREÇÃO: registerLoginSession() agora verifica se sessionId já existe antes de criar novo
 // - CORREÇÃO: Proteção contra criação duplicada de sessionId (React StrictMode)
@@ -31,11 +37,48 @@ const USER_SESSION_KEY = GOOGLE_CONFIG.SESSION_KEY;
 const DOMINIO_PERMITIDO = GOOGLE_CONFIG.AUTHORIZED_DOMAIN;
 const SESSION_DURATION = GOOGLE_CONFIG.SESSION_DURATION;
 
+/** Nome persistido nos formulários Req_Prod: era global antes e vazava entre contas se o logout não limpasse. */
+const VELOTAX_AGENT_KEY = 'velotax_agent';
+const VELOTAX_AGENT_OWNER_EMAIL_KEY = 'velotax_agent_for_email';
+
+function clearVelotaxAgentScopedCache() {
+    try {
+        localStorage.removeItem(VELOTAX_AGENT_KEY);
+        localStorage.removeItem(VELOTAX_AGENT_OWNER_EMAIL_KEY);
+    } catch (_) {
+        /* ignore */
+    }
+}
+
+/** E-mail canonical para igualdade de login (sem espaços, lowercase). */
+function normalizeLoginEmail(email) {
+    if (email == null || typeof email !== 'string') return '';
+    return email.trim().toLowerCase();
+}
+
 /**
  * Salva os dados do usuário e o timestamp da sessão no localStorage.
+ * Troca de e-mail antes de gravar invalida velohub_session_id para não misturar contas na API (sessionId servidor).
+ *
  * @param {object} userData - Objeto com dados do usuário (name, email, picture).
  */
 function saveUserSession(userData) {
+    try {
+        const prevRaw = localStorage.getItem(USER_SESSION_KEY);
+        if (prevRaw) {
+            const prev = JSON.parse(prevRaw);
+            const prevMail = normalizeLoginEmail(prev?.user?.email);
+            const nextMail = normalizeLoginEmail(userData?.email);
+            if (prevMail && nextMail && prevMail !== nextMail) {
+                localStorage.removeItem('velohub_session_id');
+                clearVelotaxAgentScopedCache();
+                console.log('[auth] E-mail da sessão alterado — velohub_session_id e cache velotax_agent invalidados');
+            }
+        }
+    } catch (e) {
+        console.warn('[auth] Ao comparar sessão anterior antes de gravar:', e);
+    }
+
     const sessionData = {
         user: userData,
         loginTimestamp: new Date().getTime()
@@ -159,7 +202,7 @@ async function ensureSessionId() {
     }
     
     console.log('⚠️ ensureSessionId: sessionId não encontrado mas usuário está logado, tentando recuperar...');
-    
+
     try {
         // Tentar reativar sessão existente primeiro
         const reactivated = await reactivateSession();
@@ -193,6 +236,48 @@ async function ensureSessionId() {
 function getUserSession() {
     const sessionData = localStorage.getItem(USER_SESSION_KEY);
     return sessionData ? JSON.parse(sessionData) : null;
+}
+
+/**
+ * Nome gravado pelo Req_Prod (`velotax_agent`) só válido quando casar com userMail atual.
+ *
+ * @returns {string}
+ */
+function getVelotaxAgentForLoggedUser() {
+    const sess = getUserSession();
+    const mail = normalizeLoginEmail(sess?.user?.email);
+    const nameFromSession = String(sess?.user?.name || '').trim();
+    let agent = '';
+    let owner = '';
+    try {
+        agent = String(localStorage.getItem(VELOTAX_AGENT_KEY) || '').trim();
+        owner = normalizeLoginEmail(localStorage.getItem(VELOTAX_AGENT_OWNER_EMAIL_KEY));
+    } catch (_) {
+        /* ignore */
+    }
+    if (!mail) return nameFromSession || agent;
+    if (!agent) return nameFromSession;
+    if (!owner || owner !== mail) {
+        clearVelotaxAgentScopedCache();
+        return nameFromSession;
+    }
+    return agent || nameFromSession;
+}
+
+/**
+ * @param {string} displayName
+ */
+function setVelotaxAgentForLoggedUser(displayName) {
+    const n = String(displayName || '').trim();
+    if (!n) return;
+    const sess = getUserSession();
+    const mail = normalizeLoginEmail(sess?.user?.email);
+    try {
+        localStorage.setItem(VELOTAX_AGENT_KEY, n);
+        if (mail) localStorage.setItem(VELOTAX_AGENT_OWNER_EMAIL_KEY, mail);
+    } catch (_) {
+        /* ignore */
+    }
 }
 
 /**
@@ -426,6 +511,7 @@ function logout() {
     
     localStorage.removeItem(USER_SESSION_KEY);
     localStorage.removeItem('velohub_session_id');
+    clearVelotaxAgentScopedCache();
     // Limpar também os dados antigos para compatibilidade
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userName');
@@ -518,6 +604,7 @@ async function checkAuthenticationState() {
             // Limpar dados de sessão já que não há sessionId válido
             localStorage.removeItem(USER_SESSION_KEY);
             localStorage.removeItem('velohub_session_id');
+            clearVelotaxAgentScopedCache();
             localStorage.removeItem('userEmail');
             localStorage.removeItem('userName');
             localStorage.removeItem('userPicture');
@@ -548,6 +635,7 @@ async function checkAuthenticationState() {
         // Se a sessão for inválida ou não existir, limpa qualquer resquício
         localStorage.removeItem(USER_SESSION_KEY);
         localStorage.removeItem('velohub_session_id');
+        clearVelotaxAgentScopedCache();
         localStorage.removeItem('userEmail');
         localStorage.removeItem('userName');
         localStorage.removeItem('userPicture');
@@ -618,6 +706,8 @@ export {
     initializeGoogleSignIn,
     registerLoginSession,
     registerLogoutSession,
+    getVelotaxAgentForLoggedUser,
+    setVelotaxAgentForLoggedUser,
     startHeartbeat,
     stopHeartbeat,
     reactivateSession,

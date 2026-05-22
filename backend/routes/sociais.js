@@ -1,11 +1,9 @@
 /**
  * VeloHub V3 - Rotas do Módulo Sociais
- * VERSION: v1.1.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.1.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
  *
- * Mudanças v1.1.0:
- * - stripReportPreamble no fallback Groq; prompts sem preâmbulos
- *
- * Rotas para tabulação, dashboard, feed, análise IA e relatórios.
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.1.0: stripReportPreamble no fallback Groq; prompts sem preâmbulos
  */
 
 const express = require('express');

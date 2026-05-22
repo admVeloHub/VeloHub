@@ -33,7 +33,7 @@
 const { MongoClient } = require('mongodb');
 
 // Configuração MongoDB
-const MONGODB_URI = process.env.MONGO_ENV || 'mongodb+srv://lucasgravina:nKQu8bSN6iZl8FPo@velohubcentral.od7vwts.mongodb.net/?retryWrites=true&w=majority&appName=VelohubCentral';
+const { MONGODB_URI } = require('./loadMongoUri');
 const DATABASE_NAME = 'hub_ouvidoria';
 
 // Modo dry-run (apenas validação, sem atualizar)

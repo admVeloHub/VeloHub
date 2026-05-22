@@ -1,5 +1,5 @@
 // Session Service - Gerenciamento simplificado de memória de conversa
-// VERSION: v2.0.0 | DATE: 2025-01-27 | AUTHOR: Lucas Gravina - VeloHub Development Team
+// VERSION: v2.0.1 | DATE: 2026-05-11 | AUTHOR: Lucas Gravina - VeloHub Development Team
 const { v4: uuidv4 } = require('uuid');
 
 class SessionService {
@@ -64,7 +64,7 @@ class SessionService {
    * @param {string} role - Role da mensagem (user/bot)
    * @param {string} content - Conteúdo da mensagem
    * @param {Object} metadata - Metadados adicionais
-   * @returns {boolean} Sucesso da operação
+   * @returns {string|false} id da mensagem (UUID) ou false se a sessão não existir
    */
   addMessage(sessionId, role, content, metadata = {}) {
     const session = this.sessions.get(sessionId);
@@ -92,7 +92,7 @@ class SessionService {
 
     console.log(`💬 Session: Mensagem adicionada à sessão ${sessionId} (${role})`);
     
-    return true;
+    return message.id;
   }
 
   /**

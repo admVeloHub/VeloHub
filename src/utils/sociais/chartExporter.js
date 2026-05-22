@@ -1,10 +1,9 @@
 /**
  * VeloHub V3 - Chart Exporter (Sociais)
- * VERSION: v1.1.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.1.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
  *
- * Mudanças v1.1.0:
- * - Gráfico de sentimento: pizza → barras empilhadas
- * - Barras: altura = total por rede; cores: Positivo (azul), Neutro (amarelo), Negativo (vermelho)
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.1.0: Gráfico de sentimento: pizza → barras empilhadas
  */
 
 const getPlotly = async () => {

@@ -1,253 +1,49 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.50.2 | DATE: 2026-04-07 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.50.18 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
  *
- * Mudanças v2.50.2:
- * - Removidos logs de configuração WhatsApp na subida (integração descontinuada; sem WHATSAPP_* em config)
- *
- * Mudanças v2.50.1:
- * - Porta padrão local sem PORT: 8090 (backend dev); front VeloHub 8080; config.js e config-local alinhados
- *
- * Mudanças v2.50.0:
- * - GET /api/auth/check-module-access: módulo ChavePix / chavePix / chavepix → qualidade_funcionarios.acessos.ChavePix
- *
- * Mudanças v2.49.9:
- * - Desenvolvimento local: variáveis de FONTE DA VERDADE/.env (bootstrapFonteEnv.cjs); removidos backend/env e backend/.env locais
- *
- * Mudanças v2.49.8:
- * - Comentário POST /api/anexos-produto/get-upload-url: removida referência ao diretório legado removido (anexos Req_Prod / GCS)
- *
- * Mudanças v2.49.7:
- * - Escalações: router GET /api/escalacoes/apoio-n1 (overview, agentes); /api/auth/check-module-access aceita apoioN1 / apoion1 e ChavePix / chavepix
- *
- * Mudanças v2.49.6:
- * - GET /api/articles/categories: lê ordem e metadados de console_conteudo.artigos_categorias (array Categorias, campo Ordem)
- *
- * Mudanças v2.49.5:
- * - Chatbot: logs (user_activity / feedback) usam colaboradorNome de qualidade_funcionarios quando o body traz colaboradorNome ou quando userId é email
- *
- * Mudanças v2.49.4:
- * - module_status: chaves perda-renda, cupons, seguro-pessoal + campos Mongo _perdaRenda, _cupons, _seguroPessoal
- * - GET/POST/PUT /api/module-status alinhados; PUT passa a persistir _clubeVelotax e _dividaZero no insert
- *
- * Mudanças v2.49.3:
- * - VeloBot: Tabulação exibida passa a ser sempre do mesmo documento da resposta
- * - Usa aiAnalysis.relevantOptions[0].tabulacao quando IA identifica 1 opção perfeita (não mais botPerguntasData[0])
- *
- * Mudanças v2.49.2:
- * - Fluxo email ai-response: payload estruturado com nomeOperador e inteligencia para persona/template
- *
- * Mudanças v2.49.1:
- * - Aumento de timeouts MongoDB (serverSelection 45s, connect 60s, socket 120s) para reduzir 503 quando banco está lento
- *
- * Mudanças v2.49.0:
- * - Endpoint POST /api/anexos-produto/get-upload-url para upload via signed URL GCS
- * - Bucket: mediabank_velohub, pasta: anexos_produto
- * 
- * Mudanças v2.48.2:
- * - MELHORIA: Tratamento específico para erro 503 (WhatsApp desconectado)
- * - Detecta quando erro 503 é devido a WhatsApp desconectado vs serviço indisponível
- * - Mensagens de erro mais claras e específicas para cada situação
- * 
- * Mudanças v2.48.1:
- * - MELHORIA: Mensagens de erro mais informativas em desenvolvimento local
- * - Adicionado aviso quando em desenvolvimento usando URL remota (ngrok)
- * - Melhorados logs para facilitar diagnóstico de problemas de conexão
- * 
- * Mudanças v2.48.0:
- * - SIMPLIFICAÇÃO: Removida lógica do Skynet, usando apenas ngrok para todos os ambientes
- * - Sempre usa WHATSAPP_API_URL ou fallback para ngrok padrão
- * - Sempre usa endpoint /send (padrão do ngrok)
- * - Removida toda detecção de Skynet e lógica condicional complexa
- * - Código simplificado e mais fácil de manter
- * 
- * Mudanças v2.47.3:
- * - MELHORIA: Melhorado tratamento de erros 503 no proxy WhatsApp
- * - Adicionada detecção específica de erros de conexão (ECONNREFUSED, ENOTFOUND, etc.)
- * - Adicionada validação de URL antes de tentar conectar
- * - Mensagens de erro mais claras e informativas
- * - Logs detalhados incluindo código de erro e URL de destino
- * 
- * Mudanças v2.47.2:
- * - CORREÇÃO CRÍTICA: Corrigida detecção de endpoint em produção
- * - ngrok sempre usa /send (não é detectado como Skynet)
- * - Skynet usa /api/whatsapp/send apenas quando realmente for Skynet
- * - Melhorada lógica de detecção para garantir que produção use ngrok com /send
- * - Adicionados logs detalhados incluindo detecção de ngrok
- * 
- * Mudanças v2.47.1:
- * - CORREÇÃO: Corrigida detecção de Skynet/GCP que identificava incorretamente o próprio backend
- * - Adicionada validação para evitar loop quando whatsappApiUrl aponta para o próprio backend
- * - Melhorada construção de URL para evitar barras duplas
- * - Adicionados logs detalhados para debug do proxy WhatsApp
- * 
- * Mudanças v2.47.0:
- * - CORREÇÃO CORS: Adicionado endpoint POST /api/whatsapp/send que faz proxy para ngrok
- * - Frontend agora chama backend ao invés de ngrok diretamente, resolvendo problemas de CORS
- * - Backend faz proxy para ngrok com timeout de 30 segundos e tratamento de erros
- * - Adicionado header ngrok-skip-browser-warning quando necessário
- * 
- * Mudanças v2.46.1:
- * - Corrigido caminho para arquivos estáticos com fallback automático
- * - No Docker/produção: public está em ./public (mesmo diretório)
- * - No desenvolvimento local: tenta ../public se ./public não existir
- * - Adicionados logs de diagnóstico para verificar existência de arquivos estáticos
- * 
- * Mudanças v2.46.0:
- * - Corrigido caminho para arquivos estáticos (public está um nível acima do backend)
- * - Adicionados logs de diagnóstico para verificar existência de arquivos estáticos
- * - Corrigido caminho do index.html para apontar para ../public/index.html
- * 
- * Mudanças v2.45.1:
- * 
- * Mudanças v2.45.1:
- * - Corrigido tratamento de erros no endpoint /api/pilulas/list
- * - Adicionado tratamento específico para erro ao listar arquivos do bucket
- * - Melhorados logs de diagnóstico com informações de variáveis de ambiente
- * - Adicionada validação de erro na listagem de arquivos antes de processar
- * 
- * Mudanças v2.45.0:
- * - Adicionado endpoint GET /api/pilulas/list para listar imagens de pílulas
- * - Melhorado tratamento de erros no endpoint /api/pilulas/list
- * - Adicionada verificação de existência do bucket antes de listar arquivos
- * - Adicionada validação de inicialização do Storage antes de usar
- * - Melhorados logs de erro para facilitar diagnóstico em produção
- * 
- * Mudanças v2.44.0:
- * - CRÍTICO: Melhorada busca de usuário no endpoint /api/auth/validate-access
- * - Adicionada busca com múltiplas variações (case-insensitive, campos alternativos)
- * - Adicionados logs detalhados para debug de problemas de login
- * - Melhorada validação de acesso ao VeloHub (verifica múltiplas variações do campo)
- * - Corrigido uso de normalizedEmail em todas as buscas para manter consistência
- * 
- * Mudanças v2.43.1:
- * - Removida instrumentação de debug do endpoint PUT /api/velo-news/:id/comment
- * 
- * Mudanças v2.43.0:
- * - Adicionado endpoint PUT /api/velo-news/:id/comment para adicionar comentários ao thread
- * - Modificado endpoint GET /api/velo-news para incluir campo thread no mapeamento
- * 
- * Mudanças v2.42.0:
- * 
- * Mudanças v2.42.0:
- * - Corrigida porta padrão de 8090 para 8080 (padrão Cloud Run)
- * - Cloud Run usa PORT=8080 automaticamente, desenvolvimento local pode usar outra porta via .env
- * 
- * Mudanças v2.41.0:
- * - Adicionadas dependências faltantes: @google-cloud/storage e google-auth-library
- * - Tornado carregamento de config-local condicional (apenas em desenvolvimento)
- * - Melhorado tratamento de erros no carregamento de serviços (servidor não encerra mais)
- * - Servidor agora inicia mesmo se alguns serviços falharem ao carregar
- * 
- * Mudanças v2.40.0:
- * - Atualizado endpoint confirm-upload para tornar arquivos públicos permanentemente ao invés de gerar signed URLs
- * - Removido endpoint get-read-url (não é mais necessário com arquivos públicos)
- * - Arquivos agora são tornados públicos após upload bem-sucedido
- * - URLs públicas permanentes são retornadas e salvas no MongoDB
- * 
- * Mudanças v2.39.0:
- * - Corrigido bucket de anexos do chat: agora usa GCS_BUCKET_CHAT (velochat_anexos) ao invés de GCS_BUCKET_NAME2
- * - Corrigida estrutura de pastas: removido prefixo velochat_anexos/ (pastas agora são imagens, videos, documentos, audios)
- * - Adicionado suporte para mediaType 'audio' → pasta 'audios'
- * - GCS_BUCKET_NAME2 mantido para outras mídias do VeloHub (fotos de perfil, imagens de artigos, etc.)
- * 
- * Mudanças v2.38.0:
- * - Adicionado endpoint GET /api/status para retornar chatStatus e isActive da sessão atual
- * - Endpoint permite que ChatStatusSelector exiba corretamente o status baseado no MongoDB
- * - Campo chatStatus já é inicializado corretamente na criação da sessão (logLogin)
- * 
- * Mudanças v2.37.2:
- * - Adicionados logs detalhados no endpoint get-upload-url para diagnóstico de problemas com credenciais
- * - Melhorada validação da chave privada (verificação de formato BEGIN/END PRIVATE KEY)
- * - Adicionado tratamento específico para erros de decodificação de credenciais
- * - Logs agora mostram preview das credenciais e tamanho da chave privada para debug
- * 
- * Mudanças v2.37.1:
- * - Adicionada validação de GCP_PROJECT_ID e GOOGLE_CREDENTIALS em todos os endpoints de Storage
- * - Adicionada detecção de credenciais placeholder para retornar erro claro ao usuário
- * - Melhorado tratamento de erros com mensagens específicas sobre configuração faltante
- * - Adicionada variável GCP_PROJECT_ID ao arquivo backend/env
- * 
- * Mudanças v2.37.0:
- * - Implementado upload via signed URLs para foto de perfil
- * - Adicionado endpoint GET /api/auth/profile/get-upload-url para gerar signed URL
- * - Adicionado endpoint POST /api/auth/profile/confirm-upload para confirmar upload e atualizar MongoDB
- * - Upload agora é feito diretamente do frontend para GCS, sem passar pelo backend
- * - Corrigida inicialização do Storage para suportar credenciais JSON ou caminho de arquivo
- * 
- * Mudanças v2.36.0:
- * - Adicionado endpoint GET /api/auth/profile para buscar dados do perfil
- * - Adicionado endpoint POST /api/auth/profile/change-password para alterar senha
- * - Endpoints retornam campos conforme schema MongoDB: colaboradorNome, telefone, userMail, profile_pic
- * 
- * Mudanças v2.35.0:
- * - Adicionado endpoint POST /api/auth/profile/upload-photo para upload de foto de perfil
- * - Upload para GCS (mediabank_velohub/profile_picture)
- * - Atualiza campo profile_pic no MongoDB após upload bem-sucedido
- * - Retorna URL pública do GCS
- * 
- * Mudanças v2.34.0:
- * - Adicionado endpoint POST /api/auth/login para login por email/senha
- * - Adicionado endpoint POST /api/auth/validate-access para validar acesso do usuário
- * - Validação contra console_analises.qualidade_funcionarios
- * - Verifica acessos.Velohub, desligado, afastado e suspenso
- * 
- * Mudanças v2.33.0:
- * - Adicionado endpoint PUT /api/auth/session/chat-status para atualizar chatStatus diretamente no hub_sessions
- * - Endpoint atualiza chatStatus IMEDIATAMENTE quando usuário seleciona status no ChatStatusSelector
- * - Adicionados logs detalhados da alteração de chatStatus
- * 
- * Mudanças v2.32.0:
- * - Removidas todas as rotas e referências ao RocketChat
- * - Adicionado registro das rotas do VeloChat interno (/api/chat/*)
- * - Configurado uso de VELOCHAT_DB_NAME para database do chat
- * 
- * Mudanças v2.31.15:
- * - Corrigido catch-all route para não interceptar rotas da API (app.all ao invés de app.get)
- * - Adicionados logs de debug para diagnóstico de rotas
- * - Melhorado tratamento de rotas não encontradas para retornar JSON ao invés de HTML
- * - Adicionados logs de instrumentação para debug de rotas
- * 
- * Mudanças v2.31.14:
- * - Melhorado tratamento de erro 403 no endpoint /api/images/*
- * - Adicionadas instruções detalhadas nos logs quando bucket não está público
- * - Criado documento TORNAR_BUCKET_PUBLICO.md com instruções completas
- * 
- * Mudanças v2.31.13:
- * - Alterado endpoint /api/images/* de redirecionamento (302) para proxy direto
- * - Proxy baixa imagem do GCS e serve diretamente, resolvendo ERR_BLOCKED_BY_ORB
- * - Adicionado suporte a Content-Type automático e cache de 1 ano
- * 
- * Mudanças v2.31.12:
- * - Adicionados headers CORS no endpoint /api/images/* para facilitar redirecionamento
- * 
- * Mudanças v2.31.11:
- * - Corrigido encoding duplo no endpoint /api/images/* - decodifica req.path antes de processar
- * 
- * Mudanças v2.31.10:
- * - Corrigida codificação de URLs no endpoint /api/images/* para lidar com espaços e caracteres especiais
- * - Caminhos de imagens agora são codificados corretamente antes de redirecionar para o GCS
- * 
- * Mudanças v2.31.9:
- * - Adicionado endpoint GET /api/images/* para servir imagens do Google Cloud Storage
- * - Endpoint redireciona para URL pública do GCS (storage.googleapis.com)
- * - Suporta caminhos img_velonews/ e img_artigos/
- * - Resolve problema de "imagem não encontrada" no frontend
+ * Referência (duas entradas; detalhes no Git):
+ * - v2.50.18: Chargeback GET por id / PUT `:id`; log rotas ouvidoria/chargeback ampliado
+ * - v2.50.17: Rotas GET/POST `/api/ouvidoria/chargeback` (`hub_ouvidoria.reclamacoes_chargeback`)
+ * - v2.50.2: Removidos logs de configuração WhatsApp na subida (integração descontinuada; sem WHATSAPP_* em config)
  */
 
 (function loadVelohubFonteEnv(here) {
   const path = require('path');
   const fs = require('fs');
   let d = here;
+  let bootstrapLoaded = false;
   for (let i = 0; i < 14; i++) {
     const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
     if (fs.existsSync(loader)) {
       require(loader).loadFrom(here);
-      return;
+      bootstrapLoaded = true;
+      break;
     }
     const parent = path.dirname(d);
     if (parent === d) break;
     d = parent;
+  }
+
+  // Complemento: GEMINI_API_KEY e outras linhas podem existir só no .env; o bootstrap pode não repassá-las (ou o .cjs pode não estar no disco nesta máquina).
+  try {
+    const dotenv = require('dotenv');
+    d = here;
+    for (let i = 0; i < 14; i++) {
+      const envPath = path.join(d, 'FONTE DA VERDADE', '.env');
+      if (fs.existsSync(envPath)) {
+        dotenv.config({ path: envPath });
+        if (!bootstrapLoaded) {
+          console.log('✅ FONTE DA VERDADE/.env carregado via dotenv (bootstrapFonteEnv.cjs não encontrado a partir de backend/).');
+        }
+        break;
+      }
+      const parent = path.dirname(d);
+      if (parent === d) break;
+      d = parent;
+    }
+  } catch (e) {
+    console.warn('⚠️ Complemento dotenv FONTE DA VERDADE:', e.message);
   }
 })(__dirname);
 
@@ -308,6 +104,8 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // Importar serviços do chatbot
+// VERSION: v2.20.0 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+// v2.20.0: /api/chatbot/ask — RAG primário OpenAI (2 vector stores) + fallback legado Gemini
 // VERSION: v2.19.0 | DATE: 2025-01-10 | AUTHOR: VeloHub Development Team
 let aiService, searchService, sessionService, dataCache, userActivityLogger, botFeedbackService, responseFormatter, userSessionLogger;
 
@@ -1090,6 +888,106 @@ app.get('/api/articles', async (req, res) => {
   }
 });
 
+/**
+ * Tutoriais (Conhecimento): vídeos de uma playlist do YouTube (Data API v3).
+ * Env: YOUTUBE_DATA_API_KEY (ou YOUTUBE_API_KEY); playlist: ID PL… em YOUTUBE_TUTORIAS_PLAYLIST_ID ou aliases de nome (ex.: YOUTUBE_PLAYLIST_TUTORIAL).
+ */
+app.get('/api/tutorials', async (req, res) => {
+  try {
+    const apiKey = (
+      process.env.YOUTUBE_DATA_API_KEY ||
+      process.env.YOUTUBE_API_KEY ||
+      ''
+    ).trim();
+    const playlistId = (
+      process.env.YOUTUBE_TUTORIAS_PLAYLIST_ID ||
+      process.env.YOUTUBE_TUTORIAIS_PLAYLIST_ID ||
+      process.env.YOUTUBE_PLAYLIST_ID ||
+      process.env.YOUTUBE_PLAYLIST_TUTORIAL ||
+      ''
+    ).trim();
+
+    if (!apiKey || !playlistId) {
+      return res.status(503).json({
+        success: false,
+        message:
+          'Playlist de tutoriais não configurada. Defina YOUTUBE_DATA_API_KEY (ou YOUTUBE_API_KEY) e o ID da playlist (apenas PL…, ex.: YOUTUBE_TUTORIAS_PLAYLIST_ID) na FONTE DA VERDADE/.env',
+        data: []
+      });
+    }
+
+    const items = [];
+    let pageToken = '';
+    const maxPages = 20;
+
+    for (let page = 0; page < maxPages; page++) {
+      const params = new URLSearchParams({
+        part: 'snippet,contentDetails',
+        playlistId,
+        maxResults: '50',
+        key: apiKey
+      });
+      if (pageToken) {
+        params.set('pageToken', pageToken);
+      }
+
+      const ytRes = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?${params}`);
+      const ytJson = await ytRes.json();
+
+      if (!ytRes.ok) {
+        let ytMsg = ytJson?.error?.message || `YouTube API ${ytRes.status}`;
+        if (/referer/i.test(ytMsg)) {
+          ytMsg +=
+            ' — Ajuste a chave no Google Cloud: restrições de aplicativo “Sites” exigem Referer do navegador; o backend chama sem Referer. Use “Nenhum” com restrição só de API (YouTube Data API v3), ou restrição por IP do servidor em produção.';
+        }
+        console.error('Erro YouTube playlistItems:', ytMsg);
+        return res.status(502).json({
+          success: false,
+          message: ytMsg,
+          data: []
+        });
+      }
+
+      const raw = Array.isArray(ytJson.items) ? ytJson.items : [];
+      for (const row of raw) {
+        const videoId =
+          row.contentDetails?.videoId || row.snippet?.resourceId?.videoId || null;
+        if (!videoId) {
+          continue;
+        }
+        const thumbs = row.snippet?.thumbnails;
+        const thumbnailUrl =
+          thumbs?.high?.url || thumbs?.medium?.url || thumbs?.default?.url || '';
+        items.push({
+          videoId,
+          title: row.snippet?.title || '',
+          description: row.snippet?.description || '',
+          thumbnailUrl,
+          publishedAt: row.snippet?.publishedAt || null,
+          watchUrl: `https://www.youtube.com/watch?v=${videoId}`
+        });
+      }
+
+      pageToken = ytJson.nextPageToken;
+      if (!pageToken) {
+        break;
+      }
+    }
+
+    res.json({
+      success: true,
+      data: items
+    });
+  } catch (error) {
+    console.error('Erro ao buscar tutoriais (YouTube):', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Erro ao buscar tutoriais',
+      data: []
+    });
+  }
+});
+
 app.get('/api/faq', async (req, res) => {
   try {
     if (!client) {
@@ -1540,19 +1438,20 @@ const generateAIResponseOptimized = async (question, context, sessionHistory, us
   try {
     console.log('🤖 PONTO 1: Gerando resposta da IA com contexto otimizado...');
     
-    // Usar IA primária definida no handshake do Ponto 0 (TTL 3min)
+    // Fallback legado (/api/chatbot/ask): motor preferencial Gemini (OpenAI chat só se Gemini indisponível/falhar)
     const aiStatus = aiService.statusCache.data;
-    let primaryAI = 'OpenAI'; // Fallback padrão
-    
-    if (aiStatus && aiStatus.openai && aiStatus.openai.available) {
+    let primaryAI = 'Gemini';
+
+    if (aiStatus && aiStatus.gemini && aiStatus.gemini.available) {
+      primaryAI = 'Gemini';
+    } else if (aiStatus && aiStatus.openai && aiStatus.openai.available) {
       primaryAI = 'OpenAI';
-    } else if (aiStatus && aiStatus.gemini && aiStatus.gemini.available) {
+    } else {
       primaryAI = 'Gemini';
     }
-    
-    console.log(`🤖 PONTO 1: Usando IA primária do handshake: ${primaryAI}`);
-    
-    // Gerar resposta com contexto otimizado
+
+    console.log(`🤖 PONTO 1: Fluxo legado — IA primária: ${primaryAI}`);
+
     const aiResult = await aiService.generateResponse(
       question,
       context,
@@ -1978,7 +1877,11 @@ app.get('/api/chatbot/health-check', async (req, res) => {
   }
 });
 
-// API de Chat Inteligente - PONTO 1 OTIMIZADO (Fundido com Ponto 2)
+// API de Chat Inteligente — RAG primário OpenAI (2 vector stores) + fallback legado Mongo/Gemini
+// VERSION: v2.20.2 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+// v2.20.2: /api/chatbot/ask — sem trabalho legado em paralelo ao RAG primário: log da pergunta e applyOptimizedFilter só após falha/vazio da OpenAI; resposta primária válida só se trim não vazio
+// v2.20.1: /api/chatbot/ask — messageId do fluxo legado: UUID de addMessage ou id sintético (nunca boolean; compatível se processo antigo ainda retornasse true)
+// v2.20.0: /api/chatbot/ask — ramo primário generatePrimaryVelobotVectorResponse (sem PONTO 3); fallback inalterado com Gemini motor em generateAIResponseOptimized
 app.post('/api/chatbot/ask', async (req, res) => {
   try {
     const { question, userId, sessionId, colaboradorNome: colaboradorNomeBody } = req.body;
@@ -2014,16 +1917,75 @@ app.post('/api/chatbot/ask', async (req, res) => {
       userId: cleanUserId
     });
 
-    // PONTO 1: FILTRO OTIMIZADO + LOG PARALELO
+    const logChatbotQuestion = () =>
+      userActivityLogger.logQuestion(resolvedColaboradorNome, cleanQuestion, session.id);
+
+    // Modo primário: OpenAI Responses + file_search (duas vector stores) — sem PONTO 3 / clarification
+    if (aiService.isPrimaryVelobotRagConfigured()) {
+      const sessionHistoryPrimary = sessionService.getSessionHistory(session.id);
+      const primaryResult = await aiService.generatePrimaryVelobotVectorResponse(
+        cleanQuestion,
+        sessionHistoryPrimary,
+        cleanUserId,
+        'conversational'
+      );
+
+      const primaryText =
+        primaryResult.success && primaryResult.response != null
+          ? String(primaryResult.response).trim()
+          : '';
+
+      if (primaryText) {
+        await logChatbotQuestion().catch((e) => console.warn('⚠️ Log MongoDB (primário):', e.message));
+
+        const finalResponse = parseTextContent(
+          responseFormatter.formatAIResponse(primaryText, 'openai')
+        );
+        const syntheticMessageId = `openai_vector_rag_${Date.now()}`;
+        sessionService.addMessage(session.id, 'bot', finalResponse, {
+          timestamp: new Date(),
+          source: 'openai_vector_rag',
+          aiProvider: primaryResult.provider || 'OpenAI',
+          model: primaryResult.model,
+          messageId: syntheticMessageId,
+          botPerguntaUsed: null,
+          articlesUsed: []
+        });
+
+        const responseData = {
+          success: true,
+          messageId: syntheticMessageId,
+          response: finalResponse,
+          source: 'openai_vector_rag',
+          aiProvider: primaryResult.provider || 'OpenAI',
+          sessionId: session.id,
+          tabulacao: null,
+          articles: [],
+          botPerguntaUsed: null,
+          timestamp: new Date().toISOString()
+        };
+
+        console.log(`✅ VeloBot RAG primário: resposta enviada para ${cleanUserId}`);
+        return res.json(responseData);
+      }
+
+      console.warn(
+        '⚠️ VeloBot RAG primário falhou ou resposta vazia — fluxo legado:',
+        primaryResult.error || (!primaryText && primaryResult.success ? 'texto vazio após trim' : 'sem resposta')
+      );
+    }
+
+    // PONTO 1: legado — só após primário indisponível, falha ou resposta vazia (sem paralelismo com OpenAI vector)
+    await logChatbotQuestion().catch((e) => console.warn('⚠️ PONTO 1: Erro no log MongoDB:', e.message));
+
     console.log('🔍 PONTO 1: Aplicando filtro nos campos palavrasChave e sinonimos...');
-    
-    // Executar filtro e log em paralelo
-    const [filteredResults, logResult] = await Promise.allSettled([
-      // Filtro otimizado nos campos palavrasChave e sinonimos
-      applyOptimizedFilter(cleanQuestion),
-      // Log da atividade (MongoDB) em paralelo
-      userActivityLogger.logQuestion(resolvedColaboradorNome, cleanQuestion, session.id)
-    ]);
+
+    let filteredResults;
+    try {
+      filteredResults = { status: 'fulfilled', value: await applyOptimizedFilter(cleanQuestion) };
+    } catch (reason) {
+      filteredResults = { status: 'rejected', reason };
+    }
 
     // Processar resultados do filtro
     let botPerguntasData = [];
@@ -2035,13 +1997,6 @@ app.post('/api/chatbot/ask', async (req, res) => {
       console.log(`✅ PONTO 1: Filtro aplicado - ${botPerguntasData.length} perguntas relevantes, ${articlesData.length} artigos`);
     } else {
       console.error('❌ PONTO 1: Erro no filtro:', filteredResults.reason);
-    }
-
-    // Processar resultado do log
-    if (logResult.status === 'fulfilled') {
-      console.log('✅ PONTO 1: Log enviado ao MongoDB em paralelo');
-    } else {
-      console.warn('⚠️ PONTO 1: Erro no log MongoDB:', logResult.reason);
     }
 
     // PONTO 1: ENVIO PARA IA COM CONTEXTO RECENTE E PROMPT
@@ -2194,14 +2149,18 @@ app.post('/api/chatbot/ask', async (req, res) => {
       }
     }
 
-    // Adicionar resposta à sessão
-    const messageId = sessionService.addMessage(session.id, 'bot', finalResponse, {
+    // Adicionar resposta à sessão (addMessage retorna UUID; fallback evita messageId boolean em processo legado não reiniciado)
+    const addedMessageId = sessionService.addMessage(session.id, 'bot', finalResponse, {
       timestamp: new Date(),
       source: responseSource,
       aiProvider: aiProvider,
       botPerguntaUsed: botPerguntasData.length > 0 ? botPerguntasData[0]._id : null,
       articlesUsed: articlesData.slice(0, 3).map(a => a._id)
     });
+    const messageId =
+      typeof addedMessageId === 'string' && addedMessageId
+        ? addedMessageId
+        : `velobot_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
     // Preparar tabulação: garantir que seja do MESMO documento da resposta
     // - Se IA identificou 1 opção perfeita: usar aiAnalysis.relevantOptions[0] (documento correto)
@@ -2542,6 +2501,85 @@ Use APENAS a inteligência acima para desenvolver o e-mail conforme o template d
       success: false,
       error: 'Erro interno do servidor',
       response: 'Desculpe, ocorreu um erro ao processar sua solicitação. Tente novamente.',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Refinar Rascunho (Gemini) — painel ao lado do FAQ na página VeloBot / Processos
+app.post('/api/chatbot/refinar-rascunho', async (req, res) => {
+  try {
+    const { rascunho, userId, sessionId, nomeOperador, colaboradorNome: colaboradorNomeBody } = req.body;
+
+    if (rascunho == null || typeof rascunho !== 'string' || !String(rascunho).trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Rascunho é obrigatório'
+      });
+    }
+    const texto = String(rascunho).trim();
+    if (texto.length > 25000) {
+      return res.status(400).json({
+        success: false,
+        error: 'Rascunho excede o limite de 25.000 caracteres'
+      });
+    }
+
+    const cleanUserId = userId || 'anonymous';
+    const cleanSessionId = sessionId || null;
+    const resolvedColaboradorNome = await resolveColaboradorNomeForChatbotLog(cleanUserId, colaboradorNomeBody);
+
+    if (!aiService.isGeminiConfigured()) {
+      return res.status(503).json({
+        success: false,
+        error: 'Serviço Gemini não configurado'
+      });
+    }
+
+    const aiStatus = await aiService.testConnection();
+    if (!aiStatus.gemini.available) {
+      return res.status(503).json({
+        success: false,
+        error: 'Serviço Gemini indisponível no momento. Tente novamente em instantes.'
+      });
+    }
+
+    const aiResult = await aiService.generateRefinarRascunhoWithGemini({
+      rascunho: texto,
+      nomeOperador: nomeOperador != null ? String(nomeOperador) : '',
+      userId: cleanUserId
+    });
+
+    if (!aiResult.success) {
+      return res.status(500).json({
+        success: false,
+        error: aiResult.error || 'Não foi possível refinar o rascunho',
+        ...(process.env.NODE_ENV === 'development' && aiResult.error ? { details: aiResult.error } : {})
+      });
+    }
+
+    try {
+      await userActivityLogger.logAIButtonUsage(resolvedColaboradorNome, 'refinarRascunho', cleanSessionId);
+    } catch (logErr) {
+      console.warn('⚠️ Refinar Rascunho: log user_activity opcional falhou:', logErr.message);
+    }
+
+    const responseData = {
+      success: true,
+      response: parseTextContent(responseFormatter.formatAIResponse(aiResult.response, aiResult.provider || 'Gemini')),
+      aiProvider: aiResult.provider,
+      model: aiResult.model,
+      source: 'refinar_rascunho',
+      timestamp: new Date().toISOString(),
+      sessionId: cleanSessionId
+    };
+
+    res.json(responseData);
+  } catch (error) {
+    console.error('❌ Refinar Rascunho Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
@@ -5063,7 +5101,7 @@ app.put('/api/auth/session/chat-status', async (req, res) => {
       // Notificar VeloChat Server sobre mudança de status (para emitir evento WebSocket)
       // NOTA: O VeloChat Server deve ter um endpoint POST /api/notify-status-change
       // que recebe { userEmail, status, timestamp } e emite evento WebSocket
-      const velochatServerUrl = process.env.VELOCHAT_SERVER_URL || 'http://localhost:3002';
+      const velochatServerUrl = process.env.VELOCHAT_SERVER_URL || 'http://localhost:8091';
       
       // Log no console do backend para debug
       console.log(`📡 [STATUS CHANGE] Tentando notificar VeloChat Server: ${velochatServerUrl}/api/notify-status-change`);
@@ -5416,7 +5454,7 @@ let moduleStatusCache = {
 
 // Timestamp do último cache para controle de validade
 let lastCacheUpdate = null;
-const CACHE_VALIDITY_MS = 3 * 60 * 1000; // 3 minutos
+const CACHE_VALIDITY_MS = 60 * 1000; // 1 minuto (alinhado ao polling do Hub)
 
 // Forçar atualização imediata do cache na inicialização
 console.log('🔄 Forçando atualização inicial do cache de status...');
@@ -5770,6 +5808,9 @@ app.put('/api/module-status', async (req, res) => {
 // ===== API CRUD PARA MÓDULO APOIO =====
 console.log('🔧 Registrando rotas do módulo Apoio...');
 
+const { notifySkynetNewTicket } = require('./services/support/skynetNotifyNewTicket');
+const { notifySkynetUserReply } = require('./services/support/skynetNotifyUserReply');
+
 // CREATE - Criar tickets tk_conteudos
 app.post('/api/support/tk-conteudos', async (req, res) => {
   try {
@@ -5815,11 +5856,14 @@ app.post('/api/support/tk-conteudos', async (req, res) => {
       _statusHub: 'pendente',      // NOVO: valor padrão
       _statusConsole: 'novo',      // NOVO: valor padrão
       _lastUpdatedBy: 'user',      // NOVO: valor padrão
+      notification: false,
       createdAt: new Date(),
       updatedAt: new Date()
     };
     
     await collection.insertOne(ticketData);
+
+    notifySkynetNewTicket({ ticketId: newId, collectionKind: 'tk_conteudos' });
     
     res.json({ success: true, ticketId: newId });
   } catch (error) {
@@ -5865,11 +5909,14 @@ app.post('/api/support/tk-gestao', async (req, res) => {
       _statusHub: 'pendente',      // NOVO: valor padrão
       _statusConsole: 'novo',      // NOVO: valor padrão
       _lastUpdatedBy: 'user',      // NOVO: valor padrão
+      notification: false,
       createdAt: new Date(),
       updatedAt: new Date()
     };
     
     await collection.insertOne(ticketData);
+
+    notifySkynetNewTicket({ ticketId: newId, collectionKind: 'tk_gestao' });
     
     res.json({ success: true, ticketId: newId });
   } catch (error) {
@@ -5962,6 +6009,10 @@ app.put('/api/support/tk-conteudos', async (req, res) => {
       });
     }
 
+    if (novaMensagem.autor === 'user') {
+      notifySkynetUserReply({ ticketId: _id, collectionKind: 'tk_conteudos' });
+    }
+
     res.json({ success: true, message: 'Ticket atualizado com sucesso' });
   } catch (error) {
     console.error('❌ Erro ao atualizar ticket de conteúdo:', error);
@@ -6043,6 +6094,10 @@ app.put('/api/support/tk-gestao', async (req, res) => {
         success: false,
         error: 'Falha ao atualizar ticket'
       });
+    }
+
+    if (novaMensagem.autor === 'user') {
+      notifySkynetUserReply({ ticketId: _id, collectionKind: 'tk_gestao' });
     }
 
     res.json({ success: true, message: 'Ticket atualizado com sucesso' });
@@ -6339,14 +6394,13 @@ try {
   console.log('📦 Carregando módulos de Escalações...');
   const initSolicitacoesRoutes = require('./routes/api/escalacoes/solicitacoes');
   const initErrosBugsRoutes = require('./routes/api/escalacoes/erros-bugs');
-  const initLogsRoutes = require('./routes/api/escalacoes/logs');
   const initApoioN1Routes = require('./routes/api/escalacoes/apoio-n1');
   const createEscalacoesIndexes = require('./routes/api/escalacoes/indexes');
   console.log('✅ Módulos carregados com sucesso');
 
   console.log('🔧 Inicializando routers...');
   // Registrar rotas
-  let solicitacoesRouter, errosBugsRouter, logsRouter, apoioN1Router;
+  let solicitacoesRouter, errosBugsRouter, apoioN1Router;
   
   try {
     solicitacoesRouter = initSolicitacoesRoutes(client, connectToMongo, { userActivityLogger });
@@ -6367,14 +6421,6 @@ try {
     throw error;
   }
   
-  try {
-    logsRouter = initLogsRoutes(client, connectToMongo);
-    console.log('✅ Router de logs inicializado:', typeof logsRouter);
-  } catch (error) {
-    console.error('❌ Erro ao inicializar router de logs:', error);
-    throw error;
-  }
-
   try {
     apoioN1Router = initApoioN1Routes(client, connectToMongo);
     console.log('✅ Router Apoio N1 (Req_Prod) inicializado:', typeof apoioN1Router);
@@ -6407,7 +6453,6 @@ try {
   }
   
   app.use('/api/escalacoes/erros-bugs', errosBugsRouter);
-  app.use('/api/escalacoes/logs', logsRouter);
   app.use('/api/escalacoes/apoio-n1', apoioN1Router);
   
   console.log('✅ Rotas registradas no Express');
@@ -6428,8 +6473,10 @@ try {
   console.log('✅ Rotas do módulo Escalações registradas com sucesso!');
   console.log('📋 Rotas disponíveis:');
   console.log('   - GET/POST/PUT/DELETE /api/escalacoes/solicitacoes');
+  console.log(
+    '   - POST /api/escalacoes/solicitacoes/dev/marcar-chamado-status/:id — só dev/local (VELOHUB_DEV_MARCACAO_*)'
+  );
   console.log('   - GET/POST /api/escalacoes/erros-bugs');
-  console.log('   - GET/POST /api/escalacoes/logs');
   console.log('   - GET /api/escalacoes/apoio-n1/overview, /api/escalacoes/apoio-n1/agentes (credencial Apoio N1)');
 } catch (error) {
   console.error('❌ Erro ao registrar rotas de Escalações:', error.message);
@@ -6457,6 +6504,7 @@ try {
   const initRelatoriosRoutes = require('./routes/api/ouvidoria/relatorios');
   const initAnexosRoutes = require('./routes/api/ouvidoria/anexos');
   const initColaboradoresRoutes = require('./routes/api/ouvidoria/colaboradores');
+  const initChargebackRoutes = require('./routes/api/ouvidoria/chargeback');
   const checkOuvidoriaAccess = require('./middleware/ouvidoriaAccess');
   
   console.log('📦 Carregando módulos de Ouvidoria...');
@@ -6470,6 +6518,7 @@ try {
   const relatoriosRouter = initRelatoriosRoutes(client, connectToMongo);
   const anexosRouter = initAnexosRoutes(client, connectToMongo);
   const colaboradoresRouter = initColaboradoresRoutes(client, connectToMongo);
+  const chargebackRouter = initChargebackRoutes(client, connectToMongo);
   
   // Logs de debug para verificar se routers foram inicializados corretamente
   console.log('🔍 [DEBUG] Verificando routers inicializados:');
@@ -6478,6 +6527,8 @@ try {
   console.log(`   - clientesRouter: ${typeof clientesRouter} ${clientesRouter ? '(OK)' : '(NULL/UNDEFINED)'}`);
   console.log(`   - relatoriosRouter: ${typeof relatoriosRouter} ${relatoriosRouter ? '(OK)' : '(NULL/UNDEFINED)'}`);
   console.log(`   - anexosRouter: ${typeof anexosRouter} ${anexosRouter ? '(OK)' : '(NULL/UNDEFINED)'}`);
+  console.log(`   - colaboradoresRouter: ${typeof colaboradoresRouter} ${colaboradoresRouter ? '(OK)' : '(NULL/UNDEFINED)'}`);
+  console.log(`   - chargebackRouter: ${typeof chargebackRouter} ${chargebackRouter ? '(OK)' : '(NULL/UNDEFINED)'}`);
   
   if (dashboardRouter) {
     console.log(`   - dashboardRouter.get: ${typeof dashboardRouter.get === 'function' ? 'OK' : 'NÃO É FUNÇÃO'}`);
@@ -6513,6 +6564,10 @@ try {
     console.error('❌ [ERRO CRÍTICO] colaboradoresRouter é null ou undefined!');
     throw new Error('colaboradoresRouter não foi inicializado corretamente');
   }
+  if (!chargebackRouter) {
+    console.error('❌ [ERRO CRÍTICO] chargebackRouter é null ou undefined!');
+    throw new Error('chargebackRouter não foi inicializado corretamente');
+  }
   
   // Aplicar middleware de acesso em todas as rotas do módulo Ouvidoria
   console.log('📝 [DEBUG] Registrando rota: /api/ouvidoria/dashboard');
@@ -6522,6 +6577,7 @@ try {
   app.use('/api/ouvidoria/relatorios', ouvidoriaAccessMiddleware, relatoriosRouter);
   app.use('/api/ouvidoria/anexos', ouvidoriaAccessMiddleware, anexosRouter);
   app.use('/api/ouvidoria/colaboradores', ouvidoriaAccessMiddleware, colaboradoresRouter);
+  app.use('/api/ouvidoria/chargeback', ouvidoriaAccessMiddleware, chargebackRouter);
   
   console.log('✅ Rotas registradas no Express');
   console.log('🔍 [DEBUG] Verificando se rotas foram registradas corretamente...');
@@ -6535,6 +6591,10 @@ try {
   console.log('   - GET /api/ouvidoria/relatorios');
   console.log('   - POST /api/ouvidoria/anexos/upload');
   console.log('   - GET /api/ouvidoria/colaboradores');
+  console.log('   - GET /api/ouvidoria/chargeback');
+  console.log('   - POST /api/ouvidoria/chargeback');
+  console.log('   - GET /api/ouvidoria/chargeback/:id');
+  console.log('   - PUT /api/ouvidoria/chargeback/:id');
 } catch (error) {
   console.error('❌ Erro ao registrar rotas de Ouvidoria:', error.message);
   console.error('Stack:', error.stack);

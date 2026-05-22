@@ -1,6 +1,6 @@
 /**
  * Script para Atualizar Índices de Texto MongoDB
- * VERSION: v1.0.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.2 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
  * 
  * Este script remove índices existentes e cria novos otimizados
  * baseado na análise de volume de dados.
@@ -10,15 +10,7 @@
  */
 
 const { MongoClient } = require('mongodb');
-
-// ATENÇÃO: Credenciais removidas por segurança. Use variável de ambiente MONGO_ENV
-const MONGODB_URI = process.env.MONGO_ENV || process.env.MONGODB_ENV;
-
-if (!MONGODB_URI) {
-  console.error('❌ ERRO CRÍTICO: Variável de ambiente MONGO_ENV não configurada!');
-  console.error('Configure a variável MONGO_ENV com a string de conexão MongoDB.');
-  process.exit(1);
-}
+const { MONGODB_URI } = require('./loadMongoUri');
 
 /**
  * Conecta ao MongoDB

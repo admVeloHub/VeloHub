@@ -1,0 +1,23 @@
+---
+description: VeloHub — não adicionar textos explicativos opcionais sob títulos nem microcopy de UX sem pedido
+alwaysApply: true
+---
+
+# Cópia de interface — sem “subtítulos de ajuda” por iniciativa
+
+## Obrigatório
+
+- **Não** incluir, por iniciativa própria:
+  - parágrafos explicativos debaixo de títulos de seção (`h1`–`h3` ou equivalente visual);
+  - linhas do tipo “como usar”, “na visão resumida…”, dicas gerais de uso;
+  - microcopy extra só para “deixar mais claro” quando o usuário não pediu texto novo.
+
+## Permitido sem pedido explícito
+
+- Rótulos de campo, placeholders quando já existirem no padrão do projeto.
+- `aria-label`, `aria-describedby`, mensagens de erro/validação e textos legais obrigatórios.
+- Cópia nova **só** quando o usuário pedir texto, tela ou alteração de wording aplicada a esse fim.
+
+## Quando houver dúvida
+
+- Preferir **menos texto** na tela; não suprir explicações não solicitadas.

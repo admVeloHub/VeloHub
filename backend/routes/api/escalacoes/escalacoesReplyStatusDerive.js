@@ -1,8 +1,8 @@
 /**
  * VeloHub V3 - Escalações: derivação de status do chamado (paridade com frontend)
- * VERSION: v1.0.0 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.1 | DATE: 2026-05-15 | AUTHOR: VeloHub Development Team
  *
- * Espelha a lógica de `getStatusChamado` em `src/utils/escalacoesModalHelpers.js`
+ * Espelha a lógica de `getStatusChamado` em `src/utils/requisicoesModalHelpers.js`
  * para filtros server-side em rotas restritas (ex.: Apoio N1).
  */
 

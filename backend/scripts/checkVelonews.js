@@ -6,7 +6,7 @@
 const { MongoClient } = require('mongodb');
 
 // ATENÇÃO: Credenciais removidas por segurança. Use variável de ambiente MONGO_ENV
-const MONGODB_URI = process.env.MONGO_ENV || 'mongodb://localhost:27017/console_conteudo';
+const { MONGODB_URI } = require('./loadMongoUri');
 
 const checkVelonews = async () => {
   let client;

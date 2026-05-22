@@ -1,31 +1,10 @@
 /**
  * Hook useWebSocket - VeloChat Frontend
- * VERSION: v3.3.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v3.3.0:
- * - Adicionado suporte a eventos de edição de mensagens (p2p_message_edited e sala_message_edited)
- * - Adicionado callback onMessageEdited para sincronização em tempo real de mensagens editadas
- * 
- * Mudanças v3.2.0:
- * - Adicionado suporte a mediaUrl e mediaType em p2p_message_received e sala_message_received
- * - Atualizado sendMessage para aceitar e enviar mediaUrl e mediaType
- * 
- * Mudanças v3.1.0:
- * - Corrigido problema de reconexões constantes: adicionada verificação para evitar múltiplas conexões
- * - Melhorado tratamento de desconexões: apenas desconecta se realmente necessário
- * - Adicionados logs de debug para rastrear problemas de conexão
- * - Aumentado reconnectionAttempts para 10 e reconnectionDelay para 2000ms
- * 
- * Mudanças v3.0.0:
- * - Adicionados listeners para eventos p2p_message_received e sala_message_received
- * - Atualizado sendMessage para detectar tipo de conversa automaticamente
- * 
- * Mudanças v2.0.0:
- * - Adicionados listeners para atualização em tempo real de contatos e conversas
- * - Eventos: contact_online, contact_offline, contact_status_changed
- * - Eventos: conversation_created, conversation_updated, last_message_updated
- * 
- * Hook React para gerenciar conexão WebSocket com VeloChat Server
+ * VERSION: v3.3.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v3.3.0: Adicionado suporte a eventos de edição de mensagens (p2p_message_edited e sala_message_edited)
+ * - v3.2.0: Adicionado suporte a mediaUrl e mediaType em p2p_message_received e sala_message_received
  */
 
 import { useEffect, useRef, useState } from 'react';

@@ -1,148 +1,128 @@
 /**
  * VeloHub V3 - Dashboard Ouvidoria Component
- * VERSION: v2.7.0 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v2.7.0:
- * - PRODUTOS_OPCOES: união de todos os value de produto dos forms BACEN/N2/RA/Procon/Judicial (FormReclamacao/Edit) para filtro multiselect
- * 
- * Mudanças v2.6.0:
- * - Filtro produto: value/label Empréstimo Pessoal e Crédito Trabalhador (alinhado FormReclamacao v3.38)
- * 
- * Mudanças v2.5.0:
- * - Adicionada categoria Judicial no dashboard
- * - Adicionado card "Ped. Liberação" (solLiberacao) nos grids por tipo
- * - Grids por tipo: N2, Reclame Aqui, Bacen, Procon, Judicial, Total
- * 
- * Mudanças v2.4.1:
- * - Opacidade do wrapping reduzida para 15%
- * 
- * Mudanças v2.4.0:
- * - Produto: "Antecipação" exibe "Antecipação Outros Anos"; novo "Antecipação 2026"
- * 
- * Mudanças v2.3.0:
- * - Removido tipo Judicial do dashboard (apenas N2, Reclame Aqui, Bacen, Procon) - REVERTIDO em v2.5.0
- * 
- * Mudanças v2.2.0:
- * - Adicionado card "% de Retenção" (percentual de ocorrências com pix retido)
- * - Grids aumentados: 7→8 colunas nos tipos, 4→5 no Total
- * 
- * Mudanças v2.1.1:
- * - Labels dos cards em preto (text-black)
- * 
- * Mudanças v2.1.0:
- * - Adicionado filtro Produto com seleção múltipla (dropdown multiselect)
- * - Produtos passados para onRefresh e aplicados no backend
- * - Lista de produtos alinhada ao FormReclamacaoEdit
- * 
- * Mudanças v2.0.3:
- * - Títulos em azul escuro (#000058) e fonte maior (text-lg)
- * 
- * Mudanças v2.0.2:
- * - Opacidade do wrapping reduzida para 30%; títulos em branco
- * 
- * Mudanças v2.0.1:
- * - Wrapping com preenchimento na cor do tipo (50% opacidade) ao invés de contorno
- * 
- * Mudanças v2.0.0:
- * - Refatoração completa: 6 grids com wrapping colorido por tipo
- * - 5 grids (1Lx7C): N2, Reclame Aqui, Bacen, Procon, Judicial
- * - 1 grid Total (2Lx4C): Ocorrências, Em Aberto, Resolvido, Prazo Médio, CA e Protocolos, Pix Liberado, Pix Retido, Taxa de Resolução
- * - Consome data.porTipo da API /stats
- * - Fallback para API antiga (exibe grid vazio ou mensagem)
- * 
- * Mudanças v1.9.1:
- * - Melhorado alinhamento dos botões de período rápido:
- *   - Alterado container interno de items-center para items-end para alinhar com inputs acima
- *   - Adicionado mb-0.5 no label "Período rápido:" para melhor alinhamento vertical
- *   - Garantido alinhamento consistente na mesma linha base com os inputs de data
- * 
- * Mudanças v1.9.0:
- * - Reposicionado botão "Filtrar" ao lado do campo "Data Fim" (removido da área de botões de período rápido)
- * - Aplicado padrão estético usado em outros componentes (ListaReclamacoes.js, AnaliseDiaria.js):
- *   - borderColor: '#006AB9', color: '#006AB9', background: 'transparent'
- *   - Efeitos hover com gradient (linear-gradient(135deg, #006AB9 0%, #006AB9 100%))
- *   - text-sm px-4 py-2 (tamanho maior que os botões de período rápido)
- * - Ajustado grid para acomodar o botão ao lado do campo Data Fim
- * 
- * Mudanças v1.8.0:
- * - Removido useEffect que atualizava automaticamente quando dataInicio ou dataFim mudavam
- * - Criados estados separados: dataInicioInput/dataFimInput (inputs) e dataInicio/dataFim (filtros aplicados)
- * - Adicionada função aplicarFiltro() para aplicar filtros manualmente
- * - Adicionado botão "Filtrar" ao lado dos botões de período rápido
- * - Botões de período rápido agora apenas atualizam os inputs (não aplicam automaticamente)
- * - Botão "Limpar" agora limpa inputs e aplica filtro vazio
- * 
- * Mudanças v1.7.0:
- * - Adicionados cards "Pix Liberado" e "Para Cobrança" na linha 3 após "Liquidação Antecipada"
- * - Adicionados campos pixLiberado e paraCobranca ao statsData default
- * 
- * Mudanças v1.6.0:
- * - Grid alterado de 4 colunas para 5 colunas
- * - Reorganizados cards conforme nova estrutura:
- *   - Linha 1: Bacen, N2 Pix, Reclame Aqui, Procon, Ação Judicial
- *   - Linha 2: Em Aberto, Resolvido (renomeado de Concluída), Prazo Vencendo, Total de Reclamações, Taxa de Resolução
- *   - Linha 3: CA e Protocolos, Prazo Médio (renomeado de Média de Prazo), Liquidação Antecipada (2 células vazias)
- * - Adicionados campos reclameAqui e acaoJudicial ao statsData default
- * 
- * Mudanças v1.5.0:
- * - Adicionado filtro de data com campos dataInicio e dataFim
- * - Adicionados botões de período rápido (Hoje, Semana, Mês)
- * - Filtros são passados para a função onRefresh
- * 
- * Mudanças v1.4.0:
- * - Reorganizado dashboard para grid 4x3 (4 colunas, 3 linhas)
- * - Linha 1: Total de Reclamações, BACEN, Ouvidoria, Liquidação Antecipada
- * - Linha 2: Em Aberto, Concluída, Prazo Vencendo, Taxa de Resolução
- * - Linha 3: CA e Protocolos, Com Procon, Média de Prazo
- * - Adicionados cards para BACEN e Ouvidoria separados
- * - Adicionado card para CA e Protocolos
- * 
- * Mudanças v1.3.1:
- * - Removido título "Métricas Específicas"
- * 
- * Mudanças v1.3.0:
- * - Aplicado padrão de container secundário aos cards (bg-gray-50 dark:bg-gray-700)
- * - Removidos ícones das métricas
- * - Adequadas fontes conforme padrão do projeto (text-xs para labels, text-2xl para valores)
- * 
- * Mudanças v1.2.0:
- * - Removido cabeçalho do dashboard e seu container
- * - Botão atualizar removido (movido para sidebar)
- * 
- * Mudanças v1.1.0:
- * - Containers padronizados com classes velohub-card conforme LAYOUT_GUIDELINES.md
- * 
- * Componente de Dashboard do módulo de Ouvidoria
+ * VERSION: v2.10.6 | DATE: 2026-05-18 | AUTHOR: VeloHub Development Team
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v2.10.6: Painel executivo — label e valor dos mostradores alinhados à direita (`MetricPillPainelAdministrativo`)
+ * - v2.10.5: Mostradores dos cards — linha única (`flex-nowrap`), ocupam largura igual; label/valor à direita; sem 2ª linha de pills (scroll horizontal em telas estreitas)
+ * - v2.10.4: Ícone Lucide + tamanho uniforme só em `MetricPillPainelAdministrativo` (topo); nos cards volta `MetricPill` compacta + `flex-wrap`
+ * - v2.10.3: Lucide v0.263 — ícone «reclamações» via `AlertTriangle` (`MessageSquareWarning` não exportado nesta versão)
+ * - v2.10.2: `MetricPill` com label + ícone (Lucide); caixa uniforme (`min-h`/largura cheia nas grades); painel 5×2 com células esticadas
+ * - v2.10.1: Painel exec. (`porTipo.Total` 5×2) sem IIFE; `RingPercDashboard` mantido nos cards expandidos
+ * - v2.10.0: Painel exec. — apenas `MetricPill` `porTipo.Total` em grade 5×2; pills compactas (`w-fit`); canal em grade 2 col.; card Total removido; mostradores em `flex-wrap`
+ * - v2.9.3: Removidas curvas tipo sparkline sob as pills de métricas (sem referência visual a gráficos)
+ * - v2.9.2: KPIs e cards de canal sem subtítulo secundário; anel de retenção só com `aria-label`
+ * - v2.9.1: Removido parágrafo explicativo sob o título «Desempenho por canal»
+ * - v2.7.4: PRODUTOS_OPCOES centralizado em `utils/ouvidoriaProdutoOpcoes` (OUVIDORIA_PRODUTO_OPCOES)
+ * - v2.7.0: PRODUTOS_OPCOES: união de todos os value de produto dos forms BACEN/N2/RA/Procon/Judicial (FormReclamacao/Edit) para filtro multiselect
+ * - v2.6.0: Filtro produto: value/label Empréstimo Pessoal e Crédito Trabalhador (alinhado FormReclamacao v3.38)
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import {
+  AlertTriangle,
+  BarChart3,
+  Building2,
+  CheckCircle2,
+  Clock,
+  FileText,
+  Globe2,
+  Inbox,
+  KeyRound,
+  Lock,
+  Percent,
+  Send,
+  TrendingUp,
+} from 'lucide-react';
+import { OUVIDORIA_PRODUTO_OPCOES } from '../../utils/ouvidoriaProdutoOpcoes';
 
-/**
- * Produtos do módulo reclamações: value idêntico ao salvo no Mongo (FormReclamacao / FormReclamacaoEdit).
- * Label: exibição no filtro; value "Antecipação" usa "Antecipação Outros Anos" (como BACEN/Procon/Judicial).
- */
-const PRODUTOS_OPCOES = [
-  { value: 'Antecipação 2026', label: 'Antecipação 2026' },
-  { value: 'Antecipação', label: 'Antecipação Outros Anos' },
-  { value: 'Empréstimo Pessoal', label: 'Empréstimo Pessoal' },
-  { value: 'Crédito Trabalhador', label: 'Crédito Trabalhador' },
-  { value: 'Conta Celcoin', label: 'Conta Celcoin' },
-  { value: 'Seguros', label: 'Seguros' },
-  { value: 'Aplicativo', label: 'Aplicativo' },
-  { value: 'Clube Velotax', label: 'Clube Velotax' },
-  { value: 'Cupom', label: 'Cupom' },
-  { value: 'Veloprime', label: 'Veloprime' },
-  { value: 'Desativado', label: 'Desativado' },
-  { value: 'Cupons Velotax', label: 'Cupons Velotax' },
-  { value: 'QueroQuitar', label: 'QueroQuitar' },
-  { value: 'Seguro DividaZero', label: 'Seguro DividaZero' },
-  { value: 'Seguro Celular', label: 'Seguro Celular' },
-  { value: 'Seguro Prestamista', label: 'Seguro Prestamista' },
-  { value: 'Seguro Saúde', label: 'Seguro Saúde' },
-  { value: 'Calculadora', label: 'Calculadora' },
-  { value: 'App', label: 'App' },
-  { value: 'Outras Ocorrências', label: 'Outras Ocorrências' },
-];
+/** Alias local — mesma lista que Dashboard e FormChargeback */
+const PRODUTOS_OPCOES = OUVIDORIA_PRODUTO_OPCOES;
+
+/** Ordens dos canais na lista principal */
+const CANAIS_DASHBOARD = ['N2', 'Reclame Aqui', 'Bacen', 'Procon', 'Judicial'];
+
+/** PNG em `public/icones dash/` — nome do arquivo por canal */
+const CANAL_ICONE_ARQUIVO = {
+  N2: 'icon n2.png',
+  'Reclame Aqui': 'icon RA.png',
+  Bacen: 'icon bacen.png',
+  Procon: 'icon procon.png',
+  Judicial: 'icon judicial.png',
+};
+
+/** Ícone Lucide por rótulo — apenas no painel administrativo (total no topo). */
+function metricIconForLabel(label) {
+  const raw = String(label || '').trim();
+  const low = raw.toLowerCase();
+  if (low.includes('consumidor')) return Globe2;
+  if (low === 'procon' || (low.includes('procon') && !low.includes('consumidor'))) return Building2;
+  if (/\btaxa\b/.test(low) && /resolu/.test(low)) return TrendingUp;
+  if ((/%/.test(low) || /perc/i.test(low)) && /reten/.test(low)) return Percent;
+  if (/^liberados$/i.test(raw)) return Send;
+  if (/ped/i.test(low) && /liber/.test(low)) return KeyRound;
+  if (/prazo/.test(low) && /m[eé]dio/.test(low)) return Clock;
+  if (/ca\s+e\s+prot/i.test(low)) return FileText;
+  if (/em\s+aberto/.test(low)) return Inbox;
+  if (/liberad/.test(low)) return Send;
+  if (/retid/.test(low)) return Lock;
+  if (/resolv/.test(low)) return CheckCircle2;
+  if (/reclama/.test(low)) return AlertTriangle;
+  return BarChart3;
+}
+
+/** URL pública codificada (espaços na pasta «icones dash») */
+function urlIconeDashboard(arquivo) {
+  const root = String(process.env.PUBLIC_URL || '').replace(/\/$/, '');
+  const rel = `/icones dash/${arquivo}`;
+  return encodeURI(`${root}${rel}`);
+}
+
+/** Indicador circular de % (métricas expandidas; sem rótulo visível — só aria) */
+function RingPercDashboard({ percent }) {
+  const p = Math.min(100, Math.max(0, Number(percent) || 0));
+  const size = 56;
+  const stroke = 5;
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = (size - stroke) / 2 - 3;
+  const c = 2 * Math.PI * r;
+  const dash = (p / 100) * c;
+  const pctStr = `${p.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
+  return (
+    <div
+      className="flex flex-col items-center px-2 py-1"
+      role="img"
+      aria-label={`Retenção: ${pctStr}`}
+    >
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90" aria-hidden>
+          <circle
+            cx={cx}
+            cy={cy}
+            r={r}
+            fill="none"
+            className="stroke-gray-200 dark:stroke-gray-600"
+            strokeWidth={stroke}
+          />
+          <circle
+            cx={cx}
+            cy={cy}
+            r={r}
+            fill="none"
+            className="stroke-[#006AB9] dark:stroke-[#93c5fd]"
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={`${dash} ${c}`}
+          />
+        </svg>
+        <span className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[11px] font-bold tabular-nums text-[#000058] dark:text-gray-100">
+          {pctStr}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 const DashboardOuvidoria = ({ stats, loading, onRefresh }) => {
   // Estados para os inputs (não disparam atualização automática)
@@ -157,6 +137,8 @@ const DashboardOuvidoria = ({ stats, loading, onRefresh }) => {
   const [produtosSelecionados, setProdutosSelecionados] = useState([]);
   const [produtoDropdownAberto, setProdutoDropdownAberto] = useState(false);
   const produtoDropdownRef = useRef(null);
+  /** @type {Record<string, boolean>} */
+  const [cardsExpandidos, setCardsExpandidos] = useState({});
 
   // Fechar dropdown ao clicar fora
   useEffect(() => {
@@ -272,17 +254,189 @@ const DashboardOuvidoria = ({ stats, loading, onRefresh }) => {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   };
 
-  const CardMetric = ({ label, value, suffix = '' }) => (
-    <div
-      className="bg-gray-50 dark:bg-gray-700 p-3 rounded-xl text-center border hover:-translate-y-0.5 transition-transform"
-      style={{ borderColor: '#000058' }}
-    >
-      <div className="text-xs text-black">{label}</div>
-      <div className="text-2xl font-semibold text-gray-800 dark:text-gray-200">
-        {value ?? 0}{suffix}
-      </div>
+  /** Exibição numérica nas pills (inteiro | decimal | já com sufixo %) */
+  const fmtValorMetrica = (val, modo = 'int') => {
+    if (val === '' || val == null || Number.isNaN(Number(val))) return '—';
+    const n = Number(val);
+    if (modo === 'decimal') {
+      return n.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    }
+    return Math.round(n).toLocaleString('pt-BR');
+  };
+
+  /** Mostradores dos cards — uma linha, largura igual, conteúdo à direita, sem segunda linha de pills (scroll horizontal só em telas estreitas). */
+  const MetricPill = ({ label, value, suffix = '', valorModo = 'int' }) => (
+    <div className="flex min-h-[3.625rem] min-w-0 flex-1 basis-0 flex-col justify-center rounded-xl border border-gray-100 bg-gradient-to-b from-white to-[#f4f7fb] px-3 py-2.5 shadow-sm dark:border-gray-600 dark:from-gray-800 dark:to-gray-900/80 md:min-h-[3.875rem] md:px-4 md:py-3">
+      <span className="truncate whitespace-nowrap text-right text-[10px] font-semibold uppercase leading-tight tracking-wide text-gray-500 dark:text-gray-400 sm:text-[11px]">
+        {label}
+      </span>
+      <span className="truncate whitespace-nowrap text-right text-lg font-bold tabular-nums leading-tight text-[#000058] dark:text-[#93c5fd] sm:text-xl md:text-[1.35rem]">
+        {fmtValorMetrica(value, valorModo)}
+        {suffix}
+      </span>
     </div>
   );
+
+  /** Painel administrativo (topo — agregado Total): label + ícone + mesmo tamanho na grade 5×2. */
+  const MetricPillPainelAdministrativo = ({ label, value, suffix = '', valorModo = 'int' }) => {
+    const IconGlyph = metricIconForLabel(label);
+    return (
+      <div className="flex h-full min-h-[4.75rem] w-full min-w-0 flex-row items-stretch gap-2.5 rounded-xl border border-gray-100 bg-gray-50/90 px-3 py-2 shadow-sm hover:-translate-y-0.5 dark:border-gray-600 dark:bg-gray-800/90 dark:shadow-none md:gap-3 md:px-3.5 md:py-2.5">
+        <div
+          className="flex h-auto min-h-[2.5rem] w-11 shrink-0 flex-col justify-center rounded-lg border border-[#000058]/35 bg-[#000058]/6 px-2 dark:border-[#93c5fd]/35 dark:bg-[#93c5fd]/12"
+          aria-hidden
+        >
+          <IconGlyph className="mx-auto h-5 w-5 text-[#000058] dark:text-[#93c5fd]" strokeWidth={2} aria-hidden />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 text-right">
+          <span className="truncate whitespace-nowrap text-right text-[11px] font-semibold uppercase leading-snug tracking-wide text-gray-600 dark:text-gray-400">
+            {label}
+          </span>
+          <span className="truncate whitespace-nowrap text-right text-xl font-semibold tabular-nums leading-tight text-[#000058] dark:text-gray-100 sm:text-2xl">
+            {fmtValorMetrica(value, valorModo)}
+            {suffix}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  const toggleCardExpand = (chave) => {
+    setCardsExpandidos((prev) => ({ ...prev, [chave]: !prev[chave] }));
+  };
+
+  /**
+   * Cartão por canal (métricas resumidas / expandidas).
+   * @param {{ chave: string, titulo: string, dados?: object, iconeArquivo?: string, proconDual?: boolean }} p
+   */
+  function CanalCard({ chave, titulo, dados, iconeArquivo, proconDual }) {
+    const expandido = Boolean(cardsExpandidos[chave]);
+    const iconeSrc = iconeArquivo ? urlIconeDashboard(iconeArquivo) : null;
+    const accent = CORES[chave] || CORES.Total || '#006AB9';
+
+    const proconDualDisponivel =
+      Boolean(proconDual) &&
+      dados &&
+      ('ocorrenciasProcon' in dados || 'ocorrenciasConsumidorGov' in dados);
+
+    const collapsedCommonTail = (
+      <>
+        <MetricPill label="Resolvidas" value={dados?.resolvido} />
+        <MetricPill label="Liberados" value={dados?.pixLiberado} />
+        <MetricPill label="Retidos" value={dados?.pixRetido} />
+      </>
+    );
+
+    return (
+      <div
+        className="overflow-hidden rounded-2xl border border-gray-200/90 bg-white shadow-md dark:border-gray-700 dark:bg-gray-900/95"
+        style={{ boxShadow: '0 4px 28px rgba(0, 0, 0, 0.07)' }}
+      >
+        <div
+          className="flex flex-col gap-4 p-4 md:flex-row md:items-stretch md:gap-5 md:p-5"
+          style={{ borderLeftWidth: 5, borderLeftStyle: 'solid', borderLeftColor: accent }}
+        >
+          {/* Identidade do canal */}
+          <div className="flex shrink-0 flex-row items-center gap-3 md:flex-col md:items-start md:justify-center lg:flex-row lg:items-center">
+            <div
+              className="flex h-[3.75rem] w-[3.75rem] shrink-0 items-center justify-center rounded-2xl shadow-inner ring-1 ring-black/5 dark:ring-white/10"
+              style={{ backgroundColor: hexToRgba(accent, 0.35) }}
+            >
+              {iconeSrc ? (
+                <img src={iconeSrc} alt="" className="h-11 w-11 object-contain" aria-hidden />
+              ) : (
+                <svg viewBox="0 0 24 24" className="h-9 w-9 text-[#000058] dark:text-[#93c5fd]" aria-hidden>
+                  <path
+                    fill="currentColor"
+                    d="M4 6h16v2H4V6zm0 5h10v2H4v-2zm0 5h16v2H4v-2z"
+                  />
+                </svg>
+              )}
+            </div>
+            <div className="min-w-0 md:text-center lg:text-left">
+              <h3 className="text-lg font-bold leading-tight text-[#000058] dark:text-gray-100">{titulo}</h3>
+            </div>
+          </div>
+
+          {/* Métricas principais + expansão */}
+          <div className="flex min-w-0 flex-1 flex-col gap-3 md:flex-row md:items-start">
+            <div
+              id={`dash-canal-metrics-${chave}`}
+              className="flex min-w-0 flex-1 flex-nowrap items-stretch gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:thin]"
+            >
+              {proconDualDisponivel ? (
+                <>
+                  <MetricPill label="Procon" value={dados.ocorrenciasProcon ?? 0} />
+                  <MetricPill
+                    label="Consumidor.gov.br"
+                    value={dados.ocorrenciasConsumidorGov ?? 0}
+                  />
+                  {collapsedCommonTail}
+                </>
+              ) : (
+                <>
+                  <MetricPill label="Reclamações" value={dados?.ocorrencias} />
+                  {collapsedCommonTail}
+                </>
+              )}
+            </div>
+
+            <div className="flex shrink-0 items-start justify-end gap-2 border-t border-gray-100 pt-3 dark:border-gray-700 md:border-l md:border-t-0 md:pl-3 md:pt-0">
+              <button
+                type="button"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-[#000058] shadow-sm transition hover:bg-white dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
+                aria-expanded={expandido}
+                aria-controls={`dash-canal-expand-panel-${chave}`}
+                id={`dash-canal-expand-${chave}`}
+                onClick={() => toggleCardExpand(chave)}
+                title={expandido ? 'Recolher indicadores' : 'Expandir indicadores'}
+              >
+                <svg
+                  className={`h-5 w-5 transition-transform ${expandido ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {expandido ? (
+          <div
+            id={`dash-canal-expand-panel-${chave}`}
+            className="border-t border-gray-200/80 bg-gradient-to-r from-[#f6f9fc] to-white px-4 py-4 dark:border-gray-700 dark:from-gray-900 dark:to-gray-900/90 md:px-5"
+          >
+            <div className="flex flex-col gap-4 min-w-0 lg:flex-row lg:items-start">
+              <div className="flex min-w-0 w-full flex-1 flex-nowrap items-stretch gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:thin] lg:min-w-0 lg:overflow-x-visible">
+                <MetricPill label="Em Aberto" value={dados?.emAberto} />
+                <MetricPill
+                  label="Prazo médio"
+                  value={dados?.prazoMedio}
+                  suffix=" dias"
+                  valorModo="decimal"
+                />
+                <MetricPill label="CA e protocolos" value={dados?.caEProtocolos} />
+                <MetricPill label="Ped. liberação" value={dados?.solLiberacao} />
+                <MetricPill
+                  label="% retenção"
+                  value={dados?.percRetencao}
+                  suffix="%"
+                  valorModo="decimal"
+                />
+              </div>
+              <div className="flex justify-center lg:justify-end">
+                <RingPercDashboard percent={dados?.percRetencao} />
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -445,55 +599,56 @@ const DashboardOuvidoria = ({ stats, loading, onRefresh }) => {
         </div>
       </div>
 
-      {/* Grids por tipo (6 grids: 5 de 1Lx7C + 1 Total de 2Lx4C) */}
+      {/* Cards por canal + Total — recolhido: métricas-chave; expandido: demais indicadores */}
       {Object.keys(porTipo).length === 0 ? (
         <div className="text-center py-8 text-gray-600 dark:text-gray-400 text-sm">
           Nenhum dado disponível. Use os filtros e clique em Filtrar para carregar.
         </div>
       ) : (
-        <div className="space-y-4">
-          {['N2', 'Reclame Aqui', 'Bacen', 'Procon', 'Judicial'].map((tipo) => (
-            <div
-              key={tipo}
-              className="p-4 rounded-xl"
-              style={{ backgroundColor: hexToRgba(CORES[tipo] || '#000058') }}
-            >
-              <div className="text-lg font-semibold mb-3" style={{ color: '#000058' }}>
-                {tipo}
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-4">
-                <CardMetric label="Ocorrências" value={porTipo[tipo]?.ocorrencias} />
-                <CardMetric label="Em Aberto" value={porTipo[tipo]?.emAberto} />
-                <CardMetric label="Resolvido" value={porTipo[tipo]?.resolvido} />
-                <CardMetric label="Prazo Médio" value={porTipo[tipo]?.prazoMedio} suffix=" dias" />
-                <CardMetric label="CA e Protocolos" value={porTipo[tipo]?.caEProtocolos} />
-                <CardMetric label="Ped. Liberação" value={porTipo[tipo]?.solLiberacao} />
-                <CardMetric label="Liberados" value={porTipo[tipo]?.pixLiberado} />
-                <CardMetric label="Retidos" value={porTipo[tipo]?.pixRetido} />
-                <CardMetric label="% Retenção" value={porTipo[tipo]?.percRetencao} suffix="%" />
-              </div>
-            </div>
-          ))}
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-x-2 gap-y-2 sm:gap-3 md:grid-cols-5 md:grid-rows-2 [&>*]:min-h-0 [&>*]:min-w-0 [&>*]:w-full">
+            <MetricPillPainelAdministrativo label="Reclamações" value={porTipo.Total?.ocorrencias} />
+            <MetricPillPainelAdministrativo label="Resolvidas" value={porTipo.Total?.resolvido} />
+            <MetricPillPainelAdministrativo label="Liberados" value={porTipo.Total?.pixLiberado} />
+            <MetricPillPainelAdministrativo label="Retidos" value={porTipo.Total?.pixRetido} />
+            <MetricPillPainelAdministrativo label="Em aberto" value={porTipo.Total?.emAberto} />
+            <MetricPillPainelAdministrativo
+              label="Prazo médio"
+              value={porTipo.Total?.prazoMedio}
+              suffix=" dias"
+              valorModo="decimal"
+            />
+            <MetricPillPainelAdministrativo label="CA e protocolos" value={porTipo.Total?.caEProtocolos} />
+            <MetricPillPainelAdministrativo label="Ped. liberação" value={porTipo.Total?.solLiberacao} />
+            <MetricPillPainelAdministrativo
+              label="% retenção"
+              value={porTipo.Total?.percRetencao}
+              suffix="%"
+              valorModo="decimal"
+            />
+            <MetricPillPainelAdministrativo
+              label="Taxa resolução"
+              value={porTipo.Total?.taxaResolucao}
+              suffix="%"
+              valorModo="decimal"
+            />
+          </div>
 
-          {/* Grid Total: 2 linhas x 5 colunas */}
-          <div
-            className="p-4 rounded-xl"
-            style={{ backgroundColor: hexToRgba(CORES.Total || '#006AB9') }}
-          >
-            <div className="text-lg font-semibold mb-3" style={{ color: '#000058' }}>
-              Total
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              <CardMetric label="Ocorrências" value={porTipo.Total?.ocorrencias} />
-              <CardMetric label="Em Aberto" value={porTipo.Total?.emAberto} />
-              <CardMetric label="Resolvido" value={porTipo.Total?.resolvido} />
-              <CardMetric label="Prazo Médio" value={porTipo.Total?.prazoMedio} suffix=" dias" />
-              <CardMetric label="CA e Protocolos" value={porTipo.Total?.caEProtocolos} />
-              <CardMetric label="Ped. Liberação" value={porTipo.Total?.solLiberacao} />
-              <CardMetric label="Liberados" value={porTipo.Total?.pixLiberado} />
-              <CardMetric label="Retidos" value={porTipo.Total?.pixRetido} />
-              <CardMetric label="% Retenção" value={porTipo.Total?.percRetencao} suffix="%" />
-              <CardMetric label="Taxa de Resolução" value={porTipo.Total?.taxaResolucao} suffix="%" />
+          <div>
+            <h2 className="velohub-title mb-4 text-lg font-semibold text-[#006AB9] dark:text-[#93c5fd]">
+              Desempenho por canal
+            </h2>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
+              {CANAIS_DASHBOARD.map((tipo) => (
+                <CanalCard
+                  key={tipo}
+                  chave={tipo}
+                  titulo={tipo}
+                  dados={porTipo[tipo]}
+                  iconeArquivo={CANAL_ICONE_ARQUIVO[tipo]}
+                  proconDual={tipo === 'Procon'}
+                />
+              ))}
             </div>
           </div>
         </div>

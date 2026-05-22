@@ -1,6 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 // VeloHub V3 - Tailwind CSS Configuration
-// VERSION: v1.2.0 | DATE: 2025-01-29 | AUTHOR: VeloHub Development Team
+// VERSION: v1.3.0 | DATE: 2026-05-05 | AUTHOR: VeloHub Development Team
+// v1.3.0: tokens de canto vh-container (4px), vh-card (5px), vh-btn (3,5px)
 
 module.exports = {
   content: [
@@ -70,8 +71,11 @@ module.exports = {
         'velohub-inner': 'inset 0 2px 4px 0 rgba(0, 0, 88, 0.06)',
       },
       
-      // Border radius personalizado
+      // Border radius personalizado (alinhado a index.css maio 2026)
       borderRadius: {
+        'vh-container': '4px',
+        'vh-card': '5px',
+        'vh-btn': '3.5px',
         'velohub': '0.5rem',
         'velohub-lg': '0.75rem',
         'velohub-xl': '1rem',

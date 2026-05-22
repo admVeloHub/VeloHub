@@ -1,105 +1,14 @@
 /**
  * VeloHub V3 - RelatoriosOuvidoria Component
- * VERSION: v2.15.0 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v2.15.0:
- * - Export XLSX Reclamações: coluna Data Resolvido (Finalizado.dataResolucao via API dataResolucao)
- * 
- * Mudanças v2.14.0:
- * - MOTIVOS_CONHECIDOS_FRONTEND: Empréstimo pessoal → Empréstimo Pessoal (alinhado produto/form)
- * 
- * Mudanças v2.13.0:
- * - normalizarMotivoParaAgrupamento: Encerramento cta App/Celcoin e Portabilidade pix alinhados ao form Reclame Aqui v3.32
- * 
- * Mudanças v2.12.0:
- * - MOTIVOS_CONHECIDOS_FRONTEND e normalizarMotivoParaAgrupamento: padrão Xxxxx xxxxx xxxx (sentence case)
- * - Alinhado a motivoReduzidoNormalize e formulários (Em cobrança, Alega fraude, Liberação chave pix, etc.)
- * - Removido tratamento obsoleto "Retirar Chave PIX Cpf" (banco já normalizado)
- * 
- * Mudanças v2.11.0:
- * - Padronização de grafias em MOTIVOS_CONHECIDOS: Abatimento Juros → Abatimento de Juros
- * 
- * Mudanças v2.10.0:
- * - labelsPorTipo e coresPorTipo: adicionado 'N2 PIX' para compatibilidade com API que retorna tipo 'N2 Pix'
- * - normalizarTipo: aceita 'N2 PIX' além de OUVIDORIA, N2, etc.
- * 
- * Mudanças v2.9.0:
- * - CORRIGIDO: Gráfico de tipos por mês agora usa dados agregados do backend para Reclame Aqui, Procon e Ação Judicial
- * - CORRIGIDO: Fallback no gráfico agora usa campos de data corretos por tipo (dataReclam, dataProcon, dataEntrada) ao invés de createdAt
- * - Gráfico agora prioriza dados agregados do backend (mais preciso) e usa fallback apenas quando necessário
- * 
- * Mudanças v2.8.0:
- * - CORRIGIDO: Adicionadas validações robustas antes de usar .find() em arrays
- * - Verificação adicional de Array.isArray() antes de chamar métodos de array
- * - Validação de d && d._id antes de acessar propriedades em .find()
- * - Prevenção de erro "Cannot read properties of undefined (reading 'find')"
- * 
- * Mudanças v2.7.0:
- * - Melhorada normalização de "pix" e "PIX" isolados → "Chave Pix"
- * - Adicionada normalização de "Portabilidade" → "Portabilidade PIX"
- * - Adicionada normalização de "Encerramento da" → "Encerramento de Conta"
- * - Melhorada normalização de "Banco Do Brasil" → "Banco do Brasil"
- * - Melhorada normalização de "Limite Pix" → "Limite PIX"
- * - Melhorada normalização de "Pix não localizado" → "PIX Não Localizado"
- * - Melhorada normalização de "Restituição 1 Lote" → "Restituição 1° Lote"
- * 
- * Mudanças v2.6.0:
- * - Adicionada função dividirMotivoConcatenado para dividir motivos concatenados (ex: "Retirar Chave PIX Cpf")
- * - Melhorada função normalizarMotivoParaAgrupamento com mais padrões de normalização
- * - Adicionado tratamento especial para "Retirar Chave PIX Cpf" → ["Retirar", "Chave Pix"]
- * - Filtro melhorado para excluir naturezas/origens do quadro de motivos
- * - Normalização de variações como "Erro/aplicativo", "Crédito Pessoal Indisponível", etc.
- * 
- * Mudanças v2.5.0:
- * - Adicionada função normalizarMotivoParaAgrupamento para evitar duplicatas no quadro de motivos
- * - Normalização agrupa variações de capitalização (ex: "Chave Pix", "CHAVE PIX", "Chave PIX")
- * - Normalização trata variações de preposições (ex: "Encerramento de Conta" vs "Encerramento da conta")
- * - Filtro para excluir naturezas/origens (Bacen Celcoin, Bacen Via Capital, Consumidor.Gov) do quadro de motivos
- * 
- * Mudanças v2.4.0:
- * - Removidos gráficos individuais (Natureza BACEN e Casos Registrados vs Finalizados N2)
- * - Criados relatórios específicos para RECLAME_AQUI, PROCON e AÇÃO_JUDICIAL
- * - Seções de relatórios específicos só são exibidas quando a categoria correspondente está selecionada
- * - Cada categoria exibe apenas sua tabela de motivos por mês
- * 
- * Mudanças v2.3.1:
- * - CORRIGIDO: Gráfico geral agora mostra todos os tipos selecionados (não apenas BACEN e N2Pix)
- * - Ajustada normalização de tipos para corresponder ao formato retornado pelo backend
- * - Backend retorna "RECLAME AQUI" (com espaço) e "AÇÃO JUDICIAL", frontend agora normaliza corretamente
- * - Gráfico processa dados de relatorio.reclamacoes para tipos sem dados detalhados disponíveis
- * 
- * Mudanças v2.3.0:
- * - Adicionado quadro de motivos mostrando quantidade e percentual de cada motivoReduzido
- * - Quadro contempla todos os tipos selecionados
- * - Suporta motivos em formato array (Ação Judicial) e string (outros tipos)
- * - Tabela ordenada por quantidade (decrescente)
- * - Exibe total geral e percentuais individuais
- * 
- * Mudanças v2.2.0:
- * - Adicionada seção superior com dados gerais (total, resolvidas, taxa de resolução, tipos selecionados)
- * - Criado gráfico de linhas com uma linha para cada tipo selecionado
- * - Eixo X mostra meses do período selecionado
- * - Legendas na parte inferior com bubbles (círculos apenas com borda, sem preenchimento)
- * - Gráfico dentro de container-secondary
- * - Quando nenhum tipo é selecionado, mostra todos os tipos disponíveis
- * 
- * Mudanças v2.1.0:
- * - Adicionado filtro de múltipla escolha para tipos de reclamações
- * - Tipos disponíveis: BACEN, OUVIDORIA (N2 Pix), RECLAME_AQUI, PROCON, PROCESSOS (Ação Judicial)
- * - Filtro permite selecionar múltiplos tipos ou nenhum (busca todos)
- * - Backend atualizado para aceitar múltiplos tipos via parâmetro 'tipos'
- * 
- * Mudanças v2.0.0:
- * - Implementado filtro mensal (seleção MENSAL)
- * - Adicionados gráficos de Natureza (BACEN) e Casos Registrados/Finalizados (N2)
- * - Adicionados containers secundários para PIX Retirado e PIX Liberado
- * - Adicionadas tabelas de motivos com scroll horizontal
- * - Atualizada exportação XLSX com planilhas detalhadas
- * 
- * Componente para geração de relatórios do módulo de Ouvidoria
+ * VERSION: v2.17.6 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v2.17.6: MOTIVOS_CONHECIDOS_FRONTEND: «Elegibilidade»
+ * - v2.14.0: MOTIVOS_CONHECIDOS_FRONTEND: Empréstimo pessoal → Empréstimo Pessoal (alinhado produto/form)
  */
 
 import React, { useState, useMemo } from 'react';
+import { FloatingLabelField } from '../shared/FloatingLabelField';
 import { relatoriosAPI } from '../../services/ouvidoriaApi';
 import { formatDateRegistro } from '../../utils/dateUtils';
 import toast from 'react-hot-toast';
@@ -116,6 +25,7 @@ import {
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
+import { ChevronDown } from 'lucide-react';
 
 ChartJS.register(
   CategoryScale,
@@ -127,6 +37,9 @@ ChartJS.register(
   Legend,
   ChartDataLabels
 );
+
+/** Linhas da tabela «Origens» (Procon); alinhado a `origensPorMes._id.origem` na API. */
+const ORIGENS_PROCON_RELATORIO_CANONICAS = ['Procon', 'Consumidor.gov.br'];
 
 /**
  * Lista de motivos conhecidos para dividir strings concatenadas
@@ -151,6 +64,7 @@ const MOTIVOS_CONHECIDOS_FRONTEND = [
   'Empréstimo',
   'Chave pix',
   'Em cobrança',
+  'Elegibilidade',
   'Alega fraude',
   'Erro app',
   'Fraude',
@@ -506,6 +420,29 @@ const normalizarMotivoParaAgrupamento = (motivo) => {
   return normalizado;
 };
 
+/** Acordeões independentes (evita grupo exclusivo de `<details>` no browser). Montado só onde `exibirSecaoTipo` já filtrou tipos. */
+function RelatorioSecaoAccordion({ titulo, children }) {
+  const [aberto, setAberto] = useState(true);
+
+  return (
+    <section className="container-secondary mb-6">
+      <button
+        type="button"
+        className="velohub-title mb-4 flex w-full items-center gap-2 rounded text-left text-xl font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-[#006AB9] dark:focus-visible:ring-[#93c5fd]"
+        onClick={() => setAberto((v) => !v)}
+        aria-expanded={aberto}
+      >
+        <ChevronDown
+          className={`h-5 w-5 shrink-0 text-[#006AB9] transition-transform duration-200 dark:text-[#93c5fd] ${aberto ? 'rotate-180' : ''}`}
+          aria-hidden
+        />
+        {titulo}
+      </button>
+      {aberto ? <div className="space-y-6">{children}</div> : null}
+    </section>
+  );
+}
+
 const RelatoriosOuvidoria = () => {
   const [mesInicio, setMesInicio] = useState('');
   const [mesFim, setMesFim] = useState('');
@@ -629,6 +566,16 @@ const RelatoriosOuvidoria = () => {
     const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     return `${meses[parseInt(mesNum) - 1]}/${ano}`;
   };
+
+  /** `null` = nenhum tipo marcado → export XLSX detalhado inclui todas as planilhas por tipo (comportamento legado da planilha). */
+  const tiposFiltroRelatorio = useMemo(
+    () => (tiposSelecionados.length > 0 ? tiposSelecionados : null),
+    [tiposSelecionados]
+  );
+
+  /** Secções/acordeões de tabela por tipo: só com checkboxes marcados (nunca «todos» por omissão). */
+  const exibirSecaoTipo = (valorChecklist) =>
+    tiposSelecionados.length > 0 && tiposSelecionados.includes(valorChecklist);
 
   /**
    * Processar dados gerais de todos os tipos selecionados
@@ -808,95 +755,118 @@ const RelatoriosOuvidoria = () => {
       return tipoUpper;
     };
 
-    const datasets = tiposParaProcessar.map(tipo => {
+    const criarDatasetLinha = (label, dadosPorMesLinha, cor) => ({
+      label,
+      data: dadosPorMesLinha,
+      borderColor: cor,
+      backgroundColor: 'transparent',
+      pointBackgroundColor: 'transparent',
+      pointBorderColor: cor,
+      pointBorderWidth: 2,
+      pointRadius: 4,
+      tension: 0.1
+    });
+
+    const datasets = tiposParaProcessar.flatMap((tipo) => {
       const tipoUpper = tipo.toUpperCase();
       const tipoNormalizado = normalizarTipo(tipoUpper);
-      
-      // Mapear para chave de cores/labels (usar formato interno)
+
       const tipoParaChave = {
         'AÇÃO JUDICIAL': 'PROCESSOS',
         'RECLAME AQUI': 'RECLAME_AQUI'
       };
       const chaveTipo = tipoParaChave[tipoNormalizado] || tipoNormalizado;
-      
+
       const cor = coresPorTipo[chaveTipo] || coresPorTipo[tipoUpper] || '#6B7280';
       const label = labelsPorTipo[chaveTipo] || labelsPorTipo[tipoUpper] || tipoUpper;
 
-      // Buscar dados do tipo específico do relatório
+      const origensProcon = dadosDetalhados?.procon?.origensPorMes;
+      if (
+        tipoNormalizado === 'PROCON' &&
+        Array.isArray(origensProcon) &&
+        origensProcon.length > 0
+      ) {
+        const corProcon = coresPorTipo.PROCON;
+        const corConsumidorGov = '#006AB9';
+        return [
+          criarDatasetLinha(
+            'Procon — Procon',
+            meses.map((mes) => {
+              const item = origensProcon.find((d) => d && d._id && d._id.mes === mes && d._id.origem === 'Procon');
+              return item ? item.count || 0 : 0;
+            }),
+            corProcon
+          ),
+          criarDatasetLinha(
+            'Procon — Consumidor.gov.br',
+            meses.map((mes) => {
+              const item = origensProcon.find(
+                (d) => d && d._id && d._id.mes === mes && d._id.origem === 'Consumidor.gov.br'
+              );
+              return item ? item.count || 0 : 0;
+            }),
+            corConsumidorGov
+          ),
+        ];
+      }
+
       let dadosPorMes = [];
-      
+
       if (tipoNormalizado === 'BACEN' && dadosDetalhados?.bacen?.naturezaPorMes && Array.isArray(dadosDetalhados.bacen.naturezaPorMes)) {
-        // Para BACEN, somar todas as naturezas por mês
-        dadosPorMes = meses.map(mes => {
-          const itens = dadosDetalhados.bacen.naturezaPorMes.filter(d => d && d._id && d._id.mes === mes);
+        dadosPorMes = meses.map((mes) => {
+          const itens = dadosDetalhados.bacen.naturezaPorMes.filter((d) => d && d._id && d._id.mes === mes);
           return itens.reduce((sum, item) => sum + (item.count || 0), 0);
         });
       } else if (tipoNormalizado === 'OUVIDORIA' && dadosDetalhados?.n2?.casosRegistradosPorMes && Array.isArray(dadosDetalhados.n2.casosRegistradosPorMes)) {
-        // Para N2, usar casos registrados por mês
-        dadosPorMes = meses.map(mes => {
-          const item = dadosDetalhados.n2.casosRegistradosPorMes.find(d => d?._id?.mes === mes);
-          return item ? (item.count || 0) : 0;
+        dadosPorMes = meses.map((mes) => {
+          const item = dadosDetalhados.n2.casosRegistradosPorMes.find((d) => d?._id?.mes === mes);
+          return item ? item.count || 0 : 0;
         });
       } else if (tipoNormalizado === 'RECLAME AQUI' && dadosDetalhados?.reclameAqui?.motivosPorMes && Array.isArray(dadosDetalhados.reclameAqui.motivosPorMes)) {
-        // Para Reclame Aqui, somar todos os motivos por mês
-        dadosPorMes = meses.map(mes => {
-          const itens = dadosDetalhados.reclameAqui.motivosPorMes.filter(d => d && d._id && d._id.mes === mes);
+        dadosPorMes = meses.map((mes) => {
+          const itens = dadosDetalhados.reclameAqui.motivosPorMes.filter((d) => d && d._id && d._id.mes === mes);
           return itens.reduce((sum, item) => sum + (item.count || 0), 0);
         });
       } else if (tipoNormalizado === 'PROCON' && dadosDetalhados?.procon?.motivosPorMes && Array.isArray(dadosDetalhados.procon.motivosPorMes)) {
-        // Para Procon, somar todos os motivos por mês
-        dadosPorMes = meses.map(mes => {
-          const itens = dadosDetalhados.procon.motivosPorMes.filter(d => d && d._id && d._id.mes === mes);
+        dadosPorMes = meses.map((mes) => {
+          const itens = dadosDetalhados.procon.motivosPorMes.filter((d) => d && d._id && d._id.mes === mes);
           return itens.reduce((sum, item) => sum + (item.count || 0), 0);
         });
       } else if (tipoNormalizado === 'AÇÃO JUDICIAL' && dadosDetalhados?.judicial?.motivosPorMes && Array.isArray(dadosDetalhados.judicial.motivosPorMes)) {
-        // Para Ação Judicial, somar todos os motivos por mês
-        dadosPorMes = meses.map(mes => {
-          const itens = dadosDetalhados.judicial.motivosPorMes.filter(d => d && d._id && d._id.mes === mes);
+        dadosPorMes = meses.map((mes) => {
+          const itens = dadosDetalhados.judicial.motivosPorMes.filter((d) => d && d._id && d._id.mes === mes);
           return itens.reduce((sum, item) => sum + (item.count || 0), 0);
         });
       } else {
-        // Fallback: buscar do relatório básico usando campo de data correto baseado no tipo
-        dadosPorMes = meses.map(mes => {
+        dadosPorMes = meses.map((mes) => {
           const [ano, mesNum] = mes.split('-');
           if (!relatorio.reclamacoes) return 0;
-          
-          return relatorio.reclamacoes.filter(r => {
-            const rTipo = String(r.tipo || '').toUpperCase().trim();
-            // Comparar tipos normalizados
-            const rTipoNormalizado = normalizarTipo(rTipo);
-            return rTipoNormalizado === tipoNormalizado;
-          }).filter(r => {
-            // Filtrar por mês usando campo de data correto baseado no tipo
-            let rDate;
-            if (tipoNormalizado === 'RECLAME AQUI' && r.dataReclam) {
-              rDate = new Date(r.dataReclam);
-            } else if (tipoNormalizado === 'PROCON' && r.dataProcon) {
-              rDate = new Date(r.dataProcon);
-            } else if ((tipoNormalizado === 'AÇÃO JUDICIAL' || tipoNormalizado === 'PROCESSOS') && r.dataEntrada) {
-              rDate = new Date(r.dataEntrada);
-            } else if ((tipoNormalizado === 'BACEN' || tipoNormalizado === 'OUVIDORIA') && r.dataEntrada) {
-              rDate = new Date(r.dataEntrada);
-            } else {
-              // Fallback para createdAt apenas se não houver campo específico
-              rDate = new Date(r.createdAt);
-            }
-            return rDate.getFullYear() === parseInt(ano) && (rDate.getMonth() + 1) === parseInt(mesNum);
-          }).length;
+
+          return relatorio.reclamacoes
+            .filter((r) => {
+              const rTipo = String(r.tipo || '').toUpperCase().trim();
+              const rTipoNormalizado = normalizarTipo(rTipo);
+              return rTipoNormalizado === tipoNormalizado;
+            })
+            .filter((r) => {
+              let rDate;
+              if (tipoNormalizado === 'RECLAME AQUI' && r.dataReclam) {
+                rDate = new Date(r.dataReclam);
+              } else if (tipoNormalizado === 'PROCON' && r.dataProcon) {
+                rDate = new Date(r.dataProcon);
+              } else if ((tipoNormalizado === 'AÇÃO JUDICIAL' || tipoNormalizado === 'PROCESSOS') && r.dataEntrada) {
+                rDate = new Date(r.dataEntrada);
+              } else if ((tipoNormalizado === 'BACEN' || tipoNormalizado === 'OUVIDORIA') && r.dataEntrada) {
+                rDate = new Date(r.dataEntrada);
+              } else {
+                rDate = new Date(r.createdAt);
+              }
+              return rDate.getFullYear() === parseInt(ano, 10) && rDate.getMonth() + 1 === parseInt(mesNum, 10);
+            }).length;
         });
       }
 
-      return {
-        label: label,
-        data: dadosPorMes,
-        borderColor: cor,
-        backgroundColor: 'transparent',
-        pointBackgroundColor: 'transparent',
-        pointBorderColor: cor,
-        pointBorderWidth: 2,
-        pointRadius: 4,
-        tension: 0.1
-      };
+      return [criarDatasetLinha(label, dadosPorMes, cor)];
     });
 
     return {
@@ -912,10 +882,10 @@ const RelatoriosOuvidoria = () => {
     if (!dadosDetalhados?.bacen?.naturezaPorMes || !Array.isArray(dadosDetalhados.bacen.naturezaPorMes)) return null;
 
     const meses = gerarMesesNoPeriodo;
-    const naturezas = ['Bacen Celcoin', 'Bacen Via Capital', 'Consumidor.Gov'];
+    const naturezas = ['Bacen Celcoin', 'Bacen Via Capital'];
     
     const datasets = naturezas.map((natureza, index) => {
-      const cores = ['#1634FF', '#1694FF', '#000058'];
+      const cores = ['#1634FF', '#1694FF'];
       const dados = meses.map(mes => {
         if (!Array.isArray(dadosDetalhados.bacen.naturezaPorMes)) return 0;
         const item = dadosDetalhados.bacen.naturezaPorMes.find(
@@ -997,7 +967,7 @@ const RelatoriosOuvidoria = () => {
     if (!dadosDetalhados?.bacen?.pixRetiradoPorNatureza || !Array.isArray(dadosDetalhados.bacen.pixRetiradoPorNatureza)) return null;
 
     const meses = gerarMesesNoPeriodo;
-    const naturezas = ['Bacen Celcoin', 'Bacen Via Capital', 'Consumidor.Gov'];
+    const naturezas = ['Bacen Celcoin', 'Bacen Via Capital'];
     
     const tabela = naturezas.map(natureza => {
       const valores = meses.map(mes => {
@@ -1198,6 +1168,26 @@ const RelatoriosOuvidoria = () => {
   }, [dadosDetalhados, gerarMesesNoPeriodo]);
 
   /**
+   * Tabela Origens (Procon): duas linhas canônicas × meses
+   */
+  const processarOrigensProconTabela = useMemo(() => {
+    const arr = dadosDetalhados?.procon?.origensPorMes;
+    if (!arr || !Array.isArray(arr)) return null;
+
+    const meses = gerarMesesNoPeriodo;
+    const tabela = ORIGENS_PROCON_RELATORIO_CANONICAS.map((origem) => {
+      const valores = meses.map((mes) => {
+        const item = arr.find((d) => d && d._id && d._id.mes === mes && d._id.origem === origem);
+        return item ? item.count || 0 : 0;
+      });
+      const total = valores.reduce((sum, val) => sum + val, 0);
+      return { origem, valores, total };
+    });
+
+    return { tabela, meses };
+  }, [dadosDetalhados, gerarMesesNoPeriodo]);
+
+  /**
    * Processar motivos Ação Judicial
    */
   const processarMotivosJudicial = useMemo(() => {
@@ -1237,8 +1227,11 @@ const RelatoriosOuvidoria = () => {
     try {
       const wb = XLSX.utils.book_new();
 
+      const tipoIncluido = (valor) =>
+        tiposFiltroRelatorio == null || tiposFiltroRelatorio.includes(valor);
+
       // Planilha: BACEN - Natureza por Mês
-      if (processarDadosNatureza) {
+      if (tipoIncluido('BACEN') && processarDadosNatureza) {
         const dadosNatureza = [];
         dadosNatureza.push(['Mês', ...gerarMesesNoPeriodo.map(formatarMes)]);
         processarDadosNatureza.datasets.forEach(dataset => {
@@ -1249,7 +1242,7 @@ const RelatoriosOuvidoria = () => {
       }
 
       // Planilha: BACEN - PIX Retirado
-      if (processarPixRetirado) {
+      if (tipoIncluido('BACEN') && processarPixRetirado) {
         const dadosPixRetirado = [];
         dadosPixRetirado.push(['Natureza', ...processarPixRetirado.meses.map(formatarMes), 'Total']);
         processarPixRetirado.tabela.forEach(linha => {
@@ -1261,7 +1254,7 @@ const RelatoriosOuvidoria = () => {
       }
 
       // Planilha: BACEN - Motivos
-      if (processarMotivosBacen) {
+      if (tipoIncluido('BACEN') && processarMotivosBacen) {
         const dadosMotivosBacen = [];
         dadosMotivosBacen.push(['Motivo', ...processarMotivosBacen.meses.map(formatarMes), 'Total']);
         processarMotivosBacen.tabela.forEach(linha => {
@@ -1272,7 +1265,7 @@ const RelatoriosOuvidoria = () => {
       }
 
       // Planilha: N2 - Casos Registrados vs Finalizados
-      if (processarDadosCasosN2) {
+      if (tipoIncluido('OUVIDORIA') && processarDadosCasosN2) {
         const dadosCasos = [];
         dadosCasos.push(['Mês', ...gerarMesesNoPeriodo.map(formatarMes)]);
         processarDadosCasosN2.datasets.forEach(dataset => {
@@ -1283,7 +1276,7 @@ const RelatoriosOuvidoria = () => {
       }
 
       // Planilha: N2 - PIX Liberado
-      if (processarPixLiberado) {
+      if (tipoIncluido('OUVIDORIA') && processarPixLiberado) {
         const dadosPixLiberado = [];
         dadosPixLiberado.push(['Status', ...processarPixLiberado.meses.map(formatarMes), 'Total']);
         dadosPixLiberado.push(['Sim', ...processarPixLiberado.sim, processarPixLiberado.totalSim]);
@@ -1294,7 +1287,7 @@ const RelatoriosOuvidoria = () => {
       }
 
       // Planilha: N2 - Motivos
-      if (processarMotivosN2) {
+      if (tipoIncluido('OUVIDORIA') && processarMotivosN2) {
         const dadosMotivosN2 = [];
         dadosMotivosN2.push(['Motivo', ...processarMotivosN2.meses.map(formatarMes), 'Total']);
         processarMotivosN2.tabela.forEach(linha => {
@@ -1302,6 +1295,46 @@ const RelatoriosOuvidoria = () => {
         });
         const wsMotivosN2 = XLSX.utils.aoa_to_sheet(dadosMotivosN2);
         XLSX.utils.book_append_sheet(wb, wsMotivosN2, 'N2 - Motivos');
+      }
+
+      if (tipoIncluido('RECLAME_AQUI') && processarMotivosReclameAqui) {
+        const dadosMotivosRA = [];
+        dadosMotivosRA.push(['Motivo', ...processarMotivosReclameAqui.meses.map(formatarMes), 'Total']);
+        processarMotivosReclameAqui.tabela.forEach((linha) => {
+          dadosMotivosRA.push([linha.motivo, ...linha.valores, linha.total]);
+        });
+        const wsMotivosRA = XLSX.utils.aoa_to_sheet(dadosMotivosRA);
+        XLSX.utils.book_append_sheet(wb, wsMotivosRA, 'RA - Motivos');
+      }
+
+      if (tipoIncluido('PROCON') && processarOrigensProconTabela) {
+        const dadosOrigProcon = [];
+        dadosOrigProcon.push(['Origem', ...processarOrigensProconTabela.meses.map(formatarMes), 'Total']);
+        processarOrigensProconTabela.tabela.forEach((linha) => {
+          dadosOrigProcon.push([linha.origem, ...linha.valores, linha.total]);
+        });
+        const wsOrigProcon = XLSX.utils.aoa_to_sheet(dadosOrigProcon);
+        XLSX.utils.book_append_sheet(wb, wsOrigProcon, 'PROCON - Origens');
+      }
+
+      if (tipoIncluido('PROCON') && processarMotivosProcon) {
+        const dadosMotivosProcon = [];
+        dadosMotivosProcon.push(['Motivo', ...processarMotivosProcon.meses.map(formatarMes), 'Total']);
+        processarMotivosProcon.tabela.forEach((linha) => {
+          dadosMotivosProcon.push([linha.motivo, ...linha.valores, linha.total]);
+        });
+        const wsMotivosProcon = XLSX.utils.aoa_to_sheet(dadosMotivosProcon);
+        XLSX.utils.book_append_sheet(wb, wsMotivosProcon, 'PROCON - Motivos');
+      }
+
+      if (tipoIncluido('PROCESSOS') && processarMotivosJudicial) {
+        const dadosMotivosJud = [];
+        dadosMotivosJud.push(['Motivo', ...processarMotivosJudicial.meses.map(formatarMes), 'Total']);
+        processarMotivosJudicial.tabela.forEach((linha) => {
+          dadosMotivosJud.push([linha.motivo, ...linha.valores, linha.total]);
+        });
+        const wsMotivosJud = XLSX.utils.aoa_to_sheet(dadosMotivosJud);
+        XLSX.utils.book_append_sheet(wb, wsMotivosJud, 'Judicial - Motivos');
       }
 
       // Planilha: Reclamações (mantida)
@@ -1435,32 +1468,29 @@ const RelatoriosOuvidoria = () => {
     <div>
       {/* Filtros */}
       <div className="velohub-card mb-6">
-        <h3 className="text-xl font-semibold velohub-title mb-4">Filtros do Relatório</h3>
         <div className="flex flex-wrap items-end gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Mês Início *
-            </label>
-            <input
-              type="month"
-              value={mesInicio}
-              onChange={(e) => setMesInicio(e.target.value)}
-              className="w-full max-w-xs border border-gray-400 dark:border-gray-500 rounded-lg px-2 py-1.5 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              required
-            />
+          <div className="w-full max-w-xs min-w-[10rem]">
+            <FloatingLabelField id="relatorio-mes-inicio" label="Mês Início" required value={mesInicio}>
+              <input
+                type="month"
+                value={mesInicio}
+                onChange={(e) => setMesInicio(e.target.value)}
+                className="w-full max-w-xs border border-gray-400 dark:border-gray-500 rounded-lg px-2 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                required
+              />
+            </FloatingLabelField>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Mês Fim *
-            </label>
-            <input
-              type="month"
-              value={mesFim}
-              onChange={(e) => setMesFim(e.target.value)}
-              className="w-full max-w-xs border border-gray-400 dark:border-gray-500 rounded-lg px-2 py-1.5 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              required
-            />
+          <div className="w-full max-w-xs min-w-[10rem]">
+            <FloatingLabelField id="relatorio-mes-fim" label="Mês Fim" required value={mesFim}>
+              <input
+                type="month"
+                value={mesFim}
+                onChange={(e) => setMesFim(e.target.value)}
+                className="w-full max-w-xs border border-gray-400 dark:border-gray-500 rounded-lg px-2 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                required
+              />
+            </FloatingLabelField>
           </div>
 
           <div>
@@ -1597,7 +1627,10 @@ const RelatoriosOuvidoria = () => {
 
       {/* Gráfico de Tipos por Mês */}
       {processarDadosTiposPorMes && (
-        <div className="container-secondary mb-6">
+        <div
+          className="container-secondary mb-6"
+          style={{ borderColor: '#1634FF' }}
+        >
           <div style={{ height: '300px', width: '100%' }}>
             <Line data={processarDadosTiposPorMes} options={opcoesGraficoTipos} />
           </div>
@@ -1644,14 +1677,22 @@ const RelatoriosOuvidoria = () => {
       {/* Linha Divisória */}
       {relatorio && <hr className="border-b border-gray-300 dark:border-gray-600 my-6" />}
 
-      {/* Seção BACEN */}
-      {dadosDetalhados?.bacen && (
-        <>
-          <h2 className="text-xl font-semibold velohub-title mb-4">BACEN</h2>
+      {relatorio && tiposSelecionados.length === 0 && (
+        <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
+          Para ver as tabelas detalhadas por tipo, marque um ou mais tipos nos filtros e gere o relatório novamente.
+        </p>
+      )}
 
-          {/* Container PIX Retirado */}
-          {processarPixRetirado && (
-            <div className="container-secondary mb-6">
+      {/* Seção BACEN */}
+      {exibirSecaoTipo('BACEN') && (
+        <>
+          <RelatorioSecaoAccordion titulo="BACEN">
+            {/* Container PIX Retirado */}
+            {processarPixRetirado && (
+              <div
+                className="container-secondary mb-6"
+                style={{ borderColor: 'var(--blue-opaque)' }}
+              >
               <h3 className="text-lg font-semibold mb-4">PIX Retirado</h3>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
@@ -1699,7 +1740,10 @@ const RelatoriosOuvidoria = () => {
 
           {/* Tabela Motivos BACEN */}
           {processarMotivosBacen && (
-            <div className="container-secondary mb-6">
+            <div
+              className="container-secondary mb-6"
+              style={{ borderColor: 'var(--blue-opaque)' }}
+            >
               <h3 className="text-lg font-semibold mb-4">Motivos</h3>
               <div className={`overflow-x-auto ${gerarMesesNoPeriodo.length > 6 ? 'overflow-x-scroll' : ''}`}>
                 <table className="w-full border-collapse min-w-full">
@@ -1733,6 +1777,7 @@ const RelatoriosOuvidoria = () => {
               </div>
             </div>
           )}
+          </RelatorioSecaoAccordion>
 
           {/* Linha Divisória */}
           <hr className="border-b border-gray-300 dark:border-gray-600 my-6" />
@@ -1740,13 +1785,13 @@ const RelatoriosOuvidoria = () => {
       )}
 
       {/* Seção N2 e Pix */}
-      {dadosDetalhados?.n2 && (
-        <>
-          <h2 className="text-xl font-semibold velohub-title mb-4">N2 e Pix</h2>
-
-          {/* Container PIX Liberado */}
+      {exibirSecaoTipo('OUVIDORIA') && (
+        <RelatorioSecaoAccordion titulo="N2 e Pix">
           {processarPixLiberado && (
-            <div className="container-secondary mb-6">
+            <div
+              className="container-secondary mb-6"
+              style={{ borderColor: 'var(--blue-opaque)' }}
+            >
               <h3 className="text-lg font-semibold mb-4">Pix Liberado</h3>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
@@ -1803,7 +1848,10 @@ const RelatoriosOuvidoria = () => {
 
           {/* Tabela Motivos N2 */}
           {processarMotivosN2 && (
-            <div className="container-secondary mb-6">
+            <div
+              className="container-secondary mb-6"
+              style={{ borderColor: 'var(--blue-opaque)' }}
+            >
               <h3 className="text-lg font-semibold mb-4">Motivos</h3>
               <div className={`overflow-x-auto ${gerarMesesNoPeriodo.length > 6 ? 'overflow-x-scroll' : ''}`}>
                 <table className="w-full border-collapse min-w-full">
@@ -1837,17 +1885,18 @@ const RelatoriosOuvidoria = () => {
               </div>
             </div>
           )}
-        </>
+        </RelatorioSecaoAccordion>
       )}
 
       {/* Seção Reclame Aqui */}
-      {dadosDetalhados?.reclameAqui && (
+      {exibirSecaoTipo('RECLAME_AQUI') && (
         <>
-          <h2 className="text-xl font-semibold velohub-title mb-4">Reclame Aqui</h2>
-
-          {/* Tabela Motivos Reclame Aqui */}
+          <RelatorioSecaoAccordion titulo="Reclame Aqui">
           {processarMotivosReclameAqui && (
-            <div className="container-secondary mb-6">
+            <div
+              className="container-secondary mb-6"
+              style={{ borderColor: 'var(--blue-opaque)' }}
+            >
               <h3 className="text-lg font-semibold mb-4">Motivos</h3>
               <div className={`overflow-x-auto ${gerarMesesNoPeriodo.length > 6 ? 'overflow-x-scroll' : ''}`}>
                 <table className="w-full border-collapse min-w-full">
@@ -1881,6 +1930,7 @@ const RelatoriosOuvidoria = () => {
               </div>
             </div>
           )}
+          </RelatorioSecaoAccordion>
 
           {/* Linha Divisória */}
           <hr className="border-b border-gray-300 dark:border-gray-600 my-6" />
@@ -1888,13 +1938,60 @@ const RelatoriosOuvidoria = () => {
       )}
 
       {/* Seção Procon */}
-      {dadosDetalhados?.procon && (
+      {exibirSecaoTipo('PROCON') && (
         <>
-          <h2 className="text-xl font-semibold velohub-title mb-4">Procon</h2>
+          <RelatorioSecaoAccordion titulo="Procon">
+            {processarOrigensProconTabela && (
+              <div
+                className="container-secondary mb-6"
+                style={{ borderColor: 'var(--blue-opaque)' }}
+              >
+              <h3 className="text-lg font-semibold mb-4">Origens</h3>
+              <div className={`overflow-x-auto ${gerarMesesNoPeriodo.length > 6 ? 'overflow-x-scroll' : ''}`}>
+                <table className="w-full min-w-full border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="border border-gray-300 px-4 py-2 text-left text-sm font-medium dark:border-gray-600">Origem</th>
+                      {processarOrigensProconTabela.meses.map((mes) => (
+                        <th
+                          key={mes}
+                          className="whitespace-nowrap border border-gray-300 px-4 py-2 text-center text-sm font-medium dark:border-gray-600"
+                        >
+                          {formatarMes(mes)}
+                        </th>
+                      ))}
+                      <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium dark:border-gray-600">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {processarOrigensProconTabela.tabela.map((linha, index) => (
+                      <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="border border-gray-300 px-4 py-2 text-sm dark:border-gray-600">{linha.origem}</td>
+                        {linha.valores.map((valor, idx) => (
+                          <td
+                            key={idx}
+                            className="whitespace-nowrap border border-gray-300 px-4 py-2 text-center text-sm dark:border-gray-600"
+                          >
+                            {valor}
+                          </td>
+                        ))}
+                        <td className="border border-gray-300 px-4 py-2 text-center text-sm font-semibold dark:border-gray-600">
+                          {linha.total}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            )}
 
           {/* Tabela Motivos Procon */}
           {processarMotivosProcon && (
-            <div className="container-secondary mb-6">
+            <div
+              className="container-secondary mb-6"
+              style={{ borderColor: 'var(--blue-opaque)' }}
+            >
               <h3 className="text-lg font-semibold mb-4">Motivos</h3>
               <div className={`overflow-x-auto ${gerarMesesNoPeriodo.length > 6 ? 'overflow-x-scroll' : ''}`}>
                 <table className="w-full border-collapse min-w-full">
@@ -1928,6 +2025,7 @@ const RelatoriosOuvidoria = () => {
               </div>
             </div>
           )}
+          </RelatorioSecaoAccordion>
 
           {/* Linha Divisória */}
           <hr className="border-b border-gray-300 dark:border-gray-600 my-6" />
@@ -1935,13 +2033,13 @@ const RelatoriosOuvidoria = () => {
       )}
 
       {/* Seção Ação Judicial */}
-      {dadosDetalhados?.judicial && (
-        <>
-          <h2 className="text-xl font-semibold velohub-title mb-4">Ação Judicial</h2>
-
-          {/* Tabela Motivos Ação Judicial */}
+      {exibirSecaoTipo('PROCESSOS') && (
+        <RelatorioSecaoAccordion titulo="Ação Judicial">
           {processarMotivosJudicial && (
-            <div className="container-secondary mb-6">
+            <div
+              className="container-secondary mb-6"
+              style={{ borderColor: 'var(--blue-opaque)' }}
+            >
               <h3 className="text-lg font-semibold mb-4">Motivos</h3>
               <div className={`overflow-x-auto ${gerarMesesNoPeriodo.length > 6 ? 'overflow-x-scroll' : ''}`}>
                 <table className="w-full border-collapse min-w-full">
@@ -1975,7 +2073,7 @@ const RelatoriosOuvidoria = () => {
               </div>
             </div>
           )}
-        </>
+        </RelatorioSecaoAccordion>
       )}
     </div>
   );

@@ -1,8 +1,10 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Anexos
- * VERSION: v1.0.0 | DATE: 2025-02-20 | AUTHOR: VeloHub Development Team
- * 
+ * VERSION: v1.0.2 | DATE: 2026-05-12 | AUTHOR: VeloHub Development Team
+ *
  * Rotas para upload de anexos de reclamações para Google Cloud Storage
+ * v1.0.2: Middleware Multer explícito — erros (filtro/tamanho/campo) respondem sempre JSON 400
+ * v1.0.1: tipo CHARGEBACK → pasta `anexos_chargeback/` no bucket (mediabank_velohub)
  */
 
 const express = require('express');
@@ -18,12 +20,17 @@ const upload = multer({
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = /\.(pdf|doc|docx|jpg|jpeg|png)$/i;
-    if (allowedTypes.test(file.originalname)) {
+    const mimeOk =
+      typeof file.mimetype === 'string' &&
+      /^(application\/pdf|image\/(jpeg|jpg|png)|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document)$/i.test(
+        file.mimetype,
+      );
+    if (allowedTypes.test(file.originalname || '') || mimeOk) {
       cb(null, true);
     } else {
       cb(new Error('Tipo de arquivo não permitido. Use PDF, DOC, DOCX, JPG, JPEG ou PNG'));
     }
-  }
+  },
 });
 
 /**
@@ -37,10 +44,32 @@ const initAnexosRoutes = (client, connectToMongo, services = {}) => {
    * POST /api/ouvidoria/anexos/upload
    * Upload de anexo para Google Cloud Storage
    */
-  router.post('/upload', upload.single('anexo'), async (req, res) => {
+  router.post(
+    '/upload',
+    (req, res, next) => {
+      upload.single('anexo')(req, res, (err) => {
+        if (!err) {
+          next();
+          return;
+        }
+        console.error('❌ [ouvidoria/anexos] Multer:', err?.code || err?.message, err);
+        let msg = err.message || 'Erro ao processar o arquivo enviado';
+        let status = 400;
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          msg = 'Arquivo acima do limite de 10 MB';
+        } else if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+          msg = 'Campo de arquivo inválido (use o campo «anexo»)';
+        }
+        if (!res.headersSent) {
+          res.status(status).json({ success: false, error: msg });
+        }
+      });
+    },
+    async (req, res) => {
     try {
       const userEmail = req.headers['x-user-email'] || req.body?.userEmail;
-      const tipo = req.body?.tipo || 'BACEN';
+      const tipoRaw = req.body?.tipo || 'BACEN';
+      const tipoNorm = String(tipoRaw).trim().toUpperCase();
 
       if (!req.file) {
         return res.status(400).json({
@@ -60,7 +89,10 @@ const initAnexosRoutes = (client, connectToMongo, services = {}) => {
       const timestamp = Date.now();
       const sanitizedFileName = req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
       const fileName = `${timestamp}-${sanitizedFileName}`;
-      const filePath = `anexos_ouvidoria/${tipo.toLowerCase()}/${fileName}`;
+      const filePath =
+        tipoNorm === 'CHARGEBACK'
+          ? `anexos_chargeback/${fileName}`
+          : `anexos_ouvidoria/${String(tipoRaw).toLowerCase()}/${fileName}`;
 
       // Inicializar Google Cloud Storage
       const bucketName = process.env.GCS_BUCKET_NAME2 || 'mediabank_velohub';
@@ -145,7 +177,7 @@ const initAnexosRoutes = (client, connectToMongo, services = {}) => {
               originalName: req.file.originalname,
               uploadedBy: userEmail,
               uploadedAt: new Date().toISOString(),
-              tipo: tipo
+              tipo: tipoRaw
             }
           }
         });
@@ -185,7 +217,8 @@ const initAnexosRoutes = (client, connectToMongo, services = {}) => {
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
-  });
+    },
+  );
 
   return router;
 };

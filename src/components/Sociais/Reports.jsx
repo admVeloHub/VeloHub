@@ -1,12 +1,10 @@
 /**
  * VeloHub V3 - Reports (Sociais)
- * VERSION: v1.2.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.2.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
  *
- * Mudanças v1.2.0:
- * - Filtro rede social: opção LinkedIn
- *
- * Mudanças v1.1.0:
- * - Gráfico de sentimento no PDF: barras empilhadas (Positivo azul, Neutro amarelo, Negativo vermelho)
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.2.0: Filtro rede social: opção LinkedIn
+ * - v1.1.0: Gráfico de sentimento no PDF: barras empilhadas (Positivo azul, Neutro amarelo, Negativo vermelho)
  */
 
 import { useState } from 'react';

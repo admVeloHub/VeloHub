@@ -9,7 +9,7 @@
 const { MongoClient } = require('mongodb');
 
 // String de conexão MongoDB
-const MONGODB_URI = process.env.MONGO_ENV || 'mongodb+srv://lucasgravina:nKQu8bSN6iZl8FPo@velohubcentral.od7vwts.mongodb.net/?retryWrites=true&w=majority&appName=VelohubCentral';
+const { MONGODB_URI } = require('./loadMongoUri');
 
 if (!MONGODB_URI) {
   console.error('❌ Erro: MONGO_ENV não configurada');

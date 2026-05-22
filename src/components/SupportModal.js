@@ -1,9 +1,14 @@
 /**
  * VeloHub V3 - Support Modal Component
- * VERSION: v1.4.1 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.4.5 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.4.3: Gestão: opção de direcionamento QA (_direcionamento "qa" → permissão gestaoQa no Console)
+ * - v1.4.2: Campos de formulário: FloatingLabelField (rótulo flutuante)
  */
 
 import React, { useState } from 'react';
+import { FloatingLabelField } from './shared/FloatingLabelField';
 import { X, Send, FileText, Bot, GraduationCap, Map, Puzzle, PlusSquare, User, BookOpen, LifeBuoy } from 'lucide-react';
 import { getUserSession } from '../services/auth';
 import { API_BASE_URL } from '../config/api-config';
@@ -53,7 +58,8 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
             _userEmail: userEmail,
             _statusHub: 'novo',
             _statusConsole: 'novo',
-            _lastUpdatedBy: 'user'
+            _lastUpdatedBy: 'user',
+            notification: false
         };
     };
 
@@ -83,7 +89,8 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
             _tipo: formData.tipo,
             ...fieldMapping[type],
             _corpo: corpoArray,
-            _userEmail: userEmail
+            _userEmail: userEmail,
+            notification: false
         };
     };
 
@@ -153,12 +160,15 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
                 return (
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Tipo *
-                            </label>
+                            <FloatingLabelField
+                                id={`sm-${type}-tipo`}
+                                label="Tipo"
+                                required
+                                value={formData.tipo || ''}
+                            >
                             <select
                                 required
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 style={{
                                     backgroundColor: 'var(--cor-container)',
                                     color: 'var(--cor-texto-principal)',
@@ -172,15 +182,14 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
                         <option value="Correção">Correção</option>
                         <option value="Remoção">Remoção</option>
                             </select>
+                            </FloatingLabelField>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Assunto *
-                            </label>
+                            <FloatingLabelField id={`sm-${type}-assunto`} label="Assunto" required value={formData.assunto || ''}>
                             <input
                                 type="text"
                                 required
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 style={{
                                     backgroundColor: 'var(--cor-container)',
                                     color: 'var(--cor-texto-principal)',
@@ -190,15 +199,14 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
                                 onChange={(e) => handleInputChange('assunto', e.target.value)}
                                 placeholder="Digite o assunto"
                             />
+                            </FloatingLabelField>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Descrição *
-                            </label>
+                            <FloatingLabelField id={`sm-${type}-descricao`} label="Descrição" required value={formData.descricao || ''}>
                             <textarea
                                 required
                                 rows={4}
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                className="w-full px-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                                 style={{
                                     backgroundColor: 'var(--cor-container)',
                                     color: 'var(--cor-texto-principal)',
@@ -208,14 +216,13 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
                                 onChange={(e) => handleInputChange('descricao', e.target.value)}
                         placeholder="Descreva o conteúdo"
                             />
+                            </FloatingLabelField>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Ocorrência
-                            </label>
+                            <FloatingLabelField id={`sm-${type}-ocorrencia`} label="Ocorrência" value={formData.ocorrencia || ''}>
                             <textarea
                                 rows={3}
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                className="w-full px-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                                 style={{
                                     backgroundColor: 'var(--cor-container)',
                                     color: 'var(--cor-texto-principal)',
@@ -225,6 +232,7 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
                                 onChange={(e) => handleInputChange('ocorrencia', e.target.value)}
                                 placeholder="Se houver, situação que exemplifica a necessidade"
                             />
+                            </FloatingLabelField>
                         </div>
                     </div>
                 );
@@ -244,12 +252,10 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
                 return (
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Tipo *
-                            </label>
+                            <FloatingLabelField id="sm-gestao-tipo" label="Tipo" required value={formData.tipo || ''}>
                             <select
                                 required
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 style={{
                                     backgroundColor: 'var(--cor-container)',
                                     color: 'var(--cor-texto-principal)',
@@ -263,14 +269,13 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
                                 <option value="agendamento">Agendamento</option>
                                 <option value="notificacao">Notificação</option>
                             </select>
+                            </FloatingLabelField>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Direcionado a *
-                            </label>
+                            <FloatingLabelField id="sm-gestao-direcionado" label="Direcionado a" required value={formData.direcionado || ''}>
                             <select
                                 required
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 style={{
                                     backgroundColor: 'var(--cor-container)',
                                     color: 'var(--cor-texto-principal)',
@@ -283,16 +288,16 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
                                 <option value="supervisor">Supervisor</option>
                                 <option value="gestor">Gestor</option>
                                 <option value="backoffice">Backoffice</option>
+                                <option value="qa">QA</option>
                             </select>
+                            </FloatingLabelField>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Mensagem *
-                            </label>
+                            <FloatingLabelField id="sm-gestao-mensagem" label="Mensagem" required value={formData.mensagem || ''}>
                             <textarea
                                 required
                                 rows={6}
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                className="w-full px-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                                 style={{
                                     backgroundColor: 'var(--cor-container)',
                                     color: 'var(--cor-texto-principal)',
@@ -302,6 +307,7 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
                                 onChange={(e) => handleInputChange('mensagem', e.target.value)}
                                 placeholder="Digite sua mensagem"
                             />
+                            </FloatingLabelField>
                         </div>
                     </div>
                 );
@@ -310,12 +316,10 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
                 return (
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Tipo *
-                            </label>
+                            <FloatingLabelField id="sm-rh-tipo" label="Tipo" required value={formData.tipo || ''}>
                             <select
                                 required
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 style={{
                                     backgroundColor: 'var(--cor-container)',
                                     color: 'var(--cor-texto-principal)',
@@ -329,14 +333,13 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
                                 <option value="agendamento">Agendamento</option>
                                 <option value="notificacao">Notificação</option>
                             </select>
+                            </FloatingLabelField>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Setor *
-                            </label>
+                            <FloatingLabelField id="sm-rh-setor" label="Setor" required value={formData.setor || ''}>
                             <select
                                 required
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 style={{
                                     backgroundColor: 'var(--cor-container)',
                                     color: 'var(--cor-texto-principal)',
@@ -349,15 +352,14 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
                                 <option value="rh">RH</option>
                                 <option value="financeiro">Financeiro</option>
                             </select>
+                            </FloatingLabelField>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Mensagem *
-                            </label>
+                            <FloatingLabelField id="sm-rh-mensagem" label="Mensagem" required value={formData.mensagem || ''}>
                             <textarea
                                 required
                                 rows={6}
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                className="w-full px-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                                 style={{
                                     backgroundColor: 'var(--cor-container)',
                                     color: 'var(--cor-texto-principal)',
@@ -367,6 +369,7 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
                                 onChange={(e) => handleInputChange('mensagem', e.target.value)}
                                 placeholder="Digite sua mensagem"
                             />
+                            </FloatingLabelField>
                         </div>
                     </div>
                 );
@@ -375,12 +378,10 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
                 return (
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Tipo *
-                            </label>
+                            <FloatingLabelField id="sm-fac-tipo" label="Tipo" required value={formData.tipo || ''}>
                             <select
                                 required
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 style={{
                                     backgroundColor: 'var(--cor-container)',
                                     color: 'var(--cor-texto-principal)',
@@ -396,14 +397,13 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
                                 <option value="acesso">Acesso</option>
                                 <option value="manutencao">Manutenção</option>
                             </select>
+                            </FloatingLabelField>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Categoria *
-                            </label>
+                            <FloatingLabelField id="sm-fac-categoria" label="Categoria" required value={formData.categoria || ''}>
                             <select
                                 required
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 style={{
                                     backgroundColor: 'var(--cor-container)',
                                     color: 'var(--cor-texto-principal)',
@@ -420,15 +420,14 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
                                 <option value="servico">Serviço</option>
                                 <option value="estrutural">Estrutural</option>
                             </select>
+                            </FloatingLabelField>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-2" style={{color: 'var(--cor-texto-principal)'}}>
-                                Mensagem *
-                            </label>
+                            <FloatingLabelField id="sm-fac-mensagem" label="Mensagem" required value={formData.mensagem || ''}>
                             <textarea
                                 required
                                 rows={6}
-                                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                className="w-full px-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                                 style={{
                                     backgroundColor: 'var(--cor-container)',
                                     color: 'var(--cor-texto-principal)',
@@ -438,6 +437,7 @@ const SupportModal = ({ isOpen, onClose, type, title }) => {
                                 onChange={(e) => handleInputChange('mensagem', e.target.value)}
                                 placeholder="Digite sua mensagem"
                             />
+                            </FloatingLabelField>
                         </div>
                     </div>
                 );

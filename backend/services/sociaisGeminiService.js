@@ -1,13 +1,9 @@
 /**
  * VeloHub V3 - Sociais Gemini Service
- * VERSION: v1.2.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.2.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
  *
- * Mudanças v1.2.0:
- * - stripReportPreamble: remove "Com certeza", "Como especialista", etc.
- * - Prompt: instruções para não incluir preâmbulos
- *
- * Serviço de IA para análise de sentimento e geração de relatórios (módulo Sociais)
- * Usa config.GEMINI_API_KEY (chave centralizada do VeloHub) e gemini-2.5-pro (thinking)
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.2.0: stripReportPreamble: remove "Com certeza", "Como especialista", etc.
  */
 
 const config = require('../config');

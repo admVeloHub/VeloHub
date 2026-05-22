@@ -1,35 +1,9 @@
 /**
  * Script de Sincronização: Firebase → MongoDB (Apenas Novos Casos)
- * VERSION: v1.2.1 | DATE: 2026-02-26 | AUTHOR: VeloHub Development Team
-(function loadVelohubFonteEnv(here) {
-  const path = require('path');
-  const fs = require('fs');
-  let d = here;
-  for (let i = 0; i < 14; i++) {
-    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
-    if (fs.existsSync(loader)) {
-      require(loader).loadFrom(here);
-      return;
-    }
-    const parent = path.dirname(d);
-    if (parent === d) break;
-    d = parent;
-  }
-})(__dirname);
-
- * 
- * Mudanças v1.1.0:
- * - Removida sincronização de fichas_chatbot → reclamacoes_chatbot
- * - Collection reclamacoes_chatbot removida do projeto
- * 
- * Sincroniza apenas os novos casos do Firebase Realtime Database para MongoDB
- * Compara com casos já existentes no MongoDB e insere apenas os novos
- * 
- * Uso:
- *   node backend/scripts/sync-firebase-to-mongodb.js [--dry-run]
- * 
- * Requer variáveis de ambiente:
- *   - MONGO_ENV (MongoDB connection string)
+ * VERSION: v1.3.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.1.0: Removida sincronização de fichas_chatbot → reclamacoes_chatbot
  */
 
 const { MongoClient } = require('mongodb');
@@ -44,19 +18,37 @@ if (typeof globalThis.fetch === 'function') {
   fetch = require('node-fetch');
 }
 
-// Configuração Firebase (do projeto BACEN)
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyAVoOWyvMjk29hm9OZ7g7EcOnIkHklFGSQ",
-  authDomain: "bacen-n2.firebaseapp.com",
-  databaseURL: "https://bacen-n2-default-rtdb.firebaseio.com",
-  projectId: "bacen-n2",
-  storageBucket: "bacen-n2.firebasestorage.app",
-  messagingSenderId: "165884440954",
-  appId: "1:165884440954:web:df1d0482e9cf7fc54da6c3"
-};
+const FIREBASE_ENV_KEYS = [
+  'FIREBASE_API_KEY',
+  'FIREBASE_AUTH_DOMAIN',
+  'FIREBASE_DATABASE_URL',
+  'FIREBASE_PROJECT_ID',
+  'FIREBASE_STORAGE_BUCKET',
+  'FIREBASE_MESSAGING_SENDER_ID',
+  'FIREBASE_APP_ID'
+];
+
+function loadFirebaseConfigFromEnv() {
+  const missing = FIREBASE_ENV_KEYS.filter((k) => !process.env[k] || !String(process.env[k]).trim());
+  if (missing.length) {
+    console.error('[sync-firebase] Defina no ambiente ou na FONTE: ' + missing.join(', '));
+    process.exit(1);
+  }
+  return {
+    apiKey: process.env.FIREBASE_API_KEY,
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+    databaseURL: process.env.FIREBASE_DATABASE_URL,
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.FIREBASE_APP_ID
+  };
+}
+
+const FIREBASE_CONFIG = loadFirebaseConfigFromEnv();
 
 // Configuração MongoDB
-const MONGODB_URI = process.env.MONGO_ENV || 'mongodb+srv://lucasgravina:nKQu8bSN6iZl8FPo@velohubcentral.od7vwts.mongodb.net/?retryWrites=true&w=majority&appName=VelohubCentral';
+const { MONGODB_URI } = require('./loadMongoUri');
 const DATABASE_NAME = 'hub_ouvidoria';
 
 // Modo dry-run (apenas validação, sem inserir)

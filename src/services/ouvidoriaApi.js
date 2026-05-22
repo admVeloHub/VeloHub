@@ -1,43 +1,23 @@
 /**
  * VeloHub V3 - Ouvidoria API Service
- * VERSION: v2.8.0 | DATE: 2026-04-07 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v2.8.0:
- * - reclamacoesAPI.getAll: parâmetro opcional produto (query)
- * 
- * Mudanças v2.7.0:
- * - reclamacoesAPI.remove: DELETE /ouvidoria/reclamacoes/:id?tipo=
- * 
- * Mudanças v2.6.0:
- * - Adicionado parâmetro status em getAll de reclamacoesAPI
- * 
- * Mudanças v2.5.0:
- * - Adicionado parâmetro motivos (array) em getStats e getMetricas do dashboardAPI
- * 
- * Mudanças v2.4.0:
- * - Adicionado parâmetro produtos (array) em getStats e getMetricas do dashboardAPI
- * 
- * Mudanças v2.3.1:
- * - Atualizado comentário: reclamacoes_ouvidoria → reclamacoes_n2Pix
- * 
- * Mudanças v2.2.0:
- * - Removido método getByIdSecao (campo idSecao removido)
- * 
- * Mudanças v2.0.0:
- * - Atualizado para suportar coleções separadas (reclamacoes_bacen, reclamacoes_n2Pix)
- * - getById e update agora requerem tipo como parâmetro
- * 
- * Mudanças v1.3.0:
- * - Adicionado método uploadAnexo para upload de arquivos para Cloud Storage
- * 
- * Mudanças v1.1.0:
- * - Adicionado envio automático de email e sessionId nos headers das requisições
- * - Headers x-user-email e x-session-id incluídos para middleware de acesso
- * 
- * Serviço de API para o módulo de Ouvidoria (BACEN, N2 Pix)
+ * VERSION: v2.13.2 | DATE: 2026-05-21 | AUTHOR: VeloHub Development Team
+ * v2.13.2: Removida instrumentação agent log (localhost:7635) em apiRequest
+ *
+ * Referência (detalhes no Git):
+ * - v2.13.1: apiRequest/upload — await ensureSessionId antes do fetch (x-session-id obrigatório no backend ouvidoria)
+ * - v2.13.0: reclamacoesAPI.gerarTicketOctadesk — POST /:id/gerar-ticket-octadesk
+ * - v2.12.5: apiRequest usa `getUserSession()` de auth (chave SESSION_KEY VeloHub) — não priorizar veloacademy_user_session antes do hub (evita x-user-email/registro paralelo stale)
+ * - v2.12.4: reclamacoesAPI.getByColaborador — `pagination.colaboradorEmail` opcional (query GET Minhas reclamações por dono da sessão) lê corpo como texto e aceita JSON ou mensagem útil quando Content-Type não é JSON (ex.: proxy/HTML em 500)
+ * - v2.12.2: chargebackAPI.getProximoProtocoloSugerido (GET prévia protocolo CBK)
+ * - v2.12.1: reclamacoesAPI.getByCpf / getByColaborador aceitam `{ page, limit }` opcional (lista paginada)
+ * - v2.12.0: chargebackAPI.getById / chargebackAPI.update (GET/PUT `:id`); `_saveMode` no create
+ * - v2.11.0: chargebackAPI (GET/POST `hub_ouvidoria.reclamacoes_chargeback` via `/ouvidoria/chargeback`)
+ * - v2.8.0: reclamacoesAPI.getAll: parâmetro opcional produto (query)
+ * - v2.7.0: reclamacoesAPI.remove: DELETE /ouvidoria/reclamacoes/:id?tipo=
  */
 
 import { API_BASE_URL } from '../config/api-config';
+import { getUserSession, ensureSessionId, isSessionValid } from './auth';
 
 /**
  * Função genérica para fazer requisições
@@ -49,35 +29,39 @@ async function apiRequest(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
   console.log(`🔍 [ouvidoriaApi] Fazendo requisição para: ${url}`);
   
-  // Obter email da sessão para incluir nas requisições
+  // Mesma fonte da sessão que o restante do VeloHub (auth.js → SESSION_KEY)
   let userEmail = null;
   try {
-    const sessionData = 
-      localStorage.getItem('veloacademy_user_session') ||
-      localStorage.getItem('velohub_user_session') ||
-      localStorage.getItem('user_session');
-    
-    if (sessionData) {
-      const session = JSON.parse(sessionData);
-      userEmail = session?.user?.email || session?.email;
-      console.log(`🔍 [ouvidoriaApi] Email obtido da sessão: ${userEmail || 'não encontrado'}`);
-      console.log(`🔍 [ouvidoriaApi] Estrutura da sessão:`, {
-        hasUser: !!session?.user,
-        userEmail: session?.user?.email,
-        sessionEmail: session?.email,
-        sessionKeys: Object.keys(session || {})
-      });
-    } else {
-      console.warn(`⚠️ [ouvidoriaApi] Nenhuma sessão encontrada no localStorage`);
-    }
+    const session = getUserSession();
+    userEmail =
+      session && typeof session === 'object'
+        ? session?.user?.email || session?.email || null
+        : null;
+    console.log(`🔍 [ouvidoriaApi] Email obtido da sessão: ${userEmail || 'não encontrado'}`);
+    console.log(`🔍 [ouvidoriaApi] Estrutura da sessão:`, {
+      hasUser: !!session?.user,
+      userEmail: session?.user?.email,
+      sessionEmail: session?.email,
+      sessionKeys: session && typeof session === 'object' ? Object.keys(session) : [],
+    });
   } catch (error) {
     console.error('❌ [ouvidoriaApi] Erro ao obter email da sessão:', error);
   }
   
-  // Obter sessionId se disponível
-  const sessionId = localStorage.getItem('velohub_session_id');
-  console.log(`🔍 [ouvidoriaApi] SessionId: ${sessionId || 'não encontrado'}`);
-  
+  const lsSessionIdBefore = localStorage.getItem('velohub_session_id');
+
+  let sessionId = lsSessionIdBefore;
+  if (!sessionId || !String(sessionId).trim()) {
+    sessionId = await ensureSessionId();
+  }
+  console.log(`🔍 [ouvidoriaApi] SessionId: ${sessionId ? `${String(sessionId).substring(0, 8)}...` : 'não encontrado'}`);
+
+  if (!sessionId) {
+    const err = new Error('Sessão do servidor indisponível. Atualize a página ou faça login novamente.');
+    err.code = 'SESSION_ID_MISSING';
+    throw err;
+  }
+
   try {
     const headers = {
       'Content-Type': 'application/json',
@@ -91,10 +75,8 @@ async function apiRequest(endpoint, options = {}) {
     } else {
       console.warn(`⚠️ [ouvidoriaApi] Email não disponível - header x-user-email não será enviado`);
     }
-    if (sessionId) {
-      headers['x-session-id'] = sessionId;
-      console.log(`✅ [ouvidoriaApi] Header x-session-id adicionado: ${sessionId}`);
-    }
+    headers['x-session-id'] = sessionId;
+    console.log(`✅ [ouvidoriaApi] Header x-session-id adicionado: ${String(sessionId).substring(0, 8)}...`);
     
     const response = await fetch(url, {
       headers,
@@ -171,6 +153,24 @@ export const reclamacoesAPI = {
   }),
 
   /**
+   * Criar ticket Octadesk e persistir ticketRegistro na reclamação.
+   * @param {string} id - ID MongoDB
+   * @param {string} tipo - Tipo da ocorrência (query)
+   * @returns {Promise<Object>}
+   */
+  gerarTicketOctadesk: (id, tipo) => {
+    const tid = String(id || '').trim();
+    const ttipo = String(tipo || '').trim();
+    if (!tid || !ttipo) {
+      return Promise.reject(new Error('ID e tipo são obrigatórios para gerar ticket'));
+    }
+    return apiRequest(
+      `/ouvidoria/reclamacoes/${encodeURIComponent(tid)}/gerar-ticket-octadesk?tipo=${encodeURIComponent(ttipo)}`,
+      { method: 'POST', body: JSON.stringify({}) }
+    );
+  },
+
+  /**
    * Atualizar reclamação
    * @param {string} id - ID da reclamação
    * @param {Object} data - Dados atualizados (deve incluir campo 'tipo' ou passar como query param)
@@ -208,14 +208,64 @@ export const reclamacoesAPI = {
    * @param {string} cpf - CPF para buscar
    * @returns {Promise<Array>} Lista de reclamações
    */
-  getByCpf: (cpf) => apiRequest(`/ouvidoria/reclamacoes?cpf=${cpf}`),
+  getByCpf: (cpf, pagination = {}) => {
+    const q = new URLSearchParams();
+    q.set('cpf', String(cpf || '').replace(/\D/g, ''));
+    if (pagination.page != null && String(pagination.page).trim() !== '') {
+      q.set('page', String(pagination.page));
+    }
+    if (pagination.limit != null && String(pagination.limit).trim() !== '') {
+      q.set('limit', String(pagination.limit));
+    }
+    return apiRequest(`/ouvidoria/reclamacoes?${q.toString()}`);
+  },
+
+  /**
+   * Confirmar fusão entre duas ocorrências (mesmo CPF)
+   * @param {object} body - { cpf, currentId, currentTipo, targetId, targetTipo, cenario, redundantePapel? }
+   */
+  confirmFusao: (body) =>
+    apiRequest('/ouvidoria/reclamacoes/fusao', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 
   /**
    * Buscar reclamações por colaborador
    * @param {string} colaboradorNome - Nome do colaborador
+   * @param {{ page?: number|string, limit?: number|string, colaboradorEmail?: string }} pagination
    * @returns {Promise<Array>} Lista de reclamações
    */
-  getByColaborador: (colaboradorNome) => apiRequest(`/ouvidoria/reclamacoes?colaboradorNome=${encodeURIComponent(colaboradorNome)}`),
+  getByColaborador: (colaboradorNome, pagination = {}) => {
+    const q = new URLSearchParams();
+    const nome = String(colaboradorNome || '').trim();
+    if (nome) {
+      q.set('colaboradorNome', nome);
+    }
+    const emailLc =
+      pagination.colaboradorEmail != null
+        ? String(pagination.colaboradorEmail || '').trim().toLowerCase()
+        : '';
+    if (emailLc) {
+      q.set('colaboradorEmail', emailLc);
+    }
+    if (pagination.page != null && String(pagination.page).trim() !== '') {
+      q.set('page', String(pagination.page));
+    }
+    if (pagination.limit != null && String(pagination.limit).trim() !== '') {
+      q.set('limit', String(pagination.limit));
+    }
+    return apiRequest(`/ouvidoria/reclamacoes?${q.toString()}`);
+  },
+
+  /**
+   * Prévia read-only do próximo número de protocolo (não consome sequência).
+   * @param {string} tipo — ex.: BACEN, OUVIDORIA, RECLAME_AQUI
+   */
+  getProximoNumeroProtocoloSugerido: (tipo) => {
+    const t = encodeURIComponent(String(tipo || '').trim());
+    return apiRequest(`/ouvidoria/reclamacoes/proximo-numero-protocolo-sugerido?tipo=${t}`);
+  },
 
 };
 
@@ -321,6 +371,29 @@ export const relatoriosAPI = {
 };
 
 /**
+ * API Chargeback — coleção `reclamacoes_chargeback` (DB hub_ouvidoria)
+ */
+export const chargebackAPI = {
+  list: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiRequest(`/ouvidoria/chargeback${query ? `?${query}` : ''}`);
+  },
+  /** Próximo número CBK sugerido (read-only; mesma regra do servidor na criação). */
+  getProximoProtocoloSugerido: () => apiRequest('/ouvidoria/chargeback/proximo-protocolo-sugerido'),
+  getById: (id) => apiRequest(`/ouvidoria/chargeback/${encodeURIComponent(id)}`),
+  create: (body) =>
+    apiRequest('/ouvidoria/chargeback', {
+      method: 'POST',
+      body: JSON.stringify(body && typeof body === 'object' ? body : {}),
+    }),
+  update: (id, body) =>
+    apiRequest(`/ouvidoria/chargeback/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(body && typeof body === 'object' ? body : {}),
+    }),
+};
+
+/**
  * API para Anexos
  */
 export const anexosAPI = {
@@ -349,8 +422,14 @@ export const anexosAPI = {
       console.error('Erro ao obter email da sessão:', error);
     }
     
-    const sessionId = localStorage.getItem('velohub_session_id');
-    
+    let sessionId = localStorage.getItem('velohub_session_id');
+    if (!sessionId || !String(sessionId).trim()) {
+      sessionId = await ensureSessionId();
+    }
+    if (!sessionId) {
+      throw new Error('Sessão do servidor indisponível. Atualize a página ou faça login novamente.');
+    }
+
     const formData = new FormData();
     formData.append('anexo', file);
     formData.append('tipo', tipo);
@@ -372,19 +451,41 @@ export const anexosAPI = {
         headers,
         body: formData,
       });
-      
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text();
-        throw new Error(`Resposta não é JSON. Status: ${response.status}`);
+
+      const rawText = await response.text();
+      const ct = (response.headers.get('content-type') || '').toLowerCase();
+      /** @type {{ success?: boolean; url?: string; message?: string; error?: string; details?: string }} */
+      let data = {};
+
+      if (ct.includes('application/json')) {
+        try {
+          data = rawText ? JSON.parse(rawText) : {};
+        } catch {
+          data = {
+            success: false,
+            error:
+              rawText.trim().slice(0, 400) ||
+              `Resposta JSON inválida (HTTP ${response.status})`,
+          };
+        }
+      } else {
+        data = {
+          success: false,
+          error:
+            rawText.trim().slice(0, 400) ||
+            `Falha no upload (HTTP ${response.status}). Verifique o backend e credenciais do Google Cloud Storage.`,
+        };
       }
-      
-      const data = await response.json();
-      
+
       if (!response.ok) {
-        throw new Error(data.message || data.error || 'Erro no upload');
+        throw new Error(
+          data.message ||
+            data.error ||
+            data.details ||
+            `Erro no upload (HTTP ${response.status})`,
+        );
       }
-      
+
       return data;
     } catch (error) {
       console.error('❌ [anexosAPI] Erro no upload:', error);
@@ -398,5 +499,6 @@ export default {
   dashboard: dashboardAPI,
   clientes: clientesAPI,
   relatorios: relatoriosAPI,
+  chargeback: chargebackAPI,
   anexos: anexosAPI,
 };

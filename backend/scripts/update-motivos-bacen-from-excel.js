@@ -1,38 +1,25 @@
 /**
  * Script de Atualização: Atualizar motivoReduzido na collection reclamacoes_bacen
- * VERSION: v1.1.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
-(function loadVelohubFonteEnv(here) {
-  const path = require('path');
-  const fs = require('fs');
-  let d = here;
-  for (let i = 0; i < 14; i++) {
-    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
-    if (fs.existsSync(loader)) {
-      require(loader).loadFrom(here);
-      return;
-    }
-    const parent = path.dirname(d);
-    if (parent === d) break;
-    d = parent;
-  }
-})(__dirname);
-
- * 
- * Mudanças v1.1.0:
- * - Normalização de motivos para padrão "Aaaaa Aaaaa" (primeira maiúscula apenas)
- * - Remoção de duplicatas (ex: "Chave Pix" e "CHAVE PIX" → "Chave Pix")
- * - Preposições (do, da, de, ao) não são capitalizadas exceto no início
- * - Siglas (PIX, EP) são preservadas em maiúsculas
- * 
- * Atualiza o campo motivoReduzido na collection reclamacoes_bacen usando dados da planilha Excel.
- * Usa CPF Tratado (coluna A) para fazer match com o campo cpf no MongoDB.
- * 
- * Mapeamento:
- * - Coluna A: CPF Tratado (usado para match com cpf no MongoDB)
- * - Coluna I: Motivo reduzido (atualiza campo motivoReduzido)
- * 
- * Uso:
- *   node backend/scripts/update-motivos-bacen-from-excel.js [--dry-run]
+ * VERSION: v1.1.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ *
+ * (function loadVelohubFonteEnv(here) {
+ *   const path = require('path');
+ *   const fs = require('fs');
+ *   let d = here;
+ *   for (let i = 0; i < 14; i++) {
+ *     const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
+ *     if (fs.existsSync(loader)) {
+ *       require(loader).loadFrom(here);
+ *       return;
+ *     }
+ *     const parent = path.dirname(d);
+ *     if (parent === d) break;
+ *     d = parent;
+ *   }
+ * })(__dirname);
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.1.0: Normalização de motivos para padrão "Aaaaa Aaaaa" (primeira maiúscula apenas)
  */
 
 const { MongoClient } = require('mongodb');
@@ -41,7 +28,7 @@ const XLSX = require('xlsx');
 const fs = require('fs');
 
 // Configuração MongoDB
-const MONGODB_URI = process.env.MONGO_ENV || 'mongodb+srv://lucasgravina:nKQu8bSN6iZl8FPo@velohubcentral.od7vwts.mongodb.net/?retryWrites=true&w=majority&appName=VelohubCentral';
+const { MONGODB_URI } = require('./loadMongoUri');
 const DATABASE_NAME = 'hub_ouvidoria';
 const COLLECTION_NAME = 'reclamacoes_bacen';
 

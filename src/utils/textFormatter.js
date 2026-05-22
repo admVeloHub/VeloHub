@@ -1,5 +1,8 @@
 // Text Formatter Utility - Sistema de formatação de texto para o frontend
-// VERSION: v1.0.4 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
+// VERSION: v1.0.5 | DATE: 2026-05-08 | AUTHOR: VeloHub Development Team
+//
+// Mudanças v1.0.5:
+// - formatLinks: não envolve em <a> URLs que já estão em atributos src=/href= (evita corromper <img> e exibir URL/fragmentos no VeloNews)
 //
 // Mudanças v1.0.4:
 // - Markdown de imagem ![alt](url) com alt vazio (![](url)) convertido para <img> (antes ficava texto cru; comum em data:image/base64)
@@ -204,8 +207,12 @@ const formatMarkdown = (text) => {
  * @private
  */
 const formatLinks = (text) => {
-  // Converter URLs simples para links clicáveis
-  return text.replace(/(https?:\/\/[^\s]+)/g, (match, url) => {
+  // Converter URLs simples para links clicáveis (não dentro de src="..." nem href="...")
+  return text.replace(/(https?:\/\/[^\s<]+)/g, (match, url, offset, full) => {
+    const before = full.slice(0, offset);
+    if (/(?:src|href)\s*=\s*["']?$/i.test(before)) {
+      return match;
+    }
     return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
   });
 };

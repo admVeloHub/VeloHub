@@ -1,23 +1,11 @@
 /**
  * VeloHub V3 - Dashboard (Sociais)
- * VERSION: v1.4.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.4.2 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
  *
- * Mudanças v1.4.0:
- * - Filtro rede social: opção LinkedIn
- *
- * Mudanças v1.3.0:
- * - Botão Filtrar sem área vazia (div flex: 0 0 auto)
- * - dashboard-filters-section: campos compactos
- * - Alinhamento rígido: dashboard-sociais padding 16px, filtros/cards/gráficos alinhados
- * - Espaçamento vertical reduzido (setas verdes): margin-bottom 8px, padding 8px
- *
- * Mudanças v1.2.0:
- * - Botão Filtrar; filtros aplicados apenas ao clicar
- * - filters-section no padrão do Feed (flex, align-items flex-end)
- * - Botão Filtrar com velohub-btn secondary (padrão ações secundárias)
- *
- * Mudanças v1.1.0:
- * - Filtros e conteúdo em único velohub-container
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.4.2: Cards de métricas — layout compacto (ver sociais.css v1.3.3)
+ * - v1.4.0: Filtro rede social: opção LinkedIn
+ * - v1.3.0: Botão Filtrar sem área vazia (div flex: 0 0 auto)
  */
 
 import { useState, useEffect, useCallback } from 'react';

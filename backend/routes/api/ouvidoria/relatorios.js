@@ -1,187 +1,17 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Relatórios
- * VERSION: v2.27.0 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v2.27.0:
- * - GET relatório (lista reclamacoes): campo dataResolucao (YYYY-MM-DD) quando Finalizado.Resolvido, para exportação/planilha
- * 
- * Mudanças v2.26.0:
- * - MOTIVOS_CONHECIDOS e MOTIVOS_VALIDOS: Juros abusivos (form BACEN/RA)
- * 
- * Mudanças v2.25.0:
- * - MOTIVOS_CONHECIDOS: Empréstimo pessoal → Empréstimo Pessoal (alinhado produto/form)
- * 
- * Mudanças v2.24.0:
- * - MOTIVOS_CONHECIDOS e MOTIVOS_VALIDOS: padrão Xxxxx xxxxx xxxx (sentence case)
- * 
- * Mudanças v2.23.0:
- * - Relatório Diário: adicionados tipos Reclame Aqui, Procon e Ação Judicial (chamadosPorDia, motivosPorDia)
- * 
- * Mudanças v2.22.0:
- * - CORRIGIDO Relatório Diário: dataInicioDate/dataFimDate agora usam UTC explícito (T00:00:00.000Z / T23:59:59.999Z)
- *   para evitar deslocamento de datas por timezone do servidor (ex: 2026-02-28 aparecendo quando filtro era 01-17/03)
- * 
- * Mudanças v2.21.0:
- * - Padronização de grafias em MOTIVOS_CONHECIDOS e MOTIVOS_VALIDOS: Abatimento de Juros, Liberação Chave Pix, Contestação de Valores, Encerramento de Conta, Exclusão de Conta, Não Recebeu Restituição
- * 
- * Mudanças v2.20.0:
- * - CORRIGIDO Análise Diária: Natureza = origem (schema 471); Motivos = motivoReduzido (schema 475); dias = dataEntrada (470)
- * - naturezaPorDia e pixRetiradoPorDia: APENAS origem (Bacen Celcoin, Bacen Via Capital, Consumidor.Gov)
- * - motivosPorDia: find() + processamento em memória (como Painel Tempo Real) - mais robusto que aggregation
- * 
- * Mudanças v2.19.0:
- * - HOMOGENEIZAÇÃO: Contagem baseada APENAS na data de entrada (removido fallback createdAt)
- * - criarFiltroData: BACEN dataEntrada | N2 dataEntradaN2 | Reclame dataReclam | Procon dataProcon | Judicial dataEntrada
- * - Todas as agregações (detalhado e diario): filtro por data de entrada, sem createdAt
- * - Documentos sem data de entrada no período não são contados
- * 
- * Mudanças v2.18.0:
- * - Exibição: tipo retornado como 'N2 Pix' (antes 'OUVIDORIA') em listagens
- * - tipoParaCollection: adicionado 'N2 PIX'
- * 
- * Mudanças v2.16.0:
- * - CORRIGIDO: Filtro de data agora aceita campos armazenados como STRING (ex: "2026-02-24")
- * - Alguns docs têm dataEntrada/dataEntradaN2 como string; comparação Date vs string falhava
- * - Adicionado $or para aceitar tanto Date quanto string no formato YYYY-MM-DD
- * - Corrige discrepância: Relatório mostrava 595/1193 ao invés de 605/1258
- * 
- * Mudanças v2.15.0:
- * - CORRIGIDO: Todas as queries N2 agora usam dataEntradaN2 ao invés de dataEntrada
- * - Adicionado fallback para dataEntradaN2 e depois createdAt quando dataEntradaN2 não existe
- * - Corrigido logs de debug para usar dataEntradaN2
- * - Corrigido queries: casosRegistradosPorMes, casosFinalizadosPorMes, pixLiberadoPorMes, motivosPorMesN2Raw
- * 
- * Mudanças v2.14.0:
- * - CORRIGIDO: Adicionado fallback para createdAt quando dataEntrada não existe ou é null em N2
- * - Todas as queries de agregação N2 agora usam dataEntrada com fallback para createdAt
- * - Corrigido problema onde gráficos N2 ficavam zerados mesmo com dados existentes
- * - Logs de debug melhorados para mostrar uso de fallback (dataEntrada vs createdAt)
- * 
- * Mudanças v2.13.1:
- * - Adicionados logs de debug detalhados para investigar por que N2, Procon e Judicial retornam 0 registros
- * - Logs mostram total de documentos, documentos com campo de data, e documentos no período
- * - Adicionados exemplos de documentos para verificar estrutura de dados
- * 
- * Mudanças v2.13.0:
- * - CORRIGIDO: Garantido que sempre retornamos arrays vazios ao invés de objetos vazios quando não há dados
- * - Adicionados logs de debug para rastrear processamento de tipos e quantidade de registros retornados
- * - Garantido que estrutura de retorno sempre existe mesmo quando tipo não é processado
- * - Corrigido problema onde gráficos ficavam zerados para N2 Pix, Procon e Ações Judiciais
- * 
- * Mudanças v2.12.0:
- * - CORRIGIDO COMPLETO: Todas as consultas e agregações agora usam campos de data corretos:
- *   - BACEN: dataEntrada (ao invés de createdAt) - filtros, agregações mensais e diárias
- *   - N2 Pix: dataEntrada (ao invés de createdAt) - filtros, agregações mensais e diárias
- *   - Reclame Aqui: dataReclam (ao invés de createdAt) - filtros e agregações mensais
- *   - Procon: dataProcon (ao invés de createdAt) - filtros e agregações mensais
- *   - Ação Judicial: dataEntrada (ao invés de createdAt) - filtros e agregações mensais
- * - Criada função auxiliar criarFiltroData() para gerar filtros corretos por tipo de coleção
- * - Criada função auxiliar obterCampoOrdenacao() para ordenação correta por tipo
- * - Corrigido endpoint /ouvidoria/relatorios para usar filtros e ordenação corretos
- * - Corrigido relatório diário (/diario) para usar campos de data corretos em todas as agregações
- * - Adicionado $addFields em todas as agregações para garantir conversão correta de datas antes de $dateToString
- * - Gráficos e tabelas agora refletem datas de registro da reclamação, não data de criação do documento
- * 
- * Mudanças v2.11.0:
- * - CORRIGIDO: Gráficos agora usam campos de data corretos para cada tipo:
- *   - BACEN: dataEntrada (ao invés de createdAt)
- *   - N2 Pix: dataEntrada (ao invés de createdAt)
- *   - Reclame Aqui: dataReclam (ao invés de createdAt)
- *   - Procon: dataProcon (ao invés de createdAt)
- *   - Ação Judicial: dataEntrada (ao invés de createdAt)
- * - Adicionado $addFields para garantir conversão correta de datas antes de $dateToString
- * - Corrigido agrupamento por mês para usar datas de registro da reclamação, não data de criação
- * 
- * Mudanças v2.10.0:
- * - CORRIGIDO: Adicionado limite de profundidade de recursão em dividirMotivosConcatenados para evitar stack overflow
- * - Adicionada verificação para evitar processar o mesmo motivo múltiplas vezes (Set de processados)
- * - Se não encontrar nenhum motivo conhecido no texto, retorna o original imediatamente (evita recursão infinita)
- * - Verificação antes de recursão: só divide recursivamente se houver motivo conhecido no texto
- * - Melhorado tratamento de erros para evitar crashes em motivos não conhecidos
- * 
- * Mudanças v2.9.0:
- * - Adicionados relatórios específicos para RECLAME_AQUI, PROCON e AÇÃO_JUDICIAL
- * - Cada categoria processa motivos por mês usando mesma lógica de divisão de motivos concatenados
- * - Relatórios específicos só são gerados quando a categoria correspondente está selecionada
- * 
- * VERSION: v2.8.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v2.8.0:
- * - Melhorada função dividirMotivosConcatenados para evitar matches parciais dentro de matches maiores
- * - Removida duplicação de motivos (ex: "Conta" dentro de "Encerramento de Conta")
- * - Processamento mais robusto de strings concatenadas sem separadores explícitos
- * - Melhorada função processarMotivosParaRelatorio para remover duplicatas e manter ordem
- * 
- * Mudanças v2.7.0:
- * - Adicionada função para dividir motivos concatenados (ex: "Chave PixAbatimento Juros")
- * - Processamento pós-agregação divide strings concatenadas em motivos individuais
- * - Cada motivo individual aparece em sua própria linha, mesmo quando estava concatenado
- * - Função processarMotivosParaRelatorio trata arrays, strings simples e strings concatenadas
- * 
- * Mudanças v2.6.0:
- * - Corrigido processamento de motivos N2Pix para usar $unwind e desenrolar array motivoReduzido
- * - motivoReduzido em N2Pix é [String] (array), então precisa desenrolar antes de agrupar
- * - Correção aplicada em motivosPorMes e motivosPorDia para N2
- * - Agora mostra motivos reais do banco ao invés de valores hardcoded
- * 
- * Mudanças v2.5.0:
- * - Adicionado suporte para filtro de múltiplos tipos via parâmetro 'tipos' (separado por vírgula)
- * - Tipos suportados: BACEN, OUVIDORIA, RECLAME_AQUI, PROCON, PROCESSOS (Ação Judicial)
- * - Endpoint /detalhado agora processa apenas tipos selecionados
- * - Mantida compatibilidade com parâmetro 'tipo' único para código legado
- * 
- * Mudanças v2.4.5:
- * - CORRIGIDO: motivosPorDia agora conta TODOS os valores de motivoReduzido (sem filtro restritivo)
- * - Frontend normaliza e agrupa variações (ex: "CHAVE PIX" e "Chave PIX") automaticamente
- * - Linhas da tabela são geradas a partir dos valores reais encontrados no banco, não de lista fixa
+ * VERSION: v2.30.3 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
  *
- * Mudanças v2.4.4:
- * - CORRIGIDO quadro Motivos: motivosPorDia (BACEN e N2) filtra por lista de motivos válidos ($in: MOTIVOS_VALIDOS)
- * - Naturezas (Bacen Celcoin, Bacen Via Capital, Consumidor.Gov) não entram na contagem de motivos
- * - MOTIVOS_VALIDOS definido uma vez no handler e reutilizado em BACEN e N2
- *
- * Mudanças v2.4.3:
- * - CORRIGIDO: naturezaPorDia e pixRetiradoPorDia agora usam lógica inteligente para determinar natureza
- * - Usa $cond para verificar primeiro se origem tem valores válidos ("Bacen Celcoin", "Bacen Via Capital", "Consumidor.Gov")
- * - Se origem não tiver valores válidos, usa motivoReduzido como fallback
- * - Resolve problema onde dados com origem="Antecipação" ou "Empréstimo Pessoal" (produtos) não apareciam
- * - Agora captura corretamente dados onde natureza está em motivoReduzido ao invés de origem
- * - CORRIGIDO: motivosPorDia agora conta TODOS os valores de motivoReduzido (sem filtros)
- * - Removido filtro que excluía valores de natureza - agora conta todas as ocorrências de cada motivo
- * - Adicionados logs de debug para verificar valores únicos de motivo encontrados
- * 
- * Mudanças v2.4.2:
- * - Corrigido erro "$dateToString parameter 'date' must be coercible to date" em casosFinalizadosPorMes
- * - Adicionado $addFields para converter dataResolucao/updatedAt para Date antes de usar no $dateToString
- * - Usa $toDate para garantir conversão correta de strings para Date
- * 
- * Mudanças v2.4.1:
- * - Removidos logs de debug do endpoint /detalhado que poderiam causar erros
- * 
- * Mudanças v2.4.0:
- * - Adicionada rota GET /api/ouvidoria/relatorios/diario com agregações por dia
- * - Retorna dados diários para tabelas (Natureza, PIX Retirado, Motivos para BACEN)
- * - Retorna dados diários para tabelas (Chamados, PIX Retirado, Motivos para N2)
- * 
- * Mudanças v2.3.0:
- * - Adicionada rota GET /api/ouvidoria/relatorios/detalhado com agregações por mês
- * - Retorna dados detalhados para gráficos e tabelas (Natureza, PIX, Motivos)
- * 
- * Mudanças v2.1.0:
- * - Removido campo status dos filtros (usar Finalizado.Resolvido)
- * - Removido campo mes do agrupamento
- * - Removidos filtros deletada/deletedAt
- * - Atualizado agrupamento por status para usar Finalizado.Resolvido
- * 
- * Mudanças v2.0.0:
- * - Busca em todas as coleções (reclamacoes_bacen, reclamacoes_n2Pix)
- * 
- * Rotas para geração de relatórios
+ * Referência (duas entradas; detalhes no Git):
+ * - v2.30.3: bucketOrigemProconRelatorio centralizado em `utils/bucketOrigemProconRelatorio.js`
+ * - v2.30.2: MOTIVOS_CONHECIDOS / MOTIVOS_VALIDOS / diário: motivo «Elegibilidade»
+ * - v2.27.0: GET relatório (lista reclamacoes): campo dataResolucao (YYYY-MM-DD) quando Finalizado.Resolvido, para exportação/planilha
  */
 
 const express = require('express');
 const router = express.Router();
 const { ObjectId } = require('mongodb');
+const { bucketOrigemProconRelatorio } = require('../../../utils/bucketOrigemProconRelatorio');
 
 /** YYYY-MM-DD ou null — Finalizado.dataResolucao quando Resolvido (leitura apenas). */
 function extrairDataResolucaoRelatorio(r) {
@@ -217,6 +47,7 @@ const MOTIVOS_CONHECIDOS = [
   'Empréstimo',
   'Chave pix',
   'Em cobrança',
+  'Elegibilidade',
   'Alega fraude',
   'Erro app',
   'Fraude',
@@ -530,11 +361,16 @@ function processarMotivosParaRelatorio(motivoReduzido) {
   }
 }
 
-/** Valores de origem (schema 471) - NÃO confundir com motivoReduzido (schema 475). Usado para excluir da tabela Motivos. */
-const ORIGEM_BACEN = ['Bacen Celcoin', 'Bacen Via Capital', 'Consumidor.Gov'];
+/** Origens dos quadros BACEN (natureza, PIX, diário). Consumidor.Gov tratado no fluxo Procon. */
+const ORIGENS_QUADRO_BACEN = ['Bacen Celcoin', 'Bacen Via Capital'];
 
-/** Retorna true se o valor é uma origem (natureza), não um motivo. Motivos não devem incluir origens na tabela. */
-const isOrigemBacen = (valor) => ORIGEM_BACEN.includes(valor);
+/**
+ * Rótulos que não são motivo na tabela Motivos BACEN (inclui Consumidor.Gov para registros antigos no campo motivo).
+ */
+const TEXTO_ORIGEM_NAO_E_MOTIVO_BACEN = [...ORIGENS_QUADRO_BACEN, 'Consumidor.Gov'];
+
+/** Retorna true se o valor é origem/natureza em texto, não motivo. */
+const isOrigemBacen = (valor) => TEXTO_ORIGEM_NAO_E_MOTIVO_BACEN.includes(valor);
 
 /**
  * Inicializar rotas de relatórios
@@ -864,7 +700,8 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
       const naturezaPorMes = await bacenCollection.aggregate([
         {
           $match: {
-            dataEntrada: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate }
+            dataEntrada: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate },
+            origem: { $exists: true, $in: ORIGENS_QUADRO_BACEN }
           }
         },
         {
@@ -897,6 +734,7 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         {
           $match: {
             dataEntrada: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate },
+            origem: { $exists: true, $in: ORIGENS_QUADRO_BACEN },
             $or: [{ pixLiberado: true }, { pixStatus: { $in: ['Liberado', 'Excluído', 'Solicitada'] } }]
           }
         },
@@ -1383,14 +1221,69 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
           return a._id.motivo.localeCompare(b._id.motivo);
         });
 
+        // Origens por mês (campo origem → Procon | Consumidor.gov.br), mesmo período/dataProcon
+        const origensPorMesProconRaw = await proconCollection
+          .aggregate([
+            {
+              $match: {
+                dataProcon: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate }
+              }
+            },
+            {
+              $addFields: {
+                dataProconDate: {
+                  $cond: {
+                    if: { $eq: [{ $type: '$dataProcon' }, 'date'] },
+                    then: '$dataProcon',
+                    else: { $toDate: '$dataProcon' }
+                  }
+                }
+              }
+            },
+            {
+              $group: {
+                _id: {
+                  mes: { $dateToString: { format: '%Y-%m', date: '$dataProconDate' } },
+                  origemRaw: { $ifNull: ['$origem', ''] }
+                },
+                count: { $sum: 1 }
+              }
+            }
+          ])
+          .toArray();
+
+        const origensPorMesProconMap = new Map();
+        origensPorMesProconRaw.forEach((row) => {
+          if (!row || !row._id || !row._id.mes) return;
+          const bucket = bucketOrigemProconRelatorio(row._id.origemRaw);
+          const key = `${row._id.mes}|${bucket}`;
+          origensPorMesProconMap.set(key, (origensPorMesProconMap.get(key) || 0) + (row.count || 0));
+        });
+
+        const origensPorMesProcon = Array.from(origensPorMesProconMap.entries())
+          .map(([key, count]) => {
+            const [mes, origem] = key.split('|');
+            return {
+              _id: { mes, origem },
+              count
+            };
+          })
+          .sort((a, b) => {
+            if (a._id.mes !== b._id.mes) return a._id.mes.localeCompare(b._id.mes);
+            return String(a._id.origem || '').localeCompare(String(b._id.origem || ''));
+          });
+
         resultado.procon = {
-          motivosPorMes: motivosPorMesProcon || []
+          motivosPorMes: motivosPorMesProcon || [],
+          origensPorMes: origensPorMesProcon || []
         };
         console.log(`📊 [Procon] motivosPorMes: ${motivosPorMesProcon?.length || 0} registros`);
+        console.log(`📊 [Procon] origensPorMes: ${origensPorMesProcon?.length || 0} registros`);
       } else {
         // Garantir que sempre retornamos estrutura vazia mesmo quando não processado
         resultado.procon = {
-          motivosPorMes: []
+          motivosPorMes: [],
+          origensPorMes: []
         };
       }
 
@@ -1499,7 +1392,10 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         bacen: { naturezaPorMes: resultado.bacen.naturezaPorMes?.length || 0 },
         n2: { casosRegistradosPorMes: resultado.n2.casosRegistradosPorMes?.length || 0 },
         reclameAqui: { motivosPorMes: resultado.reclameAqui.motivosPorMes?.length || 0 },
-        procon: { motivosPorMes: resultado.procon.motivosPorMes?.length || 0 },
+        procon: {
+          motivosPorMes: resultado.procon.motivosPorMes?.length || 0,
+          origensPorMes: resultado.procon.origensPorMes?.length || 0
+        },
         judicial: { motivosPorMes: resultado.judicial.motivosPorMes?.length || 0 }
       }, null, 2));
 
@@ -1562,6 +1458,7 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         'Cancelamento até 7 dias',
         'Cancelamento superior a 7 dias',
         'Em cobrança',
+        'Elegibilidade',
         'Alega fraude',
         'Erro app',
         'Encerramento cta celcoin',
@@ -1583,7 +1480,7 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
             { dataEntrada: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } },
             { dataEntrada: { $exists: true, $ne: null, $type: 'string', $gte: dataInicio, $lte: dataFim } }
           ],
-          origem: { $exists: true, $ne: '', $in: ['Bacen Celcoin', 'Bacen Via Capital', 'Consumidor.Gov'] }
+          origem: { $exists: true, $ne: '', $in: ORIGENS_QUADRO_BACEN }
         };
 
         let naturezaPorDia, pixRetiradoPorDia, motivosPorDia;
@@ -1855,13 +1752,48 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
 
       if (processarProcon) {
         const proconCollection = db.collection('reclamacoes_procon');
-        const chamadosPorDiaProcon = await proconCollection.aggregate([
+        const chamadosPorDiaProconRaw = await proconCollection.aggregate([
           { $match: { dataProcon: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } } },
           { $addFields: { dataDate: { $cond: [{ $eq: [{ $type: '$dataProcon' }, 'date'] }, '$dataProcon', { $toDate: '$dataProcon' }] } } },
           { $match: { dataDate: { $ne: null } } },
-          { $group: { _id: { dia: { $dateToString: { format: '%Y-%m-%d', date: '$dataDate' } } }, count: { $sum: 1 } } },
+          {
+            $group: {
+              _id: {
+                dia: { $dateToString: { format: '%Y-%m-%d', date: '$dataDate' } },
+                origemRaw: { $ifNull: ['$origem', ''] }
+              },
+              count: { $sum: 1 }
+            }
+          },
           { $sort: { '_id.dia': 1 } }
         ]).toArray();
+
+        const chamadosPorDiaPorOrigemMap = new Map();
+        const chamadosPorDiaTotalsMap = new Map();
+        chamadosPorDiaProconRaw.forEach((row) => {
+          if (!row || !row._id || !row._id.dia) return;
+          const dia = row._id.dia;
+          const bucket = bucketOrigemProconRelatorio(row._id.origemRaw);
+          const c = row.count || 0;
+          const keyO = `${dia}\u0001${bucket}`;
+          chamadosPorDiaPorOrigemMap.set(keyO, (chamadosPorDiaPorOrigemMap.get(keyO) || 0) + c);
+          chamadosPorDiaTotalsMap.set(dia, (chamadosPorDiaTotalsMap.get(dia) || 0) + c);
+        });
+
+        const chamadosPorDiaPorOrigem = Array.from(chamadosPorDiaPorOrigemMap.entries())
+          .map(([key, count]) => {
+            const [dia, origem] = key.split('\u0001');
+            return { _id: { dia, origem }, count };
+          })
+          .sort((a, b) => {
+            if (a._id.dia !== b._id.dia) return a._id.dia.localeCompare(b._id.dia);
+            return String(a._id.origem || '').localeCompare(String(b._id.origem || ''));
+          });
+
+        const chamadosPorDiaProcon = Array.from(chamadosPorDiaTotalsMap.entries())
+          .map(([dia, count]) => ({ _id: { dia }, count }))
+          .sort((a, b) => a._id.dia.localeCompare(b._id.dia));
+
         const docsProcon = await proconCollection.find({ dataProcon: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate } }).toArray();
         const diaStrProcon = (d) => { if (!d) return null; const dt = d instanceof Date ? d : new Date(d); return isNaN(dt.getTime()) ? null : dt.toISOString().slice(0, 10); };
         const motivosPorDiaProconMap = {};
@@ -1881,7 +1813,11 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
           Object.entries(motivosPorDiaProconMap[motivo]).forEach(([dia, count]) => motivosPorDiaProcon.push({ _id: { dia, motivo }, count }));
         });
         motivosPorDiaProcon.sort((a, b) => (a._id.dia !== b._id.dia ? a._id.dia.localeCompare(b._id.dia) : a._id.motivo.localeCompare(b._id.motivo)));
-        resultado.procon = { chamadosPorDia: chamadosPorDiaProcon, motivosPorDia: motivosPorDiaProcon };
+        resultado.procon = {
+          chamadosPorDia: chamadosPorDiaProcon,
+          chamadosPorDiaPorOrigem,
+          motivosPorDia: motivosPorDiaProcon
+        };
       }
 
       if (processarJudicial) {

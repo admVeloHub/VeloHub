@@ -1,52 +1,10 @@
 /**
  * VeloChat API Service - Frontend
- * VERSION: v4.7.2 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v4.7.2:
- * - OTIMIZAÇÃO: Import estático de ensureSessionId ao invés de import dinâmico (melhor performance e consistência)
- * 
- * Mudanças v4.7.1:
- * - CORREÇÃO: getConversations() agora usa Promise.allSettled() para retornar conversas parciais mesmo se uma chamada falhar
- * - MELHORIA: getConversations() garante sessionId antes de fazer chamadas usando ensureSessionId()
- * - MELHORIA: Logs melhorados para diagnóstico quando uma das chamadas falha mas há conversas válidas
- * 
- * Mudanças v4.7.0:
- * - Adicionadas funções editP2PMessage e deleteP2PMessage para editar/excluir mensagens P2P
- * - Adicionadas funções editSalaMessage e deleteSalaMessage para editar/excluir mensagens de salas
- * 
- * Mudanças v4.5.1:
- * - Removidos todos os logs de debug que tentavam conectar em 127.0.0.1:7244 (causavam ERR_CONNECTION_REFUSED)
- * - Mantidos apenas logs de console para debug quando necessário
- * - Simplificado tratamento de erros removendo código de debug desnecessário
- * 
- * Mudanças v4.4.0:
- * - Adicionados logs de debug para investigar erro "failed to fetch"
- * - Logs capturam: URL, headers, erros de fetch, status de resposta, erros CORS
- * 
- * Mudanças v4.3.0:
- * - Removidos logs de debug do endpoint de ingest que causavam erros no console
- * 
- * Mudanças v4.2.0:
- * - Removida função getAttachmentReadUrl (não é mais necessária com arquivos públicos)
- * - Atualizado confirmAttachmentUpload para trabalhar com arquivos públicos
- * - URLs públicas permanentes são retornadas após upload
- * 
- * Mudanças v4.1.0:
- * - Melhorado upload de anexos com logs detalhados e validação completa
- * - Adicionada inferência automática de mediaType quando não fornecido
- * - Melhorado tratamento de erros no upload e solicitação de signed URLs
- * 
- * Mudanças v4.0.0:
- * - Refatorado para usar novos schemas: P2P (chat_mensagens) e Salas (chat_salas + salaMensagens)
- * - Adicionadas funções específicas para P2P e Salas
- * - Separadas APIs de conversas P2P e salas coletivas
- * 
- * Mudanças v3.0.0:
- * - getContacts revertido para usar VeloChat Server /api/contacts conforme arquitetura original
- * - Todas as chamadas de conversas agora usam VeloChat Server exclusivamente
- * - Apenas status de usuário (getChatStatus, updateChatStatus) usa Backend VeloHub
- * 
- * Serviço para comunicação com a API REST do VeloChat Server
+ * VERSION: v4.7.3 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v4.7.2: OTIMIZAÇÃO: Import estático de ensureSessionId ao invés de import dinâmico (melhor performance e consistência)
+ * - v4.7.1: CORREÇÃO: getConversations() agora usa Promise.allSettled() para retornar conversas parciais mesmo se uma chamada falhar
  */
 
 import { API_BASE_URL, getVeloChatApiUrl } from '../config/api-config';

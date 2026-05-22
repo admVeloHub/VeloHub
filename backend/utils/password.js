@@ -1,11 +1,9 @@
 /**
  * Utilitários para manipulação de senhas
- * VERSION: v1.1.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v1.1.0:
- * - Adicionada função generateDefaultPassword para gerar senha padrão (nome.sobrenomeCPF)
- * 
- * Funções para comparação e validação de senhas
+ * VERSION: v1.1.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.1.0: Adicionada função generateDefaultPassword para gerar senha padrão (nome.sobrenomeCPF)
  */
 
 /**

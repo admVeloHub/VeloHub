@@ -24,7 +24,7 @@
 
 const { MongoClient } = require('mongodb');
 
-const MONGODB_URI = process.env.MONGO_ENV || process.env.MONGODB_URI || 'mongodb+srv://lucasgravina:nKQu8bSN6iZl8FPo@velohubcentral.od7vwts.mongodb.net/?retryWrites=true&w=majority&appName=VelohubCentral';
+const { MONGODB_URI } = require('./loadMongoUri');
 const DATABASE_NAME = 'hub_escalacoes';
 const COLLECTION_NAME = 'erros_bugs';
 const DATA_LIMITE = new Date('2026-03-15T00:00:00.000Z');

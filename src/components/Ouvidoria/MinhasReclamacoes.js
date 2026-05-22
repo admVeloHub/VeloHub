@@ -1,66 +1,121 @@
 /**
  * VeloHub V3 - MinhasReclamacoes Component
- * VERSION: v1.11.0 | DATE: 2026-03-30 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v1.11.0:
- * - Badge de SLA nas linhas (prazoBacen / prazoOuvidoria via dateUtils.getSlaBadgeReclamacao) para BACEN e N2 Pix
- * 
- * Mudanças v1.10.0:
- * - Filtro por situação: Todos, Em andamento, Resolvido (Finalizado.Resolvido, client-side)
- * 
- * Mudanças v1.9.0:
- * - Cards: botão de opções (⋮) à direita; menu "Excluir registro" (reclamacoesAPI.remove + confirmação), alinhado à Lista de Reclamações
- * 
- * Mudanças v1.8.0:
- * - Data exibida: usa formatDateRegistro (data do registro, sem adaptação de fuso)
- * 
- * Mudanças v1.7.0:
- * - dataEntradaAtendimento → dataEntradaN2 (schema LISTA_SCHEMAS.rb: apenas dataEntradaN2)
- * 
- * Mudanças v1.5.0:
- * - Removido campo status (usar Finalizado.Resolvido para determinar se está em andamento ou resolvido)
- * - Removido campo mes da exibição
- * - Removido suporte para filtro por idSecao
- * 
- * Mudanças v1.6.0:
- * - Removidas todas as referências restantes a idSecao (variável não definida causava erro)
- * 
- * Mudanças v1.4.0:
- * - Readequado modal de detalhes para seguir o mesmo padrão de ListaReclamacoes
- * - Modal agora tem header fixo e conteúdo com scroll
- * - Campos organizados em cards com fundo cinza (bg-gray-50 dark:bg-gray-700)
- * - Melhor formatação e espaçamento das seções
- * - Removido campo RDR (vestígio do sistema antigo)
- * 
- * Mudanças v1.2.0:
- * - Removido header com gradiente e ícone
- * - Aplicado padrão de container secundário aos cards (bg-gray-50 dark:bg-gray-700)
- * - Adequadas fontes conforme padrão do projeto (text-sm para títulos, text-xs para info)
- * 
- * Mudanças v1.1.0:
- * - Containers padronizados com classes velohub-card e velohub-container conforme LAYOUT_GUIDELINES.md
- * 
- * Componente para listagem de reclamações do colaborador logado
+ * VERSION: v1.19.3 | DATE: 2026-05-20 | AUTHOR: VeloHub Development Team
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.19.3: Removidos fetch ingest/debug da lista Minhas (sessão debug concluída)
+ * - v1.19.2: getByColaborador com responsavelEmail (sessão) — evita lista «Minhas» cruzando contas por nome/substring na lista (paginação client-side já existente por fatia); fragment JSX explícito
+ * - v1.19.0: Paginação client-side na lista (20 por página) quando há muitas ocorrências filtradas
+ * - v1.18.1: Gradientes moldura Req/Fusão com stops 70/30 mais explícitos
+ * - v1.18.0: Gradientes Req/Fusão mais finos; alvo fusão badge «Resolvido»; bolha header (velohub:ouvid-minhas-loaded)
+ * - v1.11.0: Badge de SLA nas linhas (prazoBacen / prazoOuvidoria via dateUtils.getSlaBadgeReclamacao) para BACEN e N2 Pix
+ * - v1.10.0: Filtro por situação: Todos, Em andamento, Resolvido (Finalizado.Resolvido, client-side)
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { reclamacoesAPI } from '../../services/ouvidoriaApi';
 import { formatDateRegistro, getSlaBadgeReclamacao } from '../../utils/dateUtils';
+import FormReclamacaoEdit from './FormReclamacaoEdit';
+import FusaoFundidoBadge from './FusaoFundidoBadge';
 import toast from 'react-hot-toast';
+import {
+  isUnreadFeitoOuvidReqProd,
+  markOuvidReqProdFeitoRead,
+} from '../../utils/ouvidoriaReqProdNotif';
+import {
+  isFusaoAbsorvoAlvo,
+  isUnreadFusaoAbsorvoAlvo,
+  markFusaoAbsAckReadFromItem,
+} from '../../utils/ouvidoriaFusaoNotif';
 
-const MinhasReclamacoes = ({ colaboradorNome, userEmail }) => {
+/** Moldura absorvido (fusão não lida): ~70 % vermelho → ~30 % azul escuro */
+const GRAD_MOLDURA_FUSAO_ABS =
+  'linear-gradient(135deg, #b91c1c 0%, #991b1b 70%, #1e3a8a 70%, #0f172a 100%)';
+/** Req_Prod «Feito» não lido: ~70 % verde → ~30 % azul médio (inclui papel parent/receptor na fusão) */
+const GRAD_MOLDURA_REQ_FUS_PARENT =
+  'linear-gradient(135deg, #22c55e 0%, #16a34a 70%, #006AB9 70%, #1694FF 100%)';
+
+/** Tamanho da página na aba Minhas reclamações (client-side). */
+const MINHAS_REC_PAGE_SIZE = 20;
+
+const MinhasReclamacoes = ({
+  colaboradorNome,
+  userEmail,
+  onFusaoConsultaChange,
+  minhasReloadSignal = 0,
+  fusaoConsultaCtx = null,
+  onAbrirModalFusao,
+  fusaoLiberacaoAnteriorSignal = 0,
+}) => {
   const [reclamacoes, setReclamacoes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedReclamacao, setSelectedReclamacao] = useState(null);
   const [menuOpenId, setMenuOpenId] = useState(null);
   /** '' = todos | em_andamento | resolvido */
   const [filtroStatus, setFiltroStatus] = useState('');
-
+  /** Página atual da grade (lista filtrada em memória). */
+  const [paginaLista, setPaginaLista] = useState(1);
   useEffect(() => {
     if (colaboradorNome) {
       loadMinhasReclamacoes();
     }
-  }, [colaboradorNome]);
+  }, [colaboradorNome, userEmail]);
+
+  useEffect(() => {
+    if (minhasReloadSignal > 0 && colaboradorNome) {
+      loadMinhasReclamacoes();
+    }
+  }, [minhasReloadSignal]);
+
+  useEffect(() => {
+    if (!selectedReclamacao) return;
+
+    if (isUnreadFeitoOuvidReqProd(selectedReclamacao)) {
+      const lib = selectedReclamacao.reqProdLiberacaoPix;
+      const libId = lib?._id != null ? String(lib._id) : '';
+      if (libId) {
+        const at = selectedReclamacao.reqProdStatusAt;
+        const atMs = at ? new Date(at).getTime() : 0;
+        if (Number.isFinite(atMs) && atMs > 0) {
+          markOuvidReqProdFeitoRead(libId, atMs);
+          try {
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('velohub:ouvid-reqprod-read'));
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+    }
+
+    if (isUnreadFusaoAbsorvoAlvo(selectedReclamacao)) {
+      markFusaoAbsAckReadFromItem(selectedReclamacao);
+      try {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('velohub:ouvid-fusao-read'));
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [selectedReclamacao]);
+
+  const fecharModalEdicao = () => {
+    if (typeof onFusaoConsultaChange === 'function') {
+      onFusaoConsultaChange(null);
+    }
+    setSelectedReclamacao(null);
+  };
+
+  const podeFundirNoModalEdicao =
+    Boolean(fusaoConsultaCtx?.showButton) &&
+    fusaoConsultaCtx?.source === 'minhas' &&
+    selectedReclamacao &&
+    String(fusaoConsultaCtx?.currentId ?? '') ===
+      String(selectedReclamacao?._id ?? selectedReclamacao?.id ?? '') &&
+    String(fusaoConsultaCtx?.cpf ?? '').replace(/\D/g, '') ===
+      String(selectedReclamacao?.cpf ?? '').replace(/\D/g, '');
 
   useEffect(() => {
     if (menuOpenId == null) return;
@@ -111,9 +166,20 @@ const MinhasReclamacoes = ({ colaboradorNome, userEmail }) => {
 
     setLoading(true);
     try {
-      const resultado = await reclamacoesAPI.getByColaborador(colaboradorNome);
+      const emailLc =
+        userEmail != null ? String(userEmail || '').trim().toLowerCase() : '';
+      const resultado = await reclamacoesAPI.getByColaborador(colaboradorNome, {
+        colaboradorEmail: emailLc || undefined,
+      });
       const dados = resultado.data || resultado || [];
       setReclamacoes(dados);
+      try {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('velohub:ouvid-minhas-loaded'));
+        }
+      } catch {
+        /* ignore */
+      }
     } catch (error) {
       console.error('Erro ao carregar minhas reclamações:', error);
       toast.error('Erro ao carregar suas reclamações');
@@ -138,12 +204,18 @@ const MinhasReclamacoes = ({ colaboradorNome, userEmail }) => {
     if (reclamacao.Finalizado?.Resolvido === true) {
       return {
         texto: 'Resolvido',
-        cor: 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-200'
+        cor: 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-200',
+      };
+    }
+    if (isFusaoAbsorvoAlvo(reclamacao)) {
+      return {
+        texto: 'Resolvido',
+        cor: 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-200',
       };
     }
     return {
       texto: 'Em Andamento',
-      cor: 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200'
+      cor: 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200',
     };
   };
 
@@ -151,11 +223,36 @@ const MinhasReclamacoes = ({ colaboradorNome, userEmail }) => {
     if (!filtroStatus) return reclamacoes;
     return reclamacoes.filter((r) => {
       const resolvido = r.Finalizado?.Resolvido === true;
-      if (filtroStatus === 'resolvido') return resolvido;
-      if (filtroStatus === 'em_andamento') return !resolvido;
+      const absorvidoFusao = isFusaoAbsorvoAlvo(r);
+      if (filtroStatus === 'resolvido') return resolvido || absorvidoFusao;
+      if (filtroStatus === 'em_andamento') return !resolvido && !absorvidoFusao;
+      if (filtroStatus === 'fundido') return absorvidoFusao;
       return true;
     });
   }, [reclamacoes, filtroStatus]);
+
+  const totalPaginasMinhas = Math.max(
+    1,
+    Math.ceil(reclamacoesFiltradas.length / MINHAS_REC_PAGE_SIZE),
+  );
+
+  useEffect(() => {
+    setPaginaLista(1);
+  }, [filtroStatus, reclamacoes.length]);
+
+  useEffect(() => {
+    if (minhasReloadSignal > 0) setPaginaLista(1);
+  }, [minhasReloadSignal]);
+
+  useEffect(() => {
+    setPaginaLista((p) => Math.min(Math.max(1, p), totalPaginasMinhas));
+  }, [totalPaginasMinhas]);
+
+  const reclamacoesNaPagina = useMemo(() => {
+    const p = Math.min(Math.max(1, paginaLista), totalPaginasMinhas);
+    const start = (p - 1) * MINHAS_REC_PAGE_SIZE;
+    return reclamacoesFiltradas.slice(start, start + MINHAS_REC_PAGE_SIZE);
+  }, [reclamacoesFiltradas, paginaLista, totalPaginasMinhas]);
 
   if (loading) {
     return (
@@ -178,16 +275,19 @@ const MinhasReclamacoes = ({ colaboradorNome, userEmail }) => {
         >
           <option value="">Todos</option>
           <option value="em_andamento">Em andamento</option>
+          <option value="fundido">Fundido</option>
           <option value="resolvido">Resolvido</option>
         </select>
         {reclamacoes.length > 0 && (
           <span className="text-xs text-gray-500 dark:text-gray-400">
-            Exibindo {reclamacoesFiltradas.length} de {reclamacoes.length}
+            {reclamacoesFiltradas.length !== reclamacoes.length
+              ? `Filtradas ${reclamacoesFiltradas.length} de ${reclamacoes.length}`
+              : `${reclamacoes.length} atribuída(s)`}
           </span>
         )}
       </div>
 
-      {/* Lista de Reclamações */}
+      {/* Lista de reclamações */}
       <div className="space-y-4">
         {reclamacoes.length === 0 ? (
           <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded border border-gray-200 dark:border-gray-600 text-center py-12">
@@ -202,14 +302,39 @@ const MinhasReclamacoes = ({ colaboradorNome, userEmail }) => {
             </p>
           </div>
         ) : (
-          reclamacoesFiltradas.map((reclamacao, index) => {
+          <>
+            {reclamacoesNaPagina.map((reclamacao, index) => {
             const rowId = reclamacao._id != null ? String(reclamacao._id) : '';
             const menuOpen = menuOpenId === rowId;
+            const comFusUnread = isUnreadFusaoAbsorvoAlvo(reclamacao);
+            const comFeitoUnread = isUnreadFeitoOuvidReqProd(reclamacao);
+            const comMolduraExternaFusao = comFusUnread;
+            /** Liberação «Feito» não lida ou receptor de fusão — gradiente verde/azul (prioridade abaixo da fusão absorvida unread) */
+            const comMolduraReqFeito = !comMolduraExternaFusao && comFeitoUnread;
+            const comMoldura = comMolduraExternaFusao || comMolduraReqFeito;
             return (
               <div
                 key={rowId || `minhas-row-${index}`}
-                className="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 transition-colors flex gap-2 items-start"
+                className={
+                  comMoldura
+                    ? 'rounded-[13px] p-px flex gap-2 items-start'
+                    : 'p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 transition-colors flex gap-2 items-start'
+                }
+                style={
+                  comMolduraExternaFusao
+                    ? { background: GRAD_MOLDURA_FUSAO_ABS }
+                    : comMolduraReqFeito
+                      ? { background: GRAD_MOLDURA_REQ_FUS_PARENT }
+                      : undefined
+                }
               >
+                <div
+                  className={
+                    comMoldura
+                      ? 'flex flex-1 min-w-0 gap-2 items-start rounded-[12px] border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 p-3 hover:border-gray-300 dark:hover:border-gray-500 transition-colors'
+                      : 'contents'
+                  }
+                >
                 <div
                   role="button"
                   tabIndex={0}
@@ -249,6 +374,7 @@ const MinhasReclamacoes = ({ colaboradorNome, userEmail }) => {
                         </span>
                       );
                     })()}
+                    <FusaoFundidoBadge fusao={reclamacao.Fusao} />
                   </div>
                   <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2 mb-1 flex-wrap">
                     <span>Data: {formatDateRegistro(reclamacao.dataEntrada || reclamacao.dataEntradaN2 || reclamacao.createdAt)}</span>
@@ -291,23 +417,96 @@ const MinhasReclamacoes = ({ colaboradorNome, userEmail }) => {
                   )}
                 </div>
               </div>
+              </div>
             );
-          })
+            })}
+
+            {totalPaginasMinhas > 1 && (
+              <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 mt-6">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Mostrando {(paginaLista - 1) * MINHAS_REC_PAGE_SIZE + 1} a{' '}
+                  {Math.min(paginaLista * MINHAS_REC_PAGE_SIZE, reclamacoesFiltradas.length)} de{' '}
+                  {reclamacoesFiltradas.length}{' '}
+                  reclamação(ões)
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setPaginaLista((p) => Math.max(1, p - 1))}
+                    disabled={paginaLista <= 1}
+                    className="text-sm px-3 py-2 rounded border transition-all duration-300 dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                      borderColor: paginaLista <= 1 ? '#9ca3af' : '#006AB9',
+                      color: paginaLista <= 1 ? '#9ca3af' : '#006AB9',
+                      background: 'transparent',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (paginaLista > 1) {
+                        e.target.style.background = 'linear-gradient(135deg, #006AB9 0%, #006AB9 100%)';
+                        e.target.style.color = '#F3F7FC';
+                        e.target.style.borderColor = '#006AB9';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (paginaLista > 1) {
+                        e.target.style.background = 'transparent';
+                        e.target.style.color = '#006AB9';
+                        e.target.style.borderColor = '#006AB9';
+                      }
+                    }}
+                  >
+                    Anterior
+                  </button>
+                  <span className="text-sm text-gray-700 dark:text-gray-300 px-2 tabular-nums">
+                    Página {Math.min(Math.max(1, paginaLista), totalPaginasMinhas)} de {totalPaginasMinhas}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPaginaLista((p) => Math.min(totalPaginasMinhas, p + 1))}
+                    disabled={paginaLista >= totalPaginasMinhas}
+                    className="text-sm px-3 py-2 rounded border transition-all duration-300 dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                      borderColor:
+                        paginaLista >= totalPaginasMinhas ? '#9ca3af' : '#006AB9',
+                      color: paginaLista >= totalPaginasMinhas ? '#9ca3af' : '#006AB9',
+                      background: 'transparent',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (paginaLista < totalPaginasMinhas) {
+                        e.target.style.background = 'linear-gradient(135deg, #006AB9 0%, #006AB9 100%)';
+                        e.target.style.color = '#F3F7FC';
+                        e.target.style.borderColor = '#006AB9';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (paginaLista < totalPaginasMinhas) {
+                        e.target.style.background = 'transparent';
+                        e.target.style.color = '#006AB9';
+                        e.target.style.borderColor = '#006AB9';
+                      }
+                    }}
+                  >
+                    Próxima
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
-      {/* Modal de Detalhes */}
+      {/* Modal de edição — mesmo padrão que ListaReclamacoes (FormReclamacaoEdit) */}
       {selectedReclamacao && (
         <div
           className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center backdrop-blur-sm p-4"
           style={{ zIndex: 9999 }}
-          onClick={() => setSelectedReclamacao(null)}
+          onClick={fecharModalEdicao}
         >
           <div
-            className="rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col"
+            className="rounded-lg shadow-xl w-full max-w-6xl h-[95vh] max-h-[95vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
             style={{
-              borderRadius: '12px',
+              borderRadius: 'var(--velohub-radius-container)',
               boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
               backgroundColor: 'var(--cor-container)',
               border: '1px solid var(--cor-borda)',
@@ -315,128 +514,35 @@ const MinhasReclamacoes = ({ colaboradorNome, userEmail }) => {
               position: 'relative'
             }}
           >
-            {/* Header do Modal */}
             <div
               className="flex items-center justify-between p-6 flex-shrink-0"
               style={{ borderBottom: '1px solid var(--cor-borda)' }}
             >
-              <h2 className="text-2xl font-semibold velohub-title">Detalhes da Reclamação</h2>
+              <h2 className="text-2xl font-semibold velohub-title">Editar Reclamação</h2>
               <button
-                onClick={() => setSelectedReclamacao(null)}
+                type="button"
+                onClick={fecharModalEdicao}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
                 style={{ fontSize: '28px', lineHeight: '1' }}
+                aria-label="Fechar"
               >
                 ×
               </button>
             </div>
 
-            {/* Conteúdo do Modal com scroll */}
-            <div className="overflow-y-auto flex-1 p-6">
-              <div className="space-y-6">
-                {/* Dados Básicos */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-300" style={{ color: 'var(--cor-texto-principal)' }}>
-                    Dados Básicos
-                  </h3>
-                  <div className="space-y-4">
-                    {/* Linha 1: Nome e CPF */}
-                    <div className="grid grid-cols-2 gap-4 text-base text-gray-800 dark:text-gray-200">
-                      <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <strong className="text-sm text-gray-600 dark:text-gray-400 block mb-1">Nome:</strong>
-                        <span style={{ color: 'var(--cor-texto-principal)' }}>{selectedReclamacao.nome || '-'}</span>
-                      </div>
-                      <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <strong className="text-sm text-gray-600 dark:text-gray-400 block mb-1">CPF:</strong>
-                        <span style={{ color: 'var(--cor-texto-principal)' }}>{formatCPF(selectedReclamacao.cpf)}</span>
-                      </div>
-                    </div>
-
-                    {/* Linha 2: Data Entrada, Tipo, Status */}
-                    <div className="grid grid-cols-3 gap-4 text-base text-gray-800 dark:text-gray-200">
-                      <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <strong className="text-sm text-gray-600 dark:text-gray-400 block mb-1">Data Entrada:</strong>
-                        <span style={{ color: 'var(--cor-texto-principal)' }}>{formatDateRegistro(selectedReclamacao.dataEntrada || selectedReclamacao.dataEntradaAtendimento || selectedReclamacao.createdAt)}</span>
-                      </div>
-                      <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <strong className="text-sm text-gray-600 dark:text-gray-400 block mb-1">Tipo:</strong>
-                        <span style={{ color: 'var(--cor-texto-principal)' }}>{selectedReclamacao.tipo || '-'}</span>
-                      </div>
-                      <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <strong className="text-sm text-gray-600 dark:text-gray-400 block mb-1">Status:</strong>
-                        {(() => {
-                          const statusInfo = getStatusInfo(selectedReclamacao);
-                          return (
-                            <span className={`px-2 py-1 rounded text-xs font-medium inline-block ${statusInfo.cor}`}>
-                              {statusInfo.texto}
-                            </span>
-                          );
-                        })()}
-                      </div>
-                    </div>
-
-                    {/* Linha 3: Origem e Responsável */}
-                    {(selectedReclamacao.origem || selectedReclamacao.responsavel) && (
-                      <div className="grid grid-cols-2 gap-4 text-base text-gray-800 dark:text-gray-200">
-                        {selectedReclamacao.origem && (
-                          <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                            <strong className="text-sm text-gray-600 dark:text-gray-400 block mb-1">Origem:</strong>
-                            <span style={{ color: 'var(--cor-texto-principal)' }}>{selectedReclamacao.origem}</span>
-                          </div>
-                        )}
-                        {selectedReclamacao.responsavel && (
-                          <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                            <strong className="text-sm text-gray-600 dark:text-gray-400 block mb-1">Responsável:</strong>
-                            <span style={{ color: 'var(--cor-texto-principal)' }}>{selectedReclamacao.responsavel}</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                  </div>
-                </div>
-
-                {/* Motivo */}
-                {selectedReclamacao.motivoReduzido && (
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-300" style={{ color: 'var(--cor-texto-principal)' }}>
-                      Motivo
-                    </h3>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                      <p className="text-base text-gray-800 dark:text-gray-200" style={{ color: 'var(--cor-texto-principal)' }}>
-                        {selectedReclamacao.motivoReduzido}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Detalhes */}
-                {selectedReclamacao.motivoDetalhado && (
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-300" style={{ color: 'var(--cor-texto-principal)' }}>
-                      Detalhes
-                    </h3>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                      <p className="text-base whitespace-pre-wrap text-gray-800 dark:text-gray-200" style={{ color: 'var(--cor-texto-principal)' }}>
-                        {selectedReclamacao.motivoDetalhado}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Observações */}
-                {selectedReclamacao.observacoes && (
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-300" style={{ color: 'var(--cor-texto-principal)' }}>
-                      Observações
-                    </h3>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                      <p className="text-base whitespace-pre-wrap text-gray-800 dark:text-gray-200" style={{ color: 'var(--cor-texto-principal)' }}>
-                        {selectedReclamacao.observacoes}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
+            <div className="overflow-y-auto flex-1 min-h-0 p-6">
+              <FormReclamacaoEdit
+                reclamacao={selectedReclamacao}
+                onFusaoConsultaChange={onFusaoConsultaChange}
+                fundirInlineAtivo={podeFundirNoModalEdicao}
+                onAbrirModalFusao={onAbrirModalFusao}
+                fusaoLiberacaoAnteriorSignal={fusaoLiberacaoAnteriorSignal}
+                onClose={fecharModalEdicao}
+                onSuccess={() => {
+                  fecharModalEdicao();
+                  loadMinhasReclamacoes();
+                }}
+              />
             </div>
           </div>
         </div>

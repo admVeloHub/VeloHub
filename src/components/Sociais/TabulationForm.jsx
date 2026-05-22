@@ -1,17 +1,11 @@
 /**
  * VeloHub V3 - TabulationForm (Sociais)
- * VERSION: v1.3.0 | DATE: 2026-03-25 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.3.2 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
  *
- * Mudanças v1.3.0:
- * - Rede social: opção LinkedIn
- *
- * Mudanças v1.2.0:
- * - Removido checkbox "Usar Análise Expressa (IA)"
- * - Botão Analisar com IA sempre visível, na mesma linha que Salvar
- *
- * Mudanças v1.1.0:
- * - Nome, Rede social e Data na mesma linha (form-row-3)
- * - Labels: Nome *, Rede social, Data
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.3.2: Estilos de campos (Entrada de Dados): ver sociais.css v1.3.2
+ * - v1.3.0: Rede social: opção LinkedIn
+ * - v1.2.0: Removido checkbox "Usar Análise Expressa (IA)"
  */
 
 import { useState } from 'react';

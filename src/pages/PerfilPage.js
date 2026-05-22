@@ -1,42 +1,16 @@
 /**
  * VeloHub V3 - Página de Perfil do Usuário
- * VERSION: v2.4.1 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v2.4.1:
- * - Removido bypass de Lucas Gravina - todos os usuários têm acesso ao chat
- * 
- * Mudanças v2.4.0:
- * - Adicionado sidebar direito com widget de chat (recolhido por padrão)
- * - Integrado VeloChatWidget com todas as funcionalidades (Conversas, Contatos, Salas)
- * - Implementado sistema de retração/expansão do sidebar direito
- * 
- * Mudanças v2.3.0:
- * - Implementado upload via signed URLs - upload direto do frontend para GCS
- * - Melhor performance: arquivo não passa pelo backend, apenas signed URL é gerada
- * - Upload mais rápido e eficiente, reduzindo carga no servidor
- * 
- * Mudanças v2.2.0:
- * - Implementado cache no localStorage para dados do perfil (duração: 5 minutos)
- * - Reduzidas requisições de rede - dados são carregados do cache quando disponível
- * - Cache é invalidado automaticamente ao atualizar perfil ou fazer upload de foto
- * 
- * Mudanças v2.1.0:
- * - Atualizado para usar campos corretos do schema MongoDB: colaboradorNome, telefone, userMail, profile_pic
- * - Removido campo senha atual do modal de alteração de senha
- * - Validação em tempo real para habilitar botão salvar apenas quando senhas forem iguais
- * - Prioridade de avatar: SSO picture > profile_pic > avatar padrão
- * 
- * Mudanças v2.0.0:
- * - Recriada completamente com preview de foto antes de salvar
- * - Upload de foto atualiza profile_pic no MongoDB automaticamente
- * - Atualiza sessão e header automaticamente após upload bem-sucedido
- * - Prioridade de exibição: SSO Google > GCS > Avatar padrão
- * - Segue padrões visuais do LAYOUT_GUIDELINES.md
+ * VERSION: v2.4.3 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v2.4.1: Removido bypass de Lucas Gravina - todos os usuários têm acesso ao chat
+ * - v2.4.0: Adicionado sidebar direito com widget de chat (recolhido por padrão)
  */
 
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { getUserSession, updateUserInfo } from '../services/auth';
+import { FloatingLabelField } from '../components/shared/FloatingLabelField';
 import VeloChatWidget from '../components/VeloChatWidget';
 import ChatStatusSelector from '../components/ChatStatusSelector';
 import { API_BASE_URL } from '../config/api-config';
@@ -129,7 +103,7 @@ const PerfilPage = () => {
       <aside 
         className="rounded-lg shadow-sm flex flex-col velohub-container" 
         style={{
-          borderRadius: '9.6px', 
+          borderRadius: 'var(--velohub-radius-container)', 
           boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)', 
           padding: '19.0px', 
           position: 'relative', 
@@ -189,7 +163,7 @@ const PerfilPage = () => {
                   className="flex-1 px-3 py-2 rounded-lg border"
                   style={{
                     borderColor: 'var(--blue-opaque)',
-                    borderRadius: '8px',
+                    borderRadius: 'var(--velohub-radius-container)',
                     outline: 'none',
                     transition: 'all 0.3s ease',
                     fontFamily: 'Poppins, sans-serif',
@@ -737,7 +711,7 @@ const PerfilPage = () => {
 
         {/* Card Principal */}
         <div className="velohub-container" style={{
-          borderRadius: '12px',
+          borderRadius: 'var(--velohub-radius-container)',
           boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
           padding: '24px'
         }}>
@@ -823,42 +797,40 @@ const PerfilPage = () => {
           <div className="space-y-4">
             {/* Nome Completo */}
             <div>
-              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--cor-texto-principal)', fontFamily: 'Poppins, sans-serif' }}>
-                Nome *
-              </label>
-              <input
-                type="text"
-                name="colaboradorNome"
-                value={userData.colaboradorNome}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                style={{
-                  backgroundColor: 'var(--cor-container)',
-                  color: 'var(--cor-texto-principal)',
-                  borderColor: 'var(--cor-borda)',
-                  fontFamily: 'Poppins, sans-serif'
-                }}
-                required
-              />
+              <FloatingLabelField id="perfil-nome" label="Nome" required value={userData.colaboradorNome}>
+                <input
+                  type="text"
+                  name="colaboradorNome"
+                  value={userData.colaboradorNome}
+                  onChange={handleInputChange}
+                  className="w-full px-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{
+                    backgroundColor: 'var(--cor-container)',
+                    color: 'var(--cor-texto-principal)',
+                    borderColor: 'var(--cor-borda)',
+                    fontFamily: 'Poppins, sans-serif'
+                  }}
+                  required
+                />
+              </FloatingLabelField>
             </div>
 
             {/* E-mail */}
             <div>
-              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--cor-texto-principal)', fontFamily: 'Poppins, sans-serif' }}>
-                E-Mail *
-              </label>
-              <input
-                type="email"
-                name="userMail"
-                value={userData.userMail}
-                disabled
-                className="w-full px-4 py-2 border rounded-lg bg-gray-100 dark:bg-gray-700"
-                style={{
-                  color: 'var(--cor-texto-secundario)',
-                  borderColor: 'var(--cor-borda)',
-                  fontFamily: 'Poppins, sans-serif'
-                }}
-              />
+              <FloatingLabelField id="perfil-email" label="E-Mail" required value={userData.userMail}>
+                <input
+                  type="email"
+                  name="userMail"
+                  value={userData.userMail}
+                  disabled
+                  className="w-full px-4 border rounded-lg bg-gray-100 dark:bg-gray-700"
+                  style={{
+                    color: 'var(--cor-texto-secundario)',
+                    borderColor: 'var(--cor-borda)',
+                    fontFamily: 'Poppins, sans-serif'
+                  }}
+                />
+              </FloatingLabelField>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
                 O e-mail não pode ser alterado
               </p>
@@ -866,23 +838,22 @@ const PerfilPage = () => {
 
             {/* Cel/Whatsapp */}
             <div>
-              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--cor-texto-principal)', fontFamily: 'Poppins, sans-serif' }}>
-                Cel/Whatsapp
-              </label>
-              <input
-                type="tel"
-                name="telefone"
-                value={userData.telefone}
-                onChange={handleInputChange}
-                placeholder="(00) 00000-0000"
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                style={{
-                  backgroundColor: 'var(--cor-container)',
-                  color: 'var(--cor-texto-principal)',
-                  borderColor: 'var(--cor-borda)',
-                  fontFamily: 'Poppins, sans-serif'
-                }}
-              />
+              <FloatingLabelField id="perfil-telefone" label="Cel/Whatsapp" value={userData.telefone}>
+                <input
+                  type="tel"
+                  name="telefone"
+                  value={userData.telefone}
+                  onChange={handleInputChange}
+                  placeholder="(00) 00000-0000"
+                  className="w-full px-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{
+                    backgroundColor: 'var(--cor-container)',
+                    color: 'var(--cor-texto-principal)',
+                    borderColor: 'var(--cor-borda)',
+                    fontFamily: 'Poppins, sans-serif'
+                  }}
+                />
+              </FloatingLabelField>
             </div>
 
             {/* Botões */}
@@ -933,7 +904,7 @@ const PerfilPage = () => {
       {showPasswordModal && (
         <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
           <div className="velohub-container" style={{
-            borderRadius: '12px',
+            borderRadius: 'var(--velohub-radius-container)',
             boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
             padding: '24px',
             maxWidth: '400px',
@@ -945,44 +916,50 @@ const PerfilPage = () => {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--cor-texto-principal)', fontFamily: 'Poppins, sans-serif' }}>
-                  Nova Senha *
-                </label>
-                <input
-                  type="password"
-                  value={passwordData.novaSenha}
-                  onChange={(e) => setPasswordData(prev => ({ ...prev, novaSenha: e.target.value }))}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  style={{
-                    backgroundColor: 'var(--cor-container)',
-                    color: 'var(--cor-texto-principal)',
-                    borderColor: 'var(--cor-borda)',
-                    fontFamily: 'Poppins, sans-serif'
-                  }}
-                />
+                <FloatingLabelField id="perfil-nova-senha" label="Nova Senha" required value={passwordData.novaSenha}>
+                  <input
+                    type="password"
+                    value={passwordData.novaSenha}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, novaSenha: e.target.value }))}
+                    className="w-full px-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    style={{
+                      backgroundColor: 'var(--cor-container)',
+                      color: 'var(--cor-texto-principal)',
+                      borderColor: 'var(--cor-borda)',
+                      fontFamily: 'Poppins, sans-serif'
+                    }}
+                  />
+                </FloatingLabelField>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--cor-texto-principal)', fontFamily: 'Poppins, sans-serif' }}>
-                  Confirmar Senha *
-                </label>
-                <input
-                  type="password"
+                <FloatingLabelField
+                  id="perfil-confirmar-senha"
+                  label="Confirmar Senha"
+                  required
                   value={passwordData.confirmarSenha}
-                  onChange={(e) => setPasswordData(prev => ({ ...prev, confirmarSenha: e.target.value }))}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  style={{
-                    backgroundColor: 'var(--cor-container)',
-                    color: 'var(--cor-texto-principal)',
-                    borderColor: passwordData.novaSenha !== passwordData.confirmarSenha && passwordData.confirmarSenha.length > 0 ? 'var(--red-500)' : 'var(--cor-borda)',
-                    fontFamily: 'Poppins, sans-serif'
-                  }}
-                />
-                {passwordData.novaSenha !== passwordData.confirmarSenha && passwordData.confirmarSenha.length > 0 && (
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                    As senhas não coincidem
-                  </p>
-                )}
+                  error={
+                    passwordData.novaSenha !== passwordData.confirmarSenha && passwordData.confirmarSenha.length > 0
+                      ? 'As senhas não coincidem'
+                      : undefined
+                  }
+                >
+                  <input
+                    type="password"
+                    value={passwordData.confirmarSenha}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, confirmarSenha: e.target.value }))}
+                    className="w-full px-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    style={{
+                      backgroundColor: 'var(--cor-container)',
+                      color: 'var(--cor-texto-principal)',
+                      borderColor:
+                        passwordData.novaSenha !== passwordData.confirmarSenha && passwordData.confirmarSenha.length > 0
+                          ? 'var(--red-500)'
+                          : 'var(--cor-borda)',
+                      fontFamily: 'Poppins, sans-serif'
+                    }}
+                  />
+                </FloatingLabelField>
               </div>
             </div>
 

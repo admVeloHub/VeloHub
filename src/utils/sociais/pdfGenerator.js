@@ -1,13 +1,10 @@
 /**
  * VeloHub V3 - PDF Generator (Sociais)
- * VERSION: v1.2.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.2.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
  *
- * Mudanças v1.2.0:
- * - Relatório: divisão em múltiplas páginas (imagem longa split com offset negativo)
- * - Gráfico de sentimento somente após relatório completo
- *
- * Mudanças v1.1.0:
- * - Gráfico de sentimento no PDF: altura ajustada (95mm) para barras empilhadas
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.2.0: Relatório: divisão em múltiplas páginas (imagem longa split com offset negativo)
+ * - v1.1.0: Gráfico de sentimento no PDF: altura ajustada (95mm) para barras empilhadas
  */
 
 let jsPDFCache = null;

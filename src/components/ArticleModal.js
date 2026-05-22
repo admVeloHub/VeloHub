@@ -3,7 +3,7 @@ import { X, BookOpen, Calendar, User } from 'lucide-react';
 import { formatResponseText } from '../utils/textFormatter';
 
 // Componente Modal de Artigo
-// VERSION: v1.2.0 | DATE: 2025-01-30 | AUTHOR: VeloHub Development Team
+// VERSION: v1.2.1 | DATE: 2026-05-05 | AUTHOR: VeloHub Development Team
 const ArticleModal = ({ isOpen, onClose, article }) => {
     if (!isOpen || !article) return null;
 
@@ -18,7 +18,7 @@ const ArticleModal = ({ isOpen, onClose, article }) => {
             className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 backdrop-blur-sm"
             onClick={handleOverlayClick}
         >
-            <div className="rounded-lg shadow-xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden" style={{borderRadius: '12px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)', backgroundColor: 'var(--cor-container)', border: '1px solid var(--cor-borda)'}}>
+            <div className="rounded-lg shadow-xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden" style={{borderRadius: 'var(--velohub-radius-container)', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)', backgroundColor: 'var(--cor-container)', border: '1px solid var(--cor-borda)'}}>
                 {/* Header do Modal */}
                 <div className="flex items-center justify-between p-6" style={{borderBottom: '1px solid var(--cor-borda)'}}>
                     <div className="flex items-center gap-3">

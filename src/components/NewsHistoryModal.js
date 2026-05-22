@@ -1,5 +1,18 @@
 // NewsHistoryModal - Modal para histórico completo de notícias
-// VERSION: v1.1.1 | DATE: 2025-02-25 | AUTHOR: VeloHub Development Team
+// VERSION: v1.2.0 | DATE: 2026-05-08 | AUTHOR: VeloHub Development Team
+// 
+// Mudanças v1.2.0:
+// - Ao abrir, busca GET /velo-news (lista completa no servidor), não só o array limitado da Home; paginação Anterior/Próxima passa a fazer sentido
+// - Estado de carregamento e fallback de erro; reset de página ao mudar busca/filtro
+// 
+// Mudanças v1.1.4:
+// - processContentHtml passo 8: não remover URL do GCS imediatamente após ' " ou = (evita quebrar src em <img>), alinhado ao App_v6
+// 
+// Mudanças v1.1.3:
+// - processContentHtml alinhado ao App_v6 (img 2b, <a> ampliado, URLs soltas com espaço no nome; limpeza alt temp:)
+// 
+// Mudanças v1.1.2:
+// - Comentário: referência ao módulo raiz App_v6.js (renomeação de App_v2-1.js)
 // 
 // Mudanças v1.1.1:
 // - Adicionada remoção de URLs do endpoint da API no processContentHtml para ocultar URLs de imagens do texto
@@ -13,9 +26,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, Search, Filter, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { API_BASE_URL } from '../config/api-config';
+import { veloNewsAPI } from '../services/api';
 import { formatResponseText } from '../utils/textFormatter';
 
-// Função para processar conteúdo HTML e remover URLs do bucket GCS e endpoint da API (duplicada de App_v2-1.js)
+// Função para processar conteúdo HTML e remover URLs do bucket GCS e endpoint da API (duplicada de App_v6.js)
 const processContentHtml = (htmlContent, mediaImages = []) => {
   if (!htmlContent || typeof htmlContent !== 'string') return htmlContent || '';
   
@@ -38,15 +52,19 @@ const processContentHtml = (htmlContent, mediaImages = []) => {
     // Remover tag img completamente - a imagem será renderizada separadamente via getAllImages
     return '';
   });
+
+  processedHtml = processedHtml.replace(/<img\b[^>]*\/api\/images\/(?:img_velonews|img_artigos)\/[^>]*>/gi, '');
   
   // 3. Remover URLs do endpoint da API em links <a>
   processedHtml = processedHtml.replace(/<a([^>]*href=["'])(https?:\/\/[^\/]+\/api\/images\/(img_velonews\/[^"']+|img_artigos\/[^"']+))([^>]*)>([^<]*)<\/a>/gi, (match, beforeHref, apiUrl, afterAttrs, linkText) => {
     // Remover link completamente se contiver apenas nome de arquivo ou URL
     return '';
   });
+
+  processedHtml = processedHtml.replace(/<a\b[^>]*href=["']https?:\/\/[^"']+\/api\/images\/(?:img_velonews|img_artigos)\/[^"']*["'][^>]*>[\s\S]*?<\/a>/gi, '');
   
   // 4. Remover URLs do endpoint da API soltas no texto (incluindo com ! no início)
-  processedHtml = processedHtml.replace(/!?https?:\/\/[^\/]+\/api\/images\/(img_velonews\/[^\s\)<>"]+|img_artigos\/[^\s\)<>"]+)/gi, '');
+  processedHtml = processedHtml.replace(/!?https?:\/\/[^\/\s"'<]+\/api\/images\/(?:img_velonews|img_artigos)\/[^<"']*\.(?:png|jpe?g|gif|webp)(?:\?[^\s"'<>]*)?/gi, '');
   
   // 5. Substituir URLs do bucket em markdown por endpoint local
   processedHtml = processedHtml.replace(/!\[([^\]]*)\]\((https:\/\/storage\.googleapis\.com\/[^\)]+)\)/g, (match, altText, bucketUrl) => {
@@ -91,17 +109,49 @@ const processContentHtml = (htmlContent, mediaImages = []) => {
     return `${API_BASE_URL}/images/${encodedPath}`;
   });
   
-  // 8. Remover texto que contenha apenas URLs do bucket (linhas soltas)
-  processedHtml = processedHtml.replace(/https:\/\/storage\.googleapis\.com\/[^\/]+\/(img_velonews\/[^\s\)]+|img_artigos\/[^\s\)]+)/g, '');
-  
+  // 8. URLs do bucket como texto solto (não após ' " ou =)
+  processedHtml = processedHtml.replace(/(?<!['"=])(https:\/\/storage\.googleapis\.com\/[^\/]+\/(img_velonews\/[^\s\)]+|img_artigos\/[^\s\)]+))/g, '');
+
+  processedHtml = processedHtml.replace(/\s*"\s*alt=["']temp:[^"']*["']\s*\/?>/gi, '');
+
   return processedHtml;
 };
 
-const NewsHistoryModal = ({ isOpen, onClose, news, acknowledgedNewsIds = [], onAcknowledge }) => {
+const NewsHistoryModal = ({ isOpen, onClose, acknowledgedNewsIds = [], onAcknowledge }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all'); // all, critical, solved, recent
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [historyItems, setHistoryItems] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(null);
+
+  // Lista completa ao abrir (Home só mantém as últimas N no estado veloNews)
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    (async () => {
+      setHistoryLoading(true);
+      setHistoryError(null);
+      try {
+        const result = await veloNewsAPI.getAll();
+        if (cancelled) return;
+        const list = Array.isArray(result?.data) ? result.data : [];
+        setHistoryItems(list);
+      } catch (e) {
+        if (!cancelled) {
+          console.error('NewsHistoryModal: erro ao carregar notícias', e);
+          setHistoryError(e?.message || 'Não foi possível carregar o histórico.');
+          setHistoryItems([]);
+        }
+      } finally {
+        if (!cancelled) setHistoryLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   // Resetar filtros quando modal abrir
   useEffect(() => {
@@ -112,14 +162,18 @@ const NewsHistoryModal = ({ isOpen, onClose, news, acknowledgedNewsIds = [], onA
     }
   }, [isOpen]);
 
-  // Filtrar notícias
-  const filteredNews = news.filter(item => {
-    // Filtro de busca
-    const matchesSearch = searchTerm === '' || 
-      item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.content.toLowerCase().includes(searchTerm.toLowerCase());
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterType]);
 
-    // Filtro de tipo
+  // Filtrar notícias
+  const filteredNews = historyItems.filter((item) => {
+    const title = (item.title || '').toLowerCase();
+    const content = (item.content || '').toLowerCase();
+    const q = searchTerm.toLowerCase();
+    const matchesSearch =
+      searchTerm === '' || title.includes(q) || content.includes(q);
+
     let matchesFilter = true;
     switch (filterType) {
       case 'critical':
@@ -128,11 +182,12 @@ const NewsHistoryModal = ({ isOpen, onClose, news, acknowledgedNewsIds = [], onA
       case 'solved':
         matchesFilter = item.solved === true;
         break;
-      case 'recent':
+      case 'recent': {
         const oneWeekAgo = new Date();
         oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
         matchesFilter = new Date(item.createdAt) >= oneWeekAgo;
         break;
+      }
       default:
         matchesFilter = true;
     }
@@ -145,15 +200,6 @@ const NewsHistoryModal = ({ isOpen, onClose, news, acknowledgedNewsIds = [], onA
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentNews = filteredNews.slice(startIndex, endIndex);
-
-  // Função para verificar se passou de 12 horas
-  const isExpired12Hours = (createdAt) => {
-    const now = new Date();
-    const created = new Date(createdAt);
-    const diffMs = now - created;
-    const diffHours = diffMs / (1000 * 60 * 60);
-    return diffHours >= 12;
-  };
 
   if (!isOpen) return null;
 
@@ -236,7 +282,17 @@ const NewsHistoryModal = ({ isOpen, onClose, news, acknowledgedNewsIds = [], onA
 
         {/* Lista de notícias */}
         <div className="flex-1 overflow-y-auto p-6">
-          {currentNews.length === 0 ? (
+          {historyLoading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mx-auto" />
+              <p className="text-gray-600 dark:text-gray-400 mt-4">Carregando histórico…</p>
+            </div>
+          ) : historyError ? (
+            <div className="text-center py-8">
+              <p className="text-red-600 dark:text-red-400 mb-2">{historyError}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Feche e abra o modal para tentar de novo.</p>
+            </div>
+          ) : currentNews.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-500 dark:text-gray-400">
                 {searchTerm || filterType !== 'all' 
@@ -301,8 +357,8 @@ const NewsHistoryModal = ({ isOpen, onClose, news, acknowledgedNewsIds = [], onA
           )}
         </div>
 
-        {/* Paginação */}
-        {totalPages > 1 && (
+        {/* Paginação — só após carregar; com lista completa costuma haver mais de uma página */}
+        {!historyLoading && !historyError && totalPages > 1 && (
           <div className="flex items-center justify-between p-6 border-t dark:border-gray-700">
             <div className="text-sm text-gray-500 dark:text-gray-400">
               Mostrando {startIndex + 1} a {Math.min(endIndex, filteredNews.length)} de {filteredNews.length} notícias

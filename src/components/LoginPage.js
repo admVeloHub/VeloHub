@@ -1,4 +1,48 @@
-// VERSION: v3.0.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
+﻿// VERSION: v3.1.18 | DATE: 2026-05-20 | AUTHOR: VeloHub Development Team
+// Mudanças v3.1.18:
+// - fix: largura do botão Google agora usa dimensão disponível real (container/pai/viewport), evitando overflow em cards estreitos
+// Mudanças v3.1.17:
+// - fix: fechamento correto do `handleCredentialResponse` como `useCallback(..., [onLoginSuccess])`
+// - GSI: callback do `initialize` via ref sempre atualizado (mantém guard anti double-init)
+// Mudanças v3.1.16:
+// - prefetch do MP4 (sem rel=preload as=video que o Chrome marca como unsupported)
+// - GSI: script Google não é removido no unmount do Strict Mode; guard evita segundo `initialize()`
+// - renderButton: largura em px (Google rejeita "100%")
+// - email/senha: autoComplete adequado ao dom
+// Mudanças v3.1.15:
+// Mudanças v3.1.14:
+// - Viewport cheia: raiz da página fixed inset-0 + min-height 100dvh (qualquer resolução / apresentação)
+// Mudanças v3.1.13:
+// - Landing «Entrar»: glow branco suave ao redor (box-shadow em camadas; hover reforça um pouco)
+// Mudanças v3.1.12:
+// - Landing «Entrar»: +10px para a direita; altura (translate Y 8px) inalterada
+// Mudanças v3.1.11:
+// - Landing «Entrar»: +5px para baixo e +20px para a direita (sobre v3.1.10 → translate 8px Y, calc(-50%+26px) X)
+// Mudanças v3.1.10:
+// - Landing «Entrar»: +3px vertical, +6px horizontal (translate sobre o ancoramento -50%)
+// Mudanças v3.1.9:
+// - Landing «Entrar»: posição absoluta left % + -translate-x-1/2 (centro sob o wordmark no V6BG); justify-end + bloco estreito empurrava o centro do botão para a direita — efeito quase nulo
+// Mudanças v3.1.8:
+// - Landing «Entrar»: abaixo do wordmark no fundo, centralizado na faixa do logo (flex-col + largura ~wordmark; pr ajustado; sem translateX)
+// Mudanças v3.1.7:
+// - Landing «Entrar»: translateX(2px) para a direita (altura inalterada)
+// Mudanças v3.1.6:
+// - Landing «Entrar»: +0,5cm no offset vertical (2cm total em relação à base vh)
+// Mudanças v3.1.5:
+// - Landing «Entrar»: +1,5cm no offset vertical (calc vh+cm); pr um pouco maior (mais à esquerda)
+// Mudanças v3.1.4:
+// - Landing «Entrar»: microajuste vh + pr (um pouco mais baixo e à esquerda)
+// Mudanças v3.1.3:
+// - Landing «Entrar»: mais abaixo (vh) e mais à esquerda (pr + translateX menor que o card)
+// Mudanças v3.1.2:
+// - Landing «Entrar»: pt aumentado para ficar abaixo do logotipo «hub» no fundo (não acima)
+// Mudanças v3.1.1:
+// - Botão «Entrar» na landing: coluna direita (paridade com card), abaixo da área do logo no fundo — não mais centralizado na tela
+// Mudanças v3.1.0:
+// - Tela inicial: apenas fundo + botão «Entrar» (gradiente azul médio → azul opaco, LAYOUT_GUIDELINES); formulário após clique
+// - Montagem do botão Google quando o painel de login é exibido
+// Mudanças v3.0.1:
+// - Fundo da tela de login: /V6BGcomLogo.png (substitui loginpage.jpg)
 // Mudanças v3.0.0:
 // - REFATORAÇÃO: Removida TODA lógica de criação de sessionId do LoginPage
 // - LoginPage agora apenas valida credenciais (OAuth ou email/senha) e verifica acesso Velohub
@@ -27,13 +71,8 @@
 // - Adicionado login por email/senha com validação contra qualidade_funcionarios
 // - Adicionada validação de acesso liberado para Google SSO
 // - Verifica acessos.Velohub, desligado, afastado e suspenso
-import React, { useState, useEffect } from 'react';
-import { 
-  saveUserSession, 
-  isAuthorizedDomain, 
-  decodeJWT, 
-  initializeGoogleSignIn
-} from '../services/auth';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { saveUserSession, decodeJWT } from '../services/auth';
 import { getClientId } from '../config/google-config';
 import { API_BASE_URL } from '../config/api-config';
 
@@ -59,13 +98,66 @@ const GoogleIcon = ({ className = "h-5 w-5" }) => (
   </svg>
 );
 
+const GSI_SCRIPT_SRC = 'https://accounts.google.com/gsi/client';
+
+/** Largura em px aceita por `accounts.id.renderButton` (string % dispara warning). */
+function getGoogleSignInButtonPixelWidth(containerEl) {
+  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 360;
+  const viewportSafeWidth = Math.max(220, Math.min(viewportWidth - 48, 500));
+  if (!containerEl || typeof containerEl.getBoundingClientRect !== 'function') {
+    return viewportSafeWidth;
+  }
+
+  const ownWidth = Math.round(containerEl.getBoundingClientRect().width || 0);
+  const parentWidth = Math.round(containerEl.parentElement?.getBoundingClientRect?.().width || 0);
+  const availableWidth = Math.max(ownWidth, parentWidth);
+
+  if (!Number.isFinite(availableWidth) || availableWidth <= 0) {
+    return viewportSafeWidth;
+  }
+
+  return Math.max(220, Math.min(availableWidth, viewportSafeWidth));
+}
+
+/** Opções estáveis para o botão Google Identity (sem `width` aqui — injetamos em px no mount). */
+const GOOGLE_SIGNIN_BUTTON_OPTS_BASE = {
+  theme: 'outline',
+  size: 'large',
+  text: 'continue_with',
+  shape: 'rectangular',
+  logo_alignment: 'center',
+};
+
+/** LAYOUT_GUIDELINES: --blue-medium #1634FF → --blue-opaque #006AB9 */
+const ENTRAR_BUTTON_GRADIENT =
+  'linear-gradient(135deg, #1634FF 0%, #006AB9 100%)';
+
 const LoginPage = ({ onLoginSuccess }) => {
+  const [showLoginForm, setShowLoginForm] = useState(false);
+  const showLoginFormRef = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
+
+  useEffect(() => {
+    showLoginFormRef.current = showLoginForm;
+  }, [showLoginForm]);
+
+  useEffect(() => {
+    const id = 'velohub-prefetch-loading-video';
+    if (document.getElementById(id)) return;
+    const link = document.createElement('link');
+    link.id = id;
+    link.rel = 'prefetch';
+    link.href = '/loadingPage.mp4';
+    document.head.appendChild(link);
+    return () => {
+      link.remove();
+    };
+  }, []);
 
   // Detectar CAPS LOCK
   useEffect(() => {
@@ -177,65 +269,30 @@ const LoginPage = ({ onLoginSuccess }) => {
     };
   }, []);
 
-  useEffect(() => {
-    // Carregar o script do Google Identity Services
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-    document.head.appendChild(script);
-
-    script.onload = () => {
-      if (window.google) {
-        const clientId = getClientId();
-        console.log('=== DEBUG GOOGLE OAUTH ===');
-        console.log('Client ID recebido:', clientId);
-        console.log('Tipo do Client ID:', typeof clientId);
-        console.log('Client ID é undefined?', clientId === undefined);
-        console.log('Client ID é null?', clientId === null);
-        console.log('Client ID é string vazia?', clientId === '');
-        console.log('process.env.REACT_APP_GOOGLE_CLIENT_ID:', process.env.REACT_APP_GOOGLE_CLIENT_ID);
-        console.log('========================');
-        
-        if (!clientId) {
-          console.error('ERRO: Client ID não está definido!');
-          return;
-        }
-        
-        window.google.accounts.id.initialize({
-          client_id: clientId,
-          callback: handleCredentialResponse,
-          auto_select: false,
-          cancel_on_tap_outside: true
-        });
-        console.log('Google Sign-In inicializado com Client ID:', clientId);
-        
-        // Renderizar o botão do Google automaticamente
-        setTimeout(() => {
-          const buttonDiv = document.getElementById('google-signin-button');
-          if (buttonDiv && window.google.accounts.id) {
-            window.google.accounts.id.renderButton(buttonDiv, {
-              theme: 'outline',
-              size: 'large',
-              width: '100%',
-              text: 'continue_with',
-              shape: 'rectangular',
-              logo_alignment: 'center'
-            });
-          }
-        }, 100);
-      }
-    };
-
-    return () => {
-      // Cleanup
-      if (document.head.contains(script)) {
-        document.head.removeChild(script);
-      }
-    };
+  const mountGoogleButton = useCallback(() => {
+    if (!window.google?.accounts?.id) return;
+    const buttonDiv = document.getElementById('google-signin-button');
+    if (!buttonDiv) return;
+    try {
+      buttonDiv.innerHTML = '';
+      const widthPx = getGoogleSignInButtonPixelWidth(buttonDiv);
+      window.google.accounts.id.renderButton(buttonDiv, {
+        ...GOOGLE_SIGNIN_BUTTON_OPTS_BASE,
+        width: widthPx,
+      });
+    } catch (e) {
+      console.warn('Google renderButton:', e);
+    }
   }, []);
 
-  const handleCredentialResponse = async (response) => {
+  useEffect(() => {
+    if (!showLoginForm) return;
+    const t = setTimeout(() => mountGoogleButton(), 120);
+    return () => clearTimeout(t);
+  }, [showLoginForm, mountGoogleButton]);
+
+
+  const handleCredentialResponse = useCallback(async (response) => {
     setIsLoading(true);
     setError('');
 
@@ -323,7 +380,61 @@ const LoginPage = ({ onLoginSuccess }) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [onLoginSuccess]);
+
+  /** Sempre despacha para o último handler sem forçar novo `initialize` (guard contra Strict Mode). */
+  const gsiCredentialCbRef = useRef(handleCredentialResponse);
+  gsiCredentialCbRef.current = handleCredentialResponse;
+
+  useEffect(() => {
+    const runAfterGsiLoads = () => {
+      const g = window.google;
+      if (!g?.accounts?.id) return;
+      const clientId = getClientId();
+      if (!clientId) {
+        console.error('ERRO: Client ID não está definido!');
+        return;
+      }
+
+      const wGlob = typeof window !== 'undefined' ? window : {};
+      if (wGlob.__velohubGsiInitClientId !== clientId) {
+        g.accounts.id.initialize({
+          client_id: clientId,
+          callback: (response) => {
+            gsiCredentialCbRef.current?.(response);
+          },
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+        wGlob.__velohubGsiInitClientId = clientId;
+      }
+
+      setTimeout(() => {
+        if (showLoginFormRef.current) mountGoogleButton();
+      }, 100);
+    };
+
+    let scriptEl = document.querySelector(`script[src="${GSI_SCRIPT_SRC}"]`);
+    if (!scriptEl) {
+      scriptEl = document.createElement('script');
+      scriptEl.src = GSI_SCRIPT_SRC;
+      scriptEl.async = true;
+      scriptEl.defer = true;
+      document.head.appendChild(scriptEl);
+    }
+
+    if (window.google?.accounts?.id) {
+      runAfterGsiLoads();
+    } else if (scriptEl) {
+      scriptEl.addEventListener('load', runAfterGsiLoads, { once: true });
+    }
+
+    return () => {
+      if (scriptEl) {
+        scriptEl.removeEventListener('load', runAfterGsiLoads);
+      }
+    };
+  }, [mountGoogleButton]);
 
   const handleEmailPasswordLogin = async (e) => {
     e.preventDefault();
@@ -370,18 +481,20 @@ const LoginPage = ({ onLoginSuccess }) => {
 
   const handleGoogleSignIn = () => {
     if (window.google && window.google.accounts) {
-      // Usar o método renderButton para criar o botão do Google
       const buttonDiv = document.getElementById('google-signin-button');
       if (buttonDiv) {
-        window.google.accounts.id.renderButton(buttonDiv, {
-          theme: 'outline',
-          size: 'large',
-          width: '100%',
-          text: 'continue_with',
-          shape: 'rectangular'
-        });
+        try {
+          buttonDiv.innerHTML = '';
+          const widthPx = getGoogleSignInButtonPixelWidth(buttonDiv);
+          window.google.accounts.id.renderButton(buttonDiv, {
+            ...GOOGLE_SIGNIN_BUTTON_OPTS_BASE,
+            width: widthPx,
+          });
+        } catch (e) {
+          console.warn('Google renderButton (fallback):', e);
+          window.google.accounts.id.prompt();
+        }
       } else {
-        // Fallback: usar prompt se o botão não estiver disponível
         window.google.accounts.id.prompt();
       }
     } else {
@@ -391,20 +504,48 @@ const LoginPage = ({ onLoginSuccess }) => {
 
   return (
     <div 
-      className="min-h-screen flex items-center relative"
+      className="velohub-login-root fixed inset-0 z-0 flex flex-col overflow-x-hidden overflow-y-auto"
       style={{
-        backgroundImage: 'url(/loginpage.jpg)',
+        minHeight: '100dvh',
+        height: '100dvh',
+        width: '100%',
+        maxWidth: '100%',
+        backgroundImage: 'url(/V6BGcomLogo.png)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat'
       }}
     >
-      {/* Card de Login - Posicionado à direita */}
-      <div className="max-w-md w-full ml-auto pr-8 md:pr-16 lg:pr-24" style={{ transform: 'translateX(30px)' }}>
+      {!showLoginForm && (
+        <div className="fixed inset-0 z-10 pointer-events-none">
+          <div
+            className="pointer-events-auto absolute top-[calc(45vh_+_2cm_+_0.75rem)] sm:top-[calc(47vh_+_2cm_+_0.75rem)] md:top-[calc(49vh_+_2cm_+_0.75rem)] lg:top-[calc(51vh_+_2cm_+_0.75rem)] left-1/2 sm:left-[71%] md:left-[72%] lg:left-[73%]"
+            style={{ transform: 'translate(calc(-50% + 36px), 8px)' }}
+          >
+            <button
+              type="button"
+              onClick={() => setShowLoginForm(true)}
+              className="min-w-[200px] px-10 py-3.5 rounded-lg font-semibold transition-all duration-200 hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-[#1694FF] focus:ring-offset-2 focus:ring-offset-black/20 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.12),0_4px_6px_-2px_rgba(0,0,0,0.06),0_0_12px_rgba(255,255,255,0.42),0_0_22px_rgba(255,255,255,0.16)] hover:shadow-[0_14px_20px_-4px_rgba(0,0,0,0.14),0_6px_8px_-4px_rgba(0,0,0,0.08),0_0_16px_rgba(255,255,255,0.52),0_0_28px_rgba(255,255,255,0.22)]"
+              style={{
+                background: ENTRAR_BUTTON_GRADIENT,
+                color: '#F3F7FC',
+                fontFamily: "'Poppins', sans-serif",
+                borderRadius: 'var(--velohub-radius-btn-rect)',
+                fontWeight: 600,
+              }}
+            >
+              Entrar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showLoginForm && (
+      <div className="max-w-md w-full ml-auto pr-8 md:pr-16 lg:pr-24 flex flex-1 flex-col justify-center min-h-0 py-6" style={{ transform: 'translateX(30px)' }}>
 
         {/* Card de Login */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8" style={{
-          borderRadius: '16px',
+        <div className="bg-white dark:bg-gray-800 rounded-vh-container shadow-xl p-8" style={{
+          borderRadius: 'var(--velohub-radius-container)',
           boxShadow: '0 20px 40px rgba(0, 0, 0, 0.1)'
         }}>
           <div className="text-center mb-6">
@@ -424,12 +565,14 @@ const LoginPage = ({ onLoginSuccess }) => {
               </label>
               <input
                 id="email"
+                name="email"
                 type="email"
+                autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={isLoading}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-vh-container focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                 placeholder="seu.email@velotax.com.br"
               />
             </div>
@@ -441,12 +584,14 @@ const LoginPage = ({ onLoginSuccess }) => {
               <div className="relative">
                 <input
                   id="password"
+                  name="password"
                   type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   disabled={isLoading}
-                  className="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-vh-container focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="Digite sua senha"
                 />
                 <button
@@ -473,7 +618,7 @@ const LoginPage = ({ onLoginSuccess }) => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+              className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-vh-btn transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
             >
               {isLoading ? (
                 <span className="flex items-center justify-center">
@@ -505,7 +650,7 @@ const LoginPage = ({ onLoginSuccess }) => {
           <button
             onClick={handleGoogleSignIn}
             disabled={isLoading}
-            className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-white border-2 border-gray-300 rounded-xl hover:border-gray-400 hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+            className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-white border-2 border-gray-300 rounded-vh-btn hover:border-gray-400 hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-4"
             style={{ display: 'none' }}
           >
             {isLoading ? (
@@ -571,6 +716,7 @@ const LoginPage = ({ onLoginSuccess }) => {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 };

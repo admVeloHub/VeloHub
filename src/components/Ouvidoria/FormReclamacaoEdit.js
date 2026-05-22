@@ -1,185 +1,51 @@
 /**
  * VeloHub V3 - FormReclamacaoEdit Component
- * VERSION: v1.39.0 | DATE: 2026-04-16 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v1.39.0:
- * - Time Portabilidade (TIME_PORTABILIDADE): conversão, edição, validação, PUT e seções Reclamação + Canais (Pix / Contrato) sem anexo nem protocolos completos
- * 
- * Mudanças v1.38.0:
- * - MOTIVOS_REDUZIDOS e MOTIVOS_RECLAME_AQUI: "Juros abusivos" — alinhado FormReclamacao v3.40
- * 
- * Mudanças v1.37.1:
- * - LEGADO_PRODUTO_GRAFIA: EP (e variações de casing) → Empréstimo Pessoal
- * 
- * Mudanças v1.37.0:
- * - Produto N2 e RA: rótulo Antecipação → Antecipação Outros Anos (alinhado FormReclamacao v3.39)
- * 
- * Mudanças v1.36.1:
- * - Changelog: Veloprime (value do select) em vez de VeloPrime na linha do form RA
- * 
- * Mudanças v1.36.0:
- * - Produto: grafia canônica Empréstimo Pessoal e Crédito Trabalhador (options + LEGADO_PRODUTO_GRAFIA para todos os tipos; RA mantém VeloPrime)
- * 
- * Mudanças v1.35.0:
- * - Canais (edição): Localizar fora do grid (flex shrink-0 + max-w-md); checkboxes em grid único 4×2 com L2C4 vazio — alinhado FormReclamacao v3.37
- * 
- * Mudanças v1.34.0:
- * - Canais: linha Localizar isolada; Sem Resposta na 1ª linha do grid de checkboxes (col. 4), alinhado FormReclamacao v3.36
- * 
- * Mudanças v1.33.0:
- * - Canais de Atendimento: 1ª linha em grid 4 colunas — Localizar (C1 + C2–C3) e Sem Resposta (C4); demais grids alinhados FormReclamacao v3.35
- * 
- * Mudanças v1.32.0:
- * - BACEN / N2 Pix: removido input "Prazo"; exibição somente leitura (valor persistido ou +2 dias após createdAt); PUT sem prazo — API recalcula
- * 
- * Mudanças v1.31.1:
- * - semRespostaCliente: mesmo checkbox da seção Canais (após Localizar Atendimentos) em renderProtocolos e bloco PROCON
- * 
- * Mudanças v1.31.0:
- * - semRespostaCliente (boolean): estado, conversão e PUT; alinhado FormReclamacao v3.33
- * 
- * Mudanças v1.30.0:
- * - Reclame Aqui: lista final de Motivos e Produto alinhada a FormReclamacao v3.32; LEGADO motivo/produto ao carregar edição
- * 
- * Mudanças v1.29.0:
- * - Reclame Aqui (MOTIVOS_RECLAME_AQUI): removidos os mesmos cinco motivos que FormReclamacao v3.31; removidos mapeamentos LEGADO correspondentes
- * 
- * Mudanças v1.28.0:
- * - MOTIVOS_REDUZIDOS (BACEN/N2/Procon): igual FormReclamacao v3.30; legado ao carregar edição
- * 
- * Mudanças v1.27.2:
- * - Reclame Aqui: "Desativada - Não considerar Reclamação" + legado sem hífen ao carregar
- * 
- * Mudanças v1.27.1:
- * - Reclame Aqui: ordem — Encerramento cta App logo após Encerramento cta Celcoin (alinhado FormReclamacao v3.29.1)
- * 
- * Mudanças v1.27.0:
- * - Reclame Aqui (MOTIVOS_RECLAME_AQUI): alinhado ao FormReclamacao v3.29; normalização de rótulos legados ao carregar edição
- * 
- * Mudanças v1.26.0:
- * - PROCON: Motivo usa MOTIVOS_REDUZIDOS (alinhado com FormReclamacao e schema)
- * 
- * Mudanças v1.25.0:
- * - PROCON: adicionado campo Origem (valores: Procon, Consumidor.gov); incluído no payload
- * 
- * Mudanças v1.24.0:
- * - BACEN: removido valor "Consumidor.Gov" do campo Origem; Prazo deixa de ser obrigatório
- * 
- * Mudanças v1.23.0:
- * - BACEN: campo "Natureza" renomeado para "Origem" (label e mensagens de validação)
- * 
- * Mudanças v1.22.0:
- * - MOTIVOS_REDUZIDOS: Abatimento de juros → Abatimento de Juros; Liberação chave pix → Liberação Chave Pix; Encerramento de conta → Encerramento de Conta; adicionado Portabilidade Pix
- * - MOTIVOS_RECLAME_AQUI: adicionado Portabilidade Pix
- * - Padronização de grafias: Abatimento de Juros, Liberação Chave Pix, Contestação de Valores, Encerramento de Conta, Exclusão de Conta, Não Recebeu Restituição
- * 
- * Mudanças v1.21.0:
- * - Removido campo oportunidade do form Reclame Aqui (não consta no schema)
- * 
- * Mudanças v1.20.0:
- * - Form Reclame Aqui: lista específica de motivos (MOTIVOS_RECLAME_AQUI) igual ao FormReclamacao
- * 
- * Mudanças v1.19.0:
- * - Form N2: campo Protocolo N2 ao lado de Motivo; removido n2SegundoNivel (537) do payload OUVIDORIA
- * - localizarAtendimentos: lógica por tipo (incluirN2, incluirN2SegundoNivel) igual ao FormReclamacao
- * 
- * Mudanças v1.18.0:
- * - Localizar Atendimentos adicionado aos forms BACEN, OUVIDORIA (N2) e RECLAME_AQUI (na área Canais de Atendimento)
- * - Função localizarAtendimentos parametrizada: exclui o tipo do form atual da busca
- * - Preenche também procon/protocolosProcon para forms BACEN, N2, Reclame Aqui
- * 
- * Mudanças v1.17.0:
- * - Form Procon: "Registros Reclame Aqui" renomeado para "Localizar Atendimentos"
- * - Localizar Atendimentos: busca CPF em todas as collections e preenche acionouCentral, protocolosCentral, n2SegundoNivel, protocolosN2, reclameAqui, protocolosReclameAqui, pixLiberado, statusContratoQuitado
- * - Adicionados campos Central de Atendimento, N2 Ouvidoria, Reclame Aqui (com protocolos) e Pix Liberado/Contrato Quitado no form Procon (omitido Procon)
- * 
- * Mudanças v1.16.3:
- * - Corrigido toast.info para toast (react-hot-toast não possui método .info)
- * 
- * Mudanças v1.16.2:
- * - Campo Produto do form N2 Pix: Antecipação Outros Anos, Antecipação 2026, Conta Celcoin, Empréstimo Pessoal, Seguros, Crédito Trabalhador
- * 
- * Mudanças v1.16.1:
- * - Campo Produto do form Reclame Aqui: opções atualizadas (Antecipação Outros Anos, Antecipação 2026, Aplicativo, Conta Celcoin, Cupom, Empréstimo Pessoal, Seguros, Crédito Trabalhador, Veloprime)
- * 
- * Mudanças v1.16.0:
- * - Adicionado campo Produto no formulário Reclame Aqui (obrigatório)
- * 
- * Mudanças v1.15.0:
- * - Produto: "Antecipação" exibe "Antecipação Outros Anos" (valor no banco mantido); novo "Antecipação 2026"
- * 
- * Mudanças v1.14.0:
- * - Ocultos campos redundantes: Escalado N2 no form N2 Pix, Procon no form Procon, Reclame Aqui no form Reclame Aqui
- * - Status do contrato: 1 checkbox "Contrato Quitado" (Boolean); statusContratoAberto derivado no payload
- * - Pix Liberado e Contrato Quitado sempre na coluna 3 (md:col-start-3)
- * 
- * Mudanças v1.13.0:
- * - Data de entrada obrigatória em todos os formulários
- * - Toast específico quando data de entrada não preenchida (ex: "Data de entrada é obrigatória")
- * 
- * Mudanças v1.12.0:
- * - Adicionado suporte completo para Ação Judicial (PROCESSOS): renderCamposProcessos, validação, payload
- * - Normalização do tipo Ação Judicial no converterParaFormData
- * - Campos: Nro Processo, Empresa Acionada, Data Entrada, Produto, Motivo, Descrição, Audiência, Subsídios, Outros Protocolos, Anexo
- * 
- * Mudanças v1.11.0:
- * - Corrigida normalização do tipo no converterParaFormData: adicionados N2 Pix, N2 PIX, Ouvidoria
- * - Schema N2: usa dataEntradaN2 (dataEntradaAtendimento removido - redundante)
- * 
- * Mudanças v1.10.2:
- * - Valores dos campos Motivos e Produto convertidos para primeira letra maiúscula
- * 
- * Mudanças v1.10.0:
- * - Atualizado campo Motivos (BACEN e N2 Pix) com novos valores: abatimento de juros, cancelamento, cobrança, encerramento de conta, erro, fraude, lgpd, liberação chave pix, superendividamento
- * - Atualizado campo Produto do formulário N2 Pix com novos valores: antecipação, crédito pessoal, crédito trabalhador, cupons, seguros
- * 
- * Mudanças v1.9.0:
- * - Campo Origem do formulário N2 Pix: removidos valores "Telefone" e "Ticket", adicionado valor "Atendimento"
- * 
- * Mudanças v1.6.0:
- * - Campo Motivo agora usa dropdown que adiciona opções selecionadas ao campo
- * - Motivos selecionados aparecem como tags removíveis dentro do campo
- * - Dropdown mostra apenas motivos ainda não selecionados
- * - Interface mais limpa e compacta
- * 
- * Mudanças v1.5.0:
- * - Campo Motivo agora permite múltipla escolha em TODOS os tipos de reclamação
- * - Criada função renderCampoMotivo para padronizar exibição de checkboxes de motivos
- * - converterParaFormData atualizado para converter motivoReduzido string para array quando necessário
- * - Validação atualizada para verificar se pelo menos um motivo foi selecionado
- * - handleSubmit atualizado para enviar array de motivos em todos os tipos
- * 
- * Mudanças v1.4.0:
- * - Adicionado suporte para tipo de reclamação "Procon"
- * - Criada função renderCamposProcon() com todos os campos específicos
- * - Adicionada função de busca automática de registros Reclame Aqui por CPF com modal de exibição
- * - Adicionada validação para campos do Procon
- * - Atualizado submit para incluir campos do Procon
- * - Protocolos e Canais de Atendimento agora aparecem também para Procon
- * - Tentativas de Contato não aparecem para Procon
- * 
- * Mudanças v1.3.0:
- * - Adicionado suporte para tipo de reclamação "Reclame Aqui"
- * - Criada função renderCamposReclameAqui() com todos os campos específicos
- * - Adicionada validação para campos do Reclame Aqui
- * - Atualizado submit para incluir campos do Reclame Aqui
- * - Protocolos e Canais de Atendimento agora aparecem também para Reclame Aqui
- * - Tentativas de Contato não aparecem para Reclame Aqui
- * 
- * Mudanças v1.2.0:
- * - Removido campo casosCriticos (não conectado ao formulário principal)
- * 
- * Mudanças v1.1.0:
- * - Removido campo status (usar Finalizado.Resolvido para determinar se está em andamento ou resolvido)
- * - Removido campo mes do formulário OUVIDORIA
- * 
- * Componente de formulário para edição de reclamações BACEN, Ouvidoria e Reclame Aqui
- * Baseado no FormReclamacao.js mas adaptado para edição
+ * VERSION: v1.48.2 | DATE: 2026-05-21 | AUTHOR: VeloHub Development Team
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.48.2: Gerar Ticket — preenche campo com ticketRegistro (incl. já existente / resposta parcial)
+ * - v1.48.1: Indicadores Fundido/Fundidos — coluna direita da faixa Protocolo
+ * - v1.48.0: Fusão: `currentPixLiberado` no ctx; marca Liberação Anterior via `fusaoLiberacaoAnteriorSignal`
+ * - v1.47.3: Fusão: consulta CPF omite tickets já absorvidos (inferior) da lista e do cenário
+ * - v1.47.2: Consulta CPF / fusão: envia `currentSnapshot` ao contexto do modal Fundir ocorrências
+ * - v1.47.1: Grid Protocolos: col 3 = Contrato Quitado/Cancelado; col 4 = Liberação Solicitada/Anterior
+ * - v1.47.0: Campo «Liberação Anterior» (liberacaoAnterior) na seção Protocolos — todos os tipos exceto Time Portabilidade
+ * - v1.46.0: Localizar Atendimentos usa util canônico `aggregateProtocolosFromRegistros`
+ * - v1.45.29: Localizar Atendimentos usa `idEntrada` de Reclame Aqui como fallback em `protocolosReclameAqui`
+ * - v1.45.28: Protocolos (todos os tipos): removido campo visual de retorno da solicitação e botão «Solicitar Liberação» com largura de conteúdo
+ * - v1.45.27: Tipo PROCON passa a renderizar seção Protocolos (inclui checkbox «Reclame Aqui» e campo de protocolo)
+ * - v1.45.26: Modal Solicitar Liberação passa referência do ticket Octadesk (ticketRegistro/protocolos) em `ouvidoriaNumeroProtocolo`
+ * - v1.45.25: Barra Octadesk mostra tooltip em hover (seguindo cursor) quando «Gerar Ticket» está bloqueado
+ * - v1.45.24: Removida instrumentação de debug NDJSON ingest `d712b6` em `useEffect([reclamacao])` (sessão concluída)
+ * - v1.45.22: Removida instrumentação de debug (fetch ingest + `[agent-debug]`) em `useEffect([reclamacao])`
+ * - v1.45.21: MOTIVOS_REDUZIDOS / MOTIVOS_RECLAME_AQUI: «Elegibilidade»
+ * - v1.45.20: Exibição prazo BACEN: +10 dias UTC (alinhado API); N2 segue +2 dias
+ * - v1.45.19: converterParaFormData repassa Fusao/Finalizado (chips fusão ao editar)
+ * - v1.45.18: FusaoProtocoloIndicadores ao lado do bloco «Protocolo» (Fundido / Receptor)
+ * - v1.39.0: Time Portabilidade (TIME_PORTABILIDADE): conversão, edição, validação, PUT e seções Reclamação + Canais (Pix / Contrato) sem anexo nem protocolos completos
+ * - v1.38.0: MOTIVOS_REDUZIDOS e MOTIVOS_RECLAME_AQUI: "Juros abusivos" — alinhado FormReclamacao v3.40
  */
 
 import React, { useState, useEffect, useRef } from 'react';
 import { reclamacoesAPI, anexosAPI } from '../../services/ouvidoriaApi';
 import { formatDateRegistro } from '../../utils/dateUtils';
+import {
+  OPCOES_TIPO_RECLAMACAO_POR_HIERARQUIA,
+  tierIndexFromTipo,
+} from '../../utils/ouvidoriaTierHierarchy';
+import { mensagemRetornoBuscaLocalizar } from '../../utils/ouvidoriaLocalizarRetornoMsg';
+import { aggregateProtocolosFromRegistros } from '../../utils/ouvidoriaProtocolosCanon';
+import {
+  buildFusaoCurrentSnapshot,
+  filterReclamacoesElegiveisFusaoLista,
+  tipoSuportaLiberacaoAnterior,
+} from '../../utils/ouvidoriaFusaoModalDisplay';
+import { tipoOuvidoriaFormToOrigemReqProd } from '../../utils/liberacaoChavePixRules';
+import ModalSolicitarLiberacaoPix from './ModalSolicitarLiberacaoPix';
+import OuvidoriaOctadeskTicketBar from './OuvidoriaOctadeskTicketBar';
+import { resolveOctadeskTicketFromForm } from '../../utils/resolveOctadeskTicketFromForm';
+import FusaoProtocoloIndicadores from './FusaoProtocoloIndicadores';
+import { FloatingLabelField, FloatingLabelShell } from '../shared/FloatingLabelField';
 import toast from 'react-hot-toast';
 
 // Importar funções auxiliares e constantes do FormReclamacao
@@ -233,6 +99,7 @@ const MOTIVOS_REDUZIDOS = [
   'Em cobrança',
   'Alega fraude',
   'Erro app',
+  'Elegibilidade',
   'Encerramento cta celcoin',
   'Encerramento cta app',
   'Superendividamento',
@@ -242,6 +109,8 @@ const TIME_PORTABILIDADE_TIPO = 'TIME_PORTABILIDADE';
 const TIME_PORT_PRODUTO = 'Antecipação 2026';
 const TIME_PORT_ORIGEM = 'Atendimento';
 const TIME_PORT_MOTIVO_FIXO = ['Liberação chave pix'];
+
+const OPCOES_TIPO_RECLAMACAO = OPCOES_TIPO_RECLAMACAO_POR_HIERARQUIA;
 
 /** Rótulos antigos (BACEN/N2/Procon) → novos ao carregar edição */
 const LEGADO_MOTIVO_REDUZIDOS = {
@@ -298,10 +167,9 @@ const MOTIVOS_RECLAME_AQUI = [
   'Encerramento cta App',
   'Encerramento cta Celcoin',
   'Erro app',
+  'Elegibilidade',
   'Liberação chave pix',
 ];
-
-/** Rótulos antigos do RA → novos (apenas ao carregar edição; não altera schema no banco até salvar) */
 const LEGADO_MOTIVO_RECLAME_AQUI = {
   Cobrança: 'Em cobrança',
   'Em Cobrança': 'Em cobrança',
@@ -351,7 +219,11 @@ const LEGADO_PRODUTO_RECLAME_AQUI = {
   VeloPrime: 'Veloprime',
 };
 
-/** Data YYYY-MM-DD do prazo (campo salvo ou derivado de createdAt + 2 dias UTC, alinhado à API reclamacoes v2.18) */
+/** Dias UTC após createdAt para prévia do prazo quando o campo ainda não existe (alinhado SLA API reclamacoes). */
+const SLA_EXIB_CREATED_AT_PLUS_DIAS_BACEN = 10;
+const SLA_EXIB_CREATED_AT_PLUS_DIAS_OUVIDORIA = 2;
+
+/** Data YYYY-MM-DD do prazo (campo salvo ou derivado de createdAt + N dias UTC) */
 const dataPrazoAutomaticoParaExibicao = (tipoNorm, rec) => {
   if (!rec) return '';
   const salvo = tipoNorm === 'BACEN' ? rec.prazoBacen : tipoNorm === 'OUVIDORIA' ? rec.prazoOuvidoria : null;
@@ -365,7 +237,11 @@ const dataPrazoAutomaticoParaExibicao = (tipoNorm, rec) => {
   const c = new Date(rec.createdAt);
   if (isNaN(c.getTime())) return '';
   const p = new Date(c.getTime());
-  p.setUTCDate(p.getUTCDate() + 2);
+  const dias =
+    tipoNorm === 'BACEN'
+      ? SLA_EXIB_CREATED_AT_PLUS_DIAS_BACEN
+      : SLA_EXIB_CREATED_AT_PLUS_DIAS_OUVIDORIA;
+  p.setUTCDate(p.getUTCDate() + dias);
   return p.toISOString().split('T')[0];
 };
 
@@ -392,6 +268,8 @@ const converterParaFormData = (reclamacao) => {
   const tipoUpper = tipoStr.toUpperCase();
   if (tipoStr === 'Reclame Aqui' || tipoUpper === 'RECLAME AQUI' || tipoUpper === 'RECLAMEAQUI') {
     tipoNormalizado = 'RECLAME_AQUI';
+  } else if (tipoUpper === 'BACEN') {
+    tipoNormalizado = 'BACEN';
   } else if (
     tipoUpper === 'N2' || tipoUpper === 'N2 & PIX' || tipoUpper === 'N2&PIX' ||
     tipoUpper === 'N2 PIX' || tipoStr === 'N2 Pix' || tipoStr === 'Ouvidoria' || tipoUpper === 'OUVIDORIA'
@@ -421,6 +299,7 @@ const converterParaFormData = (reclamacao) => {
     email: reclamacao.email || '',
     observacoes: reclamacao.observacoes || '',
     tipo: tipoNormalizado,
+    numeroProtocolo: reclamacao.numeroProtocolo != null ? String(reclamacao.numeroProtocolo) : '',
     
     // Campos BACEN
     dataEntrada: formatarDataInput(reclamacao.dataEntrada),
@@ -495,6 +374,9 @@ const converterParaFormData = (reclamacao) => {
       ? reclamacao.protocolosProcon 
       : [''],
     semRespostaCliente: reclamacao.semRespostaCliente === true,
+    liberacaoSolicitada: reclamacao.liberacaoSolicitada === true,
+    liberacaoAnterior: reclamacao.liberacaoAnterior === true,
+    feedbackSolicitarLiberacao: '',
     localizarAtendimentos: reclamacao.localizarAtendimentos || '',
     pixLiberado: (() => {
       if (reclamacao.pixLiberado === true) return true;
@@ -503,6 +385,7 @@ const converterParaFormData = (reclamacao) => {
       return ['liberado', 'excluído', 'excluido', 'solicitada', 'solicitado'].includes(s);
     })(),
     statusContratoQuitado: reclamacao.statusContratoQuitado || false,
+    contratoCancelado: reclamacao.contratoCancelado === true,
     
     // Campos Ação Judicial (PROCESSOS)
     nroProcesso: reclamacao.nroProcesso || '',
@@ -514,10 +397,27 @@ const converterParaFormData = (reclamacao) => {
     subsidios: reclamacao.subsidios || '',
     outrosProtocolos: reclamacao.outrosProtocolos || '',
     protocoloOctadesk: reclamacao.protocoloOctadesk != null ? String(reclamacao.protocoloOctadesk) : '',
+    ticketRegistro: reclamacao.ticketRegistro != null ? String(reclamacao.ticketRegistro) : '',
+    Finalizado:
+      reclamacao.Finalizado && typeof reclamacao.Finalizado === 'object'
+        ? { ...reclamacao.Finalizado }
+        : undefined,
+    Fusao:
+      reclamacao.Fusao && typeof reclamacao.Fusao === 'object'
+        ? { ...reclamacao.Fusao }
+        : undefined,
   };
 };
 
-const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
+const FormReclamacaoEdit = ({
+  reclamacao,
+  onClose,
+  onSuccess,
+  onFusaoConsultaChange,
+  fundirInlineAtivo = false,
+  onAbrirModalFusao,
+  fusaoLiberacaoAnteriorSignal = 0,
+}) => {
   // Obter userEmail e responsavel da sessão
   const getUserSession = () => {
     try {
@@ -546,6 +446,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
     email: '',
     observacoes: '',
     tipo: 'BACEN',
+    numeroProtocolo: '',
     dataEntrada: new Date().toISOString().split('T')[0],
     origem: '',
     produto: '',
@@ -582,8 +483,12 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
     semRespostaCliente: false,
     pixLiberado: false,
     statusContratoQuitado: false,
+    contratoCancelado: false,
     enviarParaCobranca: false,
     localizarAtendimentos: '',
+    liberacaoSolicitada: false,
+    liberacaoAnterior: false,
+    feedbackSolicitarLiberacao: '',
     // Ação Judicial
     nroProcesso: '',
     empresaAcionada: '',
@@ -597,6 +502,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
   });
 
   const [loading, setLoading] = useState(false);
+  const [gerandoTicketOcta, setGerandoTicketOcta] = useState(false);
   const [errors, setErrors] = useState({});
   const [showSaveOptions, setShowSaveOptions] = useState(false);
   const dropdownRef = useRef(null);
@@ -627,6 +533,19 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
     };
   }, [dropdownMotivoAberto]);
 
+  useEffect(() => {
+    if (typeof onFusaoConsultaChange === 'function') {
+      onFusaoConsultaChange(null);
+    }
+  }, [formData.tipo, onFusaoConsultaChange]);
+
+  useEffect(() => {
+    if (fusaoLiberacaoAnteriorSignal < 1) return;
+    if (!tipoSuportaLiberacaoAnterior(formData.tipo)) return;
+    if (formData.pixLiberado === true) return;
+    setFormData((prev) => ({ ...prev, liberacaoAnterior: true }));
+  }, [fusaoLiberacaoAnteriorSignal, formData.tipo, formData.pixLiberado]);
+
   /**
    * Renderizar campo de motivo com dropdown múltipla escolha
    */
@@ -646,23 +565,39 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
       onChange(valoresArray.filter(m => m !== motivo));
     };
 
+    const labelLimpo = String(label).replace(/\*\s*$/, '').trim();
+    const labelObrigatorio = String(label).includes('*');
+
     return (
-      <div 
-        className="relative" 
+      <div
+        className="relative"
         ref={(el) => {
           if (el) {
             dropdownMotivoRefs.current[campoId] = el;
           }
         }}
       >
-        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-          {label}
-        </label>
-        
-        {/* Campo de exibição dos motivos selecionados */}
-        <div 
-          className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 min-h-[42px] flex flex-wrap gap-2 items-center cursor-pointer bg-white dark:bg-gray-800"
+        <FloatingLabelShell
+          id={campoId}
+          label={labelLimpo}
+          required={labelObrigatorio}
+          raised={valoresArray.length > 0 || isAberto}
+          focused={isAberto}
+          error={error}
+        >
+        <div
+          id={campoId}
+          role="combobox"
+          aria-expanded={isAberto}
+          tabIndex={0}
+          className="flex min-h-12 w-full cursor-pointer flex-wrap items-center gap-2 rounded-lg border border-gray-400 bg-white px-3 pb-2 pt-5 dark:border-gray-500 dark:bg-gray-800"
           onClick={() => setDropdownMotivoAberto(isAberto ? null : campoId)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setDropdownMotivoAberto(isAberto ? null : campoId);
+            }
+          }}
         >
           {valoresArray.length === 0 ? (
             <span className="text-gray-400 dark:text-gray-500 text-sm">Selecione os motivos...</span>
@@ -688,12 +623,13 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           )}
           <span className="ml-auto text-gray-400">▼</span>
         </div>
+        </FloatingLabelShell>
 
         {/* Dropdown de opções */}
         {isAberto && (
           <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-400 dark:border-gray-500 rounded-lg shadow-lg max-h-64 overflow-y-auto">
             {motivosDisponiveis.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+              <div className="flex min-h-12 items-center px-3 text-sm text-gray-500 dark:text-gray-400">
                 Todos os motivos já foram selecionados
               </div>
             ) : (
@@ -701,17 +637,13 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                 <div
                   key={motivo}
                   onClick={() => adicionarMotivo(motivo)}
-                  className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm text-gray-700 dark:text-gray-300"
+                  className="flex min-h-12 cursor-pointer items-center px-3 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
                   {motivo}
                 </div>
               ))
             )}
           </div>
-        )}
-
-        {error && (
-          <span className="text-red-500 text-xs mt-1 block">{error}</span>
         )}
       </div>
     );
@@ -721,6 +653,134 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
   const [reclameAquiRegistros, setReclameAquiRegistros] = useState([]);
   const [mostrarModalReclameAqui, setMostrarModalReclameAqui] = useState(false);
   const [buscandoReclameAqui, setBuscandoReclameAqui] = useState(false);
+  const [liberacaoModalCtx, setLiberacaoModalCtx] = useState(null);
+
+  const aplicarMudancaTipo = (novoTipo) => {
+    const hoje = new Date().toISOString().split('T')[0];
+    setFormData((prev) => {
+      const next = {
+        ...prev,
+        tipo: novoTipo,
+        origem: '',
+        anexos: [],
+        motivoReduzido: [],
+        motivoDetalhado: '',
+        dataEntradaN2: '',
+        produto: '',
+        cpfRepetido: '',
+        idEntrada: '',
+        dataReclam: '',
+        passivelNotaMais: false,
+        solicitadoAvaliacao: false,
+        avaliado: false,
+        codigoProcon: '',
+        dataProcon: '',
+        solucaoApresentada: '',
+        processoAdministrativo: '',
+        clienteDesistiu: false,
+        encaminhadoJuridico: false,
+        processoEncaminhadoResponsavel: '',
+        processoEncaminhadoData: '',
+        processoEncerrado: false,
+        dataProcessoEncerrado: '',
+        registrosReclameAqui: '',
+        protocoloOctadesk: '',
+        dataEntrada: hoje,
+      };
+      if (novoTipo === TIME_PORTABILIDADE_TIPO) {
+        next.origem = TIME_PORT_ORIGEM;
+        next.produto = TIME_PORT_PRODUTO;
+        next.motivoReduzido = [...TIME_PORT_MOTIVO_FIXO];
+        next.dataEntrada = hoje;
+      }
+      return next;
+    });
+    setErrors({});
+  };
+
+  const resolverAgenteParaLiberacao = () => {
+    const r = String(responsavel || '').trim();
+    if (r) return r;
+    try {
+      const raw =
+        localStorage.getItem('velohub_user_session') ||
+        localStorage.getItem('veloacademy_user_session') ||
+        localStorage.getItem('user_session');
+      if (raw) {
+        const j = JSON.parse(raw);
+        return (j?.user?.name || j?.user?.email || '').trim();
+      }
+    } catch {
+      /* ignore */
+    }
+    return '';
+  };
+
+  const abrirModalSolicitarLiberacao = () => {
+    const orig = tipoOuvidoriaFormToOrigemReqProd(formData.tipo);
+    if (!orig) {
+      toast.error('Solicitar liberação não está disponível para este tipo de ocorrência.');
+      return;
+    }
+    if (!resolveOctadeskTicketFromForm(formData)) {
+      toast.error('Informe ou gere um ticket (Registro, N1 ou N2) antes de solicitar liberação.');
+      return;
+    }
+    setLiberacaoModalCtx({ origem: orig, tipoApi: formData.tipo });
+  };
+
+  const handleGerarTicketOctadesk = async () => {
+    const tipo = formData.tipo;
+    if (!tipo || tipo === 'TIME_PORTABILIDADE') return;
+    const id =
+      reclamacao?._id != null
+        ? String(reclamacao._id)
+        : reclamacao?.id != null
+          ? String(reclamacao.id)
+          : '';
+    if (!id) {
+      toast.error('Reclamação sem identificador.');
+      return;
+    }
+    if (String(formData.ticketRegistro || '').trim()) {
+      toast.error('Ticket de registro já preenchido.');
+      return;
+    }
+    setGerandoTicketOcta(true);
+    try {
+      const res = await reclamacoesAPI.gerarTicketOctadesk(id, tipo);
+      const num =
+        res?.data?.ticketRegistro != null
+          ? String(res.data.ticketRegistro).trim()
+          : '';
+      if (!num) {
+        toast.error(res?.message || 'Octadesk não retornou número do ticket.');
+        return;
+      }
+      setFormData((prev) => ({ ...prev, ticketRegistro: num }));
+      if (res?.data?.alreadyExists) {
+        toast.success('Ticket já vinculado — número exibido no campo.');
+      } else if (res?.data?.octadeskFinalizeWarning) {
+        toast.success('Ticket Octadesk criado.');
+      } else {
+        toast.success('Ticket Octadesk gerado.');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.message || 'Erro ao gerar ticket Octadesk.');
+    } finally {
+      setGerandoTicketOcta(false);
+    }
+  };
+
+  const handleLiberacaoPixSucesso = (res) => {
+    const idStr = res?.data?._id != null ? String(res.data._id) : '';
+    setFormData((prev) => ({
+      ...prev,
+      liberacaoSolicitada: true,
+      feedbackSolicitarLiberacao: idStr ? `Req_Prod: ${idStr}` : 'Liberação solicitada (Req_Prod).',
+    }));
+  };
 
   // Atualizar formData quando reclamacao mudar
   useEffect(() => {
@@ -799,7 +859,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
         novosErros.idEntrada = 'ID Entrada deve ter 9 dígitos numéricos';
       }
       if (!formData.dataReclam) {
-        novosErros.dataReclam = 'Data Reclamação é obrigatória';
+        novosErros.dataReclam = 'Data da ocorrência é obrigatória';
       }
       if (!formData.produto) {
         novosErros.produto = 'Produto é obrigatório';
@@ -865,7 +925,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
         novosErros.idEntrada = 'ID Entrada deve ter 9 dígitos numéricos';
       }
       if (!formData.dataReclam) {
-        novosErros.dataReclam = 'Data Reclamação é obrigatória';
+        novosErros.dataReclam = 'Data da ocorrência é obrigatória';
       }
       if (!formData.motivoReduzido || formData.motivoReduzido.length === 0) {
         novosErros.motivoReduzido = 'Selecione pelo menos um motivo';
@@ -960,9 +1020,12 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           procon: formData.procon,
           protocolosProcon: formData.protocolosProcon.filter(p => p.trim() !== ''),
           semRespostaCliente: formData.semRespostaCliente === true,
+          liberacaoSolicitada: formData.liberacaoSolicitada === true,
+          liberacaoAnterior: formData.liberacaoAnterior === true,
           pixLiberado: formData.pixLiberado,
           statusContratoQuitado: formData.statusContratoQuitado,
           statusContratoAberto: !formData.statusContratoQuitado,
+          contratoCancelado: formData.contratoCancelado === true,
         };
       } else if (formData.tipo === 'OUVIDORIA') {
         payload = {
@@ -982,9 +1045,12 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           procon: formData.procon,
           protocolosProcon: formData.protocolosProcon.filter(p => p.trim() !== ''),
           semRespostaCliente: formData.semRespostaCliente === true,
+          liberacaoSolicitada: formData.liberacaoSolicitada === true,
+          liberacaoAnterior: formData.liberacaoAnterior === true,
           pixLiberado: formData.pixLiberado,
           statusContratoQuitado: formData.statusContratoQuitado,
           statusContratoAberto: !formData.statusContratoQuitado,
+          contratoCancelado: formData.contratoCancelado === true,
         };
       } else if (formData.tipo === 'RECLAME_AQUI') {
         payload = {
@@ -1013,6 +1079,9 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           procon: formData.procon,
           protocolosProcon: formData.protocolosProcon.filter(p => p.trim() !== ''),
           semRespostaCliente: formData.semRespostaCliente === true,
+          liberacaoSolicitada: formData.liberacaoSolicitada === true,
+          liberacaoAnterior: formData.liberacaoAnterior === true,
+          contratoCancelado: formData.contratoCancelado === true,
         };
       } else if (formData.tipo === 'PROCON') {
         payload = {
@@ -1043,6 +1112,9 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           pixLiberado: formData.pixLiberado || false,
           statusContratoQuitado: formData.statusContratoQuitado || false,
           semRespostaCliente: formData.semRespostaCliente === true,
+          liberacaoSolicitada: formData.liberacaoSolicitada === true,
+          liberacaoAnterior: formData.liberacaoAnterior === true,
+          contratoCancelado: formData.contratoCancelado === true,
         };
       } else if (formData.tipo === 'PROCESSOS') {
         payload = {
@@ -1059,6 +1131,21 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           subsidios: formData.subsidios || '',
           outrosProtocolos: formData.outrosProtocolos || '',
           anexos: formData.anexos,
+          acionouCentral: formData.acionouCentral,
+          protocolosCentral: formData.protocolosCentral.filter((p) => p && String(p).trim() !== ''),
+          n2SegundoNivel: formData.n2SegundoNivel,
+          protocolosN2: formData.protocolosN2.filter((p) => p && String(p).trim() !== ''),
+          reclameAqui: formData.reclameAqui,
+          protocolosReclameAqui: formData.protocolosReclameAqui.filter((p) => p && String(p).trim() !== ''),
+          procon: formData.procon,
+          protocolosProcon: formData.protocolosProcon.filter((p) => p && String(p).trim() !== ''),
+          semRespostaCliente: formData.semRespostaCliente === true,
+          liberacaoSolicitada: formData.liberacaoSolicitada === true,
+          liberacaoAnterior: formData.liberacaoAnterior === true,
+          pixLiberado: formData.pixLiberado === true,
+          statusContratoQuitado: formData.statusContratoQuitado === true,
+          statusContratoAberto: formData.statusContratoQuitado !== true,
+          contratoCancelado: formData.contratoCancelado === true,
         };
       } else if (formData.tipo === 'TIME_PORTABILIDADE') {
         payload = {
@@ -1072,14 +1159,25 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           pixLiberado: formData.pixLiberado === true,
           statusContratoQuitado: formData.statusContratoQuitado === true,
           statusContratoAberto: formData.statusContratoQuitado !== true,
+          liberacaoSolicitada: formData.liberacaoSolicitada === true,
+          contratoCancelado: formData.contratoCancelado === true,
         };
+      }
+
+      if (payload && typeof payload === 'object' && 'numeroProtocolo' in payload) {
+        delete payload.numeroProtocolo;
+      }
+
+      const ticketReg = String(formData.ticketRegistro || '').trim();
+      if (ticketReg) {
+        payload.ticketRegistro = ticketReg;
       }
 
       const resultado = await reclamacoesAPI.update(reclamacao._id, payload, formData.tipo);
       
       const mensagem = modo === 'resolvido' 
-        ? 'Reclamação atualizada como Resolvida com sucesso!'
-        : 'Reclamação atualizada como Em Andamento com sucesso!';
+        ? 'Ocorrência atualizada como Resolvida com sucesso!'
+        : 'Ocorrência atualizada como Em Andamento com sucesso!';
       toast.success(mensagem);
       
       if (onSuccess) {
@@ -1089,8 +1187,8 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
         onClose();
       }
     } catch (error) {
-      console.error('Erro ao atualizar reclamação:', error);
-      toast.error(error.message || 'Erro ao atualizar reclamação');
+      console.error('Erro ao atualizar ocorrência:', error);
+      toast.error(error.message || 'Erro ao atualizar ocorrência');
     } finally {
       setLoading(false);
     }
@@ -1159,55 +1257,62 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
   const renderCamposBacen = () => (
     <>
       <div className="velohub-card">
-        <h3 className="text-xl font-semibold mb-4 velohub-title">Reclamação</h3>
+        <h3 className="text-xl font-semibold mb-4 velohub-title">Ocorrência</h3>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Origem *
-            </label>
-            <select
+            <FloatingLabelField
+              id="form-fr-edit-bacen-origem"
+              label="Origem"
+              required
               value={formData.origem}
-              onChange={(e) => setFormData(prev => ({ ...prev, origem: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              error={errors.origem}
+            >
+              <select
+                value={formData.origem}
+                onChange={(e) => setFormData(prev => ({ ...prev, origem: e.target.value }))}
+                className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+                required
+              >
+                <option value="">Selecione...</option>
+                <option value="Bacen Celcoin">Bacen Celcoin</option>
+                <option value="Bacen Via Capital">Bacen Via Capital</option>
+              </select>
+            </FloatingLabelField>
+          </div>
+
+          <div>
+            <FloatingLabelField id="form-fr-edit-bacen-produto" label="Produto" value={formData.produto}>
+              <select
+                value={formData.produto}
+                onChange={(e) => setFormData(prev => ({ ...prev, produto: e.target.value }))}
+                className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+              >
+                <option value="">Selecione...</option>
+                <option value="Antecipação 2026">Antecipação 2026</option>
+                <option value="Antecipação">Antecipação Outros Anos</option>
+                <option value="Empréstimo Pessoal">Empréstimo Pessoal</option>
+                <option value="Crédito Trabalhador">Crédito Trabalhador</option>
+              </select>
+            </FloatingLabelField>
+          </div>
+
+          <div>
+            <FloatingLabelField
+              id="form-fr-edit-bacen-data-entrada"
+              label="Data de Entrada"
               required
-            >
-              <option value="">Selecione...</option>
-              <option value="Bacen Celcoin">Bacen Celcoin</option>
-              <option value="Bacen Via Capital">Bacen Via Capital</option>
-            </select>
-            {errors.origem && <span className="text-red-500 text-xs">{errors.origem}</span>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Produto
-            </label>
-            <select
-              value={formData.produto}
-              onChange={(e) => setFormData(prev => ({ ...prev, produto: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="">Selecione...</option>
-              <option value="Antecipação 2026">Antecipação 2026</option>
-              <option value="Antecipação">Antecipação Outros Anos</option>
-              <option value="Empréstimo Pessoal">Empréstimo Pessoal</option>
-              <option value="Crédito Trabalhador">Crédito Trabalhador</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Data de Entrada *
-            </label>
-            <input
-              type="date"
               value={formData.dataEntrada}
-              onChange={(e) => setFormData(prev => ({ ...prev, dataEntrada: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              required
-            />
-            {errors.dataEntrada && <span className="text-red-500 text-xs">{errors.dataEntrada}</span>}
+              error={errors.dataEntrada}
+            >
+              <input
+                type="date"
+                value={formData.dataEntrada}
+                onChange={(e) => setFormData(prev => ({ ...prev, dataEntrada: e.target.value }))}
+                className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+                required
+              />
+            </FloatingLabelField>
           </div>
         </div>
 
@@ -1222,25 +1327,29 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           )}
         </div>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Prazo (automático — 2 dias após a criação do registro):{' '}
+          Prazo (automático — 10 dias após a criação do registro):{' '}
           <span className="font-medium text-gray-800 dark:text-gray-200">
             {dataPrazoAutomaticoParaExibicao('BACEN', reclamacao) || '—'}
           </span>
         </p>
 
         <div className="mb-4">
-          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-            Descrição *
-          </label>
-          <textarea
-            value={formData.motivoDetalhado}
-            onChange={(e) => setFormData(prev => ({ ...prev, motivoDetalhado: e.target.value }))}
-            className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            rows={4}
-            placeholder="Descreva detalhadamente a reclamação..."
+          <FloatingLabelField
+            id="form-fr-edit-bacen-descricao"
+            label="Descrição"
             required
-          />
-          {errors.motivoDetalhado && <span className="text-red-500 text-xs">{errors.motivoDetalhado}</span>}
+            value={formData.motivoDetalhado}
+            error={errors.motivoDetalhado}
+          >
+            <textarea
+              value={formData.motivoDetalhado}
+              onChange={(e) => setFormData(prev => ({ ...prev, motivoDetalhado: e.target.value }))}
+              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              rows={4}
+              placeholder="Descreva detalhadamente a ocorrência..."
+              required
+            />
+          </FloatingLabelField>
         </div>
 
         <div className="mb-4">
@@ -1276,7 +1385,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                 toast.success(`${urlsValidas.length} arquivo(s) enviado(s) com sucesso`);
               }
             }}
-            className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+            className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
             accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
             multiple
           />
@@ -1308,57 +1417,64 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
   const renderCamposOuvidoria = () => (
     <>
       <div className="velohub-card">
-        <h3 className="text-xl font-semibold mb-4 velohub-title">Reclamação</h3>
+        <h3 className="text-xl font-semibold mb-4 velohub-title">Ocorrência</h3>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Produto
-            </label>
-            <select
-              value={formData.produto}
-              onChange={(e) => setFormData(prev => ({ ...prev, produto: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="">Selecione...</option>
-              <option value="Antecipação">Antecipação Outros Anos</option>
-              <option value="Antecipação 2026">Antecipação 2026</option>
-              <option value="Conta Celcoin">Conta Celcoin</option>
-              <option value="Empréstimo Pessoal">Empréstimo Pessoal</option>
-              <option value="Seguros">Seguros</option>
-              <option value="Crédito Trabalhador">Crédito Trabalhador</option>
-            </select>
+            <FloatingLabelField id="form-fr-edit-n2-produto" label="Produto" value={formData.produto}>
+              <select
+                value={formData.produto}
+                onChange={(e) => setFormData(prev => ({ ...prev, produto: e.target.value }))}
+                className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+              >
+                <option value="">Selecione...</option>
+                <option value="Antecipação">Antecipação Outros Anos</option>
+                <option value="Antecipação 2026">Antecipação 2026</option>
+                <option value="Conta Celcoin">Conta Celcoin</option>
+                <option value="Empréstimo Pessoal">Empréstimo Pessoal</option>
+                <option value="Seguros">Seguros</option>
+                <option value="Crédito Trabalhador">Crédito Trabalhador</option>
+              </select>
+            </FloatingLabelField>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Origem *
-            </label>
-            <select
+            <FloatingLabelField
+              id="form-fr-edit-n2-origem"
+              label="Origem"
+              required
               value={formData.origem}
-              onChange={(e) => setFormData(prev => ({ ...prev, origem: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              required
+              error={errors.origem}
             >
-              <option value="">Selecione...</option>
-              <option value="Atendimento">Atendimento</option>
-              <option value="Chatbot">Chatbot</option>
-            </select>
-            {errors.origem && <span className="text-red-500 text-xs">{errors.origem}</span>}
+              <select
+                value={formData.origem}
+                onChange={(e) => setFormData(prev => ({ ...prev, origem: e.target.value }))}
+                className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+                required
+              >
+                <option value="">Selecione...</option>
+                <option value="Atendimento">Atendimento</option>
+                <option value="Chatbot">Chatbot</option>
+              </select>
+            </FloatingLabelField>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Data de Entrada *
-            </label>
-            <input
-              type="date"
-              value={formData.dataEntradaN2}
-              onChange={(e) => setFormData(prev => ({ ...prev, dataEntradaN2: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+            <FloatingLabelField
+              id="form-fr-edit-n2-data-entrada"
+              label="Data de Entrada"
               required
-            />
-            {errors.dataEntradaN2 && <span className="text-red-500 text-xs">{errors.dataEntradaN2}</span>}
+              value={formData.dataEntradaN2}
+              error={errors.dataEntradaN2}
+            >
+              <input
+                type="date"
+                value={formData.dataEntradaN2}
+                onChange={(e) => setFormData(prev => ({ ...prev, dataEntradaN2: e.target.value }))}
+                className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+                required
+              />
+            </FloatingLabelField>
           </div>
         </div>
 
@@ -1391,7 +1507,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                   type="text"
                   value={p}
                   onChange={(e) => atualizarProtocolo('protocolosN2', i, e.target.value)}
-                  className="flex-1 border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                  className="min-h-12 box-border flex-1 rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
                   placeholder="Nro protocolo"
                 />
                 {(formData.protocolosN2?.length || 0) > 1 && (
@@ -1402,7 +1518,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
             <button
               type="button"
               onClick={() => adicionarProtocolo('protocolosN2')}
-              className="text-sm px-3 py-2 rounded border dark:bg-gray-700"
+              className="inline-flex h-12 min-h-12 box-border items-center justify-center rounded border px-3 text-sm dark:bg-gray-700"
               style={{ borderColor: '#006AB9', color: '#006AB9', background: 'transparent' }}
             >
               + Adicionar protocolo
@@ -1411,16 +1527,15 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
         </div>
 
         <div className="mb-4">
-          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-            Descrição
-          </label>
-          <textarea
-            value={formData.motivoDetalhado}
-            onChange={(e) => setFormData(prev => ({ ...prev, motivoDetalhado: e.target.value }))}
-            className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            rows={4}
-            placeholder="Descreva detalhadamente a reclamação..."
-          />
+          <FloatingLabelField id="form-fr-edit-n2-descricao" label="Descrição" value={formData.motivoDetalhado}>
+            <textarea
+              value={formData.motivoDetalhado}
+              onChange={(e) => setFormData(prev => ({ ...prev, motivoDetalhado: e.target.value }))}
+              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              rows={4}
+              placeholder="Descreva detalhadamente a ocorrência..."
+            />
+          </FloatingLabelField>
         </div>
 
         <div className="mb-4">
@@ -1456,7 +1571,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                 toast.success(`${urlsValidas.length} arquivo(s) enviado(s) com sucesso`);
               }
             }}
-            className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+            className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
             accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
             multiple
           />
@@ -1496,93 +1611,98 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
 
     return (
       <>
-        {/* Reclamação Reclame Aqui */}
+        {/* Ocorrência Reclame Aqui */}
         <div className="velohub-card">
-          <h3 className="text-xl font-semibold mb-4 velohub-title">Reclamação</h3>
+          <h3 className="text-xl font-semibold mb-4 velohub-title">Ocorrência</h3>
           
-          {/* Linha 1: ID Entrada | Data Reclam | CPF Repetido | Produto */}
+          {/* Linha 1: ID Entrada | Data Ocorrência (dataReclam) | CPF Repetido | Produto */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                ID Entrada (9 dígitos) *
-              </label>
-              <input
-                type="text"
+              <FloatingLabelField
+                id="form-fr-edit-ra-id-entrada"
+                label="ID Entrada (9 dígitos)"
+                required
                 value={formData.idEntrada}
-                onChange={(e) => {
-                  const cleaned = e.target.value.replace(/\D/g, '').slice(0, 9);
-                  setFormData(prev => ({ ...prev, idEntrada: cleaned }));
-                }}
-                className={`w-full border rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white ${
-                  validarIdEntrada(formData.idEntrada) ? 'border-green-500 border-2' : 'border-gray-400 dark:border-gray-500'
-                }`}
-                placeholder="000000000"
-                maxLength={9}
-                required
-              />
-              {errors.idEntrada && (
-                <span className="text-red-500 text-xs">{errors.idEntrada}</span>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                Data Reclam *
-              </label>
-              <input
-                type="date"
-                value={formData.dataReclam}
-                onChange={(e) => setFormData(prev => ({ ...prev, dataReclam: e.target.value }))}
-                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                required
-              />
-              {errors.dataReclam && (
-                <span className="text-red-500 text-xs">{errors.dataReclam}</span>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                CPF Repetido
-              </label>
-              <input
-                type="text"
-                value={formData.cpfRepetido}
-                onChange={(e) => {
-                  const cleaned = e.target.value.replace(/\D/g, '');
-                  setFormData(prev => ({ ...prev, cpfRepetido: cleaned }));
-                }}
-                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                placeholder="Apenas números"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                Produto *
-              </label>
-              <select
-                value={formData.produto}
-                onChange={(e) => setFormData(prev => ({ ...prev, produto: e.target.value }))}
-                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                required
+                error={errors.idEntrada}
               >
-                <option value="">Selecione...</option>
-                <option value="Antecipação">Antecipação Outros Anos</option>
-                <option value="Antecipação 2026">Antecipação 2026</option>
-                <option value="Aplicativo">Aplicativo</option>
-                <option value="Conta Celcoin">Conta Celcoin</option>
-                <option value="Crédito Trabalhador">Crédito Trabalhador</option>
-                <option value="Clube Velotax">Clube Velotax</option>
-                <option value="Empréstimo Pessoal">Empréstimo Pessoal</option>
-                <option value="Cupom">Cupom</option>
-                <option value="Seguros">Seguros</option>
-                <option value="Veloprime">Veloprime</option>
-                <option value="Desativado">Desativado</option>
-              </select>
-              {errors.produto && (
-                <span className="text-red-500 text-xs">{errors.produto}</span>
-              )}
+                <input
+                  type="text"
+                  value={formData.idEntrada}
+                  onChange={(e) => {
+                    const cleaned = e.target.value.replace(/\D/g, '').slice(0, 9);
+                    setFormData(prev => ({ ...prev, idEntrada: cleaned }));
+                  }}
+                  className={`min-h-12 box-border w-full rounded-lg border px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white ${
+                    validarIdEntrada(formData.idEntrada) ? 'border-green-500 border-2' : 'border-gray-400 dark:border-gray-500'
+                  }`}
+                  placeholder="000000000"
+                  maxLength={9}
+                  required
+                />
+              </FloatingLabelField>
+            </div>
+
+            <div>
+              <FloatingLabelField
+                id="form-fr-edit-ra-data-ocorrencia"
+                label="Data Ocorrência"
+                required
+                value={formData.dataReclam}
+                error={errors.dataReclam}
+              >
+                <input
+                  type="date"
+                  value={formData.dataReclam}
+                  onChange={(e) => setFormData(prev => ({ ...prev, dataReclam: e.target.value }))}
+                  className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+                  required
+                />
+              </FloatingLabelField>
+            </div>
+
+            <div>
+              <FloatingLabelField id="form-fr-edit-ra-cpf-repetido" label="CPF Repetido" value={formData.cpfRepetido}>
+                <input
+                  type="text"
+                  value={formData.cpfRepetido}
+                  onChange={(e) => {
+                    const cleaned = e.target.value.replace(/\D/g, '');
+                    setFormData(prev => ({ ...prev, cpfRepetido: cleaned }));
+                  }}
+                  className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+                  placeholder="Apenas números"
+                />
+              </FloatingLabelField>
+            </div>
+
+            <div>
+              <FloatingLabelField
+                id="form-fr-edit-ra-produto"
+                label="Produto"
+                required
+                value={formData.produto}
+                error={errors.produto}
+              >
+                <select
+                  value={formData.produto}
+                  onChange={(e) => setFormData(prev => ({ ...prev, produto: e.target.value }))}
+                  className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+                  required
+                >
+                  <option value="">Selecione...</option>
+                  <option value="Antecipação">Antecipação Outros Anos</option>
+                  <option value="Antecipação 2026">Antecipação 2026</option>
+                  <option value="Aplicativo">Aplicativo</option>
+                  <option value="Conta Celcoin">Conta Celcoin</option>
+                  <option value="Crédito Trabalhador">Crédito Trabalhador</option>
+                  <option value="Clube Velotax">Clube Velotax</option>
+                  <option value="Empréstimo Pessoal">Empréstimo Pessoal</option>
+                  <option value="Cupom">Cupom</option>
+                  <option value="Seguros">Seguros</option>
+                  <option value="Veloprime">Veloprime</option>
+                  <option value="Desativado">Desativado</option>
+                </select>
+              </FloatingLabelField>
             </div>
           </div>
 
@@ -1600,16 +1720,15 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
 
           {/* Descrição */}
           <div className="mb-4">
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Descrição
-            </label>
-            <textarea
-              value={formData.motivoDetalhado}
-              onChange={(e) => setFormData(prev => ({ ...prev, motivoDetalhado: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              rows={4}
-              placeholder="Descreva detalhadamente a reclamação..."
-            />
+            <FloatingLabelField id="form-fr-edit-ra-descricao" label="Descrição" value={formData.motivoDetalhado}>
+              <textarea
+                value={formData.motivoDetalhado}
+                onChange={(e) => setFormData(prev => ({ ...prev, motivoDetalhado: e.target.value }))}
+                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                rows={4}
+                placeholder="Descreva detalhadamente a ocorrência..."
+              />
+            </FloatingLabelField>
           </div>
 
           {/* Solicitado Avaliação, Avaliado e Passível de nota + (abaixo do Descrição) */}
@@ -1684,7 +1803,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                   toast.success(`${urlsValidas.length} arquivo(s) enviado(s) com sucesso`);
                 }
               }}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
               accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
               multiple
             />
@@ -1733,104 +1852,190 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
       const resultado = await reclamacoesAPI.getByCpf(cpfLimpo);
       const todasReclamacoes = Array.isArray(resultado) ? resultado : (resultado?.data || []);
 
-      const tiposExcluir = [tipoExcluir?.toUpperCase?.()?.trim?.()].flatMap(t => {
+      const docIdStr = (r) =>
+        r?._id != null ? String(r._id) : r?.id != null ? String(r.id) : '';
+      const currentIdStr =
+        reclamacao?._id != null
+          ? String(reclamacao._id)
+          : reclamacao?.id != null
+            ? String(reclamacao.id)
+            : '';
+      const todasMenosAtual = currentIdStr
+        ? todasReclamacoes.filter((r) => docIdStr(r) !== currentIdStr)
+        : todasReclamacoes;
+
+      const tiposExcluir = [tipoExcluir?.toUpperCase?.()?.trim?.()].flatMap((t) => {
         if (t === 'OUVIDORIA') return ['OUVIDORIA', 'N2', 'N2 PIX'];
         if (t === 'RECLAME_AQUI') return ['RECLAME_AQUI', 'RECLAME AQUI'];
+        if (t === 'TIME_PORTABILIDADE') return ['TIME_PORTABILIDADE', 'TIME PORTABILIDADE'];
+        if (t === 'PROCESSOS') return ['PROCESSOS', 'JUDICIAL', 'AÇÃO JUDICIAL', 'ACAO JUDICIAL'];
         return t ? [t] : [];
       });
 
-      const registros = todasReclamacoes.filter(r => {
+      const registros = todasReclamacoes.filter((r) => {
         const tipo = String(r.tipo || '').toUpperCase().trim();
         return !tiposExcluir.includes(tipo);
       });
 
-      const protocolosCentral = [];
-      const protocolosN2 = [];
-      const protocolosReclameAqui = [];
-      const protocolosProcon = [];
-      let acionouCentral = false;
-      let n2SegundoNivel = false;
-      let reclameAqui = false;
-      let procon = false;
-      let pixLiberado = formData.pixLiberado;
-      let statusContratoQuitado = formData.statusContratoQuitado;
+      const agg = aggregateProtocolosFromRegistros(registros, {
+        tipoExcluir,
+        tipoFormulario: formData.tipo,
+        pixLiberado: formData.pixLiberado,
+        statusContratoQuitado: formData.statusContratoQuitado,
+        contratoCancelado: formData.contratoCancelado === true,
+      });
 
-      const incluirN2 = tipoExcluir !== 'OUVIDORIA';
-      const incluirReclameAqui = tipoExcluir !== 'RECLAME_AQUI';
-      const incluirProcon = true;
-      const incluirN2SegundoNivel = tipoExcluir !== 'OUVIDORIA';
+      const {
+        protocolosCentral: protocolosCentralUnicos,
+        protocolosN2: protocolosN2Unicos,
+        protocolosReclameAqui: protocolosReclameAquiUnicos,
+        protocolosProcon: protocolosProconUnicos,
+        acionouCentral,
+        n2SegundoNivel,
+        reclameAqui,
+        procon,
+        pixLiberado,
+        statusContratoQuitado,
+        contratoCancelado,
+        incluirN2,
+        incluirN2SegundoNivel,
+        protocoloOctadeskForTp,
+      } = agg;
 
-      for (const r of registros) {
-        const tipo = String(r.tipo || '').toUpperCase().trim();
-
-        if (r.acionouCentral && Array.isArray(r.protocolosCentral)) {
-          acionouCentral = true;
-          protocolosCentral.push(...r.protocolosCentral.filter(p => p && String(p).trim()));
-        }
-        if (incluirN2 && (tipo === 'OUVIDORIA' || tipo === 'N2' || tipo === 'N2 PIX')) {
-          if (incluirN2SegundoNivel) n2SegundoNivel = true;
-          if (Array.isArray(r.protocolosN2)) {
-            protocolosN2.push(...r.protocolosN2.filter(p => p && String(p).trim()));
+      const sortedPorData = [...todasReclamacoes].sort(
+        (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+      );
+      const nomeMerge = sortedPorData.map((x) => String(x.nome || '').trim()).find(Boolean);
+      const emailMerge = sortedPorData.map((x) => String(x.email || '').trim()).find(Boolean);
+      const telKeys = new Set();
+      const telLista = [];
+      for (const r of todasReclamacoes) {
+        const lista = r.telefones?.lista;
+        if (!Array.isArray(lista)) continue;
+        for (const tel of lista) {
+          const k = String(tel || '').replace(/\D/g, '');
+          if (k.length >= 8 && !telKeys.has(k)) {
+            telKeys.add(k);
+            telLista.push(String(tel).trim());
           }
-        }
-        if (incluirReclameAqui && (tipo === 'RECLAME_AQUI' || tipo === 'RECLAME AQUI')) {
-          reclameAqui = true;
-          if (Array.isArray(r.protocolosReclameAqui)) {
-            protocolosReclameAqui.push(...r.protocolosReclameAqui.filter(p => p && String(p).trim()));
-          }
-        }
-        if (incluirProcon && tipo === 'PROCON') {
-          procon = true;
-          if (Array.isArray(r.protocolosProcon)) {
-            protocolosProcon.push(...r.protocolosProcon.filter(p => p && String(p).trim()));
-          }
-        }
-        if (tipo === 'BACEN') {
-          if (r.pixLiberado === true) pixLiberado = true;
-          if (r.statusContratoQuitado === true) statusContratoQuitado = true;
         }
       }
 
-      const protocolosCentralUnicos = [...new Set(protocolosCentral)];
-      const protocolosN2Unicos = [...new Set(protocolosN2)];
-      const protocolosReclameAquiUnicos = [...new Set(protocolosReclameAqui)];
-      const protocolosProconUnicos = [...new Set(protocolosProcon)];
+      const elegiveisFusao = filterReclamacoesElegiveisFusaoLista(todasMenosAtual);
 
-      const msgResultado = registros.length === 0
-        ? 'Nenhum atendimento encontrado para este CPF.'
-        : `${registros.length} atendimento(s) encontrado(s). Campos preenchidos automaticamente.`;
+      const textoRetornoBusca = mensagemRetornoBuscaLocalizar({
+        todasReclamacoes,
+        outrosRegistros: elegiveisFusao,
+        tipoFormulario: formData.tipo,
+      });
 
       const updates = {
         acionouCentral: acionouCentral || formData.acionouCentral,
-        protocolosCentral: protocolosCentralUnicos.length > 0 ? protocolosCentralUnicos : formData.protocolosCentral,
+        protocolosCentral:
+          protocolosCentralUnicos.length > 0 ? protocolosCentralUnicos : formData.protocolosCentral,
         reclameAqui: reclameAqui || formData.reclameAqui,
-        protocolosReclameAqui: protocolosReclameAquiUnicos.length > 0 ? protocolosReclameAquiUnicos : formData.protocolosReclameAqui,
+        protocolosReclameAqui:
+          protocolosReclameAquiUnicos.length > 0 ? protocolosReclameAquiUnicos : formData.protocolosReclameAqui,
         procon: procon || formData.procon,
-        protocolosProcon: protocolosProconUnicos.length > 0 ? protocolosProconUnicos : formData.protocolosProcon,
-        registrosReclameAqui: msgResultado,
-        localizarAtendimentos: msgResultado,
+        protocolosProcon:
+          protocolosProconUnicos.length > 0 ? protocolosProconUnicos : formData.protocolosProcon,
+        registrosReclameAqui: textoRetornoBusca,
+        localizarAtendimentos: textoRetornoBusca,
       };
+      if (nomeMerge) updates.nome = nomeMerge;
+      if (emailMerge) updates.email = formatarEmail(emailMerge);
+      if (telLista.length > 0) updates.telefones = { lista: telLista };
+      if (formData.tipo === TIME_PORTABILIDADE_TIPO && protocoloOctadeskForTp) {
+        updates.protocoloOctadesk = protocoloOctadeskForTp;
+      }
       if (incluirN2) {
         updates.protocolosN2 = protocolosN2Unicos.length > 0 ? protocolosN2Unicos : formData.protocolosN2;
       }
       if (incluirN2SegundoNivel) {
         updates.n2SegundoNivel = n2SegundoNivel || formData.n2SegundoNivel;
       }
-      if (['BACEN', 'OUVIDORIA', 'RECLAME_AQUI', 'PROCON'].includes(tipoExcluir)) {
+      if (['BACEN', 'OUVIDORIA', 'RECLAME_AQUI', 'PROCON', 'PROCESSOS', 'TIME_PORTABILIDADE'].includes(tipoExcluir)) {
         updates.pixLiberado = pixLiberado;
         updates.statusContratoQuitado = statusContratoQuitado;
+        updates.contratoCancelado = contratoCancelado;
       }
 
-      setFormData(prev => ({ ...prev, ...updates }));
+      const forFusaoDocs = elegiveisFusao;
 
-      if (registros.length === 0) {
-        toast('Nenhum atendimento encontrado para este CPF.');
+      const idxForm = tierIndexFromTipo(formData.tipo);
+      let showButton = false;
+      let cenarioFusao = 'none';
+      let targetDoc = null;
+      if (forFusaoDocs.length > 0 && idxForm >= 0) {
+        const tiers = forFusaoDocs.map((r) => tierIndexFromTipo(r.tipo)).filter((i) => i >= 0);
+        const maxT = tiers.length ? Math.max(...tiers) : -1;
+        const minT = tiers.length ? Math.min(...tiers) : 99;
+        let mesmoTierAberto = false;
+        for (const r of forFusaoDocs) {
+          if (tierIndexFromTipo(r.tipo) === idxForm && r.Finalizado?.Resolvido !== true) {
+            mesmoTierAberto = true;
+            break;
+          }
+        }
+        showButton = maxT > idxForm || minT < idxForm || mesmoTierAberto;
+        if (maxT > idxForm) {
+          cenarioFusao = 'current_inferior';
+          targetDoc = [...forFusaoDocs].sort(
+            (a, b) => tierIndexFromTipo(b.tipo) - tierIndexFromTipo(a.tipo)
+          )[0];
+        } else if (minT < idxForm) {
+          cenarioFusao = 'current_superior';
+          targetDoc = [...forFusaoDocs].sort(
+            (a, b) => tierIndexFromTipo(a.tipo) - tierIndexFromTipo(b.tipo)
+          )[0];
+        } else if (mesmoTierAberto) {
+          cenarioFusao = 'redundante';
+          targetDoc =
+            forFusaoDocs.find(
+              (r) => tierIndexFromTipo(r.tipo) === idxForm && r.Finalizado?.Resolvido !== true
+            ) || forFusaoDocs[0];
+        }
+      }
+
+      if (todasReclamacoes.length === 0) {
+        onFusaoConsultaChange?.(null);
       } else {
-        toast.success(`${registros.length} atendimento(s) encontrado(s). Campos preenchidos automaticamente.`);
+        onFusaoConsultaChange?.(
+          showButton && forFusaoDocs.length > 0
+            ? {
+                showButton: true,
+                cenario: cenarioFusao,
+                cpf: cpfLimpo,
+                targetDoc,
+                currentTipo: formData.tipo,
+                currentId: reclamacao?._id,
+                currentPixLiberado: formData.pixLiberado === true,
+                currentSnapshot: buildFusaoCurrentSnapshot(formData, {
+                  numeroProtocolo: reclamacao?.numeroProtocolo,
+                  Fusao: formData.Fusao,
+                }),
+                allDocs: forFusaoDocs,
+              }
+            : null
+        );
+      }
+
+      setFormData((prev) => ({ ...prev, ...updates }));
+
+      if (todasReclamacoes.length === 0) {
+        toast(textoRetornoBusca);
+      } else if (
+        textoRetornoBusca === 'Encontrada redundância de registro.' ||
+        textoRetornoBusca.startsWith('Ocorrência encontrada em ')
+      ) {
+        toast.success(textoRetornoBusca);
+      } else {
+        toast(textoRetornoBusca);
       }
     } catch (error) {
       console.error('Erro ao localizar atendimentos:', error);
       toast.error('Erro ao localizar atendimentos');
+      onFusaoConsultaChange?.(null);
     } finally {
       setBuscandoReclameAqui(false);
     }
@@ -1920,70 +2125,94 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
   const renderCamposProcessos = () => (
     <>
       <div className="velohub-card">
-        <h3 className="text-xl font-semibold mb-4 velohub-title">Reclamação</h3>
+        <h3 className="text-xl font-semibold mb-4 velohub-title">Ocorrência</h3>
         
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Nro do Processo *</label>
-            <input
-              type="text"
+            <FloatingLabelField
+              id="form-fr-edit-proc-nro"
+              label="Nro do Processo"
+              required
               value={formData.nroProcesso}
-              onChange={(e) => setFormData(prev => ({ ...prev, nroProcesso: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              placeholder="Digite o número do processo"
-              required
-            />
-            {errors.nroProcesso && <span className="text-red-500 text-xs">{errors.nroProcesso}</span>}
+              error={errors.nroProcesso}
+            >
+              <input
+                type="text"
+                value={formData.nroProcesso}
+                onChange={(e) => setFormData(prev => ({ ...prev, nroProcesso: e.target.value }))}
+                className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+                placeholder="Digite o número do processo"
+                required
+              />
+            </FloatingLabelField>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Empresa Acionada *</label>
-            <select
+            <FloatingLabelField
+              id="form-fr-edit-proc-empresa"
+              label="Empresa Acionada"
+              required
               value={formData.empresaAcionada}
-              onChange={(e) => setFormData(prev => ({ ...prev, empresaAcionada: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              required
+              error={errors.empresaAcionada}
             >
-              <option value="">Selecione...</option>
-              <option value="Velotax">Velotax</option>
-              <option value="Celcoin">Celcoin</option>
-            </select>
-            {errors.empresaAcionada && <span className="text-red-500 text-xs">{errors.empresaAcionada}</span>}
+              <select
+                value={formData.empresaAcionada}
+                onChange={(e) => setFormData(prev => ({ ...prev, empresaAcionada: e.target.value }))}
+                className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+                required
+              >
+                <option value="">Selecione...</option>
+                <option value="Velotax">Velotax</option>
+                <option value="Celcoin">Celcoin</option>
+              </select>
+            </FloatingLabelField>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Data de Entrada *</label>
-            <input
-              type="date"
+            <FloatingLabelField
+              id="form-fr-edit-proc-data-entrada"
+              label="Data de Entrada"
+              required
               value={formData.dataEntradaProcesso}
-              onChange={(e) => setFormData(prev => ({ ...prev, dataEntradaProcesso: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              required
-            />
-            {errors.dataEntradaProcesso && <span className="text-red-500 text-xs">{errors.dataEntradaProcesso}</span>}
+              error={errors.dataEntradaProcesso}
+            >
+              <input
+                type="date"
+                value={formData.dataEntradaProcesso}
+                onChange={(e) => setFormData(prev => ({ ...prev, dataEntradaProcesso: e.target.value }))}
+                className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+                required
+              />
+            </FloatingLabelField>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Produto *</label>
-            <select
-              value={formData.produto}
-              onChange={(e) => setFormData(prev => ({ ...prev, produto: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+            <FloatingLabelField
+              id="form-fr-edit-proc-produto"
+              label="Produto"
               required
+              value={formData.produto}
+              error={errors.produto}
             >
-              <option value="">Selecione...</option>
-              <option value="Antecipação 2026">Antecipação 2026</option>
-              <option value="Antecipação">Antecipação Outros Anos</option>
-              <option value="Empréstimo Pessoal">Empréstimo Pessoal</option>
-              <option value="Crédito Trabalhador">Crédito Trabalhador</option>
-              <option value="Cupons Velotax">Cupons Velotax</option>
-              <option value="QueroQuitar">QueroQuitar</option>
-              <option value="Seguro DividaZero">Seguro DividaZero</option>
-              <option value="Seguro Celular">Seguro Celular</option>
-              <option value="Seguro Prestamista">Seguro Prestamista</option>
-              <option value="Seguro Saúde">Seguro Saúde</option>
-              <option value="Calculadora">Calculadora</option>
-              <option value="App">App</option>
-              <option value="Outras Ocorrências">Outras Ocorrências</option>
-            </select>
-            {errors.produto && <span className="text-red-500 text-xs">{errors.produto}</span>}
+              <select
+                value={formData.produto}
+                onChange={(e) => setFormData(prev => ({ ...prev, produto: e.target.value }))}
+                className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+                required
+              >
+                <option value="">Selecione...</option>
+                <option value="Antecipação 2026">Antecipação 2026</option>
+                <option value="Antecipação">Antecipação Outros Anos</option>
+                <option value="Empréstimo Pessoal">Empréstimo Pessoal</option>
+                <option value="Crédito Trabalhador">Crédito Trabalhador</option>
+                <option value="Cupons Velotax">Cupons Velotax</option>
+                <option value="QueroQuitar">QueroQuitar</option>
+                <option value="Seguro DividaZero">Seguro DividaZero</option>
+                <option value="Seguro Celular">Seguro Celular</option>
+                <option value="Seguro Prestamista">Seguro Prestamista</option>
+                <option value="Seguro Saúde">Seguro Saúde</option>
+                <option value="Calculadora">Calculadora</option>
+                <option value="App">App</option>
+                <option value="Outras Reclamações">Outras Reclamações</option>
+              </select>
+            </FloatingLabelField>
           </div>
         </div>
 
@@ -1999,14 +2228,15 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
         </div>
 
         <div className="mb-4">
-          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Descrição</label>
-          <textarea
-            value={formData.motivoDetalhado}
-            onChange={(e) => setFormData(prev => ({ ...prev, motivoDetalhado: e.target.value }))}
-            className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            rows={4}
-            placeholder="Descreva detalhadamente o processo..."
-          />
+          <FloatingLabelField id="form-fr-edit-proc-descricao" label="Descrição" value={formData.motivoDetalhado}>
+            <textarea
+              value={formData.motivoDetalhado}
+              onChange={(e) => setFormData(prev => ({ ...prev, motivoDetalhado: e.target.value }))}
+              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              rows={4}
+              placeholder="Descreva detalhadamente o processo..."
+            />
+          </FloatingLabelField>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -2029,54 +2259,60 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           {formData.audiencia && (
             <>
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Data da Audiência</label>
-                <input
-                  type="date"
-                  value={formData.dataAudiencia}
-                  onChange={(e) => setFormData(prev => ({ ...prev, dataAudiencia: e.target.value }))}
-                  className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                />
+                <FloatingLabelField id="form-fr-edit-proc-data-audiencia" label="Data da Audiência" value={formData.dataAudiencia}>
+                  <input
+                    type="date"
+                    value={formData.dataAudiencia}
+                    onChange={(e) => setFormData(prev => ({ ...prev, dataAudiencia: e.target.value }))}
+                    className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+                  />
+                </FloatingLabelField>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Situação</label>
-                <input
-                  type="text"
-                  value={formData.situacaoAudiencia}
-                  onChange={(e) => setFormData(prev => ({ ...prev, situacaoAudiencia: e.target.value }))}
-                  className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                  placeholder="Digite a situação da audiência"
-                />
+                <FloatingLabelField id="form-fr-edit-proc-situacao-audiencia" label="Situação" value={formData.situacaoAudiencia}>
+                  <input
+                    type="text"
+                    value={formData.situacaoAudiencia}
+                    onChange={(e) => setFormData(prev => ({ ...prev, situacaoAudiencia: e.target.value }))}
+                    className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+                    placeholder="Digite a situação da audiência"
+                  />
+                </FloatingLabelField>
               </div>
             </>
           )}
         </div>
 
         <div className="mb-4">
-          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Subsídios</label>
-          <textarea
-            value={formData.subsidios}
-            onChange={(e) => setFormData(prev => ({ ...prev, subsidios: e.target.value }))}
-            className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            rows={3}
-            placeholder="Digite os subsídios..."
-          />
+          <FloatingLabelField id="form-fr-edit-proc-subsidios" label="Subsídios" value={formData.subsidios}>
+            <textarea
+              value={formData.subsidios}
+              onChange={(e) => setFormData(prev => ({ ...prev, subsidios: e.target.value }))}
+              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              rows={3}
+              placeholder="Digite os subsídios..."
+            />
+          </FloatingLabelField>
         </div>
 
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Outros Protocolos</label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={formData.outrosProtocolos}
-              readOnly
-              className="flex-1 border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed"
-              placeholder="Clique em 'Buscar' para encontrar protocolos relacionados"
-            />
+        <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-end">
+          <div className="min-w-0 flex-1">
+            <FloatingLabelField id="form-fr-edit-proc-outros-prot" label="Outros Protocolos" value={formData.outrosProtocolos}>
+              <input
+                type="text"
+                value={formData.outrosProtocolos}
+                readOnly
+                className="min-h-12 box-border w-full cursor-not-allowed rounded-lg border border-gray-400 bg-gray-100 px-3 text-sm text-gray-600 dark:border-gray-500 dark:bg-gray-700 dark:text-gray-400"
+                placeholder="Clique em 'Buscar' para encontrar protocolos relacionados"
+              />
+            </FloatingLabelField>
+          </div>
+          <div className="shrink-0">
             <button
               type="button"
               onClick={buscarOutrosProtocolos}
               disabled={buscandoOutrosProtocolos || !formData.cpf || formData.cpf.replace(/\D/g, '').length !== 11}
-              className="px-4 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex h-12 min-h-12 box-border items-center gap-2 rounded border px-4 transition-all duration-300 dark:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
               style={{ borderColor: '#006AB9', color: '#006AB9', background: 'transparent' }}
             >
               {buscandoOutrosProtocolos ? 'Buscando...' : 'Buscar'}
@@ -2105,7 +2341,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
               setFormData(prev => ({ ...prev, anexos: [...prev.anexos, ...urlsValidas] }));
               if (urlsValidas.length > 0) toast.success(`${urlsValidas.length} arquivo(s) enviado(s) com sucesso`);
             }}
-            className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+            className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
             accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
             multiple
           />
@@ -2162,79 +2398,135 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
 
   const renderCamposTimePortabilidade = () => (
     <div className="velohub-card">
-      <h3 className="text-xl font-semibold mb-4 velohub-title">Reclamação</h3>
+      <h3 className="text-xl font-semibold mb-4 velohub-title">Ocorrência</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
         <div>
-          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Produto</label>
-          <input
-            type="text"
-            readOnly
-            value={TIME_PORT_PRODUTO}
-            className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed"
-          />
+          <FloatingLabelField id="form-fr-edit-tp-produto" label="Produto" value={TIME_PORT_PRODUTO}>
+            <input
+              type="text"
+              readOnly
+              value={TIME_PORT_PRODUTO}
+              className="min-h-12 box-border w-full cursor-not-allowed rounded-lg border border-gray-400 bg-gray-100 px-3 text-sm text-gray-600 dark:border-gray-500 dark:bg-gray-700 dark:text-gray-400"
+            />
+          </FloatingLabelField>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Origem</label>
-          <input
-            type="text"
-            readOnly
-            value={TIME_PORT_ORIGEM}
-            className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed"
-          />
+          <FloatingLabelField id="form-fr-edit-tp-origem" label="Origem" value={TIME_PORT_ORIGEM}>
+            <input
+              type="text"
+              readOnly
+              value={TIME_PORT_ORIGEM}
+              className="min-h-12 box-border w-full cursor-not-allowed rounded-lg border border-gray-400 bg-gray-100 px-3 text-sm text-gray-600 dark:border-gray-500 dark:bg-gray-700 dark:text-gray-400"
+            />
+          </FloatingLabelField>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Data de Entrada *</label>
-          <input
-            type="date"
-            value={formData.dataEntrada}
-            onChange={(e) => setFormData(prev => ({ ...prev, dataEntrada: e.target.value }))}
-            className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+          <FloatingLabelField
+            id="form-fr-edit-tp-data-entrada"
+            label="Data de Entrada"
             required
-          />
-          {errors.dataEntrada && <span className="text-red-500 text-xs">{errors.dataEntrada}</span>}
+            value={formData.dataEntrada}
+            error={errors.dataEntrada}
+          >
+            <input
+              type="date"
+              value={formData.dataEntrada}
+              onChange={(e) => setFormData(prev => ({ ...prev, dataEntrada: e.target.value }))}
+              className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+              required
+            />
+          </FloatingLabelField>
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
-          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Motivo</label>
-          <input
-            type="text"
-            readOnly
-            value={TIME_PORT_MOTIVO_FIXO[0] || ''}
-            className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed"
-          />
+          <FloatingLabelField id="form-fr-edit-tp-motivo" label="Motivo" value={TIME_PORT_MOTIVO_FIXO[0] || ''}>
+            <input
+              type="text"
+              readOnly
+              value={TIME_PORT_MOTIVO_FIXO[0] || ''}
+              className="min-h-12 box-border w-full cursor-not-allowed rounded-lg border border-gray-400 bg-gray-100 px-3 text-sm text-gray-600 dark:border-gray-500 dark:bg-gray-700 dark:text-gray-400"
+            />
+          </FloatingLabelField>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Protocolo Octadesk *</label>
-          <input
-            type="text"
+          <FloatingLabelField
+            id="form-fr-edit-tp-octadesk"
+            label="Protocolo Octadesk"
+            required
             value={formData.protocoloOctadesk}
-            onChange={(e) => setFormData(prev => ({ ...prev, protocoloOctadesk: e.target.value }))}
-            className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            placeholder="Protocolo Octadesk"
-          />
-          {errors.protocoloOctadesk && <span className="text-red-500 text-xs">{errors.protocoloOctadesk}</span>}
+            error={errors.protocoloOctadesk}
+          >
+            <input
+              type="text"
+              value={formData.protocoloOctadesk}
+              onChange={(e) => setFormData(prev => ({ ...prev, protocoloOctadesk: e.target.value }))}
+              className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+              placeholder="Protocolo Octadesk"
+            />
+          </FloatingLabelField>
         </div>
       </div>
       <div className="mb-4">
-        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Descrição *</label>
-        <textarea
+        <FloatingLabelField
+          id="form-fr-edit-tp-descricao"
+          label="Descrição"
+          required
           value={formData.motivoDetalhado}
-          onChange={(e) => setFormData(prev => ({ ...prev, motivoDetalhado: e.target.value }))}
-          rows={4}
-          className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-          placeholder="Descrição da reclamação..."
-        />
-        {errors.motivoDetalhado && <span className="text-red-500 text-xs">{errors.motivoDetalhado}</span>}
+          error={errors.motivoDetalhado}
+        >
+          <textarea
+            value={formData.motivoDetalhado}
+            onChange={(e) => setFormData(prev => ({ ...prev, motivoDetalhado: e.target.value }))}
+            rows={4}
+            className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+            placeholder="Descrição da ocorrência..."
+          />
+        </FloatingLabelField>
       </div>
     </div>
   );
 
   const renderCanaisTimePortabilidade = () => (
     <div className="velohub-card">
-      <h3 className="text-xl font-semibold mb-4 velohub-title">Canais de Atendimento e Protocolos Acionados</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-xl">
-        <label className="flex items-center">
+      <h3 className="text-xl font-semibold mb-4 velohub-title">Protocolos</h3>
+      <div className="mb-4 flex">
+        <button
+          type="button"
+          onClick={abrirModalSolicitarLiberacao}
+          className="inline-flex h-12 min-h-12 shrink-0 items-center justify-center rounded-lg border px-3 text-sm font-medium transition-all duration-200 border-[#006AB9] text-[#006AB9] bg-transparent hover:bg-[#006AB9] hover:text-[#F3F7FC] dark:bg-gray-800"
+        >
+          Solicitar Liberação
+        </button>
+      </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-5 md:grid-rows-2 md:gap-4 mb-4">
+        <div
+          className="max-md:hidden min-h-[3rem] md:min-h-[5rem] invisible pointer-events-none md:col-start-1 md:row-start-1"
+          aria-hidden="true"
+        />
+        <div
+          className="max-md:hidden min-h-[3rem] md:min-h-[5rem] invisible pointer-events-none md:col-start-2 md:row-start-1"
+          aria-hidden="true"
+        />
+        <label className="flex min-h-[3rem] items-start md:min-h-[5rem] md:col-start-3 md:row-start-1 md:items-center">
+          <input
+            type="checkbox"
+            checked={formData.statusContratoQuitado === true}
+            onChange={(e) => setFormData(prev => ({ ...prev, statusContratoQuitado: e.target.checked }))}
+            className="mr-2"
+          />
+          <span>Contrato quitado</span>
+        </label>
+        <label className="flex min-h-[3rem] items-start md:min-h-[5rem] md:col-start-4 md:row-start-1 md:items-center">
+          <input
+            type="checkbox"
+            checked={formData.liberacaoSolicitada === true}
+            onChange={(e) => setFormData((prev) => ({ ...prev, liberacaoSolicitada: e.target.checked }))}
+            className="mr-2"
+          />
+          <span>Liberação Solicitada</span>
+        </label>
+        <label className="flex min-h-[3rem] items-start md:min-h-[5rem] md:col-start-5 md:row-start-1 md:items-center">
           <input
             type="checkbox"
             checked={formData.pixLiberado === true}
@@ -2243,14 +2535,36 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
           />
           <span>Pix Liberado</span>
         </label>
-        <label className="flex items-center">
+
+        <div
+          className="max-md:hidden min-h-[3rem] md:min-h-[5rem] invisible pointer-events-none md:col-start-1 md:row-start-2"
+          aria-hidden="true"
+        />
+        <div
+          className="max-md:hidden min-h-[3rem] md:min-h-[5rem] invisible pointer-events-none md:col-start-2 md:row-start-2"
+          aria-hidden="true"
+        />
+        <label className="flex min-h-[3rem] items-start md:min-h-[5rem] md:col-start-3 md:row-start-2 md:items-center">
           <input
             type="checkbox"
-            checked={formData.statusContratoQuitado === true}
-            onChange={(e) => setFormData(prev => ({ ...prev, statusContratoQuitado: e.target.checked }))}
+            checked={formData.contratoCancelado === true}
+            onChange={(e) => setFormData((prev) => ({ ...prev, contratoCancelado: e.target.checked }))}
             className="mr-2"
           />
-          <span>Contrato quitado</span>
+          <span>Contrato Cancelado</span>
+        </label>
+        <div
+          className="max-md:hidden min-h-[3rem] md:min-h-[5rem] invisible pointer-events-none md:col-start-4 md:row-start-2"
+          aria-hidden="true"
+        />
+        <label className="flex min-h-[3rem] items-start md:min-h-[5rem] md:col-start-5 md:row-start-2 md:items-center">
+          <input
+            type="checkbox"
+            checked={formData.semRespostaCliente === true}
+            onChange={(e) => setFormData((prev) => ({ ...prev, semRespostaCliente: e.target.checked }))}
+            className="mr-2"
+          />
+          <span>Sem Resposta do Cliente</span>
         </label>
       </div>
     </div>
@@ -2267,96 +2581,106 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
 
     return (
       <>
-        {/* Reclamação Procon */}
+        {/* Ocorrência Procon */}
         <div className="velohub-card">
-          <h3 className="text-xl font-semibold mb-4 velohub-title">Reclamação</h3>
+          <h3 className="text-xl font-semibold mb-4 velohub-title">Ocorrência</h3>
           
           {/* Linha 1: Origem | Código Procon | Data Procon | Produto */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
             <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                Origem *
-              </label>
-              <select
+              <FloatingLabelField
+                id="form-fr-edit-procon-origem"
+                label="Origem"
+                required
                 value={formData.origem}
-                onChange={(e) => setFormData(prev => ({ ...prev, origem: e.target.value }))}
-                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                required
+                error={errors.origem}
               >
-                <option value="">Selecione...</option>
-                <option value="Procon">Procon</option>
-                <option value="Consumidor.gov">Consumidor.gov</option>
-              </select>
-              {errors.origem && <span className="text-red-500 text-xs">{errors.origem}</span>}
+                <select
+                  value={formData.origem}
+                  onChange={(e) => setFormData(prev => ({ ...prev, origem: e.target.value }))}
+                  className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+                  required
+                >
+                  <option value="">Selecione...</option>
+                  <option value="Procon">Procon</option>
+                  <option value="Consumidor.gov">Consumidor.gov</option>
+                </select>
+              </FloatingLabelField>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                Código Procon (16 caracteres) *
-              </label>
-              <input
-                type="text"
+              <FloatingLabelField
+                id="form-fr-edit-procon-codigo"
+                label="Código Procon (16 caracteres)"
+                required
                 value={formData.codigoProcon}
-                onChange={(e) => {
-                  const valor = e.target.value.slice(0, 16);
-                  setFormData(prev => ({ ...prev, codigoProcon: valor }));
-                }}
-                className={`w-full border rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white ${
-                  validarCodigoProcon(formData.codigoProcon) ? 'border-green-500 border-2' : 'border-gray-400 dark:border-gray-500'
-                }`}
-                placeholder="Digite o código Procon"
-                maxLength={16}
-                required
-              />
-              {errors.codigoProcon && (
-                <span className="text-red-500 text-xs">{errors.codigoProcon}</span>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                Data Procon *
-              </label>
-              <input
-                type="date"
-                value={formData.dataProcon}
-                onChange={(e) => setFormData(prev => ({ ...prev, dataProcon: e.target.value }))}
-                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                required
-              />
-              {errors.dataProcon && (
-                <span className="text-red-500 text-xs">{errors.dataProcon}</span>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                Produto *
-              </label>
-              <select
-                value={formData.produto}
-                onChange={(e) => setFormData(prev => ({ ...prev, produto: e.target.value }))}
-                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                required
+                error={errors.codigoProcon}
               >
-                <option value="">Selecione...</option>
-                <option value="Antecipação 2026">Antecipação 2026</option>
-                <option value="Antecipação">Antecipação Outros Anos</option>
-                <option value="Empréstimo Pessoal">Empréstimo Pessoal</option>
-                <option value="Crédito Trabalhador">Crédito Trabalhador</option>
-                <option value="Cupons Velotax">Cupons Velotax</option>
-                <option value="QueroQuitar">QueroQuitar</option>
-                <option value="Seguro DividaZero">Seguro DividaZero</option>
-                <option value="Seguro Celular">Seguro Celular</option>
-                <option value="Seguro Prestamista">Seguro Prestamista</option>
-                <option value="Seguro Saúde">Seguro Saúde</option>
-                <option value="Calculadora">Calculadora</option>
-                <option value="App">App</option>
-                <option value="Outras Ocorrências">Outras Ocorrências</option>
-              </select>
-              {errors.produto && (
-                <span className="text-red-500 text-xs">{errors.produto}</span>
-              )}
+                <input
+                  type="text"
+                  value={formData.codigoProcon}
+                  onChange={(e) => {
+                    const valor = e.target.value.slice(0, 16);
+                    setFormData(prev => ({ ...prev, codigoProcon: valor }));
+                  }}
+                  className={`min-h-12 box-border w-full rounded-lg border px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white ${
+                    validarCodigoProcon(formData.codigoProcon) ? 'border-green-500 border-2' : 'border-gray-400 dark:border-gray-500'
+                  }`}
+                  placeholder="Digite o código Procon"
+                  maxLength={16}
+                  required
+                />
+              </FloatingLabelField>
+            </div>
+
+            <div>
+              <FloatingLabelField
+                id="form-fr-edit-procon-data"
+                label="Data Procon"
+                required
+                value={formData.dataProcon}
+                error={errors.dataProcon}
+              >
+                <input
+                  type="date"
+                  value={formData.dataProcon}
+                  onChange={(e) => setFormData(prev => ({ ...prev, dataProcon: e.target.value }))}
+                  className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+                  required
+                />
+              </FloatingLabelField>
+            </div>
+
+            <div>
+              <FloatingLabelField
+                id="form-fr-edit-procon-produto"
+                label="Produto"
+                required
+                value={formData.produto}
+                error={errors.produto}
+              >
+                <select
+                  value={formData.produto}
+                  onChange={(e) => setFormData(prev => ({ ...prev, produto: e.target.value }))}
+                  className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+                  required
+                >
+                  <option value="">Selecione...</option>
+                  <option value="Antecipação 2026">Antecipação 2026</option>
+                  <option value="Antecipação">Antecipação Outros Anos</option>
+                  <option value="Empréstimo Pessoal">Empréstimo Pessoal</option>
+                  <option value="Crédito Trabalhador">Crédito Trabalhador</option>
+                  <option value="Cupons Velotax">Cupons Velotax</option>
+                  <option value="QueroQuitar">QueroQuitar</option>
+                  <option value="Seguro DividaZero">Seguro DividaZero</option>
+                  <option value="Seguro Celular">Seguro Celular</option>
+                  <option value="Seguro Prestamista">Seguro Prestamista</option>
+                  <option value="Seguro Saúde">Seguro Saúde</option>
+                  <option value="Calculadora">Calculadora</option>
+                  <option value="App">App</option>
+                  <option value="Outras Reclamações">Outras Reclamações</option>
+                </select>
+              </FloatingLabelField>
             </div>
           </div>
 
@@ -2374,48 +2698,49 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
 
           {/* Linha 3: Descrição */}
           <div className="mb-4">
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Descrição
-            </label>
-            <textarea
-              value={formData.motivoDetalhado}
-              onChange={(e) => setFormData(prev => ({ ...prev, motivoDetalhado: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              rows={4}
-              placeholder="Descreva detalhadamente a reclamação..."
-            />
+            <FloatingLabelField id="form-fr-edit-procon-descricao" label="Descrição" value={formData.motivoDetalhado}>
+              <textarea
+                value={formData.motivoDetalhado}
+                onChange={(e) => setFormData(prev => ({ ...prev, motivoDetalhado: e.target.value }))}
+                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                rows={4}
+                placeholder="Descreva detalhadamente a ocorrência..."
+              />
+            </FloatingLabelField>
           </div>
 
           {/* Linha 4: Solução Apresentada */}
           <div className="mb-4">
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Solução Apresentada
-            </label>
-            <textarea
-              value={formData.solucaoApresentada}
-              onChange={(e) => setFormData(prev => ({ ...prev, solucaoApresentada: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              rows={4}
-              placeholder="Descreva a solução apresentada..."
-            />
+            <FloatingLabelField id="form-fr-edit-procon-solucao" label="Solução Apresentada" value={formData.solucaoApresentada}>
+              <textarea
+                value={formData.solucaoApresentada}
+                onChange={(e) => setFormData(prev => ({ ...prev, solucaoApresentada: e.target.value }))}
+                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                rows={4}
+                placeholder="Descreva a solução apresentada..."
+              />
+            </FloatingLabelField>
           </div>
 
           {/* Linha 5: Processo Administrativo | Cliente Desistiu | Processo Encaminhado | Processo Encerrado */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 items-start">
             <div className="flex flex-col">
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                Processo Administrativo
-              </label>
-              <select
+              <FloatingLabelField
+                id="form-fr-edit-procon-proc-adm"
+                label="Processo Administrativo"
                 value={formData.processoAdministrativo}
-                onChange={(e) => setFormData(prev => ({ ...prev, processoAdministrativo: e.target.value }))}
-                className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
               >
-                <option value="">Selecione...</option>
-                <option value="Sim - Status Não Atendido">Sim - Status Não Atendido</option>
-                <option value="Não - Status Atendido">Não - Status Atendido</option>
-                <option value="Sem Interação do Cliente">Sem Interação do Cliente</option>
-              </select>
+                <select
+                  value={formData.processoAdministrativo}
+                  onChange={(e) => setFormData(prev => ({ ...prev, processoAdministrativo: e.target.value }))}
+                  className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+                >
+                  <option value="">Selecione...</option>
+                  <option value="Sim - Status Não Atendido">Sim - Status Não Atendido</option>
+                  <option value="Não - Status Atendido">Não - Status Atendido</option>
+                  <option value="Sem Interação do Cliente">Sem Interação do Cliente</option>
+                </select>
+              </FloatingLabelField>
             </div>
 
             <div className="flex items-center" style={{ paddingTop: '1.5rem' }}>
@@ -2454,7 +2779,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                   <select
                     value={formData.processoEncaminhadoResponsavel}
                     onChange={(e) => setFormData(prev => ({ ...prev, processoEncaminhadoResponsavel: e.target.value }))}
-                    className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                    className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
                   >
                     <option value="">Selecione...</option>
                     <option value="Tadeu">Tadeu</option>
@@ -2465,7 +2790,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                     type="date"
                     value={formData.processoEncaminhadoData}
                     onChange={(e) => setFormData(prev => ({ ...prev, processoEncaminhadoData: e.target.value }))}
-                    className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                    className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
                     placeholder="Data do encaminhamento"
                   />
                 </div>
@@ -2495,60 +2820,21 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                   type="date"
                   value={formData.dataProcessoEncerrado}
                   onChange={(e) => setFormData(prev => ({ ...prev, dataProcessoEncerrado: e.target.value }))}
-                  className="w-full mt-2 border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                  className="mt-2 min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
                   placeholder="Data do encerramento"
                 />
               )}
             </div>
           </div>
 
-          {/* Localizar — fora do grid */}
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => localizarAtendimentos('PROCON')}
-              disabled={buscandoReclameAqui || !formData.cpf || formData.cpf.replace(/\D/g, '').length !== 11}
-              className="px-4 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-              style={{
-                borderColor: '#006AB9',
-                color: '#006AB9',
-                background: 'transparent',
-              }}
-              onMouseEnter={(e) => {
-                if (!e.target.disabled) {
-                  e.target.style.background = 'linear-gradient(135deg, #006AB9 0%, #006AB9 100%)';
-                  e.target.style.color = '#F3F7FC';
-                  e.target.style.borderColor = '#006AB9';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!e.target.disabled) {
-                  e.target.style.background = 'transparent';
-                  e.target.style.color = '#006AB9';
-                  e.target.style.borderColor = '#006AB9';
-                }
-              }}
-            >
-              {buscandoReclameAqui ? 'Buscando...' : 'Localizar Atendimentos e Protocolos'}
-            </button>
-            <input
-              type="text"
-              value={formData.registrosReclameAqui}
-              readOnly
-              className="min-w-0 max-w-md border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed text-sm"
-              placeholder=""
-            />
-          </div>
-
-          {/* Grid 4×2 — L2C4 vazio (md); célula Procon vazia neste form */}
-          <div className="grid grid-cols-1 md:grid-cols-4 md:grid-rows-2 gap-4 mb-4">
-            <div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-5 md:grid-rows-2 md:gap-4 mb-4">
+            <div className="min-h-[3rem] md:min-h-[5rem] md:col-start-1 md:row-start-1">
               <div className="flex items-center mb-2">
                 <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
                   <input
                     type="checkbox"
                     checked={formData.acionouCentral}
-                    onChange={(e) => setFormData(prev => ({ ...prev, acionouCentral: e.target.checked }))}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, acionouCentral: e.target.checked }))}
                     className="w-5 h-5"
                   />
                   <span>Atendimento N1</span>
@@ -2556,23 +2842,21 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
               </div>
               {formData.acionouCentral && (
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                    Nro Protocolo
-                  </label>
+                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Nro Protocolo</label>
                   {formData.protocolosCentral.map((protocolo, index) => (
                     <div key={index} className="flex gap-2 mb-2">
                       <input
                         type="text"
                         value={protocolo}
                         onChange={(e) => atualizarProtocolo('protocolosCentral', index, e.target.value)}
-                        className="flex-1 border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                        className="min-h-12 box-border flex-1 rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
                         placeholder="Digite o protocolo"
                       />
                       {formData.protocolosCentral.length > 1 && (
                         <button
                           type="button"
                           onClick={() => removerProtocolo('protocolosCentral', index)}
-                          className="text-sm px-3 py-2 rounded border dark:bg-gray-700"
+                          className="inline-flex h-12 min-h-12 box-border items-center justify-center rounded border px-3 text-sm dark:bg-gray-700"
                           style={{ borderColor: '#dc2626', color: '#dc2626', background: 'transparent' }}
                         >
                           Remover
@@ -2583,7 +2867,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                   <button
                     type="button"
                     onClick={() => adicionarProtocolo('protocolosCentral')}
-                    className="text-sm px-3 py-2 rounded border dark:bg-gray-700"
+                    className="inline-flex h-12 min-h-12 box-border items-center justify-center rounded border px-3 text-sm dark:bg-gray-700"
                     style={{ borderColor: '#006AB9', color: '#006AB9', background: 'transparent' }}
                   >
                     + Adicionar Protocolo
@@ -2592,37 +2876,79 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
               )}
             </div>
 
-            <div>
+            <div className="max-md:hidden min-h-[3rem] md:min-h-[5rem] invisible pointer-events-none md:col-start-2 md:row-start-1" aria-hidden="true" />
+
+            <div className="min-h-[3rem] md:min-h-[5rem] md:col-start-3 md:row-start-1">
+              <div className="flex items-center mb-2">
+                <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={formData.statusContratoQuitado}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, statusContratoQuitado: e.target.checked }))}
+                    className="w-5 h-5"
+                  />
+                  <span>Contrato Quitado</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="min-h-[3rem] md:min-h-[5rem] md:col-start-4 md:row-start-1">
+              <div className="flex items-center mb-2">
+                <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={formData.liberacaoSolicitada === true}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, liberacaoSolicitada: e.target.checked }))}
+                    className="w-5 h-5"
+                  />
+                  <span>Liberação Solicitada</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="min-h-[3rem] md:min-h-[5rem] md:col-start-5 md:row-start-1">
+              <div className="flex items-center mb-2">
+                <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={formData.pixLiberado === true}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, pixLiberado: e.target.checked }))}
+                    className="w-5 h-5"
+                  />
+                  <span>Pix Liberado</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="min-h-[3rem] md:min-h-[5rem] md:col-start-1 md:row-start-2">
               <div className="flex items-center mb-2">
                 <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
                   <input
                     type="checkbox"
                     checked={formData.n2SegundoNivel}
-                    onChange={(e) => setFormData(prev => ({ ...prev, n2SegundoNivel: e.target.checked }))}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, n2SegundoNivel: e.target.checked }))}
                     className="w-5 h-5"
                   />
-                  <span>N2 Ouvidoria</span>
+                  <span>Escalado N2</span>
                 </label>
               </div>
               {formData.n2SegundoNivel && (
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                    Protocolos N2
-                  </label>
+                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Protocolos N2</label>
                   {formData.protocolosN2.map((protocolo, index) => (
                     <div key={index} className="flex gap-2 mb-2">
                       <input
                         type="text"
                         value={protocolo}
                         onChange={(e) => atualizarProtocolo('protocolosN2', index, e.target.value)}
-                        className="flex-1 border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                        className="min-h-12 box-border flex-1 rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
                         placeholder="Digite o protocolo"
                       />
                       {formData.protocolosN2.length > 1 && (
                         <button
                           type="button"
                           onClick={() => removerProtocolo('protocolosN2', index)}
-                          className="text-sm px-3 py-2 rounded border dark:bg-gray-700"
+                          className="inline-flex h-12 min-h-12 box-border items-center justify-center rounded border px-3 text-sm dark:bg-gray-700"
                           style={{ borderColor: '#dc2626', color: '#dc2626', background: 'transparent' }}
                         >
                           Remover
@@ -2633,7 +2959,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                   <button
                     type="button"
                     onClick={() => adicionarProtocolo('protocolosN2')}
-                    className="text-sm px-3 py-2 rounded border dark:bg-gray-700"
+                    className="inline-flex h-12 min-h-12 box-border items-center justify-center rounded border px-3 text-sm dark:bg-gray-700"
                     style={{ borderColor: '#006AB9', color: '#006AB9', background: 'transparent' }}
                   >
                     + Adicionar Protocolo
@@ -2642,21 +2968,33 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
               )}
             </div>
 
-            <div>
-              <div className="flex items-center mb-2">
-                <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
-                  <input
-                    type="checkbox"
-                    checked={formData.pixLiberado === true}
-                    onChange={(e) => setFormData(prev => ({ ...prev, pixLiberado: e.target.checked }))}
-                    className="w-5 h-5"
-                  />
-                  <span>Pix Liberado</span>
-                </label>
-              </div>
+            <div className="max-md:hidden min-h-[3rem] md:min-h-[5rem] invisible pointer-events-none md:col-start-2 md:row-start-2" aria-hidden="true" />
+
+            <div className="min-h-[3rem] md:min-h-[5rem] md:col-start-3 md:row-start-2">
+              <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  className="w-5 h-5 shrink-0"
+                  checked={formData.contratoCancelado === true}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, contratoCancelado: e.target.checked }))}
+                />
+                <span>Contrato Cancelado</span>
+              </label>
             </div>
 
-            <div>
+            <div className="min-h-[3rem] md:min-h-[5rem] md:col-start-4 md:row-start-2">
+              <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  className="w-5 h-5 shrink-0"
+                  checked={formData.liberacaoAnterior === true}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, liberacaoAnterior: e.target.checked }))}
+                />
+                <span>Liberação Anterior</span>
+              </label>
+            </div>
+
+            <div className="min-h-[3rem] md:min-h-[5rem] md:col-start-5 md:row-start-2">
               <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
                 <input
                   type="checkbox"
@@ -2667,74 +3005,6 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                 <span>Sem Resposta do Cliente</span>
               </label>
             </div>
-
-            <div>
-              <div className="flex items-center mb-2">
-                <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
-                  <input
-                    type="checkbox"
-                    checked={formData.reclameAqui}
-                    onChange={(e) => setFormData(prev => ({ ...prev, reclameAqui: e.target.checked }))}
-                    className="w-5 h-5"
-                  />
-                  <span>Reclame Aqui</span>
-                </label>
-              </div>
-              {formData.reclameAqui && (
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                    Protocolos Reclame Aqui
-                  </label>
-                  {formData.protocolosReclameAqui.map((protocolo, index) => (
-                    <div key={index} className="flex gap-2 mb-2">
-                      <input
-                        type="text"
-                        value={protocolo}
-                        onChange={(e) => atualizarProtocolo('protocolosReclameAqui', index, e.target.value)}
-                        className="flex-1 border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                        placeholder="Digite o protocolo"
-                      />
-                      {formData.protocolosReclameAqui.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removerProtocolo('protocolosReclameAqui', index)}
-                          className="text-sm px-3 py-2 rounded border dark:bg-gray-700"
-                          style={{ borderColor: '#dc2626', color: '#dc2626', background: 'transparent' }}
-                        >
-                          Remover
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => adicionarProtocolo('protocolosReclameAqui')}
-                    className="text-sm px-3 py-2 rounded border dark:bg-gray-700"
-                    style={{ borderColor: '#006AB9', color: '#006AB9', background: 'transparent' }}
-                  >
-                    + Adicionar Protocolo
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="hidden md:block min-h-0" aria-hidden="true" />
-
-            <div>
-              <div className="flex items-center mb-2">
-                <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
-                  <input
-                    type="checkbox"
-                    checked={formData.statusContratoQuitado}
-                    onChange={(e) => setFormData(prev => ({ ...prev, statusContratoQuitado: e.target.checked }))}
-                    className="w-5 h-5"
-                  />
-                  <span>Contrato Quitado</span>
-                </label>
-              </div>
-            </div>
-
-            <div className="hidden md:block min-h-0" aria-hidden="true" />
           </div>
 
           {/* Anexo */}
@@ -2771,7 +3041,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                   toast.success(`${urlsValidas.length} arquivo(s) enviado(s) com sucesso`);
                 }
               }}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
               accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
               multiple
             />
@@ -2808,61 +3078,62 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
       {formData.tentativasContato.lista.map((tentativa, index) => (
         <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              {index + 1}ª tentativa
-            </label>
-            <input
-              type="date"
+            <FloatingLabelField
+              id={`form-fr-edit-tentativa-${index}-data`}
+              label={`${index + 1}ª tentativa`}
               value={tentativa.data}
-              onChange={(e) => {
-                const novasTentativas = [...formData.tentativasContato.lista];
-                novasTentativas[index].data = e.target.value;
-                setFormData(prev => ({ ...prev, tentativasContato: { lista: novasTentativas } }));
-              }}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Meio
-            </label>
-            <select
-              value={tentativa.meio}
-              onChange={(e) => {
-                const novasTentativas = [...formData.tentativasContato.lista];
-                novasTentativas[index].meio = e.target.value;
-                setFormData(prev => ({ ...prev, tentativasContato: { lista: novasTentativas } }));
-              }}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
             >
-              <option value="">Selecione...</option>
-              <option value="Telefone">Telefone</option>
-              <option value="Whatsapp">Whatsapp</option>
-              <option value="Email">Email</option>
-            </select>
+              <input
+                type="date"
+                value={tentativa.data}
+                onChange={(e) => {
+                  const novasTentativas = [...formData.tentativasContato.lista];
+                  novasTentativas[index].data = e.target.value;
+                  setFormData(prev => ({ ...prev, tentativasContato: { lista: novasTentativas } }));
+                }}
+                className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+              />
+            </FloatingLabelField>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Resultado
-            </label>
-            <input
-              type="text"
-              value={tentativa.resultado}
-              onChange={(e) => {
-                const novasTentativas = [...formData.tentativasContato.lista];
-                novasTentativas[index].resultado = e.target.value;
-                setFormData(prev => ({ ...prev, tentativasContato: { lista: novasTentativas } }));
-              }}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              placeholder="Resultado do contato"
-            />
+            <FloatingLabelField id={`form-fr-edit-tentativa-${index}-meio`} label="Meio" value={tentativa.meio}>
+              <select
+                value={tentativa.meio}
+                onChange={(e) => {
+                  const novasTentativas = [...formData.tentativasContato.lista];
+                  novasTentativas[index].meio = e.target.value;
+                  setFormData(prev => ({ ...prev, tentativasContato: { lista: novasTentativas } }));
+                }}
+                className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+              >
+                <option value="">Selecione...</option>
+                <option value="Telefone">Telefone</option>
+                <option value="Whatsapp">Whatsapp</option>
+                <option value="Email">Email</option>
+              </select>
+            </FloatingLabelField>
+          </div>
+          <div>
+            <FloatingLabelField id={`form-fr-edit-tentativa-${index}-resultado`} label="Resultado" value={tentativa.resultado}>
+              <input
+                type="text"
+                value={tentativa.resultado}
+                onChange={(e) => {
+                  const novasTentativas = [...formData.tentativasContato.lista];
+                  novasTentativas[index].resultado = e.target.value;
+                  setFormData(prev => ({ ...prev, tentativasContato: { lista: novasTentativas } }));
+                }}
+                className="min-h-12 box-border w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+                placeholder="Resultado do contato"
+              />
+            </FloatingLabelField>
           </div>
           {formData.tentativasContato.lista.length > 1 && (
             <div className="flex items-end">
               <button
                 type="button"
                 onClick={() => removerTentativa(index)}
-                className="text-sm px-3 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700"
+                className="inline-flex h-12 min-h-12 box-border items-center gap-2 rounded border px-3 text-sm transition-all duration-300 dark:bg-gray-700"
                 style={{
                   borderColor: '#dc2626',
                   color: '#dc2626',
@@ -2889,7 +3160,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
       <button
         type="button"
         onClick={adicionarTentativa}
-        className="text-sm px-3 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700"
+        className="inline-flex h-12 min-h-12 box-border items-center gap-2 rounded border px-3 text-sm transition-all duration-300 dark:bg-gray-700"
         style={{
           borderColor: '#006AB9',
           color: '#006AB9',
@@ -2911,59 +3182,41 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
     </div>
   );
 
-  // Renderizar protocolos
-  const renderProtocolos = () => (
+  /**
+   * Renderizar protocolos (BACEN/Ouvidoria/Reclame Aqui) — toolbar + grid 5×2 com slots fixos
+   */
+  const renderProtocolos = () => {
+    const t = formData.tipo;
+    const ocultarRa = t === 'RECLAME_AQUI';
+    const ocultarN2 = t === 'OUVIDORIA';
+    const ocultarProcon = t === 'PROCON';
+
+    const slotClass = (oculto) =>
+      `min-h-[3rem] md:min-h-[5rem] ${oculto ? 'invisible pointer-events-none' : ''}`;
+
+    return (
     <div className="velohub-card">
-      <h3 className="text-xl font-semibold mb-4 velohub-title">Canais de Atendimento e Protocolos Acionados</h3>
+      <h3 className="text-xl font-semibold mb-4 velohub-title">Protocolos</h3>
 
-      {/* Localizar Atendimentos — fora do grid de checkboxes */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => localizarAtendimentos(formData.tipo)}
-          disabled={buscandoReclameAqui || !formData.cpf || formData.cpf.replace(/\D/g, '').length !== 11}
-          className="px-4 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-          style={{
-            borderColor: '#006AB9',
-            color: '#006AB9',
-            background: 'transparent',
-          }}
-          onMouseEnter={(e) => {
-            if (!e.target.disabled) {
-              e.target.style.background = 'linear-gradient(135deg, #006AB9 0%, #006AB9 100%)';
-              e.target.style.color = '#F3F7FC';
-              e.target.style.borderColor = '#006AB9';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!e.target.disabled) {
-              e.target.style.background = 'transparent';
-              e.target.style.color = '#006AB9';
-              e.target.style.borderColor = '#006AB9';
-            }
-          }}
-        >
-          {buscandoReclameAqui ? 'Buscando...' : 'Localizar Atendimentos e Protocolos'}
-        </button>
-        <input
-          type="text"
-          value={formData.localizarAtendimentos}
-          readOnly
-          className="min-w-0 max-w-md border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed text-sm"
-          placeholder=""
-        />
-      </div>
+        <div className="mb-4 flex">
+          <button
+            type="button"
+            onClick={abrirModalSolicitarLiberacao}
+            className="inline-flex h-12 min-h-12 shrink-0 items-center justify-center rounded-lg border px-3 text-sm font-medium transition-all duration-200 border-[#006AB9] text-[#006AB9] bg-transparent hover:bg-[#006AB9] hover:text-[#F3F7FC] dark:bg-gray-800"
+          >
+            Solicitar Liberação
+          </button>
+        </div>
 
-      {/* Grid 4×2 checkboxes — L2C4 vazio (md) */}
-      <div className="grid grid-cols-1 md:grid-cols-4 md:grid-rows-2 gap-4 mb-4">
-          {/* Atendimento N1 */}
-          <div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-5 md:grid-rows-2 md:gap-4 mb-4">
+          {/* Linha 1 col 1 — N1 */}
+          <div className={`${slotClass(false)} md:col-start-1 md:row-start-1`}>
             <div className="flex items-center mb-2">
               <label className="flex items-center">
                 <input
                   type="checkbox"
                   checked={formData.acionouCentral}
-                  onChange={(e) => setFormData(prev => ({ ...prev, acionouCentral: e.target.checked }))}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, acionouCentral: e.target.checked }))}
                   className="mr-2"
                 />
                 <span>Atendimento N1</span>
@@ -2971,353 +3224,97 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
             </div>
             {formData.acionouCentral && (
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                  Nro Protocolo
-              </label>
-              {formData.protocolosCentral.map((protocolo, index) => (
-                <div key={index} className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={protocolo}
-                    onChange={(e) => atualizarProtocolo('protocolosCentral', index, e.target.value)}
-                    className="flex-1 border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                    placeholder="Digite o protocolo"
-                  />
-                  {formData.protocolosCentral.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removerProtocolo('protocolosCentral', index)}
-                      className="text-sm px-3 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700"
-                      style={{
-                        borderColor: '#dc2626',
-                        color: '#dc2626',
-                        background: 'transparent',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.target.style.background = '#dc2626';
-                        e.target.style.color = '#F3F7FC';
-                        e.target.style.borderColor = '#dc2626';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.background = 'transparent';
-                        e.target.style.color = '#dc2626';
-                        e.target.style.borderColor = '#dc2626';
-                      }}
-                    >
-                      Remover
-                    </button>
-                  )}
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => adicionarProtocolo('protocolosCentral')}
-                className="text-sm px-3 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700"
-                style={{
-                  borderColor: '#006AB9',
-                  color: '#006AB9',
-                  background: 'transparent',
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = 'linear-gradient(135deg, #006AB9 0%, #006AB9 100%)';
-                  e.target.style.color = '#F3F7FC';
-                  e.target.style.borderColor = '#006AB9';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'transparent';
-                  e.target.style.color = '#006AB9';
-                  e.target.style.borderColor = '#006AB9';
-                }}
-              >
-                + Adicionar Protocolo
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Escalado N2 - oculto no form N2 Pix: coluna vazia mantém Pix na 3ª posição */}
-        {formData.tipo !== 'OUVIDORIA' ? (
-        <div>
-          <div className="flex items-center mb-2">
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.n2SegundoNivel}
-                onChange={(e) => setFormData(prev => ({ ...prev, n2SegundoNivel: e.target.checked }))}
-                className="mr-2"
-              />
-              <span>Escalado N2</span>
-            </label>
+                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Nro Protocolo</label>
+                {formData.protocolosCentral.map((protocolo, index) => (
+                  <div key={index} className="flex gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={protocolo}
+                      onChange={(e) => atualizarProtocolo('protocolosCentral', index, e.target.value)}
+                      className="min-h-12 box-border flex-1 rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+                      placeholder="Digite o protocolo"
+                    />
+                    {formData.protocolosCentral.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removerProtocolo('protocolosCentral', index)}
+                        className="inline-flex h-12 min-h-12 box-border items-center justify-center rounded border px-3 text-sm dark:bg-gray-700"
+                        style={{ borderColor: '#dc2626', color: '#dc2626', background: 'transparent' }}
+                      >
+                        Remover
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => adicionarProtocolo('protocolosCentral')}
+                  className="inline-flex h-12 min-h-12 box-border items-center justify-center rounded border px-3 text-sm dark:bg-gray-700"
+                  style={{ borderColor: '#006AB9', color: '#006AB9', background: 'transparent' }}
+                >
+                  + Adicionar Protocolo
+                </button>
+              </div>
+            )}
           </div>
-          {formData.n2SegundoNivel && (
-            <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                Qual Protocolo - Escalado N2
+
+          {/* Linha 1 col 2 — Reclame Aqui */}
+          <div className={`${slotClass(ocultarRa)} md:col-start-2 md:row-start-1`}>
+            <div className="flex items-center mb-2">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.reclameAqui}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, reclameAqui: e.target.checked }))}
+                  className="mr-2"
+                />
+                <span>Reclame Aqui</span>
               </label>
-              {formData.protocolosN2.map((protocolo, index) => (
-                <div key={index} className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={protocolo}
-                    onChange={(e) => atualizarProtocolo('protocolosN2', index, e.target.value)}
-                    className="flex-1 border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                    placeholder="Digite o protocolo"
-                  />
-                  {formData.protocolosN2.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removerProtocolo('protocolosN2', index)}
-                      className="text-sm px-3 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700"
-                      style={{
-                        borderColor: '#dc2626',
-                        color: '#dc2626',
-                        background: 'transparent',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.target.style.background = '#dc2626';
-                        e.target.style.color = '#F3F7FC';
-                        e.target.style.borderColor = '#dc2626';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.background = 'transparent';
-                        e.target.style.color = '#dc2626';
-                        e.target.style.borderColor = '#dc2626';
-                      }}
-                    >
-                      Remover
-                    </button>
-                  )}
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => adicionarProtocolo('protocolosN2')}
-                className="text-sm px-3 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700"
-                style={{
-                  borderColor: '#006AB9',
-                  color: '#006AB9',
-                  background: 'transparent',
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = 'linear-gradient(135deg, #006AB9 0%, #006AB9 100%)';
-                  e.target.style.color = '#F3F7FC';
-                  e.target.style.borderColor = '#006AB9';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'transparent';
-                  e.target.style.color = '#006AB9';
-                  e.target.style.borderColor = '#006AB9';
-                }}
-              >
-                + Adicionar Protocolo
-              </button>
             </div>
-          )}
-        </div>
-        ) : (
-          <div className="hidden md:block min-h-0" aria-hidden="true" />
-        )}
-
-        <div>
-          <div className="flex items-center mb-2">
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.pixLiberado === true}
-                onChange={(e) => setFormData(prev => ({ ...prev, pixLiberado: e.target.checked }))}
-                className="mr-2"
-              />
-              <span>Pix Liberado</span>
-            </label>
+            {formData.reclameAqui && (
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Qual Protocolo - Reclame Aqui</label>
+                {formData.protocolosReclameAqui.map((protocolo, index) => (
+                  <div key={index} className="flex gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={protocolo}
+                      onChange={(e) => atualizarProtocolo('protocolosReclameAqui', index, e.target.value)}
+                      className="min-h-12 box-border flex-1 rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+                      placeholder="Digite o protocolo"
+                    />
+                    {formData.protocolosReclameAqui.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removerProtocolo('protocolosReclameAqui', index)}
+                        className="inline-flex h-12 min-h-12 box-border items-center justify-center rounded border px-3 text-sm dark:bg-gray-700"
+                        style={{ borderColor: '#dc2626', color: '#dc2626', background: 'transparent' }}
+                      >
+                        Remover
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => adicionarProtocolo('protocolosReclameAqui')}
+                  className="inline-flex h-12 min-h-12 box-border items-center justify-center rounded border px-3 text-sm dark:bg-gray-700"
+                  style={{ borderColor: '#006AB9', color: '#006AB9', background: 'transparent' }}
+                >
+                  + Adicionar Protocolo
+                </button>
+              </div>
+            )}
           </div>
-        </div>
 
-        <div>
-          <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
-            <input
-              type="checkbox"
-              className="w-5 h-5 shrink-0"
-              checked={formData.semRespostaCliente === true}
-              onChange={(e) => setFormData((prev) => ({ ...prev, semRespostaCliente: e.target.checked }))}
-            />
-            <span>Sem Resposta do Cliente</span>
-          </label>
-        </div>
-
-          {/* L2C1 Reclame Aqui — oculto no form Reclame Aqui */}
-          {formData.tipo !== 'RECLAME_AQUI' ? (
-          <div>
-          <div className="flex items-center mb-2">
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.reclameAqui}
-                onChange={(e) => setFormData(prev => ({ ...prev, reclameAqui: e.target.checked }))}
-                className="mr-2"
-              />
-              <span>Reclame Aqui</span>
-            </label>
-          </div>
-          {formData.reclameAqui && (
-            <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                Qual Protocolo - Reclame Aqui
-              </label>
-              {formData.protocolosReclameAqui.map((protocolo, index) => (
-                <div key={index} className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={protocolo}
-                    onChange={(e) => atualizarProtocolo('protocolosReclameAqui', index, e.target.value)}
-                    className="flex-1 border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                    placeholder="Digite o protocolo"
-                  />
-                  {formData.protocolosReclameAqui.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removerProtocolo('protocolosReclameAqui', index)}
-                      className="text-sm px-3 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700"
-                      style={{
-                        borderColor: '#dc2626',
-                        color: '#dc2626',
-                        background: 'transparent',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.target.style.background = '#dc2626';
-                        e.target.style.color = '#F3F7FC';
-                        e.target.style.borderColor = '#dc2626';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.background = 'transparent';
-                        e.target.style.color = '#dc2626';
-                        e.target.style.borderColor = '#dc2626';
-                      }}
-                    >
-                      Remover
-                    </button>
-                  )}
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => adicionarProtocolo('protocolosReclameAqui')}
-                className="text-sm px-3 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700"
-                style={{
-                  borderColor: '#006AB9',
-                  color: '#006AB9',
-                  background: 'transparent',
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = 'linear-gradient(135deg, #006AB9 0%, #006AB9 100%)';
-                  e.target.style.color = '#F3F7FC';
-                  e.target.style.borderColor = '#006AB9';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'transparent';
-                  e.target.style.color = '#006AB9';
-                  e.target.style.borderColor = '#006AB9';
-                }}
-              >
-                + Adicionar Protocolo
-              </button>
-            </div>
-          )}
-        </div>
-          ) : (
-            <div className="hidden md:block min-h-0" aria-hidden="true" />
-          )}
-
-          {/* L2C2 Procon — oculto no form Procon */}
-          {formData.tipo !== 'PROCON' ? (
-          <div>
-          <div className="flex items-center mb-2">
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.procon}
-                onChange={(e) => setFormData(prev => ({ ...prev, procon: e.target.checked }))}
-                className="mr-2"
-              />
-              <span>Procon</span>
-            </label>
-          </div>
-          {formData.procon && (
-            <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                Qual Protocolo - Procon
-              </label>
-              {formData.protocolosProcon.map((protocolo, index) => (
-                <div key={index} className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={protocolo}
-                    onChange={(e) => atualizarProtocolo('protocolosProcon', index, e.target.value)}
-                    className="flex-1 border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                    placeholder="Digite o protocolo"
-                  />
-                  {formData.protocolosProcon.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removerProtocolo('protocolosProcon', index)}
-                      className="text-sm px-3 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700"
-                      style={{
-                        borderColor: '#dc2626',
-                        color: '#dc2626',
-                        background: 'transparent',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.target.style.background = '#dc2626';
-                        e.target.style.color = '#F3F7FC';
-                        e.target.style.borderColor = '#dc2626';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.background = 'transparent';
-                        e.target.style.color = '#dc2626';
-                        e.target.style.borderColor = '#dc2626';
-                      }}
-                    >
-                      Remover
-                    </button>
-                  )}
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => adicionarProtocolo('protocolosProcon')}
-                className="text-sm px-3 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700"
-                style={{
-                  borderColor: '#006AB9',
-                  color: '#006AB9',
-                  background: 'transparent',
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = 'linear-gradient(135deg, #006AB9 0%, #006AB9 100%)';
-                  e.target.style.color = '#F3F7FC';
-                  e.target.style.borderColor = '#006AB9';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'transparent';
-                  e.target.style.color = '#006AB9';
-                  e.target.style.borderColor = '#006AB9';
-                }}
-              >
-                + Adicionar Protocolo
-              </button>
-            </div>
-          )}
-        </div>
-          ) : (
-            <div className="hidden md:block min-h-0" aria-hidden="true" />
-          )}
-
-          {/* L2C3 Contrato quitado */}
-          <div>
+          {/* Linha 1 col 3 — Contrato quitado */}
+          <div className={`${slotClass(false)} md:col-start-3 md:row-start-1`}>
             <div className="flex items-center mb-2">
               <label className="flex items-center">
                 <input
                   type="checkbox"
                   checked={formData.statusContratoQuitado}
-                  onChange={(e) => setFormData(prev => ({ ...prev, statusContratoQuitado: e.target.checked }))}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, statusContratoQuitado: e.target.checked }))}
                   className="mr-2"
                 />
                 <span>Contrato Quitado</span>
@@ -3325,157 +3322,436 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
             </div>
           </div>
 
-          {/* L2C4 reservado vazio */}
-          <div className="hidden md:block min-h-0" aria-hidden="true" />
+          {/* Linha 1 col 4 — Liberação solicitada */}
+          <div className={`${slotClass(false)} md:col-start-4 md:row-start-1`}>
+            <div className="flex items-center mb-2">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.liberacaoSolicitada === true}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, liberacaoSolicitada: e.target.checked }))}
+                  className="mr-2"
+                />
+                <span>Liberação Solicitada</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Linha 1 col 5 — Pix liberado */}
+          <div className={`${slotClass(false)} md:col-start-5 md:row-start-1`}>
+            <div className="flex items-center mb-2">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.pixLiberado === true}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, pixLiberado: e.target.checked }))}
+                  className="mr-2"
+                />
+                <span>Pix Liberado</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Linha 2 col 1 — Escalado N2 */}
+          <div className={`${slotClass(ocultarN2)} md:col-start-1 md:row-start-2`}>
+            <div className="flex items-center mb-2">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.n2SegundoNivel}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, n2SegundoNivel: e.target.checked }))}
+                  className="mr-2"
+                />
+                <span>Escalado N2</span>
+              </label>
+            </div>
+            {formData.n2SegundoNivel && (
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Qual Protocolo - Escalado N2</label>
+                {formData.protocolosN2.map((protocolo, index) => (
+                  <div key={index} className="flex gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={protocolo}
+                      onChange={(e) => atualizarProtocolo('protocolosN2', index, e.target.value)}
+                      className="min-h-12 box-border flex-1 rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+                      placeholder="Digite o protocolo"
+                    />
+                    {formData.protocolosN2.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removerProtocolo('protocolosN2', index)}
+                        className="inline-flex h-12 min-h-12 box-border items-center justify-center rounded border px-3 text-sm dark:bg-gray-700"
+                        style={{ borderColor: '#dc2626', color: '#dc2626', background: 'transparent' }}
+                      >
+                        Remover
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => adicionarProtocolo('protocolosN2')}
+                  className="inline-flex h-12 min-h-12 box-border items-center justify-center rounded border px-3 text-sm dark:bg-gray-700"
+                  style={{ borderColor: '#006AB9', color: '#006AB9', background: 'transparent' }}
+                >
+                  + Adicionar Protocolo
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Linha 2 col 2 — Procon */}
+          <div className={`${slotClass(ocultarProcon)} md:col-start-2 md:row-start-2`}>
+            <div className="flex items-center mb-2">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.procon}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, procon: e.target.checked }))}
+                  className="mr-2"
+                />
+                <span>Procon</span>
+              </label>
+            </div>
+            {formData.procon && (
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Qual Protocolo - Procon</label>
+                {formData.protocolosProcon.map((protocolo, index) => (
+                  <div key={index} className="flex gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={protocolo}
+                      onChange={(e) => atualizarProtocolo('protocolosProcon', index, e.target.value)}
+                      className="min-h-12 box-border flex-1 rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+                      placeholder="Digite o protocolo"
+                    />
+                    {formData.protocolosProcon.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removerProtocolo('protocolosProcon', index)}
+                        className="inline-flex h-12 min-h-12 box-border items-center justify-center rounded border px-3 text-sm dark:bg-gray-700"
+                        style={{ borderColor: '#dc2626', color: '#dc2626', background: 'transparent' }}
+                      >
+                        Remover
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => adicionarProtocolo('protocolosProcon')}
+                  className="inline-flex h-12 min-h-12 box-border items-center justify-center rounded border px-3 text-sm dark:bg-gray-700"
+                  style={{ borderColor: '#006AB9', color: '#006AB9', background: 'transparent' }}
+                >
+                  + Adicionar Protocolo
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Linha 2 col 3 — Contrato cancelado */}
+          <div className={`${slotClass(false)} md:col-start-3 md:row-start-2`}>
+            <div className="flex items-center mb-2">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.contratoCancelado === true}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, contratoCancelado: e.target.checked }))}
+                  className="mr-2"
+                />
+                <span>Contrato Cancelado</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Linha 2 col 4 — Liberação anterior */}
+          <div className={`${slotClass(false)} md:col-start-4 md:row-start-2`}>
+            <div className="flex items-center mb-2">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.liberacaoAnterior === true}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, liberacaoAnterior: e.target.checked }))}
+                  className="mr-2"
+                />
+                <span>Liberação Anterior</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Linha 2 col 5 — Sem resposta */}
+          <div className={`${slotClass(false)} md:col-start-5 md:row-start-2`}>
+            <label className="flex items-center gap-2 text-base font-medium text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                className="w-5 h-5 shrink-0"
+                checked={formData.semRespostaCliente === true}
+                onChange={(e) => setFormData((prev) => ({ ...prev, semRespostaCliente: e.target.checked }))}
+              />
+              <span>Sem Resposta do Cliente</span>
+            </label>
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div>
     <form onSubmit={(e) => handleSubmit(e)} className="space-y-6">
-      {/* Dados do Cliente */}
-      <div className="velohub-card">
-        <h3 className="text-xl font-semibold mb-4 velohub-title">Dados do Cliente</h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              Nome do Cliente *
-            </label>
-            <input
-              type="text"
-              value={formData.nome}
-              onChange={(e) => setFormData(prev => ({ ...prev, nome: e.target.value }))}
-              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              required
-            />
-            {errors.nome && <span className="text-red-500 text-xs">{errors.nome}</span>}
+        {/* Protocolo à esquerda; seletor de tipo no centro; coluna direita reserva (paridade layout criação) */}
+        <div className="grid w-full grid-cols-1 gap-2 px-[3px] md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center md:gap-x-3">
+          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 justify-self-start">
+            <div className="flex h-12 min-h-12 w-fit max-w-full shrink-0 flex-nowrap items-center gap-2 rounded-vh-card border border-gray-300/80 bg-[#E8EEF5]/90 px-3 dark:border-gray-600 dark:bg-[#323a42]">
+              <span className="whitespace-nowrap text-sm font-medium text-gray-600 dark:text-gray-300">
+                Protocolo
+              </span>
+              <span className="velohub-title min-w-0 whitespace-nowrap text-sm font-semibold tabular-nums text-[#006AB9] dark:text-[#93c5fd]">
+                {String(formData.numeroProtocolo || '').trim() || '—'}
+              </span>
+            </div>
           </div>
+          <div className="flex min-w-0 justify-center justify-self-center">
+            <div
+              className="flex w-fit max-w-full flex-wrap justify-center gap-1.5 rounded-vh-card border border-gray-300/80 bg-[#E8EEF5]/90 px-[3px] py-1 dark:border-gray-600 dark:bg-[#323a42]"
+              role="radiogroup"
+              aria-label="Tipo de ocorrência"
+            >
+              {OPCOES_TIPO_RECLAMACAO.map((op) => {
+                const sel = formData.tipo === op.value;
+                return (
+                  <button
+                    key={op.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={sel}
+                    onClick={() => aplicarMudancaTipo(op.value)}
+                    className={`inline-flex h-12 min-h-12 shrink-0 items-center justify-center rounded-lg border px-3 text-sm font-medium transition-all duration-200 ${
+                      sel
+                        ? 'border-[#1694FF] bg-[#1694FF] text-[#FFFFFF] shadow-[0_4px_12px_rgba(22,148,255,0.4)] -translate-y-0.5'
+                        : 'border-gray-300/60 bg-[#E8EEF5] text-[#272A30] shadow-[inset_0_2px_6px_rgba(0,0,0,0.12)] translate-y-px dark:border-gray-600 dark:bg-[#3d4650] dark:text-[#F3F7FC] dark:shadow-[inset_0_2px_8px_rgba(0,0,0,0.35)]'
+                    }`}
+                  >
+                    {op.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="flex min-h-[2.75rem] min-w-0 flex-wrap items-center justify-end justify-self-end gap-2">
+            <FusaoProtocoloIndicadores fusao={formData.Fusao} finalizado={formData.Finalizado} />
+          </div>
+        </div>
+        {errors.tipo && <span className="text-red-500 text-xs block">{errors.tipo}</span>}
 
-          <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-              CPF *
-            </label>
+      {/* Dados do Cliente — CPF | Consultar | retorno busca | Fundir; Nome | Telefones; E-mail | +telefone */}
+      <div className="velohub-card">
+        <div
+          className={`mb-4 grid grid-cols-1 gap-3 md:items-end md:gap-x-4 ${
+            fundirInlineAtivo && typeof onAbrirModalFusao === 'function'
+              ? 'md:grid-cols-[minmax(0,11rem)_auto_minmax(0,1fr)_auto]'
+              : 'md:grid-cols-[minmax(0,11rem)_auto_minmax(0,1fr)]'
+          }`}
+        >
+          <FloatingLabelField
+            id="form-reclamacao-edit-cpf"
+            label="CPF"
+            required
+            value={formData.cpf}
+            error={errors.cpf}
+            className="min-w-0"
+          >
             <input
+              id="form-reclamacao-edit-cpf"
               type="text"
+              size={16}
               value={formData.cpf}
               onChange={(e) => {
                 const formatted = formatCPFInput(e.target.value);
                 setFormData(prev => ({ ...prev, cpf: formatted }));
               }}
-              className={`w-full border rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white ${
-                validarCPF(formData.cpf) 
-                  ? 'border-green-500 border-2' 
-                  : 'border-gray-400 dark:border-gray-500'
+              className={`box-border max-w-full min-h-12 rounded-lg border px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white ${
+                validarCPF(formData.cpf)
+                  ? 'border-2 border-green-500'
+                  : 'border border-gray-400 dark:border-gray-500'
               }`}
               placeholder="000.000.000-00"
               maxLength={14}
               required
             />
-            {errors.cpf && <span className="text-red-500 text-xs">{errors.cpf}</span>}
+          </FloatingLabelField>
+
+          <div className="flex min-w-0 items-end justify-stretch md:justify-center">
+            <button
+              type="button"
+              aria-label="Consultar atendimentos por CPF"
+              onClick={() => localizarAtendimentos(formData.tipo)}
+              disabled={buscandoReclameAqui || !formData.cpf || formData.cpf.replace(/\D/g, '').length !== 11}
+              className="box-border flex h-12 min-h-12 w-full min-w-0 items-center justify-center whitespace-nowrap rounded-lg border border-[#006AB9] bg-transparent px-4 text-sm font-medium text-[#006AB9] transition-all duration-200 hover:bg-[#006AB9] hover:text-[#F3F7FC] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-800 md:w-auto"
+            >
+              {buscandoReclameAqui ? 'Consultando...' : 'Consultar'}
+            </button>
+          </div>
+
+          <FloatingLabelField
+            id="form-reclamacao-edit-retorno-busca"
+            label="Retorno da busca"
+            value={formData.localizarAtendimentos}
+            className="min-w-0"
+          >
+            <input
+              type="text"
+              readOnly
+              title={formData.localizarAtendimentos || undefined}
+              value={formData.localizarAtendimentos}
+              className="h-12 min-h-12 box-border w-full cursor-default rounded-lg border border-gray-400 bg-gray-100 px-3 text-sm text-gray-700 outline-none dark:border-gray-500 dark:bg-gray-700 dark:text-gray-200"
+              placeholder="—"
+            />
+          </FloatingLabelField>
+
+          {fundirInlineAtivo && typeof onAbrirModalFusao === 'function' ? (
+            <div className="flex min-w-0 items-end justify-stretch md:justify-end">
+              <button
+                type="button"
+                onClick={() => onAbrirModalFusao()}
+                className="box-border flex h-12 min-h-12 w-full items-center justify-center whitespace-nowrap rounded-lg border-2 px-3 text-sm font-semibold transition-colors hover:opacity-90 md:w-auto"
+                style={{
+                  borderColor: '#b91c1c',
+                  color: '#991b1b',
+                  backgroundColor: 'rgba(185, 28, 28, 0.1)',
+                }}
+                title="Fundir ocorrências"
+              >
+                Fundir
+              </button>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2 md:items-start">
+          <div className="min-w-0">
+            <FloatingLabelField
+              id="form-reclamacao-edit-nome"
+              label="Nome do Cliente"
+              required
+              value={formData.nome}
+              error={errors.nome}
+            >
+              <input
+                id="form-reclamacao-edit-nome"
+                type="text"
+                value={formData.nome}
+                onChange={(e) => setFormData(prev => ({ ...prev, nome: e.target.value }))}
+                className="box-border min-h-12 w-full rounded-lg border border-gray-400 px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:border-gray-500 dark:bg-gray-800 dark:text-white"
+                required
+              />
+            </FloatingLabelField>
+          </div>
+          <div className="min-w-0">
+            {formData.telefones.lista.map((telefone, index) => (
+              <div key={index} className="mb-2 flex gap-2">
+                <FloatingLabelField
+                  id={`form-reclamacao-edit-tel-${index}`}
+                  label={index === 0 ? 'Telefone' : `Telefone (${index + 1})`}
+                  value={telefone}
+                  className="min-w-0 flex-1"
+                >
+                  <input
+                    type="text"
+                    value={telefone}
+                    onChange={(e) => atualizarTelefone(index, e.target.value)}
+                    className={`min-h-12 box-border w-full rounded-lg px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white ${
+                      telefone.replace(/\D/g, '').length >= 10
+                        ? 'border-2 border-green-500'
+                        : 'border border-gray-400 dark:border-gray-500'
+                    }`}
+                    placeholder="(00) 00000-0000"
+                    maxLength={15}
+                  />
+                </FloatingLabelField>
+                {formData.telefones.lista.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => removerTelefone(index)}
+                    className="inline-flex h-12 min-h-12 shrink-0 items-center justify-center rounded border px-3 text-sm transition-all duration-300 dark:bg-gray-700"
+                    style={{
+                      borderColor: '#dc2626',
+                      color: '#dc2626',
+                      background: 'transparent',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.background = '#dc2626';
+                      e.target.style.color = '#F3F7FC';
+                      e.target.style.borderColor = '#dc2626';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = 'transparent';
+                      e.target.style.color = '#dc2626';
+                      e.target.style.borderColor = '#dc2626';
+                    }}
+                  >
+                    Remover
+                  </button>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2 md:items-end">
+          <FloatingLabelField id="form-reclamacao-edit-email" label="E-mail" value={formData.email} error={errors.email}>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => {
+                const formatted = formatarEmail(e.target.value);
+                setFormData(prev => ({ ...prev, email: formatted }));
+              }}
+              className={`min-h-12 box-border w-full rounded-lg px-3 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white ${
+                formData.email && validarEmail(formData.email)
+                  ? 'border-2 border-green-500'
+                  : 'border border-gray-400 dark:border-gray-500'
+              }`}
+              placeholder="email@exemplo.com"
+            />
+          </FloatingLabelField>
+          <div className="flex items-end justify-stretch md:justify-end">
+            <button
+              type="button"
+              onClick={adicionarTelefone}
+              aria-label="Adicionar telefone"
+              title="Adicionar telefone"
+              className="box-border flex h-12 min-h-12 min-w-[3rem] items-center justify-center rounded-lg border text-lg font-semibold leading-none transition-all duration-200 dark:bg-gray-800"
+              style={{
+                borderColor: '#006AB9',
+                color: '#006AB9',
+                background: 'transparent',
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = '#006AB9';
+                e.target.style.color = '#F3F7FC';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = 'transparent';
+                e.target.style.color = '#006AB9';
+              }}
+            >
+              +
+            </button>
           </div>
         </div>
 
         <div className="mb-4">
-          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-            Telefones
-          </label>
-          {formData.telefones.lista.map((telefone, index) => (
-            <div key={index} className="flex gap-2 mb-2">
-              <input
-                type="text"
-                value={telefone}
-                onChange={(e) => atualizarTelefone(index, e.target.value)}
-                className={`flex-1 border rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white ${
-                  telefone.replace(/\D/g, '').length >= 10 
-                    ? 'border-green-500 border-2' 
-                    : 'border-gray-400 dark:border-gray-500'
-                }`}
-                placeholder="(00) 00000-0000"
-                maxLength={15}
-              />
-              {formData.telefones.lista.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removerTelefone(index)}
-                  className="text-sm px-3 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700"
-                  style={{
-                    borderColor: '#dc2626',
-                    color: '#dc2626',
-                    background: 'transparent',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background = '#dc2626';
-                    e.target.style.color = '#F3F7FC';
-                    e.target.style.borderColor = '#dc2626';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = 'transparent';
-                    e.target.style.color = '#dc2626';
-                    e.target.style.borderColor = '#dc2626';
-                  }}
-                >
-                  Remover
-                </button>
-              )}
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={adicionarTelefone}
-            className="text-sm px-3 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700"
-            style={{
-              borderColor: '#006AB9',
-              color: '#006AB9',
-              background: 'transparent',
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.background = 'linear-gradient(135deg, #006AB9 0%, #006AB9 100%)';
-              e.target.style.color = '#F3F7FC';
-              e.target.style.borderColor = '#006AB9';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.background = 'transparent';
-              e.target.style.color = '#006AB9';
-              e.target.style.borderColor = '#006AB9';
-            }}
-          >
-            + Adicionar Telefone
-          </button>
-        </div>
-
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-            Email
-          </label>
-          <input
-            type="email"
-            value={formData.email}
-            onChange={(e) => {
-              const formatted = formatarEmail(e.target.value);
-              setFormData(prev => ({ ...prev, email: formatted }));
-            }}
-            className={`w-full border rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white ${
-              formData.email && validarEmail(formData.email)
-                ? 'border-green-500 border-2'
-                : 'border-gray-400 dark:border-gray-500'
-            }`}
-            placeholder="email@exemplo.com"
-          />
-        </div>
-
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-            Observações
-          </label>
-          <textarea
-            value={formData.observacoes}
-            onChange={(e) => setFormData(prev => ({ ...prev, observacoes: e.target.value }))}
-            className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            rows={4}
-            placeholder="Digite as observações..."
-          />
+          <FloatingLabelField id="form-reclamacao-edit-observacoes" label="Observações" value={formData.observacoes}>
+            <textarea
+              value={formData.observacoes}
+              onChange={(e) => setFormData(prev => ({ ...prev, observacoes: e.target.value }))}
+              className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              rows={4}
+              placeholder="Digite as observações..."
+            />
+          </FloatingLabelField>
         </div>
       </div>
 
@@ -3487,20 +3763,36 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
       {formData.tipo === 'PROCESSOS' && renderCamposProcessos()}
       {formData.tipo === 'TIME_PORTABILIDADE' && renderCamposTimePortabilidade()}
 
+      {/* Protocolos (BACEN/N2/Reclame Aqui/Ação Judicial) — antes de Tentativas */}
+      {(formData.tipo === 'BACEN' || formData.tipo === 'OUVIDORIA' || formData.tipo === 'RECLAME_AQUI' || formData.tipo === 'PROCESSOS' || formData.tipo === 'PROCON') && renderProtocolos()}
+
       {/* Tentativas de Contato (BACEN/N2 apenas) */}
       {(formData.tipo === 'BACEN' || formData.tipo === 'OUVIDORIA') && renderTentativasContato()}
-
-      {/* Protocolos (BACEN/N2/Reclame Aqui) */}
-      {(formData.tipo === 'BACEN' || formData.tipo === 'OUVIDORIA' || formData.tipo === 'RECLAME_AQUI') && renderProtocolos()}
 
       {formData.tipo === 'TIME_PORTABILIDADE' && renderCanaisTimePortabilidade()}
 
       {/* Botões de Ação */}
-      <div className="flex justify-end gap-4 relative">
+      <div className="flex flex-wrap items-center justify-between gap-4 relative">
+        {formData.tipo && formData.tipo !== 'TIME_PORTABILIDADE' ? (
+          <OuvidoriaOctadeskTicketBar
+            ticketRegistro={formData.ticketRegistro}
+            gerando={gerandoTicketOcta}
+            disabledGerar={Boolean(String(formData.ticketRegistro || '').trim())}
+            disabledHint={
+              String(formData.ticketRegistro || '').trim()
+                ? 'Ticket de registro já preenchido.'
+                : ''
+            }
+            onGerarTicket={handleGerarTicketOctadesk}
+          />
+        ) : (
+          <div className="flex-1" />
+        )}
+        <div className="flex justify-end gap-4">
         <button
           type="button"
           onClick={onClose}
-          className="text-sm px-3 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700"
+          className="inline-flex h-12 min-h-12 box-border items-center gap-2 rounded border px-3 text-sm transition-all duration-300 dark:bg-gray-700"
           style={{
             borderColor: '#006AB9',
             color: '#006AB9',
@@ -3524,7 +3816,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
             type="button"
             onClick={(e) => handleSubmit(e)}
             disabled={loading}
-            className="text-sm px-3 py-2 rounded border inline-flex items-center gap-2 transition-all duration-300 dark:bg-gray-700"
+            className="inline-flex h-12 min-h-12 box-border items-center gap-2 rounded border px-3 text-sm transition-all duration-300 dark:bg-gray-700"
             style={{
               borderColor: '#006AB9',
               color: '#006AB9',
@@ -3555,7 +3847,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
               </>
             ) : (
               <>
-                Salvar Reclamação
+                Salvar Ocorrência
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
@@ -3575,7 +3867,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                 <button
                   type="button"
                   onClick={(e) => handleSubmit(e, 'em-andamento')}
-                  className="block w-full text-left px-4 py-2 text-sm transition-colors font-medium"
+                  className="flex min-h-12 w-full items-center px-4 text-left text-sm font-medium transition-colors"
                   style={{
                     color: '#F3F7FC',
                     backgroundColor: 'rgba(0, 106, 185, 0.7)'
@@ -3593,7 +3885,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                 <button
                   type="button"
                   onClick={(e) => handleSubmit(e, 'resolvido')}
-                  className="block w-full text-left px-4 py-2 text-sm transition-colors font-medium"
+                  className="flex min-h-12 w-full items-center px-4 text-left text-sm font-medium transition-colors"
                   style={{
                     color: '#F3F7FC',
                     backgroundColor: 'rgba(21, 162, 55, 0.7)'
@@ -3612,8 +3904,32 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
             </div>
           )}
         </div>
+        </div>
       </div>
     </form>
+
+    {liberacaoModalCtx ? (
+      <ModalSolicitarLiberacaoPix
+        open={Boolean(liberacaoModalCtx)}
+        onClose={() => setLiberacaoModalCtx(null)}
+        origem={liberacaoModalCtx.origem}
+        nomeCliente={formData.nome}
+        cpf={formData.cpf}
+        agente={resolverAgenteParaLiberacao()}
+        tipoOuvidoriaApi={liberacaoModalCtx.tipoApi}
+        reclamacaoId={
+          reclamacao?._id != null
+            ? String(reclamacao._id)
+            : reclamacao?.id != null
+              ? String(reclamacao.id)
+              : null
+        }
+        ouvidoriaNumeroProtocolo={
+          String(resolveOctadeskTicketFromForm(formData) || '').trim() || undefined
+        }
+        onSuccess={handleLiberacaoPixSucesso}
+      />
+    ) : null}
 
     {/* Modal de Registros Reclame Aqui (para Procon) */}
     {mostrarModalReclameAqui && (
@@ -3652,7 +3968,7 @@ const FormReclamacaoEdit = ({ reclamacao, onClose, onSuccess }) => {
                           ID Entrada: <span className="font-normal">{registro.idEntrada || 'N/A'}</span>
                         </p>
                         <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Data Reclamação: <span className="font-normal">
+                          Data Ocorrência: <span className="font-normal">
                             {registro.dataReclam ? formatDateRegistro(registro.dataReclam) : 'N/A'}
                           </span>
                         </p>

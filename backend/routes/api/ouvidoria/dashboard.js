@@ -1,195 +1,17 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Dashboard
- * VERSION: v2.33.4 | DATE: 2026-04-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.33.6 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
  *
- * Mudanças v2.33.4:
- * - Comentário exemplo query produtos: Empréstimo Pessoal (antes Credito Pessoal)
- *
- * Mudanças v2.33.3:
- * - Comentários dos cards solLiberacao alinhados ao match case-insensitive (canônico: Liberação chave pix)
- *
- * Mudanças v2.33.2:
- * - Comentário: canônico de motivo liberação chave pix alinhado a sentence case ("Liberação chave pix")
- *
- * Mudanças v2.33.1:
- * - Corrigido HTTP 500 em GET /stats: função calcularStatsPorTipoComMixed era referenciada mas não existia (ReferenceError)
- * 
- * Mudanças v2.33.0:
- * - Corrigida lógica dos cards: solLiberacao (exato "Liberação Chave Pix"), pixLiberado (todos os motivos),
- *   pixRetido (Liberação Chave Pix + Resolvido + pixLiberado false), percRetencao (pixRetido/solLiberacao)
- * - Adicionada categoria Judicial (reclamacoes_judicial, campo dataEntrada)
- * - Adicionado filtro de motivo (query param motivos, $regex case-insensitive, OR entre motivos)
- * - Retornado solLiberacao em porTipo para card "Ped. Liberação"
- * 
- * Mudanças v2.31.0:
- * - Pix Liberado, Pix Retido e % Retenção: filtram apenas casos com motivoReduzido contendo "Liberação" e "Pix"
- * - Criada função isMotivoLiberacaoPix() para verificar motivo (liberação chave pix, liberação de pix, etc.)
- * 
- * Mudanças v2.30.0:
- * - Adicionado percRetencao em porTipo: % de ocorrências com pix retido (pixLiberado === false)
- * 
- * Mudanças v2.29.0:
- * - Adicionado filtro de produto (produtos) nas rotas /stats e /metricas
- * - Query param produtos (array): filtra por produto quando informado (ex: produtos=Antecipação&produtos=Empréstimo Pessoal)
- * - Quando vazio ou ausente, não aplica filtro de produto
- * 
- * Mudanças v2.28.0:
- * - Adicionado data.porTipo com estatísticas por collection (N2, Reclame Aqui, Bacen, Procon, Judicial, Total)
- * - Cada tipo: ocorrencias, emAberto, resolvido, prazoMedio, caEProtocolos, pixLiberado, pixRetido
- * - Total inclui taxaResolucao adicional
- * 
- * Mudanças v2.27.0:
- * - HOMOGENEIZAÇÃO: Contagem baseada APENAS na data de entrada (removido fallback createdAt)
- * - BACEN: dataEntrada | N2: dataEntradaN2 | Reclame Aqui: dataReclam | Procon: dataProcon | Judicial: dataEntrada
- * - Documentos sem data de entrada no período não são contados
- * 
- * Mudanças v2.26.0:
- * - CORRIGIDO: Dashboard agora usa os mesmos critérios de data do relatório para contar cada collection
- * - Criada função criarFiltroDataPorCollection() similar à do relatório para manter consistência
- * 
- * Mudanças v2.25.0:
- * - Corrigido erro ao acessar motivoReduzido.toUpperCase() quando motivoReduzido é array
- * - Criada função normalizarMotivoParaComparacao() para tratar tanto String quanto Array
- * - Função converte array em string (juntando com espaço) antes de fazer comparações
- * - Correção aplicada nos cálculos de "Liquidação Antecipada" nas rotas /stats e /metricas
- * 
- * Mudanças v2.24.0:
- * - Corrigido filtro de "Prazo Médio" para excluir casos com datas inválidas (datas muito antigas ou futuras)
- * - Filtro inicial agora valida: datas válidas (não são Invalid Date), dataResolucao >= createdAt, e diferença razoável (0 a 365 dias)
- * - Isso evita incluir casos problemáticos (ex: createdAt em 2025 mas dataResolucao em 1926/1927) no cálculo da média
- * - Correção aplicada nas rotas /stats e /metricas para garantir consistência
- * 
- * Mudanças v2.23.0:
- * - Adicionados logs de debug temporários para identificar problemas no cálculo de "Prazo Médio"
- * - Logs adicionados após o cálculo nas rotas /stats e /metricas
- * - Logs incluem: totalRegistros, quantidadeValida, somaDias, mediaExata, mediaPrazo
- * - Verificação confirmada: reduce inicia com 0 corretamente
- * - Logs ajudam a identificar se soma está muito alta, quantidade muito baixa ou problemas na divisão
- * 
- * Mudanças v2.22.0:
- * - Corrigido cálculo de "Prazo Médio" com validação de dados inválidos
- * - Adicionada validação para ignorar diferenças de dias < 0 ou > 365 dias
- * - Cálculo da média agora usa apenas registros válidos (quantidadeValida)
- * - Validação aplicada nas rotas /stats e /metricas para evitar valores incorretos (ex: 724 dias)
- * 
- * Mudanças v2.21.0:
- * - Formatação de mediaPrazo para 1 casa decimal antes de retornar
- * - Cálculo mantém precisão exata (sem arredondamentos intermediários)
- * - Resultado final formatado usando parseFloat(mediaExata.toFixed(1))
- * - Formatação aplicada nas rotas /stats e /metricas
- * 
- * Mudanças v2.20.0:
- * - Corrigido cálculo de "Prazo Médio" para valores absolutamente exatos, sem arredondamentos intermediários
- * - Removido Math.round da média final - cálculo mantém precisão decimal completa
- * - Diferença em dias calculada exatamente (pode ser decimal) sem arredondamento individual
- * - Média calculada exatamente (soma exata / quantidade) sem arredondamento
- * - Resultado mantido como número decimal para formatação no frontend
- * - Correção aplicada nas rotas /stats e /metricas
- * 
- * Mudanças v2.19.0:
- * - Corrigido cálculo de "Prazo Médio": removido Math.ceil que inflava valores
- * - Agora usa cálculo direto (diffMs / (1000 * 60 * 60 * 24)) sem arredondamento individual
- * - Arredondamento aplicado apenas na média final (Math.round)
- * - Correção aplicada nas rotas /stats e /metricas
- * 
- * Mudanças v2.18.0:
- * - Melhorados comentários do cálculo de "Prazo Médio" para maior clareza
- * - Documentado que o cálculo considera todas as 5 collections (mas apenas as que têm campo Finalizado)
- * - Garantida consistência entre rotas /stats e /metricas para cálculo de média de prazo
- * 
- * Mudanças v2.17.0:
- * - Atualizado cálculo de cards para considerar todas as 5 collections:
- *   - reclamacoes_bacen, reclamacoes_n2Pix, reclamacoes_reclameAqui, reclamacoes_procon, reclamacoes_judicial
- * - Cards "Em Aberto", "Resolvido", "Total de Reclamações" e "CA e Protocolos" agora incluem todas as collections
- * - Card "Prazo Vencendo" mantém lógica apenas para BACEN (prazoBacen) e N2 Pix (prazoOuvidoria)
- * - Alterações aplicadas nas rotas /stats e /metricas
- * 
- * Mudanças v2.16.0:
- * - Atualizado cálculo de taxaResolucao para usar 1 casa decimal (Math.round((concluidas / total) * 1000) / 10)
- * - Agora exibe valores como 99.7% ao invés de arredondar para inteiro (100%)
- * 
- * Mudanças v2.15.0:
- * - Corrigido cálculo de "Prazo Vencendo": prazoLimite agora é amanhã às 23:59:59.999 (ao invés de 00:00:00)
- * - Isso garante que prazos que vencem durante todo o dia de amanhã sejam incluídos corretamente
- * 
- * Mudanças v2.14.0:
- * - Adicionados cálculos pixLiberado (pixStatus === "Liberado") e paraCobranca (enviarParaCobranca === true)
- * - Campos pixLiberado e paraCobranca adicionados aos objetos stats e metricas
- * - Aplicados os mesmos cálculos na rota /stats e /metricas para manter consistência
- * 
- * Mudanças v2.13.0:
- * - Atualizada lógica de contagem para usar collections dedicadas:
- *   - reclamacoes_reclameAqui: contagem de Reclame Aqui
- *   - reclamacoes_procon: contagem de Procon
- *   - reclamacoes_judicial: contagem de Ação Judicial
- * - Removidos cálculos baseados em filtros de campos booleanos/protocolos
- * - Filtro de data (filtroCompleto) aplicado às novas collections
- * 
- * Mudanças v2.12.0:
- * - Adicionado campo caEProtocolos ao objeto stats na rota /stats
- * - Cálculo implementado usando a mesma lógica da rota /metricas para manter consistência
- * 
- * Mudanças v2.11.0:
- * - Adicionado campo comProcon ao objeto stats na rota /stats
- * - Cálculo implementado usando a mesma lógica da rota /metricas para manter consistência
- * 
- * Mudanças v2.10.0:
- * - Adicionados campos taxaResolucao, mediaPrazo e liquidacaoAntecipada ao objeto stats na rota /stats
- * - Cálculos implementados usando a mesma lógica da rota /metricas para manter consistência
- * 
- * Mudanças v2.9.0:
- * - Adicionada contagem de Reclame Aqui (similar ao Procon)
- * - Adicionado campo acaoJudicial = 0 (sem collection ainda)
- * - Campos reclameAqui e acaoJudicial adicionados aos objetos stats e metricas
- * 
- * Mudanças v2.8.0:
- * - Corrigido cálculo de "Liquidação Antecipada": agora requer dupla verificação:
- *   - motivoReduzido deve conter "liquidação antecipada" ou "liquidacao antecipada" (case insensitive) E
- *   - statusContratoQuitado deve ser true
- * 
- * Mudanças v2.7.0:
- * - Corrigido nome da collection N2: de reclamacoes_ouvidoria para reclamacoes_n2Pix
- * - Corrigido cálculo de "Prazo Vencendo": agora considera até 1 dia antes do vencimento (ao invés de 3)
- * - Corrigido cálculo de "Média de Prazo": valida que dataResolucao >= createdAt e garante resultado não negativo
- * 
- * Mudanças v2.6.0:
- * - Corrigido cálculo de "Prazo Vencendo" para incluir prazoOuvidoria (N2)
- * - Corrigido cálculo de "CA e Protocolos" para usar campos corretos do schema:
- *   - acionouCentral (ao invés de centralAjuda)
- *   - n2SegundoNivel (ao invés de escaladoOuvidoria)
- *   - Removidos campos inexistentes (pixLiberado, pixExcluido como booleanos)
- *   - Removidos statusContratoQuitado e statusContratoAberto (não fazem parte de CA e Protocolos)
- * 
- * Mudanças v2.5.0:
- * - Atualizado para usar Finalizado.Resolvido ao invés de status
- * - Removidos filtros deletada/deletedAt
- * - Média de prazo agora usa dataResolucao ao invés de updatedAt
- * 
- * Mudanças v2.4.0:
- * - Adicionados logs de debug para diagnóstico de problemas de roteamento
- * - Logs adicionados na inicialização e em cada chamada de rota
- * 
- * Mudanças v2.3.0:
- * - Adicionado suporte a filtros de data (dataInicio, dataFim) nas rotas stats e metricas
- * - Filtros aplicados ao campo createdAt das reclamações
- * 
- * Mudanças v2.2.0:
- * - Adicionadas contagens separadas de BACEN e OUVIDORIA
- * - Adicionada métrica "CA e Protocolos" (contagem de reclamações com qualquer protocolo selecionado)
- * 
- * Mudanças v2.1.0:
- * - Removida referência à coleção reclamacoes_chatbot (formulário ChatBot foi removido)
- * - Busca apenas em reclamacoes_bacen e reclamacoes_n2Pix
- * 
- * Mudanças v2.0.0:
- * - Busca em todas as coleções (reclamacoes_bacen, reclamacoes_n2Pix)
- * 
- * Rotas para estatísticas e métricas do dashboard de Ouvidoria
+ * Referência (duas entradas; detalhes no Git):
+ * - v2.33.6: porTipo.Procon — `ocorrenciasProcon` / `ocorrenciasConsumidorGov` (bucket alinhado a relatórios)
+ * - v2.33.5: Comentário exemplo query produtos: Empréstimo Pessoal (antes Credito Pessoal)
+ * - v2.33.3: Comentários dos cards solLiberacao alinhados ao match case-insensitive (canônico: Liberação chave pix)
  */
 
 const express = require('express');
 const router = express.Router();
 const { ObjectId } = require('mongodb');
+const { bucketOrigemProconRelatorio } = require('../../../utils/bucketOrigemProconRelatorio');
 
 /**
  * Normalizar motivoReduzido para string (trata tanto String quanto Array)
@@ -738,12 +560,25 @@ const initDashboardRoutes = (client, connectToMongo) => {
         );
       }).length;
 
+      const proconStatsBase = calcularStatsPorTipo(proconDocs, 'reclamacoes_procon');
+      let ocorrenciasProcon = 0;
+      let ocorrenciasConsumidorGov = 0;
+      for (const r of proconDocs) {
+        const b = bucketOrigemProconRelatorio(r.origem);
+        if (b === 'Consumidor.gov.br') ocorrenciasConsumidorGov += 1;
+        else ocorrenciasProcon += 1;
+      }
+
       // porTipo: estatísticas por collection (N2, Reclame Aqui, Bacen, Procon, Judicial, Total)
       const porTipo = {
         N2: calcularStatsPorTipo(n2Pix, 'reclamacoes_n2Pix'),
         'Reclame Aqui': calcularStatsPorTipo(reclameAquiDocs, 'reclamacoes_reclameAqui'),
         Bacen: calcularStatsPorTipo(bacen, 'reclamacoes_bacen'),
-        Procon: calcularStatsPorTipo(proconDocs, 'reclamacoes_procon'),
+        Procon: {
+          ...proconStatsBase,
+          ocorrenciasProcon,
+          ocorrenciasConsumidorGov,
+        },
         Judicial: calcularStatsPorTipo(judicialDocs, 'reclamacoes_judicial'),
         Total: calcularStatsPorTipoComMixed(todas),
       };

@@ -1,284 +1,47 @@
 /**
  * VeloChatWidget - Componente Principal do Chat
- * VERSION: v3.47.0 | DATE: 2026-03-02 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v3.47.0:
- * - CORRIGIDO: Scroll automático agora funciona de forma confiável quando novas mensagens chegam
- * - scrollToBottom agora usa requestAnimationFrame + setTimeout para garantir que DOM está atualizado
- * - Adicionado useEffect que observa mudanças em messages.length e faz scroll automaticamente
- * - Scroll ao enviar mensagem agora sempre força scroll (force=true) para garantir que mensagem seja visível
- * - Scroll quando recebe mensagem agora aguarda DOM ser atualizado (delay 100ms) antes de fazer scroll
- * - Melhorada detecção de quando usuário está no rodapé antes de novas mensagens chegarem
- * 
- * Mudanças v3.46.0:
- * - CRÍTICO: sessionId agora é OBRIGATÓRIO antes de inicializar qualquer operação do widget
- * - Adicionado useEffect inicial que garante sessionId antes de carregar conversas/contatos
- * - Todos os useEffects agora aguardam sessionId estar garantido antes de executar
- * - Removido retry simples - agora usa ensureSessionId() para garantir criação se necessário
- * 
- * Mudanças v3.45.0:
- * - Corrigido scroll automático ao abrir conversa: sempre vai para rodapé na primeira carga, independente da quantidade de mensagens
- * - Corrigido scroll quando novas mensagens chegam: mantém scroll no rodapé apenas se usuário já estava lá
- * - Função scrollToBottom agora respeita force=true para permitir scroll mesmo com paginação ativa
- * - Removida verificação de hasMoreMessages que impedia scroll quando novas mensagens chegavam
- * - Proteção mantida: nunca força scroll quando usuário está lendo mensagens antigas
- * 
- * Mudanças v3.44.0:
- * - Implementada paginação de mensagens: exibe apenas últimas 20 mensagens inicialmente
- * - Adicionado botão "Ver conversas anteriores" no topo do diálogo para carregar mais mensagens
- * - Scroll automático ajustado para respeitar paginação (só acontece quando todas as mensagens estão visíveis)
- * - Paginação resetada automaticamente ao mudar de conversa
- * - Melhorada performance em conversas com muitas mensagens
- * 
- * Mudanças v3.43.0:
- * - Adicionada prop refreshTrigger para permitir refresh manual via botão no header
- * - Implementado useEffect que observa refreshTrigger e recarrega conversas/contatos quando muda
- * - Removido bubble vermelho de notificação de mensagens não lidas dos cards
- * - Modificado border dos cards para usar cor vermelha (2px solid) quando há mensagens não lidas
- * - Removido log verboso de exclusão de contatos do console
- * 
- * Mudanças v3.42.0:
- * - Corrigido filtro de contatos: removido filtro por Velotax, adicionado filtro por Velohub
- * - Filtro agora verifica acessos.Velohub === true explicitamente
- * - Se backend não retornar campo acessos, confia no filtro do backend
- * - Aplicado filtro em todas as instâncias: cache, polling e seleção de participantes
- * 
- * Mudanças v3.41.0:
- * - Corrigida exibição de botão de excluir anexo - agora oculta quando anexo já foi excluído (!msg.anexoExcluido)
- * - Melhorado tratamento de erro ao excluir anexo - erro "Anexo já foi excluído" agora atualiza UI silenciosamente sem mostrar mensagem de erro
- * - Botão de excluir anexo agora verifica estado anexoExcluido antes de ser exibido em todos os tipos de mídia (imagem, vídeo, arquivo)
- * 
- * Mudanças v3.40.0:
- * - Adicionada sincronização em tempo real de mensagens editadas via WebSocket
- * - Handler handleMessageEdited implementado para atualizar mensagens editadas imediatamente para todos os destinatários
- * - Mensagens editadas são atualizadas automaticamente sem necessidade de recarregar ou reentrar no diálogo
- * - Suporta edição de mensagens tanto em conversas P2P quanto em salas
- * 
- * Mudanças v3.39.0:
- * - Adicionada função handleDeleteAttachment para exclusão soft delete de anexos
- * - Botões de excluir anexo adicionados em mensagens com mediaUrl (imagem, vídeo, arquivo)
- * - Função handleCloseConversation atualizada para suportar exclusão de salas além de P2P
- * - Botão de excluir conversa agora disponível também para salas na view de salas
- * - Anexos excluídos são ocultados mas mantêm dados para arquivamento
- * 
- * Mudanças v3.38.0:
- * - Botão "Nova Sala": cores alteradas para azul médio (#1634FF) - borda e texto
- * - Botão "Criar Sala" no modal: cores alteradas para azul médio (#1634FF) - borda e texto
- * 
- * Mudanças v3.37.0:
- * - Balões de mensagem enviada no tema escuro: contorno azul claro (#1694FF), texto preto, data/hora e ícones em cinza escuro (#4B5563)
- * 
- * Mudanças v3.36.0:
- * - Cards de sala: nome da sala agora em azul médio (#1634FF) nas abas conversas e salas
- * - Cards de sala: preenchimento do card sempre em azul opaco (#006AB9) com 40% de opacidade
- * 
- * Mudanças v3.35.0:
- * - Ajustada opacidade do badge P2P no tema escuro: verde (online) e amarelo (ausente) agora com 45% de opacidade (+15%)
- * 
- * Mudanças v3.34.0:
- * - Correções de cores no tema escuro conforme LAYOUT_GUIDELINES.md
- * - Aba selecionada: azul médio no tema escuro
- * - Linhas de separação: azul opaco no tema escuro
- * - Ícones (chevron, sino, anexo): azul claro/opaco conforme especificação
- * - Ícones do menu de anexos: azul claro no tema escuro
- * - Cards de contatos: opacidade aumentada em 15% para online e ausente no tema escuro
- * - Badge P2P: opacidade aumentada em 15% para online e ausente no tema escuro
- * - Badge Sala: contorno azul claro e nome azul opaco no tema escuro
- * - Balões de mensagem enviada: contorno azul claro, texto preto, data/hora e ícones em cinza escuro no tema escuro
- * 
- * Mudanças v3.33.1:
- * - Aumentada largura máxima dos balões de mensagem de 70% para 90%
- * - Reduzido tamanho dos ícones de editar e excluir de 14px para 12px
- * 
- * Mudanças v3.33.0:
- * - Adicionada funcionalidade de editar mensagens (inline)
- * - Adicionada funcionalidade de excluir mensagens
- * - Ícones de editar e excluir aparecem apenas em mensagens do usuário atual
- * - Mensagens excluídas exibem "mensagem apagada (DD/MM, HH:MM)" em itálico e cinza
- * - Campo mensagemOriginal preservado para arquivamento (não exibido na UI)
- * 
- * Mudanças v3.32.2:
- * - Avatar P2P movido mais para a esquerda (left: 8px)
- * - Badge P2P ajustado para manter distância do avatar (left: 44px)
- * - Restaurada cascata de avatares no badge de salas, calculando quantos cabem sem estourar tamanho máximo
- * - Cascata de avatares agora calcula dinamicamente espaço disponível baseado no tamanho do badge
- * 
- * Mudanças v3.32.1:
- * - Header de sala agora usa mesma estrutura do header P2P, exceto avatar do contato
- * - Avatar do contato posicionado absolutamente antes do badge apenas para P2P/Direct/Privada
- * - Badge ajustado para considerar presença do avatar (left: 60px com avatar, 24px sem avatar)
- * - Removida cascata de avatares de participantes do badge de sala
- * 
- * Mudanças v3.32.0:
- * - Refatorado header para usar posicionamento absoluto ao invés de margens/paddings
- * - Chevron posicionado absolutamente à esquerda (left: 12px)
- * - Badge posicionado absolutamente com left: 36px (chevron + 4px) e right: 78px (sino + 4px)
- * - Sino posicionado absolutamente à direita (right: 54px)
- * - Anexo posicionado absolutamente à direita (right: 12px)
- * - Layout agora segue: [Chevron] (4px) [Badge adaptável] limite 4px do sino [Sino] [Anexo]
- * 
- * Mudanças v3.31.4:
- * - Corrigido chevron desaparecido: removido overflow hidden do container pai
- * - Corrigido badge cortado: aplicado overflow hidden e maxWidth apenas no container interno do badge
- * - Badge agora respeita limite direito sem cortar o chevron
- * 
- * Mudanças v3.31.3:
- * - Limitado container do badge para que não ultrapasse o sino de chamar atenção
- * - Adicionado overflow hidden e maxWidth no container pai do badge
- * 
- * Mudanças v3.31.2:
- * - Limitada margem direita do badge de sala à margem do sino de chamar atenção
- * 
- * Mudanças v3.31.1:
- * - Ajustada margem esquerda do badge de sala para posicionar mais à esquerda
- * 
- * Mudanças v3.31.0:
- * - Simplificado handleCallAttention: removida lógica de mensagem temporária, confia no servidor enviar evento de volta
- * - Botão de chamar atenção agora disponível também para salas (removida condição !== 'sala')
- * - Corrigido loadSalaParticipants para buscar contatos por nome ao invés de email
- * - Adicionada função getFirstAndLastName para exibir apenas primeiro e último nome em P2P
- * - Revisado layout do cabeçalho: chevron mais à esquerda, badge imediatamente após, layout flexbox
- * - Badge de grupo agora limita tamanho e calcula dinamicamente quantos avatares cabem
- * - Ícones reorganizados usando flexbox ao invés de posicionamento absoluto
- * - Nome da sala e P2P agora truncam com ellipsis se muito longos
- * 
- * Mudanças v3.29.0:
- * - Scroll inteligente: scroll automático apenas quando usuário está no rodapé do diálogo
- * - Função isScrolledToBottom() para detectar se está visualizando mensagens recentes (threshold de 50px)
- * - Scroll ao enviar mensagem agora verifica se está no rodapé antes de fazer scroll
- * - Notificações de sistema agora são clicáveis e navegam ao diálogo correspondente
- * - Handler onclick em notificações foca janela e seleciona conversa automaticamente
- * - Refs adicionados para evitar dependências desnecessárias em callbacks
- * 
- * Mudanças v3.28.0:
- * - Adicionada data junto com horário na exibição de timestamps das mensagens
- * - Formato: "DD/MM/AAAA HH:MM" (ex: "31/01/2025 14:30")
- * 
- * Mudanças v3.27.0:
- * - CRÍTICO: Corrigido problema de limpeza desnecessária de mensagens ao selecionar conversa
- * - handleSelectConversation agora só limpa mensagens quando muda de conversa (evita flash de tela vazia)
- * - CRÍTICO: Removido scroll forçado repetitivo que impedia leitura de mensagens anteriores
- * - Scroll automático agora ocorre apenas na primeira carga da conversa
- * - Carregamentos subsequentes não forçam scroll, permitindo leitura de mensagens antigas e acesso a anexos anteriores
- * 
- * Mudanças v3.26.1:
- * - Melhorado layout do botão de exclusão de conversa com expansão vermelha animada
- * - Zona vermelha expande da direita para esquerda ao posicionar mouse na margem direita do card
- * - Ícone X branco centralizado na zona vermelha clicável
- * 
- * Mudanças v3.26.0:
- * 
- * Mudanças v3.25.0:
- * - CRÍTICO: Ajustado cache para ser compatível com polling de 5s (validade de 30s)
- * - Implementado fluxo inteligente: polling busca do servidor → compara com cache → só atualiza se houver mudanças
- * - Função contactsChanged() detecta mudanças de status, novos/removidos contatos
- * - Evita re-renders desnecessários quando não há mudanças reais
- * - Polling passa parâmetro isPolling=true para diferenciar de carga inicial
- * 
- * Mudanças v3.24.0:
- * - CRÍTICO: Implementado cache de status dos contatos para evitar recarregamento ao trocar de módulo
- * - Contatos são carregados do cache primeiro (exibição imediata) e depois atualizados do servidor
- * - Cache tem validade de 5 minutos e é atualizado automaticamente quando status muda via WebSocket
- * - Cache é usado como fallback se houver erro ao carregar do servidor
- * - Melhor UX: não mostra loading se há cache válido disponível
- * 
- * Mudanças v3.23.0:
- * - CRÍTICO: Adicionados logs detalhados para diagnosticar problema de mensagens não aparecendo
- * - Validação melhorada da resposta da API antes de processar mensagens
- * - Verificação explícita se data.messages é um array válido antes de mapear
- * - Logs mostram quantidade de mensagens recebidas e primeiras mensagens para debug
- * 
- * Mudanças v3.22.0:
- * - CRÍTICO: Melhorada detecção de duplicatas para evitar mensagens duplicadas na UI
- * - Adicionada verificação por conteúdo/timestamp (< 1s) para capturar eventos simultâneos
- * - Verificação de duplicatas agora acontece ANTES de qualquer processamento
- * - Isso garante que mesmo eventos recebidos quase simultaneamente não sejam duplicados
- * 
- * Mudanças v3.21.0:
- * - CRÍTICO: Corrigido problema de mensagens duplicadas
- * - Melhorada detecção de duplicatas usando _id/messageId como identificador único
- * - Melhorada remoção de mensagens temporárias (janela de 30s ao invés de 10s)
- * - Adicionada verificação adicional por ID antes de adicionar mensagem
- * - Logs adicionados para debug de duplicatas
- * 
- * Mudanças v3.20.0:
- * - CRÍTICO: Corrigido loop infinito de requisições que causava ERR_INSUFFICIENT_RESOURCES
- * - Adicionado controle para evitar múltiplas chamadas simultâneas de loadMessages
- * - Adicionado ref para rastrear última conversa carregada (evita recarregar se não mudou)
- * - Removidas joinConversation e leaveConversation das dependências do useEffect (são estáveis)
- * - Mensagens agora aparecem e permanecem na caixa de diálogo após envio
- * 
- * Mudanças v3.19.0:
- * - CRÍTICO: Corrigido erro "Cannot access 'Ve' before initialization"
- * - Refs para loadMessages e loadSalaParticipants agora são criados APÓS a declaração das funções
- * - Adicionado useEffect para entrar/sair da conversa quando selecionada (estava faltando)
- * - Isso resolve o erro de inicialização que impedia o componente de carregar
- * 
- * Mudanças v3.18.0:
- * - Adicionados logs de debug para investigar erro "failed to fetch"
- * - Logs capturam erros em loadConversations e loadContacts
- * 
- * Mudanças v3.17.1:
- * - Removidos logs de debug após correção bem-sucedida
- * 
- * 
- * Mudanças v3.17.0:
- * - Corrigido polling para não recriar intervalo constantemente (usando refs)
- * - Reduzido polling de 10s para 5s
- * - Adicionado polling periódico para conversas (5s)
- * - Melhorado sistema de notificações de áudio (volume, preload, tratamento de erros)
- * - Melhorada detecção de mensagens próprias (comparação normalizada)
- * - Notificações de áudio agora funcionam mesmo quando sidebar está recolhida
- * 
- * Mudanças v3.16.0:
- * - Refatorado sistema de gerenciamento de salas com campo bloqueioAdm
- * - Removido campo salaProfilePic do modal de criação
- * - Adicionado checkbox "Impedir gerenciamento da sala" no modal de criação
- * - Criado novo modal de gerenciamento de sala acessível via clique no badge
- * - Implementadas permissões baseadas em bloqueioAdm e criadoPor
- * - Implementada função de sair da sala
- * - Ajustadas cores do badge da sala (azul claro com contorno azul escuro)
- * - Removido botão "gerenciar participantes" do header
- * - Implementada remoção imediata de participante ao desmarcar checkbox
- * 
- * Mudanças v3.15.0:
- * - Melhorada lógica de retry para carregamento de conversas e contatos
- * - Aumentado timeout de 500ms para 2000ms
- * - Adicionadas múltiplas tentativas de retry (até 3 tentativas)
- * - Adicionados logs para debug do processo de carregamento
- * 
- * Mudanças v3.14.0:
- * - Adicionada verificação de sessionId antes de carregar conversas e contatos
- * - Adicionado retry com timeout para aguardar sessionId estar disponível
- * 
- * Mudanças v3.13.0:
- * - Removidos logs de debug do endpoint de ingest que causavam erros no console
- * 
- * Mudanças v3.12.0:
- * - Adicionada lista específica de tipos MIME aceitos para documentos (PDF, Word, Excel, JSON, CSV, etc.)
- * - Atualizado atributo accept do input de arquivo para filtrar corretamente por tipo (imagem, vídeo, documento)
- * - Ajustado timing dos handlers dos botões do menu para garantir que selectedMediaType seja atualizado antes de abrir o seletor
- * - Adicionada validação no onChange para verificar se documentos são tipos MIME válidos
- * 
- * Mudanças v3.11.0:
- * - CORRIGIDO: Modal de anexo movido para nível superior do componente (estava dentro de renderConversationView)
- * - Modal agora é renderizado independentemente da view atual (conversation/contacts/salas)
- * - Modal agora abre corretamente ao clicar na thumbnail de imagem
- * 
- * Mudanças v3.10.0:
- * - Corrigido clique na thumbnail de imagem: onClick movido para container div ao invés da tag img
- * - Adicionado pointer-events-none na imagem para permitir click no container
- * - Adicionado z-10 no botão de download para garantir que ele capture clicks corretamente
- * 
-  * Widget de chat integrado na sidebar do VeloHub
+ * VERSION: v3.49.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v3.47.0: CORRIGIDO: Scroll automático agora funciona de forma confiável quando novas mensagens chegam
+ * - v3.46.0: CRÍTICO: sessionId agora é OBRIGATÓRIO antes de inicializar qualquer operação do widget
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import { FloatingLabelField } from './shared/FloatingLabelField';
 import { useWebSocket } from '../hooks/useWebSocket';
 import * as velochatApi from '../services/velochatApi';
 import { ensureSessionId } from '../services/auth';
-import { AttachFile, Image, Videocam, InsertDriveFile, Close, GroupAdd, Download, PictureAsPdf, Description, Edit, Delete } from '@mui/icons-material';
+import { AttachFile, Image, Videocam, InsertDriveFile, Close, GroupAdd, Download, PictureAsPdf, Description, Edit, Delete, MoreVert, PushPin } from '@mui/icons-material';
 import { API_BASE_URL } from '../config/api-config';
+
+/** Largura expandida da faixa ⋮ (~44px, mais estreita que o legado ~58px) */
+const VELOCHAT_LIST_ACTIONS_STRIP_W_PX = 44;
+
+/** Menu ⋮ (lista): fixo no topo da pilha visual; valores absolutos — não alternam com tema do usuário */
+const VELOCHAT_LIST_OPTIONS_MENU_Z_INDEX = 200000;
+const VELOCHAT_LIST_OPTIONS_MENU_BG = '#F3F7FC';
+const VELOCHAT_LIST_OPTIONS_MENU_BORDER = '#000058';
+const VELOCHAT_LIST_OPTIONS_MENU_TEXT = '#272A30';
+const VELOCHAT_LIST_OPTIONS_MENU_DIVIDER = '#94A3B8';
+const VELOCHAT_LIST_OPTIONS_MENU_ROW_HOVER = '#E8EEF5';
+const VELOCHAT_LIST_OPTIONS_MENU_EXCLUIR = '#b91c1c';
+const VELOCHAT_LIST_OPTIONS_MENU_EXCLUIR_HOVER_BG = '#FDECEC';
+
+const VELOCHAT_PINNED_IDS_KEY = 'velochat_pinned_conversation_ids';
+
+const readPinnedConversationIdsFromStorage = () => {
+  try {
+    const raw = localStorage.getItem(VELOCHAT_PINNED_IDS_KEY);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return new Set();
+    return new Set(arr.map(String));
+  } catch {
+    return new Set();
+  }
+};
 
 // Tipos MIME aceitos para documentos
 const ACCEPTED_DOCUMENT_TYPES = [
@@ -364,7 +127,14 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
   const [isLoadingMore, setIsLoadingMore] = useState(false); // Flag de carregamento de mais mensagens
   // CRÍTICO: Estado para rastrear se sessionId foi garantido antes de inicializar operações
   const [sessionIdGuaranteed, setSessionIdGuaranteed] = useState(false);
-  
+  const [pinnedConversationIds, setPinnedConversationIds] = useState(() => readPinnedConversationIdsFromStorage());
+  /** id da conversa/sala cujo menu ⋮ está aberto (string) */
+  const [listOptionsMenuConversationId, setListOptionsMenuConversationId] = useState(null);
+  /** Âncora do botão ⋮ (viewport) para posicionar o menu em portal */
+  const [listOptionsMenuAnchorRect, setListOptionsMenuAnchorRect] = useState(null);
+  /** Tipo da conversa no menu aberto (para Excluir chamar API corretamente) */
+  const [listOptionsMenuDeleteType, setListOptionsMenuDeleteType] = useState(null);
+
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const attachmentMenuRef = useRef(null);
@@ -375,6 +145,12 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
   const handleSelectConversationRef = useRef(null);
   const setViewRef = useRef(null);
   const conversationsRef = useRef([]);
+
+  const closeListOptionsMenu = useCallback(() => {
+    setListOptionsMenuConversationId(null);
+    setListOptionsMenuAnchorRect(null);
+    setListOptionsMenuDeleteType(null);
+  }, []);
 
   /**
    * Obter email do usuário atual
@@ -1261,6 +1037,27 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
     
     guaranteeSessionId();
   }, []); // Executar apenas uma vez ao montar
+
+  useEffect(() => {
+    const onDocMouseDown = (ev) => {
+      if (!listOptionsMenuConversationId) return;
+      const root = ev.target?.closest?.('[data-velochat-list-options-root]');
+      if (!root) closeListOptionsMenu();
+    };
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, [listOptionsMenuConversationId, closeListOptionsMenu]);
+
+  useEffect(() => {
+    if (!listOptionsMenuConversationId) return;
+    const onScrollOrResize = () => closeListOptionsMenu();
+    window.addEventListener('scroll', onScrollOrResize, true);
+    window.addEventListener('resize', onScrollOrResize);
+    return () => {
+      window.removeEventListener('scroll', onScrollOrResize, true);
+      window.removeEventListener('resize', onScrollOrResize);
+    };
+  }, [listOptionsMenuConversationId, closeListOptionsMenu]);
 
   // Fechar diálogo quando a aba mudar (mesmo efeito de clicar no botão voltar)
   const prevActiveTabRef = useRef(activeTab);
@@ -2539,7 +2336,19 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
     if (!window.confirm('Deseja remover esta conversa da sua lista?')) {
       return;
     }
-    
+
+    const cidStr = String(conversationId);
+    setPinnedConversationIds((prev) => {
+      if (!prev.has(cidStr)) return prev;
+      const next = new Set(prev);
+      next.delete(cidStr);
+      try {
+        localStorage.setItem(VELOCHAT_PINNED_IDS_KEY, JSON.stringify([...next]));
+      } catch (_) { /* ignore */ }
+      return next;
+    });
+    closeListOptionsMenu();
+
     setLoading(true);
     setError(null);
     
@@ -2586,6 +2395,183 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
     
     console.log('✅ Conversa removida da exibição com sucesso');
     setLoading(false);
+  };
+
+  /** Faixa retrátil ⋮ com menu Fixar / Excluir (menu em portal, cores fixas) */
+  const renderChatCardOptionsStrip = (conversationId, conversationTypeForDelete) => {
+    const cid = String(conversationId);
+    const isPinned = pinnedConversationIds.has(cid);
+    const menuOpen = listOptionsMenuConversationId === cid;
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
+
+    const optionsMenuPortal =
+      menuOpen &&
+      listOptionsMenuAnchorRect &&
+      typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              role="menu"
+              className="velochat-card-options-menu"
+              data-velochat-list-options-root
+              style={{
+                position: 'fixed',
+                top: listOptionsMenuAnchorRect.top - 6,
+                right: vw - listOptionsMenuAnchorRect.right,
+                transform: 'translateY(-100%)',
+                minWidth: 152,
+                backgroundColor: VELOCHAT_LIST_OPTIONS_MENU_BG,
+                backgroundImage: 'none',
+                color: VELOCHAT_LIST_OPTIONS_MENU_TEXT,
+                border: `1px solid ${VELOCHAT_LIST_OPTIONS_MENU_BORDER}`,
+                borderRadius: 5,
+                boxShadow:
+                  '0 0 0 1px rgba(0, 0, 88, 0.08), 0 16px 40px rgba(0, 0, 58, 0.22)',
+                zIndex: VELOCHAT_LIST_OPTIONS_MENU_Z_INDEX,
+                overflow: 'hidden',
+                opacity: 1,
+                pointerEvents: 'auto',
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                role="menuitem"
+                className="rounded-none w-full text-left"
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '10px 14px',
+                  fontSize: '0.875rem',
+                  fontFamily: "'Poppins', sans-serif",
+                  fontWeight: 500,
+                  border: 'none',
+                  background: VELOCHAT_LIST_OPTIONS_MENU_BG,
+                  color: VELOCHAT_LIST_OPTIONS_MENU_TEXT,
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = VELOCHAT_LIST_OPTIONS_MENU_ROW_HOVER;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = VELOCHAT_LIST_OPTIONS_MENU_BG;
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPinnedConversationIds((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(cid)) next.delete(cid);
+                    else next.add(cid);
+                    try {
+                      localStorage.setItem(VELOCHAT_PINNED_IDS_KEY, JSON.stringify([...next]));
+                    } catch (_) { /* ignore */ }
+                    return next;
+                  });
+                  closeListOptionsMenu();
+                }}
+              >
+                {isPinned ? 'Desafixar' : 'Fixar'}
+              </button>
+              <div style={{ height: 1, backgroundColor: VELOCHAT_LIST_OPTIONS_MENU_DIVIDER }} />
+              <button
+                type="button"
+                role="menuitem"
+                className="rounded-none w-full text-left"
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '10px 14px',
+                  fontSize: '0.875rem',
+                  fontFamily: "'Poppins', sans-serif",
+                  fontWeight: 500,
+                  border: 'none',
+                  background: VELOCHAT_LIST_OPTIONS_MENU_BG,
+                  color: VELOCHAT_LIST_OPTIONS_MENU_EXCLUIR,
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = VELOCHAT_LIST_OPTIONS_MENU_EXCLUIR_HOVER_BG;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = VELOCHAT_LIST_OPTIONS_MENU_BG;
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCloseConversation(conversationId, e, listOptionsMenuDeleteType ?? conversationTypeForDelete);
+                }}
+              >
+                Excluir
+              </button>
+            </div>,
+            document.body
+          )
+        : null;
+
+    const yellowStrip = 'var(--yellow)';
+    const yellowStripHover = '#E6AD00';
+
+    return (
+      <>
+        <div
+          className="velochat-card-actions-strip delete-zone absolute top-0 right-0 h-full flex justify-end"
+          data-velochat-list-options-root
+          style={{ zIndex: 20 }}
+        >
+          <div className="relative h-full flex justify-end items-stretch" style={{ width: '100%' }}>
+            <button
+              type="button"
+              aria-label="Opções da conversa"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              className="velochat-card-actions-trigger rounded-none flex items-center justify-center cursor-pointer absolute top-0 right-0 h-full"
+              style={{
+                backgroundColor: yellowStrip,
+                border: 'none',
+                padding: 0,
+                margin: 0,
+                borderTopRightRadius: 'var(--velohub-radius-card)',
+                borderBottomRightRadius: 'var(--velohub-radius-card)',
+                transition: 'width 0.3s ease-out, background-color 0.2s',
+                width: '0',
+                overflow: 'hidden',
+                minWidth: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              title="Opções"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (listOptionsMenuConversationId === cid) {
+                  closeListOptionsMenu();
+                  return;
+                }
+                const r = e.currentTarget.getBoundingClientRect();
+                setListOptionsMenuAnchorRect({
+                  top: r.top,
+                  right: r.right,
+                  bottom: r.bottom,
+                  left: r.left,
+                  width: r.width,
+                  height: r.height,
+                });
+                setListOptionsMenuDeleteType(conversationTypeForDelete);
+                setListOptionsMenuConversationId(cid);
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = yellowStripHover;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = yellowStrip;
+              }}
+            >
+              <MoreVert sx={{ color: 'var(--blue-dark)', fontSize: 22 }} />
+            </button>
+          </div>
+        </div>
+        {optionsMenuPortal}
+      </>
+    );
   };
 
   /**
@@ -2651,10 +2637,13 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
       return conv.type === 'privada' || conv.type === 'direct';
     });
 
-    // Ordenar por última mensagem (mais recente primeiro)
+    // Ordenar: fixadas primeiro; depois por última mensagem (mais recente primeiro)
     const sortedConversations = [...filteredConversations].sort((a, b) => {
-      // Ordenar por última mensagem (mais recente primeiro)
-      // Usar lastMessageAt primeiro, depois lastMessage.timestamp, depois updatedAt/createdAt
+      const idA = String(a.conversationId || a.Id);
+      const idB = String(b.conversationId || b.Id);
+      const pinA = pinnedConversationIds.has(idA) ? 1 : 0;
+      const pinB = pinnedConversationIds.has(idB) ? 1 : 0;
+      if (pinA !== pinB) return pinB - pinA;
       const timeA = a.lastMessageAt || a.lastMessage?.timestamp || a.updatedAt || a.createdAt || 0;
       const timeB = b.lastMessageAt || b.lastMessage?.timestamp || b.updatedAt || b.createdAt || 0;
       const dateA = timeA instanceof Date ? timeA : new Date(timeA);
@@ -2769,35 +2758,37 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
                     className="p-3 rounded-lg mb-2 flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity relative group"
                     style={{
                       border: unreadCount > 0 
-                        ? '2px solid #ef4444' // vermelho para mensagens não lidas
+                        ? '1px solid #ef4444' // vermelho para mensagens não lidas (contorno mais fino)
                         : `1px solid ${colors.border}`, // cor de status normal
                       backgroundColor: salaBackground,
-                      borderRadius: '8px',
+                      borderRadius: 'var(--velohub-radius-card)',
                       opacity: isP2P && isOffline ? 0.6 : 1,
-                      overflow: 'hidden', // Garantir que expansão vermelha não ultrapasse bordas
+                      overflow: 'visible', // Menu ⋮ abre acima da faixa; não usar hidden (corta o dropdown)
                       position: 'relative'
                     }}
                     onMouseMove={(e) => {
                       const rect = e.currentTarget.getBoundingClientRect();
                       const mouseX = e.clientX - rect.left;
                       const cardWidth = rect.width;
-                      // Se mouse está nos últimos 60px da margem direita, expandir zona vermelha
+                      const cidKey = String(conversationId);
+                      const menuOpenHere = listOptionsMenuConversationId === cidKey;
+                      const inStrip = mouseX > cardWidth - VELOCHAT_LIST_ACTIONS_STRIP_W_PX;
                       const deleteZone = e.currentTarget.querySelector('.delete-zone');
-                      if (deleteZone && mouseX > cardWidth - 60) {
-                        const button = deleteZone.querySelector('button');
-                        if (button) {
-                          button.style.width = '60px';
+                      const button = deleteZone?.querySelector('button.velochat-card-actions-trigger');
+                      if (button) {
+                        if (inStrip || menuOpenHere) {
+                          button.style.width = `${VELOCHAT_LIST_ACTIONS_STRIP_W_PX}px`;
+                        } else {
+                          button.style.width = '0';
                         }
                       }
                     }}
                     onMouseLeave={(e) => {
+                      const cidKey = String(conversationId);
+                      if (listOptionsMenuConversationId === cidKey) return;
                       const deleteZone = e.currentTarget.querySelector('.delete-zone');
-                      if (deleteZone) {
-                        const button = deleteZone.querySelector('button');
-                        if (button) {
-                          button.style.width = '0';
-                        }
-                      }
+                      const button = deleteZone?.querySelector('button.velochat-card-actions-trigger');
+                      if (button) button.style.width = '0';
                     }}
                   >
                     {isP2P && otherMember && (
@@ -2813,6 +2804,9 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
                     )}
                     <div style={{ flex: 1, opacity: isP2P && isOffline ? 0.6 : 1 }}>
                       <div className="flex items-center gap-2">
+                        {pinnedConversationIds.has(String(conversationId)) && (
+                          <PushPin sx={{ fontSize: 16, color: !isP2P && conv.type === 'sala' ? '#1634FF' : 'var(--blue-dark)', flexShrink: 0 }} titleAccess="Fixada" />
+                        )}
                         <div className="font-semibold" style={{ color: !isP2P && conv.type === 'sala' ? '#1634FF' : 'var(--blue-dark)' }}>
                           {isP2P
                             ? (otherMember?.userName || conversationName || 'Conversa P2P')
@@ -2921,40 +2915,8 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
                         )}
                       </div>
                     </div>
-                    {/* Botão de remover conversa com expansão vermelha (P2P e Salas) */}
-                      <div className="delete-zone absolute top-0 right-0 h-full" style={{ zIndex: 20 }}>
-                        <button
-                        onClick={(e) => handleCloseConversation(conversationId, e, conv.type)}
-                          className="h-full flex items-center justify-center cursor-pointer absolute top-0 right-0"
-                          style={{
-                            backgroundColor: '#ef4444',
-                            color: '#ffffff',
-                            fontSize: '24px',
-                            fontWeight: 'bold',
-                            borderTopRightRadius: '8px',
-                            borderBottomRightRadius: '8px',
-                            transition: 'width 0.3s ease-out, background-color 0.2s',
-                            width: '0',
-                            overflow: 'hidden',
-                            minWidth: '0',
-                            whiteSpace: 'nowrap',
-                            lineHeight: '1',
-                            letterSpacing: '-2px',
-                            transform: 'scaleY(1.3)'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = '#dc2626';
-                            e.currentTarget.style.width = '60px';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = '#ef4444';
-                            e.currentTarget.style.width = '0';
-                          }}
-                          title="Remover conversa"
-                        >
-                          ×
-                        </button>
-                      </div>
+                    {/* ⋮ retrátil: Fixar / Excluir */}
+                    {renderChatCardOptionsStrip(conversationId, conv.type)}
                   </div>
                 );
               })}
@@ -2984,7 +2946,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
           <button
             onClick={loadContacts}
             className="px-4 py-2 bg-blue-medium text-white rounded hover:bg-blue-dark"
-            style={{ borderRadius: '8px' }}
+            style={{ borderRadius: 'var(--velohub-radius-card)' }}
           >
             Tentar Novamente
           </button>
@@ -3053,7 +3015,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
                     style={{
                       border: `1px solid ${colors.border}`,
                       backgroundColor: colors.bg,
-                      borderRadius: '8px',
+                      borderRadius: 'var(--velohub-radius-card)',
                       opacity: isOffline ? 0.6 : 1
                     }}
                   >
@@ -3091,8 +3053,13 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
     // Filtrar apenas salas (type === 'sala')
     const salas = conversations.filter(conv => conv.type === 'sala');
 
-    // Ordenar por última mensagem (mais recente primeiro)
+    // Ordenar: fixadas primeiro; depois por última mensagem (mais recente primeiro)
     const sortedSalas = [...salas].sort((a, b) => {
+      const idA = String(a.conversationId || a.Id);
+      const idB = String(b.conversationId || b.Id);
+      const pinA = pinnedConversationIds.has(idA) ? 1 : 0;
+      const pinB = pinnedConversationIds.has(idB) ? 1 : 0;
+      if (pinA !== pinB) return pinB - pinA;
       if (a.lastMessage && b.lastMessage) {
         return new Date(b.lastMessage.timestamp) - new Date(a.lastMessage.timestamp);
       }
@@ -3113,7 +3080,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
             style={{ 
               background: 'transparent',
               border: '1.5px solid #1634FF',
-              borderRadius: '8px',
+              borderRadius: 'var(--velohub-radius-card)',
               padding: '6px 12px',
               color: '#1634FF',
               width: 'auto',
@@ -3152,38 +3119,43 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
                     className="p-3 rounded-lg mb-2 flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity relative group"
                     style={{
                       border: unreadCount > 0 
-                        ? '2px solid #ef4444' // vermelho para mensagens não lidas
+                        ? '1px solid #ef4444' // vermelho para mensagens não lidas (contorno mais fino)
                         : '1px solid var(--blue-opaque)', // cor normal
                       backgroundColor: salaBackground,
-                      borderRadius: '8px',
-                      overflow: 'hidden',
+                      borderRadius: 'var(--velohub-radius-card)',
+                      overflow: 'visible',
                       position: 'relative'
                     }}
                     onMouseMove={(e) => {
                       const rect = e.currentTarget.getBoundingClientRect();
                       const mouseX = e.clientX - rect.left;
                       const cardWidth = rect.width;
-                      // Se mouse está nos últimos 60px da margem direita, expandir zona vermelha
+                      const cidKey = String(salaId);
+                      const menuOpenHere = listOptionsMenuConversationId === cidKey;
+                      const inStrip = mouseX > cardWidth - VELOCHAT_LIST_ACTIONS_STRIP_W_PX;
                       const deleteZone = e.currentTarget.querySelector('.delete-zone');
-                      if (deleteZone && mouseX > cardWidth - 60) {
-                        const button = deleteZone.querySelector('button');
-                        if (button) {
-                          button.style.width = '60px';
-                        }
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      const deleteZone = e.currentTarget.querySelector('.delete-zone');
-                      if (deleteZone) {
-                        const button = deleteZone.querySelector('button');
-                        if (button) {
+                      const button = deleteZone?.querySelector('button.velochat-card-actions-trigger');
+                      if (button) {
+                        if (inStrip || menuOpenHere) {
+                          button.style.width = `${VELOCHAT_LIST_ACTIONS_STRIP_W_PX}px`;
+                        } else {
                           button.style.width = '0';
                         }
                       }
                     }}
+                    onMouseLeave={(e) => {
+                      const cidKey = String(salaId);
+                      if (listOptionsMenuConversationId === cidKey) return;
+                      const deleteZone = e.currentTarget.querySelector('.delete-zone');
+                      const button = deleteZone?.querySelector('button.velochat-card-actions-trigger');
+                      if (button) button.style.width = '0';
+                    }}
                   >
                     <div style={{ flex: 1 }}>
                       <div className="flex items-center gap-2">
+                        {pinnedConversationIds.has(String(salaId)) && (
+                          <PushPin sx={{ fontSize: 16, color: '#1634FF', flexShrink: 0 }} titleAccess="Fixada" />
+                        )}
                         <div className="font-semibold" style={{ color: '#1634FF' }}>
                           {salaNome}
                         </div>
@@ -3269,40 +3241,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
                         )}
                       </div>
                     </div>
-                    {/* Botão de remover sala com expansão vermelha */}
-                    <div className="delete-zone absolute top-0 right-0 h-full" style={{ zIndex: 20 }}>
-                      <button
-                        onClick={(e) => handleCloseConversation(salaId, e, 'sala')}
-                        className="h-full flex items-center justify-center cursor-pointer absolute top-0 right-0"
-                        style={{
-                          backgroundColor: '#ef4444',
-                          color: '#ffffff',
-                          fontSize: '24px',
-                          fontWeight: 'bold',
-                          borderTopRightRadius: '8px',
-                          borderBottomRightRadius: '8px',
-                          transition: 'width 0.3s ease-out, background-color 0.2s',
-                          width: '0',
-                          overflow: 'hidden',
-                          minWidth: '0',
-                          whiteSpace: 'nowrap',
-                          lineHeight: '1',
-                          letterSpacing: '-2px',
-                          transform: 'scaleY(1.3)'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = '#dc2626';
-                          e.currentTarget.style.width = '60px';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = '#ef4444';
-                          e.currentTarget.style.width = '0';
-                        }}
-                        title="Remover sala"
-                      >
-                        ×
-                      </button>
-                    </div>
+                    {renderChatCardOptionsStrip(salaId, 'sala')}
                   </div>
                 );
               })}
@@ -3426,20 +3365,19 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
           <div className="flex-1 overflow-y-auto p-4">
             {/* Campo Nome da Sala */}
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--blue-dark)' }}>
-                Nome da Sala
-              </label>
-              <input
-                type="text"
-                value={roomName}
-                onChange={(e) => setRoomName(e.target.value)}
-                placeholder="Digite o nome da sala..."
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-medium"
-                style={{
-                  borderColor: 'var(--blue-opaque)',
-                  borderRadius: '8px'
-                }}
-              />
+              <FloatingLabelField id="velochat-create-room-nome" label="Nome da Sala" value={roomName}>
+                <input
+                  type="text"
+                  value={roomName}
+                  onChange={(e) => setRoomName(e.target.value)}
+                  placeholder="Digite o nome da sala..."
+                  className="w-full px-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-medium"
+                  style={{
+                    borderColor: 'var(--blue-opaque)',
+                    borderRadius: 'var(--velohub-radius-card)'
+                  }}
+                />
+              </FloatingLabelField>
             </div>
 
             {/* Checkbox bloqueioAdm */}
@@ -3463,24 +3401,26 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
 
             {/* Lista de Contatos */}
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--blue-dark)' }}>
+              <p className="text-sm font-medium mb-2" style={{ color: 'var(--blue-dark)' }}>
                 Participantes ({selectedContacts.length} selecionado{selectedContacts.length !== 1 ? 's' : ''})
-              </label>
-              
+              </p>
+
               {/* Barra de Busca */}
               <div className="mb-3">
-                <input
-                  type="text"
-                  value={roomSearchQuery}
-                  onChange={(e) => setRoomSearchQuery(e.target.value)}
-                  placeholder="Buscar usuários por nome ou email..."
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-medium"
-                  style={{
-                    borderColor: 'var(--blue-opaque)',
-                    borderRadius: '8px',
-                    fontSize: '14px'
-                  }}
-                />
+                <FloatingLabelField id="velochat-create-room-busca" label="Buscar usuários" value={roomSearchQuery}>
+                  <input
+                    type="text"
+                    value={roomSearchQuery}
+                    onChange={(e) => setRoomSearchQuery(e.target.value)}
+                    placeholder="Nome ou e-mail..."
+                    className="w-full px-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-medium"
+                    style={{
+                      borderColor: 'var(--blue-opaque)',
+                      borderRadius: 'var(--velohub-radius-card)',
+                      fontSize: '14px'
+                    }}
+                  />
+                </FloatingLabelField>
               </div>
 
               <div className="border rounded-lg max-h-64 overflow-y-auto" style={{ borderColor: 'var(--blue-opaque)' }}>
@@ -3570,7 +3510,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
               className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               style={{
                 borderColor: 'var(--blue-opaque)',
-                borderRadius: '8px'
+                borderRadius: 'var(--velohub-radius-card)'
               }}
             >
               Cancelar
@@ -3582,7 +3522,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
               style={{ 
                 background: 'transparent',
                 border: '1.5px solid #1634FF',
-                borderRadius: '8px',
+                borderRadius: 'var(--velohub-radius-card)',
                 padding: '6px 12px',
                 color: '#1634FF',
                 fontSize: '14px',
@@ -3747,23 +3687,22 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {/* Campo Nome da Sala */}
             <div>
-              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--blue-dark)' }}>
-                Nome da Sala
-              </label>
-              <input
-                type="text"
-                value={currentSalaNome}
-                onChange={(e) => {
-                  setSalaNomeEdit(e.target.value);
-                }}
-                disabled={!canEdit}
-                onBlur={canEdit ? handleUpdateNome : undefined}
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-medium disabled:bg-gray-100 disabled:cursor-not-allowed"
-                style={{
-                  borderColor: 'var(--blue-opaque)',
-                  borderRadius: '8px'
-                }}
-              />
+              <FloatingLabelField id="velochat-manage-room-nome" label="Nome da Sala" value={currentSalaNome}>
+                <input
+                  type="text"
+                  value={currentSalaNome}
+                  onChange={(e) => {
+                    setSalaNomeEdit(e.target.value);
+                  }}
+                  disabled={!canEdit}
+                  onBlur={canEdit ? handleUpdateNome : undefined}
+                  className="w-full px-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-medium disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  style={{
+                    borderColor: 'var(--blue-opaque)',
+                    borderRadius: 'var(--velohub-radius-card)'
+                  }}
+                />
+              </FloatingLabelField>
               {!canEdit && (
                 <p className="text-xs text-gray-500 mt-1">
                   Apenas o criador pode editar quando o bloqueio administrativo está ativo
@@ -3891,7 +3830,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
               className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               style={{
                 borderColor: 'var(--blue-opaque)',
-                borderRadius: '8px'
+                borderRadius: 'var(--velohub-radius-card)'
               }}
             >
               Fechar
@@ -3900,7 +3839,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
               onClick={handleLeaveSala}
               disabled={manageLoading}
               className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              style={{ borderRadius: '8px' }}
+              style={{ borderRadius: 'var(--velohub-radius-card)' }}
             >
               {manageLoading ? 'Saindo...' : bloqueioAdm && !isCreator ? 'Sair do Grupo' : 'Sair da Sala'}
             </button>
@@ -3970,7 +3909,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
         <div
           className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl max-h-[90vh] w-full mx-4 flex flex-col"
           onClick={(e) => e.stopPropagation()}
-          style={{ borderRadius: '12px' }}
+          style={{ borderRadius: 'var(--velohub-radius-container)' }}
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
@@ -4022,7 +3961,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
                   src={selectedAttachment.url}
                   alt={selectedAttachment.name || 'Imagem'}
                   className="max-w-full max-h-[70vh] object-contain rounded-lg"
-                  style={{ borderRadius: '8px' }}
+                  style={{ borderRadius: 'var(--velohub-radius-card)' }}
                   onError={(e) => {
                     e.target.style.display = 'none';
                     const parent = e.target.parentElement;
@@ -4051,7 +3990,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
                   src={selectedAttachment.url}
                   controls
                   className="max-w-full max-h-[70vh] rounded-lg"
-                  style={{ borderRadius: '8px' }}
+                  style={{ borderRadius: 'var(--velohub-radius-card)' }}
                   onError={(e) => {
                     const video = e.target;
                     video.style.display = 'none';
@@ -4097,7 +4036,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
                   style={{
                     background: 'var(--blue-opaque)',
                     color: 'white',
-                    borderRadius: '8px'
+                    borderRadius: 'var(--velohub-radius-card)'
                   }}
                 >
                   <Download style={{ fontSize: '20px' }} />
@@ -4262,7 +4201,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
                   backgroundColor: selectedConversation.type === 'sala'
                     ? 'rgba(22, 148, 255, 0.15)'
                     : colors.bg,
-                  borderRadius: '16px',
+                  borderRadius: 'var(--velohub-radius-container)',
                   cursor: selectedConversation.type === 'sala' ? 'pointer' : 'default',
                   overflow: 'hidden',
               minWidth: 0,
@@ -4401,7 +4340,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
               right: '-8px', // movido mais para a direita, ultrapassando borda
               top: '50%',
               transform: 'translateY(-50%)',
-                borderRadius: '8px',
+                borderRadius: 'var(--velohub-radius-card)',
                 minWidth: '32px',
                 height: '32px',
                 display: 'flex',
@@ -4428,7 +4367,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
                 right: '-8px',
                 top: 'calc(50% + 20px)',
                   minWidth: '150px',
-                  borderRadius: '8px',
+                  borderRadius: 'var(--velohub-radius-card)',
                   border: '1px solid var(--blue-dark)'
                 }}
               >
@@ -4443,7 +4382,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
                     }, 0);
                   }}
                   className="w-full text-left px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                  style={{ borderRadius: '6px' }}
+                  style={{ borderRadius: 'var(--velohub-radius-btn-rect)' }}
                 >
                   <Image style={{ fontSize: '20px', color: isDarkMode() ? 'var(--blue-light)' : 'var(--blue-dark)' }} />
                   <span>Imagem</span>
@@ -4459,7 +4398,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
                     }, 0);
                   }}
                   className="w-full text-left px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                  style={{ borderRadius: '6px' }}
+                  style={{ borderRadius: 'var(--velohub-radius-btn-rect)' }}
                 >
                   <Videocam style={{ fontSize: '20px', color: isDarkMode() ? 'var(--blue-light)' : 'var(--blue-dark)' }} />
                   <span>Vídeo</span>
@@ -4475,7 +4414,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
                     }, 0);
                   }}
                   className="w-full text-left px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                  style={{ borderRadius: '6px' }}
+                  style={{ borderRadius: 'var(--velohub-radius-btn-rect)' }}
                 >
                   <InsertDriveFile style={{ fontSize: '20px', color: isDarkMode() ? 'var(--blue-light)' : 'var(--blue-dark)' }} />
                   <span>Arquivo</span>
@@ -4632,7 +4571,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
                   <div
                     className={`${msg.mediaUrl ? 'max-w-fit' : 'max-w-[90%]'} p-2 rounded-lg`}
                     style={{
-                      borderRadius: '8px',
+                      borderRadius: 'var(--velohub-radius-card)',
                       // Mensagem enviada (usuário atual)
                       ...(isCurrentUser ? {
                         backgroundColor: 'rgb(229, 231, 235)', // cinza (gray-200)
@@ -4665,7 +4604,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
                           className="w-full p-2 border rounded"
                           style={{
                             borderColor: 'var(--blue-opaque)',
-                            borderRadius: '4px',
+                            borderRadius: 'var(--velohub-radius-container)',
                             resize: 'vertical',
                             minHeight: '60px'
                           }}
@@ -4734,7 +4673,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
                                 minHeight: '150px',
                                 maxHeight: '300px',
                                 border: '1px solid var(--blue-opaque)',
-                                borderRadius: '8px'
+                                borderRadius: 'var(--velohub-radius-card)'
                               }}
                               onClick={(e) => {
                                 try {
@@ -4883,7 +4822,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
                               className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                               style={{ 
                                 border: '1px solid var(--blue-opaque)',
-                                borderRadius: '8px',
+                                borderRadius: 'var(--velohub-radius-card)',
                                 maxWidth: '200px'
                               }}
                             >
@@ -4960,7 +4899,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
                               className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                               style={{ 
                                 border: '1px solid var(--blue-opaque)',
-                                borderRadius: '8px',
+                                borderRadius: 'var(--velohub-radius-card)',
                                 maxWidth: '200px'
                               }}
                             >
@@ -5100,7 +5039,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
               className="mb-2 rounded-lg flex items-center gap-2 px-3 py-2"
               style={{
                 backgroundColor: 'var(--blue-opaque)', // #006AB9
-                borderRadius: '8px',
+                borderRadius: 'var(--velohub-radius-card)',
                 border: '1px solid var(--blue-dark)'
               }}
             >
@@ -5154,7 +5093,7 @@ const VeloChatWidget = ({ activeTab = 'conversations', searchQuery = '', refresh
             className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-medium resize-none"
             style={{
               borderColor: 'var(--blue-opaque)',
-              borderRadius: '8px',
+              borderRadius: 'var(--velohub-radius-card)',
               minHeight: '60px',
               maxHeight: '120px',
               boxSizing: 'border-box',

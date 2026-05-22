@@ -1,10 +1,11 @@
 /**
  * VeloHub V3 - Escalações MongoDB Indexes
- * VERSION: v1.0.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.2 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ *
  * Branch: escalacoes
- * 
- * Função para criar índices MongoDB para otimização de performance
- * no módulo Escalações
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.0.1: Removida criação de índices em logs_uso (coleção não alimentada pela app)
  */
 
 /**
@@ -50,16 +51,6 @@ async function createEscalacoesIndexes(client, connectToMongo) {
     
     console.log('[INDEXES] Índices de erros_bugs criados com sucesso');
 
-    // Collection: logs_uso
-    const logsCollection = db.collection('logs_uso');
-    
-    console.log('[INDEXES] Criando índices para logs_uso...');
-    
-    await logsCollection.createIndex({ userEmail: 1, createdAt: -1 }, { background: true, name: 'idx_userEmail_createdAt' });
-    await logsCollection.createIndex({ createdAt: -1 }, { background: true, name: 'idx_createdAt' });
-    
-    console.log('[INDEXES] Índices de logs_uso criados com sucesso');
-    
     console.log('[INDEXES] Todos os índices do módulo Escalações foram criados com sucesso!');
   } catch (error) {
     console.error('[INDEXES] Erro ao criar índices:', error);

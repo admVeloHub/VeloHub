@@ -1,14 +1,9 @@
 /**
  * VeloHub V3 - Middleware de Verificação de Acesso ao Módulo Ouvidoria
- * VERSION: v2.0.0 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v2.0.0:
- * - Simplificado para usar apenas a sessão ativa (usuário já está logado)
- * - Captura nome do usuário diretamente da sessão hub_sessions
- * - Removida busca no banco qualidade_funcionarios (usuário já passou pela verificação ao acessar Velohub)
- * 
- * Middleware que verifica se o usuário tem acesso ao módulo Ouvidoria
- * Como o usuário já está logado e visualizando o módulo, confiamos na sessão ativa
+ * VERSION: v2.0.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v2.0.0: Simplificado para usar apenas a sessão ativa (usuário já está logado)
  */
 
 /**

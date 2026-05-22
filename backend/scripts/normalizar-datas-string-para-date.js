@@ -1,36 +1,30 @@
 /**
  * Script de Migração: Converter campos de data STRING → Date
- * VERSION: v1.1.0 | DATE: 2026-03-05 | AUTHOR: VeloHub Development Team
-(function loadVelohubFonteEnv(here) {
-  const path = require('path');
-  const fs = require('fs');
-  let d = here;
-  for (let i = 0; i < 14; i++) {
-    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
-    if (fs.existsSync(loader)) {
-      require(loader).loadFrom(here);
-      return;
-    }
-    const parent = path.dirname(d);
-    if (parent === d) break;
-    d = parent;
-  }
-})(__dirname);
-
+ * VERSION: v1.1.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
  *
- * Mudanças v1.1.0:
- * - reclamacoes_n2Pix: removidos dataEntrada e dataEntradaAtendimento (schema: apenas dataEntradaN2)
+ * (function loadVelohubFonteEnv(here) {
+ *   const path = require('path');
+ *   const fs = require('fs');
+ *   let d = here;
+ *   for (let i = 0; i < 14; i++) {
+ *     const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
+ *     if (fs.existsSync(loader)) {
+ *       require(loader).loadFrom(here);
+ *       return;
+ *     }
+ *     const parent = path.dirname(d);
+ *     if (parent === d) break;
+ *     d = parent;
+ *   }
+ * })(__dirname);
  *
- * Converte campos de data armazenados como string (YYYY-MM-DD) para Date
- * em todas as collections de reclamações do hub_ouvidoria.
- *
- * Uso:
- *   node backend/scripts/normalizar-datas-string-para-date.js [--dry-run]
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.1.0: reclamacoes_n2Pix: removidos dataEntrada e dataEntradaAtendimento (schema: apenas dataEntradaN2)
  */
 
 const { MongoClient } = require('mongodb');
 
-const MONGODB_URI = process.env.MONGO_ENV || 'mongodb+srv://lucasgravina:nKQu8bSN6iZl8FPo@velohubcentral.od7vwts.mongodb.net/?retryWrites=true&w=majority&appName=VelohubCentral';
+const { MONGODB_URI } = require('./loadMongoUri');
 const DATABASE_NAME = 'hub_ouvidoria';
 
 const DRY_RUN = process.argv.includes('--dry-run');

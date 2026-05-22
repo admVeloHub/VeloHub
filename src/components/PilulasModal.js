@@ -1,23 +1,14 @@
 /**
  * VeloHub V3 - PilulasModal Component
- * VERSION: v1.1.0 | DATE: 2025-02-20 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v1.1.0:
- * - Adicionada funcionalidade de expansão ao clicar na pílula
- * - Modal expandido centralizado com overlay escuro
- * - Botão de fechamento no modal expandido
- * - Mantém proporção da imagem ao expandir
- * 
- * Componente que exibe pílulas (imagens) na parte inferior esquerda da tela a cada 20 minutos.
- * - Timer de 20 minutos entre exibições
- * - Animação de subida do rodapé
- * - Exibição por 10 segundos
- * - Animação de descida
- * - Clicável para expandir em modal maior
- * - Modal posicionado no canto esquerdo inferior
+ * VERSION: v1.2.0 | DATE: 2026-05-21 | AUTHOR: VeloHub Development Team
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.1.0: Adicionada funcionalidade de expansão ao clicar na pílula
+ * - v1.2.0: Ícone para fechar a pílula antes do fim do tempo de exibição
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { X } from 'lucide-react';
 import { API_BASE_URL } from '../config/api-config';
 
 const PilulasModal = () => {
@@ -185,6 +176,37 @@ const PilulasModal = () => {
     }
   };
 
+  const clearPilulaTimers = () => {
+    if (visibleTimeoutRef.current) {
+      clearTimeout(visibleTimeoutRef.current);
+      visibleTimeoutRef.current = null;
+    }
+    if (animationTimeoutRef.current) {
+      clearTimeout(animationTimeoutRef.current);
+      animationTimeoutRef.current = null;
+    }
+  };
+
+  const dismissPilula = () => {
+    clearPilulaTimers();
+    setIsExpanded(false);
+    isExpandedRef.current = false;
+    setAnimationState('sliding-down');
+
+    animationTimeoutRef.current = setTimeout(() => {
+      setAnimationState('hidden');
+      setCurrentImage(null);
+      setImageLoaded(false);
+      setIsExpanded(false);
+      isExpandedRef.current = false;
+    }, 500);
+  };
+
+  const handleDismiss = (event) => {
+    event?.stopPropagation?.();
+    dismissPilula();
+  };
+
   // Função para fechar modal expandido
   const handleCloseExpanded = () => {
     setIsExpanded(false);
@@ -282,7 +304,7 @@ const PilulasModal = () => {
                 height: 'auto',
                 objectFit: 'contain',
                 display: imageLoaded ? 'block' : 'none',
-                borderRadius: '8px'
+                borderRadius: 'var(--velohub-radius-card)'
               }}
             />
             {!imageLoaded && (
@@ -295,7 +317,7 @@ const PilulasModal = () => {
                 justifyContent: 'center',
                 backgroundColor: 'var(--cor-container)',
                 color: 'var(--cor-texto-principal)',
-                borderRadius: '8px'
+                borderRadius: 'var(--velohub-radius-card)'
               }}>
                 Carregando...
               </div>
@@ -316,7 +338,7 @@ const PilulasModal = () => {
                 maxHeight: 'calc(100vh - 40px)',
                 objectFit: 'contain',
                 display: imageLoaded ? 'block' : 'none',
-                borderRadius: '8px'
+                borderRadius: 'var(--velohub-radius-card)'
               }}
             />
           </div>
@@ -329,10 +351,20 @@ const PilulasModal = () => {
   return (
     <div className={getAnimationClass()} style={{ pointerEvents: animationState === 'visible' ? 'auto' : 'none' }}>
       <div 
-        className="pilulas-modal-content"
+        className="pilulas-modal-content pilulas-modal-content--dismissible"
         onClick={handleExpand}
         style={{ cursor: animationState === 'visible' && imageLoaded ? 'pointer' : 'default' }}
       >
+        {animationState === 'visible' && imageLoaded && (
+          <button
+            type="button"
+            onClick={handleDismiss}
+            className="pilulas-modal-close"
+            aria-label="Fechar"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        )}
         <img
           src={imageUrl}
           alt="Pílula VeloHub"
@@ -351,7 +383,7 @@ const PilulasModal = () => {
             maxHeight: 'calc(100vh - 40px)',
             objectFit: 'contain',
             display: imageLoaded ? 'block' : 'none',
-            borderRadius: '8px'
+            borderRadius: 'var(--velohub-radius-card)'
           }}
         />
         {!imageLoaded && (
@@ -364,7 +396,7 @@ const PilulasModal = () => {
             justifyContent: 'center',
             backgroundColor: 'var(--cor-container)',
             color: 'var(--cor-texto-principal)',
-            borderRadius: '8px'
+            borderRadius: 'var(--velohub-radius-card)'
           }}>
             Carregando...
           </div>

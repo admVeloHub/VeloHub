@@ -1,23 +1,34 @@
 /**
  * VeloHub V3 - Main Styles
- * VERSION: v1.2.6 | DATE: 2026-02-20 | AUTHOR: VeloHub Development Team
- * 
- * Mudanças v1.2.6:
- * - CORRIGIDO container-secondary: limitado ao tamanho do frame (width: 100%, max-width: 100%, box-sizing: border-box)
- * - Adicionado overflow: hidden no container-secondary para evitar vazamento horizontal
- * - Container agora respeita limites do viewport e não ultrapassa o frame
- * 
- * Mudanças v1.2.5:
- * - Adicionadas classes CSS específicas para modal velonews (.velonews-modal-overlay e .velonews-modal-content) com z-index máximo (2147483647) e !important
- * - Overlay: cobre toda tela, padding-top 72px (abaixo do header), background escuro
- * - Conteúdo: altura limitada (calc(100vh - 72px - 32px)), max-width 56rem, flex column, overflow hidden no container
- * - Conteúdo interno tem overflow-y-auto para scroll quando necessário
+ * VERSION: v1.5.0 | DATE: 2026-05-21 | AUTHOR: VeloHub Development Team
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.5.0: Checkboxes — margem à direita 1,5px (espaço antes do rótulo)
+ * - v1.4.9: Checkboxes — +30% tamanho; border-radius 2,5px
+ * - v1.4.8: Checkboxes — appearance none + quinas 1,5px visíveis (nativo ignora só border-radius)
+ * - v1.4.7: Checkboxes nativas — border-radius 1,5px (global)
+ * - v1.2.6: CORRIGIDO container-secondary: limitado ao tamanho do frame (width: 100%, max-width: 100%, box-sizing: border-box)
+ * - v1.2.5: Adicionadas classes CSS específicas para modal velonews (.velonews-modal-overlay e .velonews-modal-content) com z-index máximo (2147483647) e !important
  */
 
 /* ============================================= */
 /* == PALETA OFICIAL DE CORES VELOHUB == */
 /* ============================================= */
 :root {
+  /* Referência visual “ideal” portal: 1920×1080 — escala tipografia proporcional a min(vw,w/h) */
+  --velohub-ref-width: 1920;
+  --velohub-ref-height: 1080;
+  /* Base referência (16:9 ~1920×1080); perfil denso em @media abaixo usa --velohub-font-base-dense-px */
+  --velohub-font-base-px: 16;
+  --velohub-font-base-dense-px: 10.65;
+  --velohub-font-clamp-min: 12px;
+  --velohub-font-clamp-max: 29px;
+  --velohub-font-clamp-min-dense: 10px;
+  --velohub-font-clamp-max-dense: 20px;
+  /* Monitores / TV alta resolução (ver @media «grande ecrã») */
+  --velohub-font-base-large-px: 18;
+  --velohub-font-clamp-max-large: 34px;
+
   /* CORES PRINCIPAIS */
   --white: #F3F7FC;        /* Tom de branco */
   --gray: #272A30;         /* Cinza */
@@ -29,6 +40,17 @@
   --blue-opaque: #006AB9;  /* Azul Opaco */
   --yellow: #FCC200;       /* Amarelo */
   --green: #15A237;        /* Verde */
+
+  /* Cantos padronizados (layout revisão maio 2026) */
+  --velohub-radius-container: 4px;
+  --velohub-radius-card: 5px;
+  --velohub-radius-btn-rect: 3.5px;
+
+  /* Header (~15% mais baixo vs legado 72px + 9.6px padding) */
+  --velohub-header-max-height: 61px;
+  --velohub-header-padding-y: 8px;
+  /* Toasts/portais fixos logo abaixo do header (legado comum 80px × 0.85) */
+  --velohub-header-offset-portal: 68px;
 }
 
 /* ============================================= */
@@ -62,10 +84,74 @@
 }
 
 /* ============================================= */
-/* == REDIMENSIONAMENTO BASE PARA 100% = 80% == */
+/* == TIPOGRAFIA BASE — proporcional à referência 1920×1080 == */
 /* ============================================= */
 html {
-  font-size: 80%; /* Reduz font-size base de 16px para 12.8px (afeta rem/em) */
+  font-size: clamp(
+    var(--velohub-font-clamp-min),
+    min(
+      calc(100vw * var(--velohub-font-base-px) / var(--velohub-ref-width)),
+      calc(100vh * var(--velohub-font-base-px) / var(--velohub-ref-height))
+    ),
+    var(--velohub-font-clamp-max)
+  );
+}
+
+/*
+ * Conteúdo mais denso em portáteis / ecrãs mais «altos» que 16:9, sem alterar o look em 1920×1080 16:9.
+ * - max-aspect-ratio 16/10: ex. 1920×1200, 1440×900
+ * - max-width 1440px: notebooks estreitos / escala do SO
+ * - max-height 900px: painéis baixos (não dispara em 1080px de altura útil típica do monitor auxiliar)
+ */
+@media screen and (max-aspect-ratio: 16/10),
+  screen and (max-width: 1440px),
+  screen and (max-height: 900px) {
+  html {
+    font-size: clamp(
+      var(--velohub-font-clamp-min-dense),
+      min(
+        calc(100vw * var(--velohub-font-base-dense-px) / var(--velohub-ref-width)),
+        calc(100vh * var(--velohub-font-base-dense-px) / var(--velohub-ref-height))
+      ),
+      var(--velohub-font-clamp-max-dense)
+    );
+  }
+}
+
+/*
+ * Ecrãs grandes (4K, 1440p+, ultrawide): um degrau acima da referência — não aplica a 1920×1080 nem quando o perfil denso está ativo.
+ */
+@media screen and (min-width: 2560px),
+  screen and (min-height: 1440px) {
+  html {
+    font-size: clamp(
+      var(--velohub-font-clamp-min),
+      min(
+        calc(100vw * var(--velohub-font-base-large-px) / var(--velohub-ref-width)),
+        calc(100vh * var(--velohub-font-base-large-px) / var(--velohub-ref-height))
+      ),
+      var(--velohub-font-clamp-max-large)
+    );
+  }
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100dvh;
+  min-height: 100vh;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 @tailwind base;
@@ -89,7 +175,7 @@ html {
 /* Moldura para notícias críticas */
 .critical-news-frame {
   border: 1.6px solid #dc2626 !important;
-  border-radius: 9.6px !important;
+  border-radius: var(--velohub-radius-container) !important;
   background: linear-gradient(135deg, rgba(254, 242, 242, 0.85) 0%, rgba(254, 226, 226, 0.85) 100%) !important;
   padding: 12.8px !important;
   margin: 6.4px 0 !important;
@@ -128,18 +214,20 @@ html {
 /* Container principal */
 .velohub-container {
   background-color: var(--cor-container) !important;
+  border-radius: var(--velohub-radius-container);
 }
 
 /* Card padrão */
 .velohub-card {
   background-color: var(--cor-card) !important;
+  border-radius: var(--velohub-radius-card);
 }
 
 /* Container secundário */
 .container-secondary {
   background: transparent;
   border: 1.5px solid var(--blue-dark);
-  border-radius: 8px;
+  border-radius: var(--velohub-radius-container);
   padding: 16px;
   margin: 8px 0;
   box-shadow: none;
@@ -162,6 +250,13 @@ html {
 
 .dark .velohub-card {
   background-color: #323a42;
+}
+
+/* Botões HTML retangulares (Tailwind pode trazer rounded-lg/md; valores finais 3,5px) */
+button:not(.rounded-full):not(.rounded-none),
+input[type='button']:not(.rounded-full):not(.rounded-none),
+input[type='submit']:not(.rounded-full):not(.rounded-none) {
+  border-radius: var(--velohub-radius-btn-rect) !important;
 }
 
 
@@ -195,15 +290,16 @@ code {
 .velohub-header {
     background-color: var(--white) ;
     border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-    padding: 9.6px 0;
+    padding: var(--velohub-header-padding-y) 0;
     position: sticky;
     top: 0;
     z-index: 100;
-    max-height: 72px;
+    max-height: var(--velohub-header-max-height);
     overflow: hidden;
     width: 100%;
     box-shadow: 0 3.2px 9.6px rgba(0, 0, 0, 0.1);
     transition: all 0.3s ease;
+    flex-shrink: 0;
 }
 
 /* Header no tema escuro */
@@ -222,10 +318,10 @@ code {
     padding: 0 16px;
 }
 
-/* Logo */
+/* Logo — PNG VeloHub: alinhado à esquerda do contentor do header */
 .velohub-logo { 
     position: absolute;
-    left: 48px;
+    left: 15px;
     top: 60%;
     transform: translateY(-50%) scale(1.2);
     z-index: 10;
@@ -233,8 +329,8 @@ code {
 }
 
 .velohub-logo img {
-    width: 160px;
-    height: 44px;
+    width: 136px;
+    height: 37px;
     object-fit: contain;
     border-radius: 3.2px;
     transition: transform 0.3s ease;
@@ -252,8 +348,8 @@ code {
     gap: 16px;
     align-items: center;
     background-color: var(--cor-container);
-    padding: 6.4px 12.8px;
-    border-radius: 6.4px;
+    padding: 5px 11px;
+    border-radius: var(--velohub-radius-container);
     transition: background-color 0.3s ease;
 }
 
@@ -261,8 +357,8 @@ code {
     color: var(--gray);
     text-decoration: none;
     font-weight: 500;
-    padding: 8px 16px;
-    border-radius: 4.8px;
+    padding: 7px 14px;
+    border-radius: var(--velohub-radius-btn-rect);
     transition: all 0.3s ease;
     position: relative;
     background-color: transparent;
@@ -286,10 +382,10 @@ code {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6.4px 9.6px;
+    padding: 5px 8px;
     background-color: var(--cor-container);
     border: 1px solid rgba(0, 0, 0, 0.1);
-    border-radius: 16px;
+    border-radius: var(--velohub-radius-container);
     transition: all 0.3s ease;
     position: absolute;
     right: 56px;
@@ -303,8 +399,8 @@ code {
 }
 
 .user-avatar {
-    width: 25.6px;
-    height: 25.6px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
     object-fit: cover;
 }
@@ -321,7 +417,7 @@ code {
     color: var(--blue-dark);
     cursor: pointer;
     padding: 3.2px;
-    border-radius: 3.2px;
+    border-radius: var(--velohub-radius-btn-rect);
     transition: color 0.3s ease;
 }
 
@@ -337,9 +433,9 @@ code {
     top: 50%;
     transform: translateY(-50%);
     z-index: 10;
-    width: 32px;
-    height: 32px;
-    border-radius: 9.6px;
+    width: 27px;
+    height: 27px;
+    border-radius: var(--velohub-radius-container);
     background: #f0f4f8;
     border: 1px solid rgba(0, 0, 0, 0.1);
     display: flex;
@@ -394,29 +490,29 @@ code {
     }
     
     .velohub-logo {
-        left: 8px;
+        left: 15px;
     }
     
     .velohub-logo img {
-        width: 112px;
-        height: 32px;
+        width: 95px;
+        height: 27px;
     }
     
     .theme-switch-wrapper {
         right: 8px;
-        width: 28px;
-        height: 28px;
+        width: 24px;
+        height: 24px;
     }
     
     .nav-menu {
         gap: 8px;
-        padding: 4.8px 9.6px;
+        padding: 4px 8px;
         flex-wrap: wrap;
         justify-content: center;
     }
 
     .nav-link {
-        padding: 6.4px 9.6px;
+        padding: 5px 8px;
         font-size: 0.85rem;
     }
     
@@ -434,8 +530,8 @@ code {
     
     .theme-switch-wrapper {
         right: 8px;
-        width: 25.6px;
-        height: 25.6px;
+        width: 22px;
+        height: 22px;
     }
     
     .theme-icon {
@@ -451,8 +547,8 @@ code {
     }
     
     .velohub-logo img {
-        width: 96px;
-        height: 28px;
+        width: 82px;
+        height: 24px;
     }
 
     .nav-menu {
@@ -470,8 +566,8 @@ code {
     
     .theme-switch-wrapper {
         right: 4px;
-        width: 24px;
-        height: 24px;
+        width: 20px;
+        height: 20px;
     }
     
     .theme-icon {
@@ -541,6 +637,7 @@ code {
     height: 24px;
     display: flex;
     align-items: center;
+    flex-shrink: 0;
 }
 
 .footer-container {
@@ -606,7 +703,7 @@ code {
 .solved-news-frame {
   opacity: 1;
   border: 1.6px solid #4CAF50 !important;
-  border-radius: 9.6px !important;
+  border-radius: var(--velohub-radius-container) !important;
   background-color: rgba(76, 175, 80, 0.1);
   padding: 12.8px !important;
   margin: 6.4px 0 !important;
@@ -619,7 +716,7 @@ code {
   background: #4CAF50;
   color: white;
   padding: 3.2px 9.6px;
-  border-radius: 9.6px;
+  border-radius: var(--velohub-radius-btn-rect);
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -683,7 +780,7 @@ code {
 .pilulas-modal-content {
   background-color: var(--cor-container);
   border: 1px solid var(--cor-borda);
-  border-radius: 12px;
+  border-radius: var(--velohub-radius-container);
   padding: 0.5rem;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   display: flex;
@@ -693,6 +790,34 @@ code {
   height: auto;
   max-height: calc(100vh - 40px);
   overflow: hidden;
+}
+
+.pilulas-modal-content--dismissible {
+  position: relative;
+}
+
+.pilulas-modal-close {
+  position: absolute;
+  top: 0.375rem;
+  right: 0.375rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  border-radius: 9999px;
+  background-color: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.pilulas-modal-close:hover {
+  background-color: rgba(0, 0, 0, 0.65);
+  color: #fff;
 }
 
 .pilulas-modal-sliding-up {
@@ -733,4 +858,77 @@ code {
 .dark .pilulas-modal-content {
   background-color: var(--cor-container);
   border-color: var(--cor-borda);
+}
+
+/* ============================================= */
+/* == FloatingLabelField — data/hora vazia == */
+/* ============================================= */
+/* Rótulo “dentro”: sem texto fantasma do widget nativo (Chrome/Safari/Edge WebKit) */
+input.velohub-fl-datetime-collapsed::-webkit-datetime-edit,
+input.velohub-fl-datetime-collapsed::-webkit-datetime-edit-fields-wrapper {
+  color: transparent;
+}
+input.velohub-fl-datetime-collapsed:focus::-webkit-datetime-edit,
+input.velohub-fl-datetime-collapsed:focus::-webkit-datetime-edit-fields-wrapper {
+  color: inherit;
+}
+
+/* ============================================= */
+/* == Checkboxes nativas — quinas 2,5px == */
+/* ============================================= */
+/* O widget nativo do SO ignora border-radius; reset + desenho próprio. */
+input[type='checkbox'] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  width: 1.4625rem;
+  height: 1.4625rem;
+  min-width: 1.4625rem;
+  min-height: 1.4625rem;
+  margin: 0 1.5px 0 0;
+  border: 1px solid #9ca3af;
+  border-radius: 2.5px;
+  background-color: #ffffff;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  cursor: pointer;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+input[type='checkbox']:checked {
+  border-color: var(--blue-medium);
+  background-color: var(--blue-medium);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23F3F7FC'%3E%3Cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3E%3C/svg%3E");
+}
+
+input[type='checkbox']:focus-visible {
+  outline: 2px solid var(--blue-light);
+  outline-offset: 1px;
+}
+
+input[type='checkbox']:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.dark input[type='checkbox'] {
+  border-color: #6b7280;
+  background-color: #323a42;
+}
+
+.dark input[type='checkbox']:checked {
+  border-color: var(--blue-light);
+  background-color: var(--blue-medium);
+}
+
+/* Tailwind w-5 h-5 nos formulários (ex.: Ouvidoria) — base 1,25rem +30% */
+input[type='checkbox'].w-5,
+input[type='checkbox'].h-5 {
+  width: 1.625rem;
+  height: 1.625rem;
+  min-width: 1.625rem;
+  min-height: 1.625rem;
 }

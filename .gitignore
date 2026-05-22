@@ -40,3 +40,17 @@ Thumbs.db
 # Archived scripts (contain sensitive credentials)
 backend/scripts/archive/
 
+# Saídas locais de scripts (PII, relatórios gerados)
+backend/scripts/.local-output/
+backend/scripts/retidos-n2-2026.txt
+backend/relatorio_*.xlsx
+*.xlsx
+
+# Python bytecode
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# Cursor — logs de sessão de debug (podem conter PII)
+.cursor/debug-*.log
+

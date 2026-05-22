@@ -1,65 +1,55 @@
 /**
  * VeloHub V3 - Escalações API Routes - Erros/Bugs
- * VERSION: v1.9.0 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
- * Branch: main (recuperado de escalacoes)
- * 
- * Mudanças v1.9.0:
- * - POST /:id/reply — mesmo contrato que solicitações (N1/Produtos + cancelarSolicitacao); coleção erros_bugs
- * - GET / e GET /:id — normalização de reply[] (array vazio se ausente)
- * 
- * Mudanças v1.8.0:
- * - Adicionada normalização do campo replies em GET / e GET /:id para garantir que sempre seja array
- * - Campo replies agora é sempre inicializado como array vazio se não existir
- * - Adicionados logs de debug para rastrear replies nos erros/bugs
- * - Compatibilidade com funcionalidade de visualização de respostas do WhatsApp
- * 
- * Mudanças v1.7.0:
- * - Adicionado localhost:8090 à lista de origens CORS permitidas
- * - Melhorado tratamento de erros de conexão MongoDB (timeout, network errors)
- * - Criadas funções auxiliares isConnectionError() e handleError() para padronizar tratamento
- * - Erros de conexão agora retornam status 503 (Service Unavailable) ao invés de 500
- * - Mensagens de erro mais claras para problemas de conexão com o banco de dados
- * 
- * Mudanças v1.6.1:
- * - Adicionados headers CORS manualmente em todos os endpoints para garantir funcionamento correto
- * - Criada função auxiliar setCorsHeaders para padronizar headers CORS
- * 
- * Mudanças v1.6.0:
- * - Corrigido import do whatsappService para ser direto (igual à rota de solicitações)
- * - Adicionada verificação !waMessageId && mensagemTexto na condição de envio (igual à rota de solicitações)
- * - Removida verificação desnecessária if (!whatsappService) dentro do bloco
- * - Código agora segue o mesmo padrão da rota de solicitações que funciona corretamente
- * 
- * Mudanças v1.5.0:
- * - Corrigido erro de sintaxe no bloco try-catch do envio WhatsApp
- * - Adicionado tratamento de erro WhatsApp na resposta da API
- * - Adicionado aviso na resposta quando WhatsApp não está disponível
- * - Adicionados logs de instrumentação para debug
- * 
- * Mudanças v1.4.0:
- * - Corrigido extração de imagens: agora usa payload.imageData ao invés de payload.previews
- * - Imagens agora são extraídas dos dados completos em base64, não dos thumbnails
- * - Envio de imagens e vídeos via WhatsApp agora funciona corretamente
- * 
- * Mudanças v1.3.1:
- * - Corrigido mapeamento de status: ✅ (feito) e ❌/✖️/✖ (não feito) para consistência com frontend
- * 
- * Mudanças v1.3.0:
- * - Adicionado endpoint POST /auto-status para atualização automática via reações WhatsApp
- * - Suporte para reações ✅ (feito) e ❌/✖️/✖ (não feito)
+ * VERSION: v1.10.0 | DATE: 2026-05-20 | AUTHOR: VeloHub Development Team
  *
- * Rotas para gerenciamento de erros e bugs
- * 
- * Mudanças v1.2.0:
- * - Corrigida extração de vídeos do payload.videoData para envio via WhatsApp
- * - Suporte completo para envio de vídeos através do WhatsApp service
- * 
- * Mudanças v1.1.0:
- * - Integração com WhatsApp service para envio automático de mensagens
+ * Branch: main (recuperado de escalacoes)
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.10.0: protocolosCentral obrigatório; sync Octadesk criar/encerrar requisição
+ * - v1.9.3: Removida instrumentação de debug (fetch ingest 127.0.0.1:7243) em rotas/init
+ * - v1.9.2: POST /:id/reply — msg opcional; status reply é primário (paridade solicitacoes)
+ * - v1.9.0: POST /:id/reply — mesmo contrato que solicitações (N1/Produtos + cancelarSolicitacao); coleção erros_bugs
+ * - v1.8.0: Adicionada normalização do campo replies em GET / e GET /:id para garantir que sempre seja array
  */
 
 const express = require('express');
 const router = express.Router();
+const { getStatusChamadoFromDoc } = require('../../../utils/escalacoesReplyStatus');
+const {
+  validateProtocolosCentralRequired,
+  resolveOctadeskTicketFromRequisicao,
+} = require('../../../utils/resolveOctadeskTicketNumber');
+const {
+  buildErroBugHeaderComment,
+  buildRequisicaoEncerradaComment,
+} = require('../../../utils/octadeskRequisicaoComments');
+const {
+  addInternalComment,
+  octadeskSyncFireAndForget,
+} = require('../../../services/octadesk/octadeskTicketsService');
+
+/** @param {string} status */
+function isTerminalChamadoStatusErros(status) {
+  const s = String(status || '')
+    .toLowerCase()
+    .trim();
+  return s === 'feito' || s === 'não feito' || s === 'nao feito' || s === 'cancelado';
+}
+
+/**
+ * @param {Record<string, unknown>} docAntes
+ * @param {Record<string, unknown>} docDepois
+ * @param {string} label
+ */
+function maybeSyncOctadeskEncerramentoErros(docAntes, docDepois, label) {
+  const { status: prev } = getStatusChamadoFromDoc(docAntes);
+  const { status: eff } = getStatusChamadoFromDoc(docDepois);
+  if (!isTerminalChamadoStatusErros(eff) || isTerminalChamadoStatusErros(prev)) return;
+  const ticketNum = resolveOctadeskTicketFromRequisicao(docDepois);
+  if (!ticketNum) return;
+  const texto = buildRequisicaoEncerradaComment(eff);
+  octadeskSyncFireAndForget(() => addInternalComment(ticketNum, texto), label);
+}
 
 /**
  * Inicializar rotas de erros/bugs
@@ -68,9 +58,6 @@ const router = express.Router();
  * @param {Object} services - Serviços disponíveis (userActivityLogger, etc.)
  */
 const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:47',message:'initErrosBugsRoutes ENTRY',data:{hasClient:!!client,hasConnectToMongo:typeof connectToMongo==='function',servicesKeys:Object.keys(services)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
   const { userActivityLogger } = services;
 
   /**
@@ -159,9 +146,6 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
   router.get('/', async (req, res) => {
     // Adicionar headers CORS antes de processar a requisição
     setCorsHeaders(req, res);
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:54',message:'router.get(/) HANDLER CALLED',data:{path:req.path,method:req.method,url:req.url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
     try {
       console.log('🔍 [GET /erros-bugs] Iniciando busca de erros/bugs...');
       
@@ -352,10 +336,13 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
           at: new Date()
         };
         replyArray.push(cancelEntry);
+        const cancelAt = cancelEntry.at;
         await collection.updateOne(
           { _id: doc._id },
-          { $set: { reply: replyArray, updatedAt: new Date() } }
+          { $set: { reply: replyArray, updatedAt: cancelAt } }
         );
+        const merged = { ...doc, reply: replyArray };
+        maybeSyncOctadeskEncerramentoErros(doc, merged, `erros-bugs-cancel-${doc._id}`);
         console.log(`[erros-bugs reply] 🛑 Registro cancelado em ${doc._id}`);
         return res.json({
           ok: true,
@@ -380,12 +367,6 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
 
       const msgProd = String(msgProdutos || '').trim();
       const msgN = String(msgN1 || '').trim();
-      if (!msgProd && !msgN) {
-        return res.status(400).json({
-          ok: false,
-          error: 'msgProdutos ou msgN1 deve ter conteúdo'
-        });
-      }
 
       const doc = await collection.findOne({ _id: filterId });
 
@@ -412,10 +393,13 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
         {
           $set: {
             reply: replyArray,
-            updatedAt: new Date()
+            updatedAt: newEntry.at
           }
         }
       );
+
+      const merged = { ...doc, reply: replyArray };
+      maybeSyncOctadeskEncerramentoErros(doc, merged, `erros-bugs-reply-${doc._id}`);
 
       console.log(`[erros-bugs reply] ✅ Reply adicionado em ${doc._id}. Total: ${replyArray.length}`);
 
@@ -440,9 +424,6 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
   router.post('/', async (req, res) => {
     // Adicionar headers CORS antes de processar a requisição
     setCorsHeaders(req, res);
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:172',message:'router.post(/) HANDLER CALLED',data:{path:req.path,method:req.method,url:req.url,bodyKeys:Object.keys(req.body||{})},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
     try {
       if (!client) {
         return res.status(503).json({
@@ -481,10 +462,20 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
         ? String(tipo).trim() 
         : `Erro/Bug - ${String(tipo).trim()}`;
 
+      const protoVal = validateProtocolosCentralRequired(req.body.protocolosCentral);
+      if (!protoVal.ok) {
+        return res.status(400).json({
+          success: false,
+          message: protoVal.message,
+          data: null,
+        });
+      }
+
       const erroBug = {
         colaboradorNome: colaboradorNome,
         cpf: cpf ? String(cpf).replace(/\D/g, '') : '',
         tipo: tipoCompleto,
+        protocolosCentral: protoVal.values,
         payload: payloadCompleto,
         reply: [{ status: 'enviado', msgProdutos: null, msgN1: null, at: now }],
         createdAt: now,
@@ -494,6 +485,19 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
       const result = await collection.insertOne(erroBug);
 
       console.log(`✅ Erro/Bug criado: ${result.insertedId}`);
+
+      const ticketNum = protoVal.values[0];
+      const headerText = buildErroBugHeaderComment({
+        agente: colaboradorNome,
+        cpf: erroBug.cpf,
+        tipo: tipoCompleto,
+        payload: payloadCompleto,
+        descricao,
+      });
+      octadeskSyncFireAndForget(
+        () => addInternalComment(ticketNum, headerText),
+        `erros-bugs-criado-${result.insertedId}`
+      );
 
       // Log de atividade
       if (userActivityLogger) {
@@ -747,9 +751,6 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
     }
   });
 
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/2ccc77c8-3c17-4e50-968f-e75e25301700',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'erros-bugs.js:605',message:'initErrosBugsRoutes RETURN',data:{routerType:typeof router,routerIsFunction:typeof router==='function',hasGet:typeof router.get==='function',hasPost:typeof router.post==='function'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
   return router;
 };
 
