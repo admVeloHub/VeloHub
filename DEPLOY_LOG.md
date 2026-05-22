@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.22 | DATE: 2026-05-22 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.23 | DATE: 2026-05-22 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,18 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - Ouvidoria: liberação PIX (Time Port + modal)**
+- **Data/Hora**: 2026-05-22
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: ModalSolicitarLiberacaoPix v1.1.6, resolveOctadeskTicketFromForm v1.0.1, resolveOctadeskTicketNumber v1.0.1, DEPLOY_LOG v1.1.23
+- **Arquivos Modificados**:
+  - `src/components/Ouvidoria/ModalSolicitarLiberacaoPix.js`
+  - `src/utils/resolveOctadeskTicketFromForm.js`
+  - `backend/utils/resolveOctadeskTicketNumber.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Solicitar liberação aceita `protocoloOctadesk` (Time Portabilidade) antes de salvar a ocorrência; removida obrigatoriedade de marcar condições no modal.
+- **Status**: ⏳ Pendente push
 
 ### **GitHub Push - Req_Prod: tipo Aumento de Consultas no formulário**
 - **Data/Hora**: 2026-05-22

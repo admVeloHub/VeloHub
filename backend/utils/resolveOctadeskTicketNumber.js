@@ -1,8 +1,9 @@
 /**
  * Resolve número de ticket Octadesk a partir de reclamação ou requisição.
- * VERSION: v1.0.0 | DATE: 2026-05-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.1 | DATE: 2026-05-21 | AUTHOR: VeloHub Development Team
  *
- * Prioridade (reclamação): ticketRegistro → protocolosCentral[0] → protocolosN2[0]
+ * - v1.0.1: protocoloOctadesk (Time Portabilidade) na cadeia de resolução
+ * Prioridade (reclamação): ticketRegistro → protocoloOctadesk → protocolosCentral[0] → protocolosN2[0]
  * Requisição/erros-bugs: protocolosCentral[0]
  */
 
@@ -29,6 +30,8 @@ function resolveOctadeskTicketFromReclamacao(doc) {
   if (!doc || typeof doc !== 'object') return '';
   const reg = String(doc.ticketRegistro != null ? doc.ticketRegistro : '').trim();
   if (reg) return reg;
+  const octa = String(doc.protocoloOctadesk != null ? doc.protocoloOctadesk : '').trim();
+  if (octa) return octa;
   const n1 = firstNonEmptyProtocol(doc.protocolosCentral);
   if (n1) return n1;
   return firstNonEmptyProtocol(doc.protocolosN2);

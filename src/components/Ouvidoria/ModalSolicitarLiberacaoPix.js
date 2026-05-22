@@ -1,8 +1,9 @@
 /**
  * VeloHub V3 — Modal Solicitar Liberação (Ouvidoria → Req_Prod liberacao_pix_prod)
- * VERSION: v1.1.5 | DATE: 2026-05-18 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.1.6 | DATE: 2026-05-21 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.1.6: Condições do modal — sem obrigatoriedade de marcar ao menos uma opção
  * - v1.1.5: `agente`/POST usa `getVelotaxAgentForLoggedUser()` — não reutiliza `velotax_agent` de outro userMail após troca de login
  * - v1.0.2: POST `agente`: prioriza nome da sessão (`velohub_user_session` → `velotax_agent`) igual à página Req_Prod — `colaboradorNome` no Mongo casa com `getByColaborador` sem expor filas de outros
  * - v1.0.1: Após sucesso: dispara `velohub:liberacao-pix-solicitada` (detail.id) para RequisicoesPage atualizar GET sem depender da aba montada
@@ -96,20 +97,6 @@ export default function ModalSolicitarLiberacaoPix({
 
     const formLike = { origem: o, ...checks, observacoes };
     const pixEff = getLiberacaoChavePixEffectiveBooleans(formLike);
-    if (
-      !pixEff.semDebitoAberto &&
-      !pixEff.n2Ouvidora &&
-      !pixEff.procon &&
-      !pixEff.reclameAqui &&
-      !pixEff.processo &&
-      !pixEff.bacen &&
-      !pixEff.revogadoConsentimentoEcac
-    ) {
-      toast.error(
-        'Marque pelo menos uma opção entre as condições exibidas (ou confira a origem: ela já pode cobrir N2, Procon, Reclame Aqui, Processo ou Bacen).'
-      );
-      return;
-    }
 
     const ag = readAgenteAlinhadoSessao(agente);
     if (!ag) {
