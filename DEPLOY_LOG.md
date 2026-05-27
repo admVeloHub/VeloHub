@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.25 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.26 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,16 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - Hotfix: POST liberação PIX (resolveOctadeskTicketNumber v1.0.2)**
+- **Data/Hora**: 2026-05-26
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: resolveOctadeskTicketNumber v1.0.2, DEPLOY_LOG v1.1.26
+- **Arquivos Modificados**:
+  - `backend/utils/resolveOctadeskTicketNumber.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Corrige 500 em POST `/api/escalacoes/solicitacoes` (liberação PIX): exporta `looksLikeOctadeskTicketNumber` e `resolveOctadeskTicketForLiberacaoPix` faltantes no deploy anterior.
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - VeloBot: congelar RAG OpenAI (fluxo legado exclusivo)**
 - **Data/Hora**: 2026-05-26
