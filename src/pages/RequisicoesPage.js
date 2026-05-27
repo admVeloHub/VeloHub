@@ -1,8 +1,10 @@
 /**
  * VeloHub V3 — RequisicoesPage (módulo Requisições / Req_Prod)
- * VERSION: v1.20.9 | DATE: 2026-05-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.22.0 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.22.0: Propaga pixLiberado também no primeiro load de liberações já «feito» (dedup sessionStorage)
+ * - v1.21.0: Refresh liberação PIX enviado→feito dispara POST propagar-pix-liberado (sync ouvidoria)
  * - v1.20.9: Cards da busca CPF agregada exibem selo «Origem» (Solicitações | Erros/Bugs | Liberação chave pix)
  * - v1.20.8: Busca por CPF da sidebar agrega resultados entre Solicitações, Erros/Bugs e Liberação chave pix em qualquer aba
  * - v1.20.7: Agent default (sidebar/filtros) via `getVelotaxAgentForLoggedUser()` + `setVelotaxAgentForLoggedUser()` — não herda nome de `velotax_agent` sem userMail igual
@@ -91,6 +93,31 @@ function mergeBuscaCpfGlobal(solicitacoesList = [], errosBugsList = []) {
   return [...byId.values()].sort((a, b) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0));
 }
 
+const STORAGE_PIX_PROPAGATE_ATTEMPTED = 'velohub_pix_propagate_attempted_v1';
+
+function readPixPropagateAttemptedSet() {
+  try {
+    if (typeof sessionStorage === 'undefined') return new Set();
+    const raw = sessionStorage.getItem(STORAGE_PIX_PROPAGATE_ATTEMPTED);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr.map(String) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function markPixPropagateAttempted(id) {
+  try {
+    if (typeof sessionStorage === 'undefined' || !id) return;
+    const s = readPixPropagateAttemptedSet();
+    s.add(String(id));
+    sessionStorage.setItem(STORAGE_PIX_PROPAGATE_ATTEMPTED, JSON.stringify([...s].slice(-500)));
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
  * Página principal do módulo Requisições (Req_Prod)
  */
@@ -124,6 +151,7 @@ const RequisicoesPage = () => {
   const [searchResultsPix, setSearchResultsPix] = useState([]);
   const [searchCpfErrorPix, setSearchCpfErrorPix] = useState('');
   const prevRequestsRef = useRef([]);
+  const prevLiberacaoPixRef = useRef([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [backendUrl, setBackendUrl] = useState('');
   const [replies, setReplies] = useState([]);
@@ -896,6 +924,46 @@ const RequisicoesPage = () => {
       console.error('Erro ao notificar Produtos (Solicitações):', err);
     }
   }, [requestsRaw, selectedAgent, activeTab]);
+
+  /** Liberação PIX: «feito» propaga pixLiberado na ouvidoria (transição ou primeiro load) */
+  useEffect(() => {
+    const pixArr = (Array.isArray(requestsRaw) ? requestsRaw : []).filter(isDocLiberacaoPixProdColecao);
+    const base = selectedAgent
+      ? pixArr.filter((r) => norm(r?.colaboradorNome || r?.agente || '') === norm(selectedAgent))
+      : pixArr;
+
+    try {
+      const prev = Array.isArray(prevLiberacaoPixRef.current) ? prevLiberacaoPixRef.current : [];
+      const mapPrev = new Map(prev.map((r) => [r.id, String(r.status || '')]));
+      const attempted = readPixPropagateAttemptedSet();
+
+      const toPropagate = base.filter((r) => {
+        const rid = normalizeMongoId(r._id ?? r.id);
+        const curSt = String(getStatusChamado(r) || '').toLowerCase();
+        if (curSt !== 'feito' || !rid) return false;
+        const prevSt = mapPrev.get(r._id || r.id);
+        if (prevSt && prevSt.toLowerCase() !== 'feito') return true;
+        return !attempted.has(rid);
+      });
+
+      toPropagate.forEach((r) => {
+        const id = normalizeMongoId(r._id ?? r.id);
+        if (id) {
+          markPixPropagateAttempted(id);
+          solicitacoesAPI.propagarPixLiberadoOuvidoria(id).catch((err) => {
+            console.error('[RequisicoesPage] propagarPixLiberadoOuvidoria:', err);
+          });
+        }
+      });
+
+      prevLiberacaoPixRef.current = base.map((r) => ({
+        id: r._id || r.id,
+        status: getStatusChamado(r),
+      }));
+    } catch (err) {
+      console.error('Erro ao propagar pixLiberado (liberação PIX):', err);
+    }
+  }, [requestsRaw, selectedAgent]);
 
   /**
    * Abrir modal de respostas a partir de um item do log de envio (sidebar)

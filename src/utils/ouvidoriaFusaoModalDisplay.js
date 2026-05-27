@@ -1,7 +1,8 @@
 /**
  * VeloHub — Exibição do modal «Fundir ocorrências»
- * VERSION: v1.4.0 | DATE: 2026-05-21 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.5.0 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
  *
+ * - v1.5.0: grupoFusaoTemPixLiberado — considera Req_Prod «feito» além de pixLiberado
  * - v1.4.0: Regra fusão `liberacaoAnterior` quando grupo tem `pixLiberado`
  * - v1.3.0: Linhas selecionáveis (`docId`); `cenarioFusaoEntreTipos` para fusão por par
  * - v1.2.0: Lista de fusão ignora tickets já absorvidos (inferior / redundante filho)
@@ -54,11 +55,23 @@ export function getSelectedFusaoDocs(ctx, selectedIds) {
 }
 
 /**
+ * @param {Record<string, unknown>|null|undefined} doc
+ */
+export function docIndicaPixLiberadoGrupoFusao(doc) {
+  if (!doc || typeof doc !== 'object') return false;
+  if (doc.pixLiberado === true) return true;
+  if (String(doc.reqProdStatusEfetivo || '').toLowerCase() === 'feito') return true;
+  const lib = doc.reqProdLiberacaoPix;
+  if (lib && typeof lib === 'object' && lib.pixLiberado === true) return true;
+  return false;
+}
+
+/**
  * @param {{ currentPixLiberado?: boolean, docs?: Array<Record<string, unknown>> }} params
  */
 export function grupoFusaoTemPixLiberado({ currentPixLiberado, docs }) {
   if (currentPixLiberado === true) return true;
-  return (docs || []).some((d) => d?.pixLiberado === true);
+  return (docs || []).some(docIndicaPixLiberadoGrupoFusao);
 }
 
 /**
@@ -84,7 +97,7 @@ export function docsAlvoParaLiberacaoAnterior({ selectedDocs, currentPixLiberado
   }
   return (selectedDocs || []).filter(
     (d) =>
-      d?.pixLiberado !== true && tipoSuportaLiberacaoAnterior(d?.tipo)
+      !docIndicaPixLiberadoGrupoFusao(d) && tipoSuportaLiberacaoAnterior(d?.tipo)
   );
 }
 

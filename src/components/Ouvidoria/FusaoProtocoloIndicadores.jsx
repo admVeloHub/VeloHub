@@ -1,8 +1,9 @@
 /**
  * Chips de fusão ao lado do protocolo (absorvido / receptor).
- * VERSION: v1.0.2 | DATE: 2026-05-21 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.3 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
  *
  * Referência:
+ * - v1.0.3: Child absorvido — rótulo «Ativo» no lugar de «Pai».
  * - v1.0.2: Alinhamento à direita no container pai (justify-end)
  * - v1.0.1: Parent/receptor — rótulo «Fundidos»; apenas lista de protocolos (sem «Filhos»).
  */
@@ -56,7 +57,7 @@ export default function FusaoProtocoloIndicadores({ fusao: fusaoRaw, finalizado 
         >
           <span className="font-semibold leading-tight">Fundido</span>
           <span className="truncate leading-tight opacity-95 tabular-nums">
-            {parentProto ? `Pai: ${parentProto}` : 'Pai: —'}
+            {parentProto ? `Ativo: ${parentProto}` : 'Ativo: —'}
           </span>
         </span>
       )}

@@ -1,8 +1,11 @@
 /**
  * VeloHub V3 - ListaReclamacoes Component
- * VERSION: v1.30.9 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.31.2 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.31.2: Pós-fusão — refresh do ticket aberto (getById) + patch imediato Liberação Anterior
+ * - v1.31.1: Botão Fundir no editar — comparação de `_id` normalizada com ctx de fusão
+ * - v1.31.0: Status lista — tickets absorvidos por fusão exibidos como Resolvido (isFusaoAbsorvoAlvo)
  * - v1.30.9: Paginação: coerção numérica em `normalizarListaReclamacoesPaginacao`; `setPaginacao` usa `prev` (evita meta errada); barra quando `page>1`/total/coerção
  * - v1.30.8: Paginação: meta harmonizada (`total`/`totalPages`); CPF≠11 dígitos e por colaborador enviam page/limit; barra quando `total > limit`
  * - v1.30.7: MOTIVOS_FILTRO_LISTA — união dos três grupos de motivos (corrige ReferenceError)
@@ -16,9 +19,11 @@ import { reclamacoesAPI, colaboradoresAPI, anexosAPI } from '../../services/ouvi
 import { FloatingLabelField } from '../shared/FloatingLabelField';
 import FormReclamacaoEdit from './FormReclamacaoEdit';
 import FusaoFundidoBadge from './FusaoFundidoBadge';
+import { isFusaoAbsorvoAlvo } from '../../utils/ouvidoriaFusaoNotif';
 import { formatDateRegistro, getSlaBadgeReclamacao } from '../../utils/dateUtils';
 import toast from 'react-hot-toast';
 import { OUVIDORIA_PRODUTO_OPCOES as PRODUTOS_FILTRO_LISTA } from '../../utils/ouvidoriaProdutoOpcoes';
+import { normalizeMongoId } from '../../utils/requisicoesModalHelpers';
 
 /**
  * Funções auxiliares (reutilizadas do FormReclamacao)
@@ -163,7 +168,8 @@ const ListaReclamacoes = ({
   listaReloadSignal = 0,
   fusaoConsultaCtx = null,
   onAbrirModalFusao,
-  fusaoLiberacaoAnteriorSignal = 0,
+  fusaoLiberacaoAnteriorMarcacao = { cpf: '', seq: 0 },
+  fusaoPatchFormulario = null,
 }) => {
   const [reclamacoes, setReclamacoes] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -213,6 +219,26 @@ const ListaReclamacoes = ({
     }
   }, [listaReloadSignal]);
 
+  useEffect(() => {
+    if (listaReloadSignal <= 0 || !selectedReclamacao) return;
+    const id = selectedReclamacao._id ?? selectedReclamacao.id;
+    const tipo = selectedReclamacao.tipo;
+    if (id == null || !tipo) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await reclamacoesAPI.getById(String(id), tipo);
+        const fresh = res?.data ?? res;
+        if (!cancelled && fresh) setSelectedReclamacao(fresh);
+      } catch (err) {
+        console.error('[ListaReclamacoes] refresh ticket pós-fusão:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [listaReloadSignal]);
+
   const fecharModalEdicao = () => {
     if (typeof onFusaoConsultaChange === 'function') {
       onFusaoConsultaChange(null);
@@ -224,8 +250,9 @@ const ListaReclamacoes = ({
     Boolean(fusaoConsultaCtx?.showButton) &&
     fusaoConsultaCtx?.source === 'lista' &&
     selectedReclamacao &&
-    String(fusaoConsultaCtx?.currentId ?? '') ===
-      String(selectedReclamacao?._id ?? selectedReclamacao?.id ?? '') &&
+    normalizeMongoId(fusaoConsultaCtx?.currentId) !== '' &&
+    normalizeMongoId(fusaoConsultaCtx?.currentId) ===
+      normalizeMongoId(selectedReclamacao?._id ?? selectedReclamacao?.id) &&
     String(fusaoConsultaCtx?.cpf ?? '').replace(/\D/g, '') ===
       String(selectedReclamacao?.cpf ?? '').replace(/\D/g, '');
 
@@ -501,6 +528,12 @@ const ListaReclamacoes = ({
 
   const getStatusInfo = (reclamacao) => {
     if (reclamacao.Finalizado?.Resolvido === true) {
+      return {
+        texto: 'Resolvido',
+        cor: 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-200'
+      };
+    }
+    if (isFusaoAbsorvoAlvo(reclamacao)) {
       return {
         texto: 'Resolvido',
         cor: 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-200'
@@ -919,7 +952,8 @@ const ListaReclamacoes = ({
                 onFusaoConsultaChange={onFusaoConsultaChange}
                 fundirInlineAtivo={podeFundirNoModalEdicao}
                 onAbrirModalFusao={onAbrirModalFusao}
-                fusaoLiberacaoAnteriorSignal={fusaoLiberacaoAnteriorSignal}
+                fusaoLiberacaoAnteriorMarcacao={fusaoLiberacaoAnteriorMarcacao}
+                fusaoPatchFormulario={fusaoPatchFormulario}
                 onClose={fecharModalEdicao}
                 onSuccess={() => {
                   fecharModalEdicao();

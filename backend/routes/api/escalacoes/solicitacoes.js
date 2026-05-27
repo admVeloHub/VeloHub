@@ -1,5 +1,13 @@
 /**
  * VeloHub V3 - Escalações API Routes - Solicitações Técnicas
+ * VERSION: v1.14.1 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
+ *
+ * Referência (duas entradas; detalhes no Git):
+ * - v1.14.1: POST liberação PIX — recusa duplicata quando já existe liberacao_pix_prod para ouvidoriaReclamacaoId
+ * - v1.14.0: POST internal/reconciliar-pix-liberado-ouvidoria — job Cloud Scheduler 15 min (header X-Velohub-Pix-Reconcile-Secret)
+ * - v1.13.0: Status reply «feito» propaga pixLiberado na ouvidoria (util compartilhado + POST propagar-pix-liberado)
+ * - v1.12.3: Octadesk comentário interno — await + octadeskSync na resposta; octa-agent-email do x-user-email
+ * - v1.12.2: Octadesk PUT comentário interno — resolve ticket (protocolosCentral / reclamação vinculada)
  * VERSION: v1.12.1 | DATE: 2026-05-20 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
@@ -23,6 +31,8 @@ const { permiteDevMarcacaoChamado } = require('../../../utils/devLocalMarcacaoCh
 const {
   validateProtocolosCentralRequired,
   resolveOctadeskTicketFromRequisicao,
+  resolveOctadeskTicketForLiberacaoPix,
+  looksLikeOctadeskTicketNumber,
 } = require('../../../utils/resolveOctadeskTicketNumber');
 const {
   buildSolicitacaoHeaderComment,
@@ -32,7 +42,28 @@ const {
   addInternalComment,
   octadeskSyncFireAndForget,
 } = require('../../../services/octadesk/octadeskTicketsService');
+const config = require('../../../config');
+const {
+  propagarPixLiberadoSeRequisicaoFeita,
+  propagarPixLiberadoPorLiberacaoId,
+  reconciliarPixLiberadoOuvidoriaBatch,
+} = require('../../../utils/liberacaoPixOuvidoriaSync');
 const router = express.Router();
+
+/**
+ * @param {import('express').Request} req
+ * @returns {{ ok: boolean, reason?: string }}
+ */
+function validarPixReconcileSecret(req) {
+  const secret =
+    config.VELOHUB_PIX_RECONCILE_SECRET != null
+      ? String(config.VELOHUB_PIX_RECONCILE_SECRET).trim()
+      : '';
+  if (!secret) return { ok: false, reason: 'not_configured' };
+  const header = String(req.headers['x-velohub-pix-reconcile-secret'] || '').trim();
+  if (header !== secret) return { ok: false, reason: 'unauthorized' };
+  return { ok: true };
+}
 
 /** @param {string} status */
 function isTerminalChamadoStatus(status) {
@@ -42,6 +73,40 @@ function isTerminalChamadoStatus(status) {
   return s === 'feito' || s === 'não feito' || s === 'nao feito' || s === 'cancelado';
 }
 const DEV_REQUISICOES_ALLOWED_EMAIL = 'lucas.gravina@velotax.com.br';
+
+/**
+ * @param {import('express').Request} req
+ * @returns {string}
+ */
+function readAgentEmailFromRequest(req) {
+  const h = req?.headers?.['x-user-email'];
+  return h != null ? String(h).trim() : '';
+}
+
+/**
+ * PUT /tickets/{number} — comentário interno (retorno para UI).
+ * @param {string} ticketNum
+ * @param {string} text
+ * @param {string} [agentEmail]
+ * @returns {Promise<{ ok: boolean, ticketNumber?: string, error?: string, status?: number, hint?: string }>}
+ */
+async function pushOctadeskInternalComment(ticketNum, text, agentEmail) {
+  if (!ticketNum) {
+    return {
+      ok: false,
+      error: 'Número do ticket Octadesk não informado (protocolosCentral / ticketRegistro da ocorrência).',
+    };
+  }
+  const res = await addInternalComment(ticketNum, text, {
+    agentEmail: agentEmail || undefined,
+  });
+  if (res.ok) return res;
+  return {
+    ...res,
+    hint:
+      'PUT /tickets/{number} retornou erro nesta base (api001). No Swagger, use a mesma URL do .env e o number da API (ex. ticketRegistro), não o exemplo 9854984.',
+  };
+}
 
 /**
  * Monta documento para hub_escalacoes.liberacao_pix_prod (formulário Liberação chave pix).
@@ -82,60 +147,6 @@ function buildLiberacaoPixProdDoc({ colaboradorNome, cpf, origem, nomeCliente, p
     doc.ouvidoriaNumeroProtocolo = String(ouvidoriaNumeroProtocolo).trim();
   }
   return doc;
-}
-
-/**
- * Marca pixLiberado=true na reclamação hub_ouvidoria quando a liberação PIX (hub_escalacoes.liberacao_pix_prod) está concluída.
- * @param {import('mongodb').MongoClient|null} mongoClient
- * @param {Record<string, unknown>|null|undefined} liberacaoPixDoc — documento liberacao_pix_prod (com ouvidoriaReclamacaoId/Tipo quando houver vínculo)
- */
-async function sincronizarPixLiberadoNaOuvidoria(mongoClient, liberacaoPixDoc) {
-  if (!mongoClient || !liberacaoPixDoc || typeof liberacaoPixDoc !== 'object') {
-    return;
-  }
-  const rawId = liberacaoPixDoc.ouvidoriaReclamacaoId;
-  const tipo = liberacaoPixDoc.ouvidoriaReclamacaoTipo;
-  if (rawId == null || rawId === '' || !String(tipo || '').trim()) {
-    return;
-  }
-
-  let oid = rawId;
-  if (!(oid instanceof ObjectId)) {
-    const s = String(rawId).trim();
-    if (!ObjectId.isValid(s)) {
-      console.warn('[liberacao_pix → ouvidoria] pixLiberado sync: ouvidoriaReclamacaoId inválido', { rawId });
-      return;
-    }
-    oid = new ObjectId(s);
-  }
-
-  try {
-    const ouvDb = mongoClient.db('hub_ouvidoria');
-    const ouvColl = getHubOuvidoriaReclamacaoCollectionByTipo(ouvDb, tipo);
-    const now = new Date();
-    const setPayload = { $set: { pixLiberado: true, updatedAt: now } };
-    let matched = 0;
-    let upd = await ouvColl.updateOne({ _id: oid }, setPayload);
-    matched = upd.matchedCount || 0;
-    if (matched === 0) {
-      const np = liberacaoPixDoc.ouvidoriaNumeroProtocolo;
-      const npTrim = np != null ? String(np).trim() : '';
-      if (npTrim) {
-        upd = await ouvColl.updateOne({ numeroProtocolo: npTrim }, setPayload);
-        matched = upd.matchedCount || 0;
-      }
-    }
-    if (matched === 0) {
-      console.warn('[liberacao_pix → ouvidoria] pixLiberado sync: reclamação não encontrada (nem por _id nem por numeroProtocolo)', {
-        coleçãoAlvo: ouvColl.collectionName,
-        ouvidoriaReclamacaoId: String(oid),
-        numeroProtocolo: liberacaoPixDoc.ouvidoriaNumeroProtocolo,
-        ouvidoriaReclamacaoTipo: String(tipo),
-      });
-    }
-  } catch (err) {
-    console.error('[liberacao_pix → ouvidoria] pixLiberado sync:', err);
-  }
 }
 
 /**
@@ -190,21 +201,13 @@ async function appendMarcacaoReplyChamadoShared(client, connectToMongo, filterId
     updatedAt: replyAt,
   };
   if (col === libCollection && statusEfetivo === 'feito') {
-    setDoc.pixLiberado = true;
     setDoc.dataLiberacao = replyAt;
   }
 
   await col.updateOne({ _id: doc._id }, { $set: setDoc });
 
   if (col === libCollection && statusEfetivo === 'feito') {
-    const vin = mergedForStatus;
-    if (
-      vin?.ouvidoriaReclamacaoId != null &&
-      String(vin.ouvidoriaReclamacaoId).trim() &&
-      String(vin.ouvidoriaReclamacaoTipo || '').trim()
-    ) {
-      await sincronizarPixLiberadoNaOuvidoria(client, vin);
-    }
+    await propagarPixLiberadoSeRequisicaoFeita(client, mergedForStatus);
   }
 
   if (
@@ -435,6 +438,40 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
   });
 
   /**
+   * POST /api/escalacoes/solicitacoes/internal/reconciliar-pix-liberado-ouvidoria
+   * Job Cloud Scheduler (15 min): propaga pixLiberado para liberações «feito» recentes.
+   * Header: X-Velohub-Pix-Reconcile-Secret (= VELOHUB_PIX_RECONCILE_SECRET)
+   */
+  router.post('/internal/reconciliar-pix-liberado-ouvidoria', async (req, res) => {
+    try {
+      const gate = validarPixReconcileSecret(req);
+      if (!gate.ok) {
+        const status = gate.reason === 'not_configured' ? 503 : 403;
+        return res.status(status).json({ ok: false, error: gate.reason });
+      }
+
+      if (!client) {
+        return res.status(503).json({ ok: false, error: 'MongoDB não configurado' });
+      }
+
+      await connectToMongo();
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const windowHours = body.windowHours != null ? Number(body.windowHours) : undefined;
+      const limit = body.limit != null ? Number(body.limit) : undefined;
+
+      const stats = await reconciliarPixLiberadoOuvidoriaBatch(client, { windowHours, limit });
+
+      return res.json({ ok: true, ...stats });
+    } catch (error) {
+      console.error('[reconciliar-pix-liberado-ouvidoria]', error);
+      return res.status(500).json({
+        ok: false,
+        error: error.message || 'Erro na reconciliação pixLiberado',
+      });
+    }
+  });
+
+  /**
    * GET /api/escalacoes/solicitacoes/:id
    * Buscar solicitação por ID
    */
@@ -548,21 +585,53 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
           libDoc.ouvidoriaReclamacaoTipo = String(ouvTipoRaw).trim();
         }
 
+        if (libDoc.ouvidoriaReclamacaoId) {
+          const libExistente = await libCollection.findOne({
+            ouvidoriaReclamacaoId: libDoc.ouvidoriaReclamacaoId,
+          });
+          if (libExistente) {
+            return res.status(409).json({
+              success: false,
+              message: 'Já existe solicitação de liberação PIX vinculada a esta ocorrência.',
+              data: {
+                _id: libExistente._id,
+                alreadyExists: true,
+              },
+            });
+          }
+        }
+
+        const ticketHint = String(ouvProtoRaw != null ? ouvProtoRaw : '').trim();
+        if (ticketHint && looksLikeOctadeskTicketNumber(ticketHint)) {
+          libDoc.protocolosCentral = [ticketHint];
+        }
+
         const libRes = await libCollection.insertOne(libDoc);
         const insertedDoc = await libCollection.findOne({ _id: libRes.insertedId });
         console.log(`✅ liberacao_pix_prod criado: ${libRes.insertedId}`);
-        const ticketRef = String(libDoc.ouvidoriaNumeroProtocolo || '').trim();
-        if (ticketRef) {
-          const headerText = buildSolicitacaoHeaderComment({
-            agente: colaboradorNome,
-            cpf: libDoc.cpf,
-            tipo: tipoTrim,
-            payload: payloadForBuild,
-            mensagemTexto,
-          });
-          octadeskSyncFireAndForget(
-            () => addInternalComment(ticketRef, headerText),
-            `liberacao-pix-criada-${libRes.insertedId}`
+
+        const ticketRef = await resolveOctadeskTicketForLiberacaoPix(
+          client,
+          connectToMongo,
+          insertedDoc || libDoc
+        );
+        const headerText = buildSolicitacaoHeaderComment({
+          agente: colaboradorNome,
+          cpf: libDoc.cpf,
+          tipo: tipoTrim,
+          payload: payloadForBuild,
+          mensagemTexto,
+        });
+        const octadeskSync = await pushOctadeskInternalComment(
+          ticketRef,
+          headerText,
+          readAgentEmailFromRequest(req)
+        );
+        if (!octadeskSync.ok) {
+          console.warn(
+            `[Octadesk] liberacao-pix-criada-${libRes.insertedId}:`,
+            octadeskSync.error,
+            octadeskSync.ticketNumber || ticketRef || '(sem ticket)'
           );
         }
 
@@ -611,6 +680,7 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
           success: true,
           data: insertedDoc,
           ...(ouvUpdateWarning ? { warning: ouvUpdateWarning } : {}),
+          ...(!octadeskSync.ok ? { octadeskSync } : {}),
         });
       }
 
@@ -644,7 +714,9 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
 
       console.log(`✅ Solicitação criada: ${result.insertedId}`);
 
-      const ticketNum = protoVal.values[0];
+      const ticketNum = resolveOctadeskTicketFromRequisicao({
+        protocolosCentral: protoVal.values,
+      });
       const headerText = buildSolicitacaoHeaderComment({
         agente: colaboradorNome,
         cpf: solicitacao.cpf,
@@ -652,10 +724,18 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
         payload: payloadCompleto,
         mensagemTexto,
       });
-      octadeskSyncFireAndForget(
-        () => addInternalComment(ticketNum, headerText),
-        `solicitacao-criada-${result.insertedId}`
+      const octadeskSync = await pushOctadeskInternalComment(
+        ticketNum,
+        headerText,
+        readAgentEmailFromRequest(req)
       );
+      if (!octadeskSync.ok) {
+        console.warn(
+          `[Octadesk] solicitacao-criada-${result.insertedId}:`,
+          octadeskSync.error,
+          octadeskSync.ticketNumber || ticketNum || '(sem ticket)'
+        );
+      }
 
       // Log de atividade
       if (userActivityLogger) {
@@ -680,6 +760,7 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
           _id: result.insertedId,
           ...solicitacao,
         },
+        ...(!octadeskSync.ok ? { octadeskSync } : {}),
       });
     } catch (error) {
       console.error('❌ Erro ao criar solicitação:', error);
@@ -754,20 +835,8 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
       // Buscar solicitação atualizada
       const solicitacao = await targetCol.findOne(filter);
 
-      if (
-        targetCol === libCollection &&
-        solicitacao &&
-        solicitacao.pixLiberado === true &&
-        solicitacao.ouvidoriaReclamacaoId != null &&
-        String(solicitacao.ouvidoriaReclamacaoTipo || '').trim()
-      ) {
-        const body = req.body && typeof req.body === 'object' ? req.body : {};
-        if (Object.prototype.hasOwnProperty.call(body, 'pixLiberado')) {
-          const v = body.pixLiberado;
-          const marcaTrue =
-            v === true || String(v).toLowerCase() === 'true' || v === 1 || v === '1';
-          if (marcaTrue) await sincronizarPixLiberadoNaOuvidoria(client, solicitacao);
-        }
+      if (targetCol === libCollection && solicitacao) {
+        await propagarPixLiberadoSeRequisicaoFeita(client, solicitacao);
       }
 
       res.json({
@@ -1218,6 +1287,43 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
       return res.status(500).json({
         ok: false,
         error: error.message || 'Erro ao processar reply'
+      });
+    }
+  });
+
+  /**
+   * POST /api/escalacoes/solicitacoes/:id/propagar-pix-liberado
+   * Idempotente: se status efetivo = feito, marca pixLiberado=true na reclamação ouvidoria vinculada.
+   */
+  router.post('/:id/propagar-pix-liberado', async (req, res) => {
+    try {
+      if (!client) {
+        return res.status(503).json({ ok: false, error: 'MongoDB não configurado' });
+      }
+
+      await connectToMongo();
+      const { ObjectId } = require('mongodb');
+      const { id } = req.params;
+      const filterId = ObjectId.isValid(id) ? new ObjectId(id) : id;
+
+      const result = await propagarPixLiberadoPorLiberacaoId(client, filterId);
+
+      if (result.notFound) {
+        return res.status(404).json({ ok: false, error: 'Liberação PIX não encontrada' });
+      }
+
+      return res.json({
+        ok: result.ok === true,
+        skipped: result.skipped === true,
+        statusEfetivo: result.statusEfetivo,
+        matched: result.matched,
+        reason: result.reason,
+      });
+    } catch (error) {
+      console.error('[propagar-pix-liberado]', error);
+      return res.status(500).json({
+        ok: false,
+        error: error.message || 'Erro ao propagar pixLiberado',
       });
     }
   });

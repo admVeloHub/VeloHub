@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.23 | DATE: 2026-05-22 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.24 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,38 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - Ouvidoria fusão/Liberação Anterior + sync pixLiberado Req_Prod**
+- **Data/Hora**: 2026-05-26
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: reclamacoes.js v2.32.1, liberacaoPixOuvidoriaSync v1.2.0, OuvidoriaPage v1.18.5, FormReclamacaoEdit v1.50.8, FormReclamacao v3.54.3, solicitacoes.js v1.14.0, DEPLOY_LOG v1.1.24
+- **Arquivos Modificados**:
+  - `backend/routes/api/ouvidoria/reclamacoes.js`
+  - `backend/routes/api/escalacoes/solicitacoes.js`
+  - `backend/utils/liberacaoPixOuvidoriaSync.js`
+  - `backend/utils/loadFonteEnv.js`
+  - `backend/config.js`
+  - `backend/scripts/loadMongoUri.js`
+  - `backend/scripts/auditoria-liberacao-pix-xlsx.js`
+  - `backend/scripts/export-liberacao-pix-requisicoes-xlsx.js`
+  - `backend/scripts/export-ouvidoria-liberacao-pix-xlsx.js`
+  - `backend/scripts/relatorio-liberacao-pix-liberados-xlsx.js`
+  - `backend/scripts/setup-cloud-scheduler-pix-reconcile.ps1`
+  - `src/pages/OuvidoriaPage.js`
+  - `src/components/Ouvidoria/FormReclamacao.js`
+  - `src/components/Ouvidoria/FormReclamacaoEdit.js`
+  - `src/components/Ouvidoria/ListaReclamacoes.js`
+  - `src/components/Ouvidoria/MinhasReclamacoes.js`
+  - `src/components/Ouvidoria/FusaoProtocoloIndicadores.jsx`
+  - `src/utils/ouvidoriaFusaoModalDisplay.js`
+  - `src/pages/RequisicoesPage.js`
+  - `src/components/Requisicoes/FormSolicitacao.js`
+  - `src/components/Requisicoes/ModalHistoricoRequisicaoCpf.js`
+  - `src/services/requisicoesApi.js`
+  - `src/utils/requisicoesModalHelpers.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Fusão Ouvidoria propaga `liberacaoAnterior` quando par tem PIX liberado (Req_Prod «feito»); exibição imediata no form após fundir; sync `pixLiberado` ouvidoria↔liberação PIX; modal histórico Req_Prod ao solicitar liberação; scripts XLSX auditoria liberação PIX.
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - Ouvidoria: liberação PIX (Time Port + modal)**
 - **Data/Hora**: 2026-05-22

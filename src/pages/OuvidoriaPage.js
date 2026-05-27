@@ -1,8 +1,13 @@
 /**
  * VeloHub V3 - OuvidoriaPage (Módulo Ouvidoria/BACEN)
- * VERSION: v1.18.0 | DATE: 2026-05-21 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.18.5 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.18.5: Patch imediato no form após fusão (`fusaoPatchFormulario`) — Liberação Anterior visível sem reabrir
+ * - v1.18.4: Marca Liberação Anterior pós-fusão mesmo após limpar ctx (seq dedicada)
+ * - v1.18.3: Pós-fusão — aplica Liberação Anterior no form antes de limpar ctx; limpa marcacao com delay
+ * - v1.18.2: Liberação Anterior na fusão — marcacao escopada ao CPF (evita vazamento em nova ocorrência)
+ * - v1.18.1: Fusão redundante — seletor ATIVA/INATIVA (sem nomenclatura pai/filho)
  * - v1.18.0: Fusão — marca Liberação Anterior no form quando grupo tem pixLiberado
  * - v1.17.0: Modal fusão — seleção clicável de tickets a fundir (múltiplos alvos na confirmação)
  * - v1.16.2: Modal Fundir ocorrências — largura moderada (max-w-4xl)
@@ -68,8 +73,13 @@ const OuvidoriaPage = () => {
   const [fusaoPendenteParaCreate, setFusaoPendenteParaCreate] = useState(null);
   /** IDs Mongo (_id) dos tickets marcados no modal de fusão */
   const [selectedFusaoTicketIds, setSelectedFusaoTicketIds] = useState(() => new Set());
-  /** Incrementado para marcar Liberação Anterior no formulário aberto (fusão + PIX) */
-  const [fusaoLiberacaoAnteriorSignal, setFusaoLiberacaoAnteriorSignal] = useState(0);
+  /** Marcação escopada ao CPF para Liberação Anterior no formulário aberto (fusão + PIX) */
+  const [fusaoLiberacaoAnteriorMarcacao, setFusaoLiberacaoAnteriorMarcacao] = useState({
+    cpf: '',
+    seq: 0,
+  });
+  /** Patch imediato no form aberto após fusão confirmada (Liberação Anterior + estado fundido) */
+  const [fusaoPatchFormulario, setFusaoPatchFormulario] = useState(null);
   const [ouvidMinhasBadgeParts, setOuvidMinhasBadgeParts] = useState({ feito: 0, fusao: 0 });
 
   const ouvidMinhasBadgeSum =
@@ -302,22 +312,60 @@ const OuvidoriaPage = () => {
     });
   }, []);
 
-  const aplicarLiberacaoAnteriorNoFormAberto = useCallback(() => {
-    const ctx = fusaoConsultaCtx;
+  const limparFusaoLiberacaoAnteriorMarcacao = useCallback(() => {
+    setFusaoLiberacaoAnteriorMarcacao({ cpf: '', seq: 0 });
+  }, []);
+
+  const sinalizarLiberacaoAnteriorPosFusao = useCallback((ctx, selectedIds) => {
     if (!ctx) return;
-    const selectedDocs = getSelectedFusaoDocs(ctx, selectedFusaoTicketIds);
+    const selectedDocs = getSelectedFusaoDocs(ctx, selectedIds);
     const currentTipo = ctx.currentTipo || ctx.currentSnapshot?.tipo;
     const currentPixLiberado = ctx.currentPixLiberado === true;
+    const cpfCtx = String(ctx.cpf || '').replace(/\D/g, '');
     if (
+      cpfCtx.length === 11 &&
       deveMarcarLiberacaoAnteriorNoAtual({
         currentTipo,
         currentPixLiberado,
         selectedDocs,
       })
     ) {
-      setFusaoLiberacaoAnteriorSignal((n) => n + 1);
+      setFusaoLiberacaoAnteriorMarcacao((prev) => ({
+        cpf: cpfCtx,
+        seq: prev.cpf === cpfCtx ? prev.seq + 1 : 1,
+      }));
+    }
+  }, []);
+
+  const aplicarLiberacaoAnteriorNoFormAberto = useCallback(() => {
+    const ctx = fusaoConsultaCtx;
+    if (!ctx) return;
+    const selectedDocs = getSelectedFusaoDocs(ctx, selectedFusaoTicketIds);
+    const currentTipo = ctx.currentTipo || ctx.currentSnapshot?.tipo;
+    const currentPixLiberado = ctx.currentPixLiberado === true;
+    const cpfCtx = String(ctx.cpf || '').replace(/\D/g, '');
+    if (
+      cpfCtx.length === 11 &&
+      deveMarcarLiberacaoAnteriorNoAtual({
+        currentTipo,
+        currentPixLiberado,
+        selectedDocs,
+      })
+    ) {
+      setFusaoLiberacaoAnteriorMarcacao((prev) => ({
+        cpf: cpfCtx,
+        seq: prev.cpf === cpfCtx ? prev.seq + 1 : 1,
+      }));
     }
   }, [fusaoConsultaCtx, selectedFusaoTicketIds]);
+
+  useEffect(() => {
+    if (!fusaoConsultaCtx) {
+      const t = setTimeout(() => limparFusaoLiberacaoAnteriorMarcacao(), 600);
+      return () => clearTimeout(t);
+    }
+    return undefined;
+  }, [fusaoConsultaCtx, limparFusaoLiberacaoAnteriorMarcacao]);
 
   useEffect(() => {
     if (!modalFusaoAberto || !fusaoConsultaCtx) return;
@@ -379,10 +427,34 @@ const OuvidoriaPage = () => {
         }
         if (res?.message) lastMessage = res.message;
       }
+      sinalizarLiberacaoAnteriorPosFusao(ctx, selectedFusaoTicketIds);
+      const cpfCtx = String(ctx.cpf || '').replace(/\D/g, '');
+      const selectedDocs = getSelectedFusaoDocs(ctx, selectedFusaoTicketIds);
+      const currentTipoFusao = ctx.currentTipo || ctx.currentSnapshot?.tipo;
+      const currentPixLiberado = ctx.currentPixLiberado === true;
+      if (
+        cpfCtx.length === 11 &&
+        ctx.currentId &&
+        deveMarcarLiberacaoAnteriorNoAtual({
+          currentTipo: currentTipoFusao,
+          currentPixLiberado,
+          selectedDocs,
+        })
+      ) {
+        setFusaoPatchFormulario((prev) => ({
+          cpf: cpfCtx,
+          reclamacaoId: String(ctx.currentId),
+          liberacaoAnterior: true,
+          seq: (prev?.seq || 0) + 1,
+        }));
+      }
       toast.success(alvos.length > 1 ? `${alvos.length} fusões registradas.` : lastMessage);
       setModalFusaoAberto(false);
-      setFusaoConsultaCtx(null);
       setSelectedFusaoTicketIds(new Set());
+      await new Promise((resolve) => {
+        setTimeout(resolve, 80);
+      });
+      setFusaoConsultaCtx(null);
       loadDashboardStats();
       if (activeTab === 'lista') {
         setListaReloadSignal((n) => n + 1);
@@ -698,7 +770,8 @@ const OuvidoriaPage = () => {
             minhasReloadSignal={minhasReloadSignal}
             fusaoConsultaCtx={fusaoConsultaCtx}
             onAbrirModalFusao={abrirModalFusao}
-            fusaoLiberacaoAnteriorSignal={fusaoLiberacaoAnteriorSignal}
+            fusaoLiberacaoAnteriorMarcacao={fusaoLiberacaoAnteriorMarcacao}
+            fusaoPatchFormulario={fusaoPatchFormulario}
           />
         );
       case 'nova':
@@ -711,10 +784,12 @@ const OuvidoriaPage = () => {
             onAbrirModalFusao={abrirModalFusao}
             fusaoPendenteParaCreate={fusaoPendenteParaCreate}
             onConsumeFusaoPendenteParaCreate={() => setFusaoPendenteParaCreate(null)}
-            fusaoLiberacaoAnteriorSignal={fusaoLiberacaoAnteriorSignal}
+            fusaoLiberacaoAnteriorMarcacao={fusaoLiberacaoAnteriorMarcacao}
+            fusaoPatchFormulario={fusaoPatchFormulario}
             onRefreshOuvidReqProdUnread={refreshOuvidReqProdUnread}
             onSuccess={() => {
               toast.success('Reclamação criada com sucesso!');
+              limparFusaoLiberacaoAnteriorMarcacao();
               setActiveTab('minhas');
               loadDashboardStats();
               refreshOuvidReqProdUnread();
@@ -728,7 +803,8 @@ const OuvidoriaPage = () => {
             listaReloadSignal={listaReloadSignal}
             fusaoConsultaCtx={fusaoConsultaCtx}
             onAbrirModalFusao={abrirModalFusao}
-            fusaoLiberacaoAnteriorSignal={fusaoLiberacaoAnteriorSignal}
+            fusaoLiberacaoAnteriorMarcacao={fusaoLiberacaoAnteriorMarcacao}
+            fusaoPatchFormulario={fusaoPatchFormulario}
           />
         );
       case 'chargeback':
@@ -931,7 +1007,7 @@ const OuvidoriaPage = () => {
             {exibirPapelRedundante ? (
               <fieldset className="mb-4 text-sm">
                 <legend className="mb-2 font-medium text-gray-800 dark:text-gray-200">
-                  Papel do registro atual na fusão
+                  Situação na fusão
                 </legend>
                 <label className="mb-2 flex cursor-pointer items-center gap-2">
                   <input
@@ -940,7 +1016,7 @@ const OuvidoriaPage = () => {
                     checked={redundantePapel === 'current_parent'}
                     onChange={() => setRedundantePapel('current_parent')}
                   />
-                  <span>Atual como pai (parent)</span>
+                  <span>Ocorrência atual fundir como ATIVA</span>
                 </label>
                 <label className="flex cursor-pointer items-center gap-2">
                   <input
@@ -949,7 +1025,7 @@ const OuvidoriaPage = () => {
                     checked={redundantePapel === 'current_child'}
                     onChange={() => setRedundantePapel('current_child')}
                   />
-                  <span>Atual como filho (child)</span>
+                  <span>Ocorrência atual fundir como INATIVA</span>
                 </label>
               </fieldset>
             ) : null}

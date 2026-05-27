@@ -1,8 +1,9 @@
 /**
  * VeloHub V3 — Serviço HTTP Requisições (rotas `/api/escalacoes/*`)
- * VERSION: v1.5.8 | DATE: 2026-05-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.5.9 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.5.9: propagarPixLiberadoOuvidoria — POST quando refresh detecta status «feito» na liberação PIX
  * - v1.5.8: GET solicitações aceita paginação opcional (page/limit) em getAll e getByCpf
  * - v1.5.7: addReply passa a enviar x-user-email da sessão (paridade com gate backend para marcação de status em Dev)
  * - v1.5.6: Rename do ficheiro escalacoesApi.js → requisicoesApi.js; prefixos de log `[requisicoesApi]` (URLs inalteradas)
@@ -215,6 +216,16 @@ export const solicitacoesAPI = {
         headers: headersSessaoVelohubPreferencia(),
         body: JSON.stringify({ status }),
       },
+    ),
+
+  /**
+   * Propaga pixLiberado=true na reclamação ouvidoria quando a liberação PIX está «feito».
+   * @param {string} liberacaoPixMongoId — _id em liberacao_pix_prod
+   */
+  propagarPixLiberadoOuvidoria: (liberacaoPixMongoId) =>
+    apiRequest(
+      `/escalacoes/solicitacoes/${encodeURIComponent(liberacaoPixMongoId)}/propagar-pix-liberado`,
+      { method: 'POST' },
     ),
 };
 

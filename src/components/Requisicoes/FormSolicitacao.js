@@ -1,10 +1,12 @@
 /**
  * VeloHub V3 — FormSolicitacao (módulo Requisições)
- * VERSION: v1.21.14 | DATE: 2026-05-22 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.21.16 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
  *
  * Branch: requisicoes
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.21.16: Modal histórico CPF — subtexto «Certifique-se de não ser uma requisição redundante»
+ * - v1.21.15: Modal histórico CPF — título «Histórico de requisições para o CPF» (sem «nesta aba»)
  * - v1.21.14: Tipo de solicitação — opção «Aumento de Consultas» no seletor e typeMap da mensagem
  * - v1.21.13: Layout — CPF+Ticket mesma linha; tipo e blocos condicionais em container-secondary
  * - v1.21.12: Agente campo — escopo por userMail (`getVelotaxAgentForLoggedUser` / `setVelotaxAgentForLoggedUser`; sem cache `velotax_agent` entre contas)
@@ -986,6 +988,7 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
             role="dialog"
             aria-modal="true"
             aria-labelledby="form-solic-modal-cpf-aberto-title"
+            aria-describedby="form-solic-modal-cpf-aberto-sub"
           >
             <button
               type="button"
@@ -1001,8 +1004,14 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
                 <h2 id="form-solic-modal-cpf-aberto-title" className="text-base font-semibold text-gray-900 dark:text-gray-100">
                   {modalRequisicaoCpfAberta.abertas.length > 0
                     ? `Requisição em aberto para o CPF ${modalRequisicaoCpfAberta.cpfDisplay || '—'}`
-                    : `Histórico de requisições nesta aba para o CPF ${modalRequisicaoCpfAberta.cpfDisplay || '—'}`}
+                    : `Histórico de requisições para o CPF ${modalRequisicaoCpfAberta.cpfDisplay || '—'}`}
                 </h2>
+                <p
+                  id="form-solic-modal-cpf-aberto-sub"
+                  className="mt-1 text-sm text-gray-600 dark:text-gray-400"
+                >
+                  Certifique-se de não ser uma requisição redundante
+                </p>
               </div>
               <div className="flex-1 overflow-y-auto min-h-0 px-4 py-3 space-y-4">
                 <div>

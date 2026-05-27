@@ -1,8 +1,10 @@
 /**
  * VeloHub V3 - MinhasReclamacoes Component
- * VERSION: v1.19.3 | DATE: 2026-05-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.19.5 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.19.5: Pós-fusão — refresh do ticket aberto (getById) + patch imediato Liberação Anterior
+ * - v1.19.4: Botão Fundir no editar — comparação de `_id` normalizada com ctx de fusão
  * - v1.19.3: Removidos fetch ingest/debug da lista Minhas (sessão debug concluída)
  * - v1.19.2: getByColaborador com responsavelEmail (sessão) — evita lista «Minhas» cruzando contas por nome/substring na lista (paginação client-side já existente por fatia); fragment JSX explícito
  * - v1.19.0: Paginação client-side na lista (20 por página) quando há muitas ocorrências filtradas
@@ -27,6 +29,7 @@ import {
   isUnreadFusaoAbsorvoAlvo,
   markFusaoAbsAckReadFromItem,
 } from '../../utils/ouvidoriaFusaoNotif';
+import { normalizeMongoId } from '../../utils/requisicoesModalHelpers';
 
 /** Moldura absorvido (fusão não lida): ~70 % vermelho → ~30 % azul escuro */
 const GRAD_MOLDURA_FUSAO_ABS =
@@ -45,7 +48,8 @@ const MinhasReclamacoes = ({
   minhasReloadSignal = 0,
   fusaoConsultaCtx = null,
   onAbrirModalFusao,
-  fusaoLiberacaoAnteriorSignal = 0,
+  fusaoLiberacaoAnteriorMarcacao = { cpf: '', seq: 0 },
+  fusaoPatchFormulario = null,
 }) => {
   const [reclamacoes, setReclamacoes] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -65,6 +69,26 @@ const MinhasReclamacoes = ({
     if (minhasReloadSignal > 0 && colaboradorNome) {
       loadMinhasReclamacoes();
     }
+  }, [minhasReloadSignal]);
+
+  useEffect(() => {
+    if (minhasReloadSignal <= 0 || !selectedReclamacao) return;
+    const id = selectedReclamacao._id ?? selectedReclamacao.id;
+    const tipo = selectedReclamacao.tipo;
+    if (id == null || !tipo) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await reclamacoesAPI.getById(String(id), tipo);
+        const fresh = res?.data ?? res;
+        if (!cancelled && fresh) setSelectedReclamacao(fresh);
+      } catch (err) {
+        console.error('[MinhasReclamacoes] refresh ticket pós-fusão:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [minhasReloadSignal]);
 
   useEffect(() => {
@@ -112,8 +136,9 @@ const MinhasReclamacoes = ({
     Boolean(fusaoConsultaCtx?.showButton) &&
     fusaoConsultaCtx?.source === 'minhas' &&
     selectedReclamacao &&
-    String(fusaoConsultaCtx?.currentId ?? '') ===
-      String(selectedReclamacao?._id ?? selectedReclamacao?.id ?? '') &&
+    normalizeMongoId(fusaoConsultaCtx?.currentId) !== '' &&
+    normalizeMongoId(fusaoConsultaCtx?.currentId) ===
+      normalizeMongoId(selectedReclamacao?._id ?? selectedReclamacao?.id) &&
     String(fusaoConsultaCtx?.cpf ?? '').replace(/\D/g, '') ===
       String(selectedReclamacao?.cpf ?? '').replace(/\D/g, '');
 
@@ -173,6 +198,13 @@ const MinhasReclamacoes = ({
       });
       const dados = resultado.data || resultado || [];
       setReclamacoes(dados);
+      setSelectedReclamacao((cur) => {
+        if (!cur) return cur;
+        const curId = normalizeMongoId(cur._id ?? cur.id);
+        if (!curId) return cur;
+        const fresh = dados.find((r) => normalizeMongoId(r._id ?? r.id) === curId);
+        return fresh || cur;
+      });
       try {
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('velohub:ouvid-minhas-loaded'));
@@ -536,7 +568,8 @@ const MinhasReclamacoes = ({
                 onFusaoConsultaChange={onFusaoConsultaChange}
                 fundirInlineAtivo={podeFundirNoModalEdicao}
                 onAbrirModalFusao={onAbrirModalFusao}
-                fusaoLiberacaoAnteriorSignal={fusaoLiberacaoAnteriorSignal}
+                fusaoLiberacaoAnteriorMarcacao={fusaoLiberacaoAnteriorMarcacao}
+                fusaoPatchFormulario={fusaoPatchFormulario}
                 onClose={fecharModalEdicao}
                 onSuccess={() => {
                   fecharModalEdicao();

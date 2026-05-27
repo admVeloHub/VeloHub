@@ -1,8 +1,9 @@
 /**
  * VeloHub V3 - Helpers compartilhados (modal Req_Prod / Erros-Bugs)
- * VERSION: v1.0.11 | DATE: 2026-05-15 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.12 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.0.12: formatDataAberturaRequisicaoModal + buildModalHistoricoLiberacaoPixFromGetResponse (Ouvidoria Solicitar Liberação)
  * - v1.0.11: Filtrar lista GET pela aba Requisições (Solicitações vs Liberação PIX) + partition abertas/resolvidas (modal antes de novo envio)
  * - v1.0.10: Rename ficheiro escalacoesModalHelpers → requisicoesModalHelpers; reconcileRequisicoesLocalLogs; logs `[requisicoesModalHelpers]` (chaves STORAGE inalteradas)
  * - v1.0.6: getStatusChamado: status efetivo pelo item de reply com maior `at` (cronológico), não só o último índice do array — corrige card não mostrar Cancelado quando a ordem do array não coincide com a ordem temporal
@@ -240,6 +241,25 @@ export const partitionRequisicoesAbertasResolvidasParaModal = (docs) => {
     else resolvidas.push(row);
   }
   return { abertas, resolvidas };
+};
+
+/** Formata `createdAt` para exibição no modal de histórico por CPF. */
+export const formatDataAberturaRequisicaoModal = (iso) => {
+  if (iso == null || iso === '') return '—';
+  const d = new Date(iso);
+  return Number.isFinite(d.getTime()) ? d.toLocaleString('pt-BR') : '—';
+};
+
+/**
+ * Monta dados do modal de histórico (aba Liberação PIX) a partir do GET /solicitacoes?cpf=.
+ * @param {object|null|undefined} getResponse
+ * @returns {{ abertas: Array<object>, resolvidas: Array<object> }|null} null se não houver histórico na aba
+ */
+export const buildModalHistoricoLiberacaoPixFromGetResponse = (getResponse) => {
+  const listRaw = Array.isArray(getResponse?.data) ? getResponse.data : [];
+  const filtrado = filterSolicitacoesGetListByRequisicoesTab(listRaw, true);
+  if (filtrado.length === 0) return null;
+  return partitionRequisicoesAbertasResolvidasParaModal(filtrado);
 };
 
 /**

@@ -1,5 +1,6 @@
 // Configuração do VeloHub V3 - Baseada em Variáveis de Ambiente
-// VERSION: v1.7.1 | DATE: 2026-05-21 | AUTHOR: VeloHub Development Team
+// VERSION: v1.7.5 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
+// v1.7.5: VELOHUB_PIX_RECONCILE_SECRET — header X-Velohub-Pix-Reconcile-Secret (job reconciliação pixLiberado 15 min)
 // v1.7.1: OCTADESK_STATUS_RESOLVIDO_ID obrigatório na abertura de ticket (GET /tickets/status)
 // v1.7.0: OCTADESK_* — integração tickets (JWT, IDs grupo/assunto/status, custom field CPF)
 // VERSION: v1.6.0 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
@@ -57,7 +58,7 @@ module.exports = {
     process.env.OPENAI_VELOBOT_RESPONSES_MODEL != null
       ? String(process.env.OPENAI_VELOBOT_RESPONSES_MODEL).trim()
       : '',
-  
+
   // Google Gemini API Key (IA primária)
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
   
@@ -103,6 +104,12 @@ module.exports = {
   VELOHUB_TICKET_NOTIFY_SECRET:
     process.env.VELOHUB_TICKET_NOTIFY_SECRET != null
       ? String(process.env.VELOHUB_TICKET_NOTIFY_SECRET).trim()
+      : '',
+
+  // Job reconciliação pixLiberado (Cloud Scheduler 15 min): header X-Velohub-Pix-Reconcile-Secret
+  VELOHUB_PIX_RECONCILE_SECRET:
+    process.env.VELOHUB_PIX_RECONCILE_SECRET != null
+      ? String(process.env.VELOHUB_PIX_RECONCILE_SECRET).trim()
       : '',
   
   // Cache timeout para dados do chatbot (em ms)
@@ -159,7 +166,6 @@ module.exports = {
     process.env.OCTADESK_NUMBER_CHANNEL != null ? String(process.env.OCTADESK_NUMBER_CHANNEL).trim() : '',
   OCTADESK_ID_FORM:
     process.env.OCTADESK_ID_FORM != null ? String(process.env.OCTADESK_ID_FORM).trim() : '',
-  
   // ===========================================
   // VALIDAÇÃO DE CONFIGURAÇÃO
   // ===========================================

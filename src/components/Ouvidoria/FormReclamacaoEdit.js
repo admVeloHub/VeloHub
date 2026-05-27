@@ -1,11 +1,21 @@
 /**
  * VeloHub V3 - FormReclamacaoEdit Component
- * VERSION: v1.48.2 | DATE: 2026-05-21 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.50.8 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.50.8: Pós-fusão — Liberação Anterior imediata (`fusaoPatchFormulario`) + sync prop reclamacao
+ * - v1.50.7: Remove eslint-disable de regra inexistente no projeto (react-hooks/exhaustive-deps)
+ * - v1.50.6: Fix build — declaração duplicada de `fusaoLibAnteriorAplicadoSeqRef`
+ * - v1.50.5: Editar — consulta CPF automática ao abrir (ctx fusão + Fundir); não zera ctx no mount do tipo
+ * - v1.50.4: Consulta CPF / fusão — `currentId` normalizado (botão Fundir no modal editar)
+ * - v1.50.3: Solicitar Liberação — modal histórico Req_Prod por CPF (paridade Requisições)
+ * - v1.50.2: Liberação Anterior — marcação da fusão escopada ao CPF
+ * - v1.50.1: Solicitar Liberação — botão desabilitado se liberação já solicitada
+ * - v1.50.0: Solicitar Liberação — PUT em andamento antes de abrir modal (paridade Gerar Ticket)
+ * - v1.49.0: Gerar Ticket — PUT em andamento (validação + campos obrigatórios) antes de abrir Octadesk
  * - v1.48.2: Gerar Ticket — preenche campo com ticketRegistro (incl. já existente / resposta parcial)
  * - v1.48.1: Indicadores Fundido/Fundidos — coluna direita da faixa Protocolo
- * - v1.48.0: Fusão: `currentPixLiberado` no ctx; marca Liberação Anterior via `fusaoLiberacaoAnteriorSignal`
+ * - v1.48.0: Fusão: `currentPixLiberado` no ctx; marca Liberação Anterior via `fusaoLiberacaoAnteriorMarcacao` (CPF)
  * - v1.47.3: Fusão: consulta CPF omite tickets já absorvidos (inferior) da lista e do cenário
  * - v1.47.2: Consulta CPF / fusão: envia `currentSnapshot` ao contexto do modal Fundir ocorrências
  * - v1.47.1: Grid Protocolos: col 3 = Contrato Quitado/Cancelado; col 4 = Liberação Solicitada/Anterior
@@ -41,6 +51,9 @@ import {
   tipoSuportaLiberacaoAnterior,
 } from '../../utils/ouvidoriaFusaoModalDisplay';
 import { tipoOuvidoriaFormToOrigemReqProd } from '../../utils/liberacaoChavePixRules';
+import { buildModalHistoricoLiberacaoPixFromGetResponse, normalizeMongoId } from '../../utils/requisicoesModalHelpers';
+import { solicitacoesAPI } from '../../services/requisicoesApi';
+import ModalHistoricoRequisicaoCpf from '../Requisicoes/ModalHistoricoRequisicaoCpf';
 import ModalSolicitarLiberacaoPix from './ModalSolicitarLiberacaoPix';
 import OuvidoriaOctadeskTicketBar from './OuvidoriaOctadeskTicketBar';
 import { resolveOctadeskTicketFromForm } from '../../utils/resolveOctadeskTicketFromForm';
@@ -409,6 +422,8 @@ const converterParaFormData = (reclamacao) => {
   };
 };
 
+const FUSAO_LIB_ANTERIOR_MARCACAO_VAZIA = { cpf: '', seq: 0 };
+
 const FormReclamacaoEdit = ({
   reclamacao,
   onClose,
@@ -416,7 +431,8 @@ const FormReclamacaoEdit = ({
   onFusaoConsultaChange,
   fundirInlineAtivo = false,
   onAbrirModalFusao,
-  fusaoLiberacaoAnteriorSignal = 0,
+  fusaoLiberacaoAnteriorMarcacao = FUSAO_LIB_ANTERIOR_MARCACAO_VAZIA,
+  fusaoPatchFormulario = null,
 }) => {
   // Obter userEmail e responsavel da sessão
   const getUserSession = () => {
@@ -503,6 +519,7 @@ const FormReclamacaoEdit = ({
 
   const [loading, setLoading] = useState(false);
   const [gerandoTicketOcta, setGerandoTicketOcta] = useState(false);
+  const [solicitandoLiberacao, setSolicitandoLiberacao] = useState(false);
   const [errors, setErrors] = useState({});
   const [showSaveOptions, setShowSaveOptions] = useState(false);
   const dropdownRef = useRef(null);
@@ -512,6 +529,10 @@ const FormReclamacaoEdit = ({
   const [buscandoOutrosProtocolos, setBuscandoOutrosProtocolos] = useState(false);
   const [outrosProtocolosRegistros, setOutrosProtocolosRegistros] = useState([]);
   const [protocoloExpandido, setProtocoloExpandido] = useState(null);
+  const fusaoLibAnteriorAplicadoSeqRef = useRef(0);
+  const fusaoPatchAplicadoSeqRef = useRef(0);
+  const tipoAnteriorFusaoRef = useRef(undefined);
+  const consultaFusaoAutoRecIdRef = useRef('');
 
   // Fechar dropdown de motivo ao clicar fora
   useEffect(() => {
@@ -534,17 +555,94 @@ const FormReclamacaoEdit = ({
   }, [dropdownMotivoAberto]);
 
   useEffect(() => {
+    if (tipoAnteriorFusaoRef.current === undefined) {
+      tipoAnteriorFusaoRef.current = formData.tipo;
+      return;
+    }
+    if (tipoAnteriorFusaoRef.current === formData.tipo) return;
+    tipoAnteriorFusaoRef.current = formData.tipo;
     if (typeof onFusaoConsultaChange === 'function') {
       onFusaoConsultaChange(null);
     }
   }, [formData.tipo, onFusaoConsultaChange]);
 
+  const cpfFormNorm = String(formData.cpf || '').replace(/\D/g, '');
+
   useEffect(() => {
-    if (fusaoLiberacaoAnteriorSignal < 1) return;
+    const marc = fusaoLiberacaoAnteriorMarcacao || FUSAO_LIB_ANTERIOR_MARCACAO_VAZIA;
+    if (!marc.cpf || marc.seq < 1) {
+      fusaoLibAnteriorAplicadoSeqRef.current = 0;
+      return;
+    }
+    if (cpfFormNorm.length !== 11 || cpfFormNorm !== marc.cpf) return;
     if (!tipoSuportaLiberacaoAnterior(formData.tipo)) return;
     if (formData.pixLiberado === true) return;
+    if (fusaoLibAnteriorAplicadoSeqRef.current >= marc.seq) return;
+    fusaoLibAnteriorAplicadoSeqRef.current = marc.seq;
     setFormData((prev) => ({ ...prev, liberacaoAnterior: true }));
-  }, [fusaoLiberacaoAnteriorSignal, formData.tipo, formData.pixLiberado]);
+  }, [
+    fusaoLiberacaoAnteriorMarcacao,
+    cpfFormNorm,
+    formData.tipo,
+    formData.pixLiberado,
+  ]);
+
+  useEffect(() => {
+    const patch = fusaoPatchFormulario;
+    if (!patch?.seq || patch.liberacaoAnterior !== true) return;
+    if (fusaoPatchAplicadoSeqRef.current >= patch.seq) return;
+    const cpfPatch = String(patch.cpf || '').replace(/\D/g, '');
+    if (cpfFormNorm.length !== 11 || cpfFormNorm !== cpfPatch) return;
+    const recId = normalizeMongoId(reclamacao?._id ?? reclamacao?.id);
+    const patchId = normalizeMongoId(patch.reclamacaoId);
+    if (patchId && recId !== patchId) return;
+    if (!tipoSuportaLiberacaoAnterior(formData.tipo)) return;
+    if (formData.pixLiberado === true) return;
+    fusaoPatchAplicadoSeqRef.current = patch.seq;
+    setFormData((prev) => ({ ...prev, liberacaoAnterior: true }));
+  }, [
+    fusaoPatchFormulario,
+    cpfFormNorm,
+    reclamacao?._id,
+    reclamacao?.id,
+    formData.tipo,
+    formData.pixLiberado,
+  ]);
+
+  useEffect(() => {
+    if (!reclamacao) return;
+    setFormData((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      if (reclamacao.liberacaoAnterior === true && prev.liberacaoAnterior !== true) {
+        next.liberacaoAnterior = true;
+        changed = true;
+      }
+      if (
+        reclamacao.Fusao &&
+        typeof reclamacao.Fusao === 'object' &&
+        JSON.stringify(reclamacao.Fusao) !== JSON.stringify(prev.Fusao)
+      ) {
+        next.Fusao = { ...reclamacao.Fusao };
+        changed = true;
+      }
+      if (
+        reclamacao.Finalizado &&
+        typeof reclamacao.Finalizado === 'object' &&
+        JSON.stringify(reclamacao.Finalizado) !== JSON.stringify(prev.Finalizado)
+      ) {
+        next.Finalizado = { ...reclamacao.Finalizado };
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [
+    reclamacao?._id,
+    reclamacao?.liberacaoAnterior,
+    reclamacao?.Fusao,
+    reclamacao?.Finalizado,
+    reclamacao?.updatedAt,
+  ]);
 
   /**
    * Renderizar campo de motivo com dropdown múltipla escolha
@@ -654,6 +752,7 @@ const FormReclamacaoEdit = ({
   const [mostrarModalReclameAqui, setMostrarModalReclameAqui] = useState(false);
   const [buscandoReclameAqui, setBuscandoReclameAqui] = useState(false);
   const [liberacaoModalCtx, setLiberacaoModalCtx] = useState(null);
+  const [modalHistoricoLiberacaoCpf, setModalHistoricoLiberacaoCpf] = useState(null);
 
   const aplicarMudancaTipo = (novoTipo) => {
     const hoje = new Date().toISOString().split('T')[0];
@@ -716,7 +815,13 @@ const FormReclamacaoEdit = ({
     return '';
   };
 
-  const abrirModalSolicitarLiberacao = () => {
+  const liberacaoPixJaSolicitada = formData.liberacaoSolicitada === true;
+
+  const handleSolicitarLiberacao = async () => {
+    if (liberacaoPixJaSolicitada) {
+      toast.error('Liberação já solicitada para esta ocorrência.');
+      return;
+    }
     const orig = tipoOuvidoriaFormToOrigemReqProd(formData.tipo);
     if (!orig) {
       toast.error('Solicitar liberação não está disponível para este tipo de ocorrência.');
@@ -726,12 +831,277 @@ const FormReclamacaoEdit = ({
       toast.error('Informe ou gere um ticket (Registro, N1 ou N2) antes de solicitar liberação.');
       return;
     }
-    setLiberacaoModalCtx({ origem: orig, tipoApi: formData.tipo });
+    const cpfDigits = String(formData.cpf || '').replace(/\D/g, '');
+    if (cpfDigits.length !== 11) {
+      toast.error('CPF inválido. Preencha o CPF do cliente antes de solicitar liberação.');
+      return;
+    }
+    setSolicitandoLiberacao(true);
+    try {
+      let id;
+      try {
+        id = await persistirEmAndamentoOcorrencia();
+      } catch (err) {
+        if (err?.message === 'VALIDATION') return;
+        throw err;
+      }
+      const pending = { origem: orig, tipoApi: formData.tipo, reclamacaoId: id };
+      try {
+        const res = await solicitacoesAPI.getByCpf(cpfDigits);
+        const historico = buildModalHistoricoLiberacaoPixFromGetResponse(res);
+        if (historico) {
+          setModalHistoricoLiberacaoCpf({
+            cpfDisplay: formatCPFInput(cpfDigits),
+            abertas: historico.abertas,
+            resolvidas: historico.resolvidas,
+            pending,
+          });
+          return;
+        }
+      } catch (scanErr) {
+        console.error('[FormReclamacaoEdit] Erro ao verificar requisições por CPF:', scanErr);
+        toast.error('Não foi possível verificar requisições existentes para este CPF. Tente novamente.');
+        return;
+      }
+      setLiberacaoModalCtx(pending);
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.message || 'Erro ao salvar ocorrência antes da liberação.');
+    } finally {
+      setSolicitandoLiberacao(false);
+    }
   };
 
-  const handleGerarTicketOctadesk = async () => {
-    const tipo = formData.tipo;
-    if (!tipo || tipo === 'TIME_PORTABILIDADE') return;
+  const fecharModalHistoricoLiberacaoCpf = () => setModalHistoricoLiberacaoCpf(null);
+
+  const confirmarModalHistoricoLiberacaoCpf = () => {
+    const m = modalHistoricoLiberacaoCpf;
+    if (!m?.pending) {
+      fecharModalHistoricoLiberacaoCpf();
+      return;
+    }
+    setLiberacaoModalCtx(m.pending);
+    fecharModalHistoricoLiberacaoCpf();
+  };
+
+  /**
+   * @param {'em-andamento'|'resolvido'} modo
+   * @returns {Record<string, unknown>}
+   */
+  const buildPayloadParaEnvio = (modo) => {
+    /** @type {Record<string, unknown>} */
+    let payload = {
+      tipo: formData.tipo,
+      nome: formData.nome,
+      cpf: formData.cpf.replace(/\D/g, ''),
+      telefones: { lista: formData.telefones.lista.filter((t) => t.trim() !== '') },
+      email: formData.email || '',
+      observacoes: formData.observacoes,
+      responsavel,
+      userEmail: userEmail,
+      updatedAt: new Date(),
+    };
+
+    if (modo === 'resolvido') {
+      payload.Finalizado = {
+        Resolvido: true,
+        dataResolucao: new Date(),
+      };
+    }
+
+    if (formData.tipo === 'BACEN') {
+      payload = {
+        ...payload,
+        dataEntrada: formData.dataEntrada,
+        origem: formData.origem,
+        produto: formData.produto || '',
+        anexos: formData.anexos,
+        motivoReduzido: formData.motivoReduzido,
+        motivoDetalhado: formData.motivoDetalhado,
+        tentativasContato: {
+          lista: formData.tentativasContato.lista.filter((t) => t.data || t.meio || t.resultado),
+        },
+        acionouCentral: formData.acionouCentral,
+        protocolosCentral: formData.protocolosCentral.filter((p) => p.trim() !== ''),
+        n2SegundoNivel: formData.n2SegundoNivel,
+        protocolosN2: formData.protocolosN2.filter((p) => p.trim() !== ''),
+        reclameAqui: formData.reclameAqui,
+        protocolosReclameAqui: formData.protocolosReclameAqui.filter((p) => p.trim() !== ''),
+        procon: formData.procon,
+        protocolosProcon: formData.protocolosProcon.filter((p) => p.trim() !== ''),
+        semRespostaCliente: formData.semRespostaCliente === true,
+        liberacaoSolicitada: formData.liberacaoSolicitada === true,
+        liberacaoAnterior: formData.liberacaoAnterior === true,
+        pixLiberado: formData.pixLiberado,
+        statusContratoQuitado: formData.statusContratoQuitado,
+        statusContratoAberto: !formData.statusContratoQuitado,
+        contratoCancelado: formData.contratoCancelado === true,
+      };
+    } else if (formData.tipo === 'OUVIDORIA') {
+      payload = {
+        ...payload,
+        dataEntradaN2: formData.dataEntradaN2,
+        origem: formData.origem || '',
+        produto: formData.produto || '',
+        motivoReduzido: formData.motivoReduzido,
+        motivoDetalhado: formData.motivoDetalhado || '',
+        anexos: formData.anexos,
+        tentativasContato: {
+          lista: formData.tentativasContato.lista.filter((t) => t.data || t.meio || t.resultado),
+        },
+        acionouCentral: formData.acionouCentral,
+        protocolosCentral: formData.protocolosCentral.filter((p) => p.trim() !== ''),
+        protocolosN2: (formData.protocolosN2 || []).filter((p) => p && String(p).trim() !== ''),
+        reclameAqui: formData.reclameAqui,
+        protocolosReclameAqui: formData.protocolosReclameAqui.filter((p) => p.trim() !== ''),
+        procon: formData.procon,
+        protocolosProcon: formData.protocolosProcon.filter((p) => p.trim() !== ''),
+        semRespostaCliente: formData.semRespostaCliente === true,
+        liberacaoSolicitada: formData.liberacaoSolicitada === true,
+        liberacaoAnterior: formData.liberacaoAnterior === true,
+        pixLiberado: formData.pixLiberado,
+        statusContratoQuitado: formData.statusContratoQuitado,
+        statusContratoAberto: !formData.statusContratoQuitado,
+        contratoCancelado: formData.contratoCancelado === true,
+      };
+    } else if (formData.tipo === 'RECLAME_AQUI') {
+      payload = {
+        ...payload,
+        cpfRepetido: formData.cpfRepetido || '',
+        idEntrada: formData.idEntrada,
+        dataReclam: formData.dataReclam,
+        produto: formData.produto,
+        motivoReduzido: formData.motivoReduzido,
+        motivoDetalhado: formData.motivoDetalhado || '',
+        passivelNotaMais: formData.passivelNotaMais,
+        pixLiberado: formData.pixLiberado === true,
+        statusContratoQuitado: formData.statusContratoQuitado,
+        statusContratoAberto: !formData.statusContratoQuitado,
+        enviarParaCobranca: formData.enviarParaCobranca || false,
+        anexos: formData.anexos,
+        solicitadoAvaliacao: formData.solicitadoAvaliacao,
+        avaliado: formData.avaliado,
+        acionouCentral: formData.acionouCentral,
+        protocolosCentral: formData.protocolosCentral.filter((p) => p.trim() !== ''),
+        n2SegundoNivel: formData.n2SegundoNivel,
+        protocolosN2: formData.protocolosN2.filter((p) => p.trim() !== ''),
+        reclameAqui: formData.reclameAqui,
+        protocolosReclameAqui: formData.protocolosReclameAqui.filter((p) => p.trim() !== ''),
+        procon: formData.procon,
+        protocolosProcon: formData.protocolosProcon.filter((p) => p.trim() !== ''),
+        semRespostaCliente: formData.semRespostaCliente === true,
+        liberacaoSolicitada: formData.liberacaoSolicitada === true,
+        liberacaoAnterior: formData.liberacaoAnterior === true,
+        contratoCancelado: formData.contratoCancelado === true,
+      };
+    } else if (formData.tipo === 'PROCON') {
+      payload = {
+        ...payload,
+        codigoProcon: formData.codigoProcon,
+        dataProcon: formData.dataProcon,
+        origem: formData.origem,
+        produto: formData.produto,
+        motivoReduzido: formData.motivoReduzido,
+        motivoDetalhado: formData.motivoDetalhado || '',
+        solucaoApresentada: formData.solucaoApresentada || '',
+        processoAdministrativo: formData.processoAdministrativo || '',
+        clienteDesistiu: formData.clienteDesistiu || false,
+        encaminhadoJuridico: formData.encaminhadoJuridico || false,
+        processoEncaminhadoResponsavel:
+          formData.encaminhadoJuridico && formData.processoEncaminhadoResponsavel
+            ? formData.processoEncaminhadoResponsavel
+            : '',
+        processoEncaminhadoData:
+          formData.encaminhadoJuridico && formData.processoEncaminhadoData
+            ? formData.processoEncaminhadoData
+            : '',
+        processoEncerrado: formData.processoEncerrado || false,
+        dataProcessoEncerrado:
+          formData.processoEncerrado && formData.dataProcessoEncerrado
+            ? formData.dataProcessoEncerrado
+            : '',
+        registrosReclameAqui: formData.registrosReclameAqui || '',
+        anexos: formData.anexos,
+        acionouCentral: formData.acionouCentral,
+        protocolosCentral: formData.protocolosCentral.filter((p) => p && String(p).trim() !== ''),
+        n2SegundoNivel: formData.n2SegundoNivel,
+        protocolosN2: formData.protocolosN2.filter((p) => p && String(p).trim() !== ''),
+        reclameAqui: formData.reclameAqui,
+        protocolosReclameAqui: formData.protocolosReclameAqui.filter((p) => p && String(p).trim() !== ''),
+        pixLiberado: formData.pixLiberado || false,
+        statusContratoQuitado: formData.statusContratoQuitado || false,
+        semRespostaCliente: formData.semRespostaCliente === true,
+        liberacaoSolicitada: formData.liberacaoSolicitada === true,
+        liberacaoAnterior: formData.liberacaoAnterior === true,
+        contratoCancelado: formData.contratoCancelado === true,
+      };
+    } else if (formData.tipo === 'PROCESSOS') {
+      payload = {
+        ...payload,
+        nroProcesso: formData.nroProcesso,
+        empresaAcionada: formData.empresaAcionada,
+        dataEntrada: formData.dataEntradaProcesso,
+        produto: formData.produto,
+        motivoReduzido: formData.motivoReduzido,
+        motivoDetalhado: formData.motivoDetalhado || '',
+        audiencia: formData.audiencia || false,
+        dataAudiencia: formData.audiencia && formData.dataAudiencia ? formData.dataAudiencia : '',
+        situacaoAudiencia:
+          formData.audiencia && formData.situacaoAudiencia ? formData.situacaoAudiencia : '',
+        subsidios: formData.subsidios || '',
+        outrosProtocolos: formData.outrosProtocolos || '',
+        anexos: formData.anexos,
+        acionouCentral: formData.acionouCentral,
+        protocolosCentral: formData.protocolosCentral.filter((p) => p && String(p).trim() !== ''),
+        n2SegundoNivel: formData.n2SegundoNivel,
+        protocolosN2: formData.protocolosN2.filter((p) => p && String(p).trim() !== ''),
+        reclameAqui: formData.reclameAqui,
+        protocolosReclameAqui: formData.protocolosReclameAqui.filter((p) => p && String(p).trim() !== ''),
+        procon: formData.procon,
+        protocolosProcon: formData.protocolosProcon.filter((p) => p && String(p).trim() !== ''),
+        semRespostaCliente: formData.semRespostaCliente === true,
+        liberacaoSolicitada: formData.liberacaoSolicitada === true,
+        liberacaoAnterior: formData.liberacaoAnterior === true,
+        pixLiberado: formData.pixLiberado === true,
+        statusContratoQuitado: formData.statusContratoQuitado === true,
+        statusContratoAberto: formData.statusContratoQuitado !== true,
+        contratoCancelado: formData.contratoCancelado === true,
+      };
+    } else if (formData.tipo === 'TIME_PORTABILIDADE') {
+      payload = {
+        ...payload,
+        dataEntrada: formData.dataEntrada,
+        origem: TIME_PORT_ORIGEM,
+        produto: TIME_PORT_PRODUTO,
+        motivoReduzido: [...TIME_PORT_MOTIVO_FIXO],
+        motivoDetalhado: String(formData.motivoDetalhado || '').trim(),
+        protocoloOctadesk: String(formData.protocoloOctadesk || '').trim(),
+        pixLiberado: formData.pixLiberado === true,
+        statusContratoQuitado: formData.statusContratoQuitado === true,
+        statusContratoAberto: formData.statusContratoQuitado !== true,
+        liberacaoSolicitada: formData.liberacaoSolicitada === true,
+        contratoCancelado: formData.contratoCancelado === true,
+      };
+    }
+
+    if (payload && typeof payload === 'object' && 'numeroProtocolo' in payload) {
+      delete payload.numeroProtocolo;
+    }
+
+    const ticketReg = String(formData.ticketRegistro || '').trim();
+    if (ticketReg) {
+      payload.ticketRegistro = ticketReg;
+    }
+
+    return payload;
+  };
+
+  const persistirEmAndamentoOcorrencia = async () => {
+    const { valid, errors } = validarFormulario();
+    if (!valid) {
+      exibirToastValidacao(errors);
+      throw new Error('VALIDATION');
+    }
     const id =
       reclamacao?._id != null
         ? String(reclamacao._id)
@@ -739,15 +1109,29 @@ const FormReclamacaoEdit = ({
           ? String(reclamacao.id)
           : '';
     if (!id) {
-      toast.error('Reclamação sem identificador.');
-      return;
+      throw new Error('Reclamação sem identificador.');
     }
+    const payload = buildPayloadParaEnvio('em-andamento');
+    await reclamacoesAPI.update(id, payload, formData.tipo);
+    return id;
+  };
+
+  const handleGerarTicketOctadesk = async () => {
+    const tipo = formData.tipo;
+    if (!tipo || tipo === 'TIME_PORTABILIDADE') return;
     if (String(formData.ticketRegistro || '').trim()) {
       toast.error('Ticket de registro já preenchido.');
       return;
     }
     setGerandoTicketOcta(true);
     try {
+      let id;
+      try {
+        id = await persistirEmAndamentoOcorrencia();
+      } catch (err) {
+        if (err?.message === 'VALIDATION') return;
+        throw err;
+      }
       const res = await reclamacoesAPI.gerarTicketOctadesk(id, tipo);
       const num =
         res?.data?.ticketRegistro != null
@@ -761,9 +1145,9 @@ const FormReclamacaoEdit = ({
       if (res?.data?.alreadyExists) {
         toast.success('Ticket já vinculado — número exibido no campo.');
       } else if (res?.data?.octadeskFinalizeWarning) {
-        toast.success('Ticket Octadesk criado.');
+        toast.success('Ocorrência salva e ticket Octadesk criado.');
       } else {
-        toast.success('Ticket Octadesk gerado.');
+        toast.success('Ocorrência salva e ticket Octadesk gerado.');
       }
     } catch (err) {
       console.error(err);
@@ -780,6 +1164,7 @@ const FormReclamacaoEdit = ({
       liberacaoSolicitada: true,
       feedbackSolicitarLiberacao: idStr ? `Req_Prod: ${idStr}` : 'Liberação solicitada (Req_Prod).',
     }));
+    toast.success('Liberação solicitada e ocorrência salva.');
   };
 
   // Atualizar formData quando reclamacao mudar
@@ -1840,7 +2225,8 @@ const FormReclamacaoEdit = ({
    * Reclame Aqui busca N1, N2, Procon; Procon busca N1, N2, Reclame Aqui.
    * @param {string} tipoExcluir - Tipo do form atual (BACEN, OUVIDORIA, RECLAME_AQUI, PROCON) - excluído da busca
    */
-  const localizarAtendimentos = async (tipoExcluir = 'PROCON') => {
+  const localizarAtendimentos = async (tipoExcluir = 'PROCON', opts = {}) => {
+    const silencioso = opts?.silencioso === true;
     if (!formData.cpf || formData.cpf.replace(/\D/g, '').length !== 11) {
       toast.error('CPF inválido. Preencha o CPF do cliente primeiro.');
       return;
@@ -1852,14 +2238,8 @@ const FormReclamacaoEdit = ({
       const resultado = await reclamacoesAPI.getByCpf(cpfLimpo);
       const todasReclamacoes = Array.isArray(resultado) ? resultado : (resultado?.data || []);
 
-      const docIdStr = (r) =>
-        r?._id != null ? String(r._id) : r?.id != null ? String(r.id) : '';
-      const currentIdStr =
-        reclamacao?._id != null
-          ? String(reclamacao._id)
-          : reclamacao?.id != null
-            ? String(reclamacao.id)
-            : '';
+      const docIdStr = (r) => normalizeMongoId(r?._id ?? r?.id);
+      const currentIdStr = normalizeMongoId(reclamacao?._id ?? reclamacao?.id);
       const todasMenosAtual = currentIdStr
         ? todasReclamacoes.filter((r) => docIdStr(r) !== currentIdStr)
         : todasReclamacoes;
@@ -2008,7 +2388,7 @@ const FormReclamacaoEdit = ({
                 cpf: cpfLimpo,
                 targetDoc,
                 currentTipo: formData.tipo,
-                currentId: reclamacao?._id,
+                currentId: currentIdStr || null,
                 currentPixLiberado: formData.pixLiberado === true,
                 currentSnapshot: buildFusaoCurrentSnapshot(formData, {
                   numeroProtocolo: reclamacao?.numeroProtocolo,
@@ -2022,24 +2402,34 @@ const FormReclamacaoEdit = ({
 
       setFormData((prev) => ({ ...prev, ...updates }));
 
-      if (todasReclamacoes.length === 0) {
-        toast(textoRetornoBusca);
-      } else if (
-        textoRetornoBusca === 'Encontrada redundância de registro.' ||
-        textoRetornoBusca.startsWith('Ocorrência encontrada em ')
-      ) {
-        toast.success(textoRetornoBusca);
-      } else {
-        toast(textoRetornoBusca);
+      if (!silencioso) {
+        if (todasReclamacoes.length === 0) {
+          toast(textoRetornoBusca);
+        } else if (
+          textoRetornoBusca === 'Encontrada redundância de registro.' ||
+          textoRetornoBusca.startsWith('Ocorrência encontrada em ')
+        ) {
+          toast.success(textoRetornoBusca);
+        } else {
+          toast(textoRetornoBusca);
+        }
       }
     } catch (error) {
       console.error('Erro ao localizar atendimentos:', error);
-      toast.error('Erro ao localizar atendimentos');
+      if (!silencioso) toast.error('Erro ao localizar atendimentos');
       onFusaoConsultaChange?.(null);
     } finally {
       setBuscandoReclameAqui(false);
     }
   };
+
+  useEffect(() => {
+    const cpf = String(formData.cpf || '').replace(/\D/g, '');
+    const recId = normalizeMongoId(reclamacao?._id ?? reclamacao?.id);
+    if (cpf.length !== 11 || !recId || consultaFusaoAutoRecIdRef.current === recId) return;
+    consultaFusaoAutoRecIdRef.current = recId;
+    localizarAtendimentos(formData.tipo, { silencioso: true });
+  }, [reclamacao?._id, formData.cpf, formData.tipo]);
 
   /**
    * Buscar registros Reclame Aqui por CPF
@@ -2493,10 +2883,11 @@ const FormReclamacaoEdit = ({
       <div className="mb-4 flex">
         <button
           type="button"
-          onClick={abrirModalSolicitarLiberacao}
-          className="inline-flex h-12 min-h-12 shrink-0 items-center justify-center rounded-lg border px-3 text-sm font-medium transition-all duration-200 border-[#006AB9] text-[#006AB9] bg-transparent hover:bg-[#006AB9] hover:text-[#F3F7FC] dark:bg-gray-800"
+          onClick={handleSolicitarLiberacao}
+          disabled={solicitandoLiberacao || liberacaoPixJaSolicitada}
+          className="inline-flex h-12 min-h-12 shrink-0 items-center justify-center rounded-lg border px-3 text-sm font-medium transition-all duration-200 border-[#006AB9] text-[#006AB9] bg-transparent hover:bg-[#006AB9] hover:text-[#F3F7FC] dark:bg-gray-800 disabled:opacity-60"
         >
-          Solicitar Liberação
+          {solicitandoLiberacao ? 'Salvando...' : 'Solicitar Liberação'}
         </button>
       </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-5 md:grid-rows-2 md:gap-4 mb-4">
@@ -3201,10 +3592,11 @@ const FormReclamacaoEdit = ({
         <div className="mb-4 flex">
           <button
             type="button"
-            onClick={abrirModalSolicitarLiberacao}
-            className="inline-flex h-12 min-h-12 shrink-0 items-center justify-center rounded-lg border px-3 text-sm font-medium transition-all duration-200 border-[#006AB9] text-[#006AB9] bg-transparent hover:bg-[#006AB9] hover:text-[#F3F7FC] dark:bg-gray-800"
+            onClick={handleSolicitarLiberacao}
+            disabled={solicitandoLiberacao || liberacaoPixJaSolicitada}
+            className="inline-flex h-12 min-h-12 shrink-0 items-center justify-center rounded-lg border px-3 text-sm font-medium transition-all duration-200 border-[#006AB9] text-[#006AB9] bg-transparent hover:bg-[#006AB9] hover:text-[#F3F7FC] dark:bg-gray-800 disabled:opacity-60"
           >
-            Solicitar Liberação
+            {solicitandoLiberacao ? 'Salvando...' : 'Solicitar Liberação'}
           </button>
         </div>
 
@@ -3908,6 +4300,22 @@ const FormReclamacaoEdit = ({
       </div>
     </form>
 
+    <ModalHistoricoRequisicaoCpf
+      data={
+        modalHistoricoLiberacaoCpf
+          ? {
+              cpfDisplay: modalHistoricoLiberacaoCpf.cpfDisplay,
+              abertas: modalHistoricoLiberacaoCpf.abertas,
+              resolvidas: modalHistoricoLiberacaoCpf.resolvidas,
+            }
+          : null
+      }
+      onClose={fecharModalHistoricoLiberacaoCpf}
+      onConfirm={confirmarModalHistoricoLiberacaoCpf}
+      confirmLabel="Continuar solicitação"
+      titleId="ouvid-edit-modal-historico-liberacao-cpf-title"
+    />
+
     {liberacaoModalCtx ? (
       <ModalSolicitarLiberacaoPix
         open={Boolean(liberacaoModalCtx)}
@@ -3918,11 +4326,13 @@ const FormReclamacaoEdit = ({
         agente={resolverAgenteParaLiberacao()}
         tipoOuvidoriaApi={liberacaoModalCtx.tipoApi}
         reclamacaoId={
-          reclamacao?._id != null
-            ? String(reclamacao._id)
-            : reclamacao?.id != null
-              ? String(reclamacao.id)
-              : null
+          liberacaoModalCtx.reclamacaoId != null
+            ? String(liberacaoModalCtx.reclamacaoId)
+            : reclamacao?._id != null
+              ? String(reclamacao._id)
+              : reclamacao?.id != null
+                ? String(reclamacao.id)
+                : null
         }
         ouvidoriaNumeroProtocolo={
           String(resolveOctadeskTicketFromForm(formData) || '').trim() || undefined

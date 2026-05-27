@@ -1,8 +1,12 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Reclamações
- * VERSION: v2.29.3 | DATE: 2026-05-21 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.32.1 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v2.32.1: Fusão — hidrata PIX via Req_Prod «feito»; patch liberacaoAnterior usa tipo do parâmetro
+ * - v2.32.0: Fusão — sync pixLiberado (Req_Prod «feito») antes de patch liberacaoAnterior
+ * - v2.31.0: enrich/sync pixLiberado em toda listagem + GET /:id; liberação por _id ou numeroProtocolo
+ * - v2.30.0: Fusão — child absorvido salvo Resolvido=true; enrich Req_Prod «feito» propaga pixLiberado na reclamação
  * - v2.29.3: gerar-ticket — persiste ticketRegistro após POST; já existente retorna 200 p/ sincronizar UI
  * - v2.29.2: gerar-ticket-octadesk — api001: description no POST; sem PUT (404 na instância)
  * - v2.29.1: gerar-ticket-octadesk — PUT pós-create (comentários + Resolvido); POST só título/solicitante nesta instância
@@ -34,6 +38,10 @@ const {
   allocateNextNumeroProtocolo,
 } = require(path.join(__dirname, '../../../utils/protocoloOuvidoria'));
 const { getStatusChamadoFromDoc } = require(path.join(__dirname, '../../../utils/escalacoesReplyStatus'));
+const {
+  syncPixLiberadoParaReclamacaoDoc,
+  hidratarPixLiberadoReclamacaoParaFusao,
+} = require(path.join(__dirname, '../../../utils/liberacaoPixOuvidoriaSync'));
 const { resolveOctadeskTicketFromReclamacao } = require(path.join(__dirname, '../../../utils/resolveOctadeskTicketNumber'));
 const {
   syncNativoParaBloco792,
@@ -157,7 +165,10 @@ const mergeFinalizadoAoAbsorverEmFusao = (docExistente) => {
       : {};
   delete prev.Fundido;
   delete prev.dataFundido;
-  prev.Resolvido = false;
+  prev.Resolvido = true;
+  if (prev.dataResolucao == null || prev.dataResolucao === '') {
+    prev.dataResolucao = new Date();
+  }
   return prev;
 };
 
@@ -234,48 +245,96 @@ const mergeDedupProtos = (...protos) => {
 };
 
 /**
- * Anexa snapshot Req_Prod (liberacao_pix_prod) e status efetivo do reply quando há filtro por colaborador.
+ * Anexa snapshot Req_Prod (liberacao_pix_prod) e repara pixLiberado quando liberação está «feito».
  * @param {import('mongodb').MongoClient} client
  * @param {Array<Record<string, unknown>>} reclamacoes
  */
 async function enrichReclamacoesComReqProd(client, reclamacoes) {
-  if (!Array.isArray(reclamacoes) || reclamacoes.length === 0) return;
+  if (!client || !Array.isArray(reclamacoes) || reclamacoes.length === 0) return;
+
   const ids = reclamacoes.map((r) => r._id).filter(Boolean);
-  if (!ids.length) return;
+  const protocolos = [
+    ...new Set(
+      reclamacoes
+        .map((r) => (r.numeroProtocolo != null ? String(r.numeroProtocolo).trim() : ''))
+        .filter(Boolean)
+    ),
+  ];
+
+  if (!ids.length && !protocolos.length) return;
 
   const escDb = client.db('hub_escalacoes');
   const libColl = escDb.collection('liberacao_pix_prod');
+
+  /** @type {Record<string, unknown>[]} */
+  const orClauses = [];
+  if (ids.length) orClauses.push({ ouvidoriaReclamacaoId: { $in: ids } });
+  if (protocolos.length) orClauses.push({ ouvidoriaNumeroProtocolo: { $in: protocolos } });
+
   const libs = await libColl
     .find(
-      { ouvidoriaReclamacaoId: { $in: ids } },
-      { projection: { reply: 1, ouvidoriaNumeroProtocolo: 1, pixLiberado: 1, createdAt: 1, updatedAt: 1, ouvidoriaReclamacaoId: 1 } }
+      { $or: orClauses },
+      {
+        projection: {
+          reply: 1,
+          ouvidoriaNumeroProtocolo: 1,
+          pixLiberado: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          ouvidoriaReclamacaoId: 1,
+          ouvidoriaReclamacaoTipo: 1,
+        },
+      }
     )
     .toArray();
 
   /** @type {Map<string, Record<string, unknown>>} */
   const byReclamId = new Map();
+  /** @type {Map<string, Record<string, unknown>>} */
+  const byProtocolo = new Map();
+
   for (const lib of libs) {
     const k = lib.ouvidoriaReclamacaoId != null ? String(lib.ouvidoriaReclamacaoId) : '';
-    if (!k) continue;
-    const prev = byReclamId.get(k);
-    if (!prev || new Date(lib.createdAt || 0) > new Date(prev.createdAt || 0)) {
-      byReclamId.set(k, lib);
+    if (k) {
+      const prev = byReclamId.get(k);
+      if (!prev || new Date(lib.createdAt || 0) > new Date(prev.createdAt || 0)) {
+        byReclamId.set(k, lib);
+      }
+    }
+    const np =
+      lib.ouvidoriaNumeroProtocolo != null ? String(lib.ouvidoriaNumeroProtocolo).trim() : '';
+    if (np) {
+      const prevP = byProtocolo.get(np);
+      if (!prevP || new Date(lib.createdAt || 0) > new Date(prevP.createdAt || 0)) {
+        byProtocolo.set(np, lib);
+      }
     }
   }
 
   for (const r of reclamacoes) {
     const k = r._id != null ? String(r._id) : '';
-    const lib = k ? byReclamId.get(k) : null;
+    const np = r.numeroProtocolo != null ? String(r.numeroProtocolo).trim() : '';
+    const lib = (k && byReclamId.get(k)) || (np && byProtocolo.get(np)) || null;
+
     if (!lib) {
       r.reqProdLiberacaoPix = null;
       r.reqProdStatusEfetivo = null;
       r.reqProdStatusAt = null;
       continue;
     }
+
     r.reqProdLiberacaoPix = lib;
     const { status, atMs } = getStatusChamadoFromDoc(lib);
     r.reqProdStatusEfetivo = status;
     r.reqProdStatusAt = atMs > 0 ? new Date(atMs) : null;
+
+    if (String(status || '').toLowerCase() === 'feito' && r.pixLiberado !== true) {
+      try {
+        await syncPixLiberadoParaReclamacaoDoc(client, r);
+      } catch (syncErr) {
+        console.error('[enrichReclamacoesComReqProd] propagar pixLiberado:', syncErr);
+      }
+    }
   }
 }
 
@@ -325,15 +384,15 @@ const tipoSuportaLiberacaoAnteriorFusao = (tipo) => {
  * @param {Record<string, unknown>} cur
  * @param {Record<string, unknown>} tgt
  */
-const patchLiberacaoAnteriorFusao = (cur, tgt) => {
+const patchLiberacaoAnteriorFusao = (cur, tgt, currentTipo, targetTipo) => {
   const anyPix = cur.pixLiberado === true || tgt.pixLiberado === true;
   const curExtra = {};
   const tgtExtra = {};
   if (!anyPix) return { cur: curExtra, tgt: tgtExtra };
-  if (cur.pixLiberado !== true && tipoSuportaLiberacaoAnteriorFusao(cur.tipo)) {
+  if (cur.pixLiberado !== true && tipoSuportaLiberacaoAnteriorFusao(currentTipo)) {
     curExtra.liberacaoAnterior = true;
   }
-  if (tgt.pixLiberado !== true && tipoSuportaLiberacaoAnteriorFusao(tgt.tipo)) {
+  if (tgt.pixLiberado !== true && tipoSuportaLiberacaoAnteriorFusao(targetTipo)) {
     tgtExtra.liberacaoAnterior = true;
   }
   return { cur: curExtra, tgt: tgtExtra };
@@ -344,7 +403,7 @@ const patchLiberacaoAnteriorFusao = (cur, tgt) => {
  * @returns {Promise<string[]>} protocolos rebaixados em demotion (apenas cenário current_superior)
  */
 async function executarFusaoOuvidoria(db, params, options = {}) {
-  const { session } = options;
+  const { session, mongoClient } = options;
   const sessOpts = session ? { session } : {};
 
   const {
@@ -399,7 +458,17 @@ async function executarFusaoOuvidoria(db, params, options = {}) {
   const tgtOid = new ObjectId(String(targetId));
   const curProt = numeroProtocoloDeDoc(cur);
   const tgtProt = numeroProtocoloDeDoc(tgt);
-  const laPatch = patchLiberacaoAnteriorFusao(cur, tgt);
+
+  if (mongoClient) {
+    try {
+      await hidratarPixLiberadoReclamacaoParaFusao(mongoClient, cur, currentTipo);
+      await hidratarPixLiberadoReclamacaoParaFusao(mongoClient, tgt, targetTipo);
+    } catch (syncErr) {
+      console.error('[executarFusaoOuvidoria] hidratar pixLiberado:', syncErr);
+    }
+  }
+
+  const laPatch = patchLiberacaoAnteriorFusao(cur, tgt, currentTipo, targetTipo);
 
   let protosDemovidos = [];
   if (cen === 'current_superior') {
@@ -1121,8 +1190,7 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
 
       console.log(`✅ Reclamações encontradas: ${reclamacoes.length} de ${totalCount} (página ${pageNum}/${totalPages})`);
 
-      const colabTrim = colabNomeTrim || colabEmailLc;
-      if (colabTrim && client) {
+      if (client) {
         try {
           await enrichReclamacoesComReqProd(client, reclamacoes);
         } catch (enrichErr) {
@@ -1365,6 +1433,12 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         });
       }
 
+      try {
+        await syncPixLiberadoParaReclamacaoDoc(client, reclamacao);
+      } catch (syncErr) {
+        console.error('[GET reclamacao/:id] sync pixLiberado:', syncErr);
+      }
+
       res.json({
         success: true,
         data: reclamacao
@@ -1520,7 +1594,7 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
                 cenario: fusaoPendenteBloc.cenario,
                 redundantePapel: fusaoPendenteBloc.redundantePapel,
               },
-              { session }
+              { session, mongoClient: client }
             );
           });
         } finally {
@@ -1635,15 +1709,19 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
       }
 
       try {
-        await executarFusaoOuvidoria(db, {
-          cpfLimpo,
-          currentId: String(currentId),
-          currentTipo,
-          targetId: String(targetId),
-          targetTipo,
-          cenario: cen,
-          redundantePapel,
-        });
+        await executarFusaoOuvidoria(
+          db,
+          {
+            cpfLimpo,
+            currentId: String(currentId),
+            currentTipo,
+            targetId: String(targetId),
+            targetTipo,
+            cenario: cen,
+            redundantePapel,
+          },
+          { mongoClient: client }
+        );
       } catch (fusErr) {
         const code = fusErr && fusErr.code;
         if (code === 'FUSAO_NOT_FOUND') {
@@ -1747,19 +1825,6 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         else delete updateDocRaw.Finalizado;
       }
       const updateDoc = updateDocRaw;
-
-      if (isFusaoAbsorvoAlvoDocMongo(existente)) {
-        const finIn =
-          updateDoc.Finalizado != null && typeof updateDoc.Finalizado === 'object'
-            ? updateDoc.Finalizado
-            : null;
-        if (finIn != null && finIn.Resolvido === true) {
-          return res.status(400).json({
-            success: false,
-            message: 'Ticket absorvido por fusão: não marcar Finalizado.Resolvido.',
-          });
-        }
-      }
 
       if (existente?.Fusao?.fundido === true) {
         delete updateDoc.Fusao;
