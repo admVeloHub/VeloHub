@@ -1,6 +1,6 @@
 // VeloHub V3 - Configuração local para testes
-// VERSION: v1.4.0 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
-// v1.4.0: IDs de vector store VeloBot removidos (hardcoded em velobotRagConstants.js)
+// VERSION: v1.5.0 | DATE: 2026-05-18 | AUTHOR: VeloHub Development Team
+// v1.5.0: VELOBOT_PRIMARY_RAG_ENABLED (default false em velobotRagConstants — RAG pausado)
 // VERSION: v1.2.0 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
 // v1.2.0: OPENAI_VELOBOT_VECTOR_STORE_IDS / OPENAI_VELOBOT_RESPONSES_MODEL (RAG VeloBot)
 // VERSION: v1.1.0 | DATE: 2026-04-22 | AUTHOR: VeloHub Development Team
@@ -17,6 +17,7 @@ const config = {
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   OPENAI_VELOBOT_RESPONSES_MODEL: process.env.OPENAI_VELOBOT_RESPONSES_MODEL,
+  VELOBOT_PRIMARY_RAG_ENABLED: process.env.VELOBOT_PRIMARY_RAG_ENABLED,
   VELOBOT_TELEMETRY_WEBHOOK_URL: process.env.VELOBOT_TELEMETRY_WEBHOOK_URL,
   VELOBOT_TELEMETRY_WEBHOOK_SECRET: process.env.VELOBOT_TELEMETRY_WEBHOOK_SECRET,
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,

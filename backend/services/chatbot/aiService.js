@@ -1,7 +1,9 @@
 // AI Service - Integração híbrida com IA para respostas inteligentes
-// VERSION: v3.1.1 | DATE: 2026-05-18 | AUTHOR: VeloHub Development Team
+// VERSION: v3.1.3 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
 //
 // Referência (duas entradas; detalhes no Git):
+// - v3.1.3: RAG congelado — vector store só com VELOBOT_PRIMARY_RAG_ENABLED; legado exclusivo por padrão
+// - v3.1.2: RAG primário pausável via VELOBOT_PRIMARY_RAG_ENABLED (default false → só fallback legado)
 // - v3.1.1: guardrail tripwire — preview truncado da resposta bloqueada com VELOHUB_AI_DEBUG=1
 // - v3.1.0: Chat primário — persona velobotChatPersona, stores hardcoded, gpt-5.4-mini, histórico 10, guardrail alucinação
 // - v3.0.5: _buildOpenAiResponsesInput — mensagens assistant no histórico com output_text (API /v1/responses rejeita input_text no papel assistant; corrige 400 no 2º turno)
@@ -530,16 +532,23 @@ Atenciosamente,
   }
 
   /**
-   * Modo primário VeloBot: OpenAI configurada + stores fixas em código.
+   * Modo primário VeloBot: flag VELOBOT_PRIMARY_RAG_ENABLED + OpenAI configurada.
    */
   isPrimaryVelobotRagConfigured() {
-    const ok = this.isOpenAIConfigured();
+    const enabled = config.VELOBOT_PRIMARY_RAG_ENABLED === true;
+    const ok = enabled && this.isOpenAIConfigured();
     this._aiDebug('isPrimaryVelobotRagConfigured', {
       ok,
+      enabled,
       storeCount: getPrimaryVelobotVectorStoreIds().length,
       openAI: this.isOpenAIConfigured()
     });
     return ok;
+  }
+
+  /** RAG OpenAI desligado por config (fluxo legado apenas). */
+  isPrimaryVelobotRagPaused() {
+    return config.VELOBOT_PRIMARY_RAG_ENABLED !== true;
   }
 
   /**
@@ -621,10 +630,10 @@ Atenciosamente,
     }
   }
   /**
-   * VeloBot pode usar Responses API + file_search quando há API key e ao menos um vector store.
+   * Responses API + file_search só quando RAG primário está habilitado (congelado = fluxo legado).
    */
   isVelobotVectorStoreConfigured() {
-    return this.isOpenAIConfigured();
+    return config.VELOBOT_PRIMARY_RAG_ENABLED === true && this.isOpenAIConfigured();
   }
 
   /**

@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.24 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.25 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,19 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - VeloBot: congelar RAG OpenAI (fluxo legado exclusivo)**
+- **Data/Hora**: 2026-05-26
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: velobotRagConstants v1.3.1, aiService v3.1.3, config.js v1.7.6, config-local v1.5.0, DEPLOY_LOG v1.1.25
+- **Arquivos Modificados**:
+  - `backend/services/chatbot/velobotRagConstants.js`
+  - `backend/services/chatbot/aiService.js`
+  - `backend/config.js`
+  - `backend/config-local.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Congela o RAG novo (OpenAI Responses + file_search) via `VELOBOT_PRIMARY_RAG_FORCE_DISABLED`; `/api/chatbot/ask` usa exclusivamente o fluxo legado Mongo/Gemini.
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - Ouvidoria fusão/Liberação Anterior + sync pixLiberado Req_Prod**
 - **Data/Hora**: 2026-05-26

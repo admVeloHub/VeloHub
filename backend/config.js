@@ -1,5 +1,6 @@
 // Configuração do VeloHub V3 - Baseada em Variáveis de Ambiente
-// VERSION: v1.7.5 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
+// VERSION: v1.7.6 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
+// v1.7.6: VELOBOT_PRIMARY_RAG_ENABLED — RAG OpenAI VeloBot (congelado via velobotRagConstants FORCE_DISABLED)
 // v1.7.5: VELOHUB_PIX_RECONCILE_SECRET — header X-Velohub-Pix-Reconcile-Secret (job reconciliação pixLiberado 15 min)
 // v1.7.1: OCTADESK_STATUS_RESOLVIDO_ID obrigatório na abertura de ticket (GET /tickets/status)
 // v1.7.0: OCTADESK_* — integração tickets (JWT, IDs grupo/assunto/status, custom field CPF)
@@ -20,6 +21,8 @@
  * Base URL da API SKYNET (Ambiente de teste: FONTE DA VERDADE/.env com SKYNET=3001).
  * Prioridade: SKYNET_API_URL explícita; senão SKYNET (somente dígitos → localhost; URL completa → como está; host:porta → http://...).
  */
+const { isPrimaryVelobotRagEnabled } = require('./services/chatbot/velobotRagConstants');
+
 function resolveSkynetApiBaseUrl() {
   const explicit = process.env.SKYNET_API_URL;
   if (explicit != null && String(explicit).trim() !== '') {
@@ -61,6 +64,9 @@ module.exports = {
 
   // Google Gemini API Key (IA primária)
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+
+  // RAG OpenAI VeloBot (Responses + file_search) — false = fluxo legado Mongo/Gemini em /api/chatbot/ask
+  VELOBOT_PRIMARY_RAG_ENABLED: isPrimaryVelobotRagEnabled(process.env.VELOBOT_PRIMARY_RAG_ENABLED),
   
   // ===========================================
   // BANCO DE DADOS
