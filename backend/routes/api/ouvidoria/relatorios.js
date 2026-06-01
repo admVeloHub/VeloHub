@@ -1,8 +1,10 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Relatórios
- * VERSION: v2.30.3 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.30.5 | DATE: 2026-06-01 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v2.30.5: GET relatório (lista reclamacoes): campo origem para exportação planilha Reclamações
+ * - v2.30.4: GET relatório (lista reclamacoes): campo produto para exportação planilha Reclamações
  * - v2.30.3: bucketOrigemProconRelatorio centralizado em `utils/bucketOrigemProconRelatorio.js`
  * - v2.30.2: MOTIVOS_CONHECIDOS / MOTIVOS_VALIDOS / diário: motivo «Elegibilidade»
  * - v2.27.0: GET relatório (lista reclamacoes): campo dataResolucao (YYYY-MM-DD) quando Finalizado.Resolvido, para exportação/planilha
@@ -612,6 +614,8 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
           dataEntrada: (r.tipo === 'OUVIDORIA' || r.tipo === 'N2' || r.tipo === 'N2 Pix') ? r.dataEntradaN2 : (r.tipo === 'RECLAME AQUI' ? r.dataReclam : r.tipo === 'PROCON' ? r.dataProcon : r.dataEntrada),
           dataResolucao: extrairDataResolucaoRelatorio(r),
           motivoReduzido: r.motivoReduzido,
+          produto: r.produto,
+          origem: r.origem,
           responsavel: r.responsavel,
           createdAt: r.createdAt,
         })),

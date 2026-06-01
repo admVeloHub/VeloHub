@@ -1,8 +1,10 @@
 /**
  * VeloHub V3 - RelatoriosOuvidoria Component
- * VERSION: v2.17.6 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.17.8 | DATE: 2026-06-01 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v2.17.8: Exportação aba Reclamações: origem (J), responsável (K)
+ * - v2.17.7: Exportação aba Reclamações: motivoReduzido (H), produto (I), responsável (J)
  * - v2.17.6: MOTIVOS_CONHECIDOS_FRONTEND: «Elegibilidade»
  * - v2.14.0: MOTIVOS_CONHECIDOS_FRONTEND: Empréstimo pessoal → Empréstimo Pessoal (alinhado produto/form)
  */
@@ -1215,6 +1217,16 @@ const RelatoriosOuvidoria = () => {
     return { tabela, meses };
   }, [dadosDetalhados, gerarMesesNoPeriodo]);
 
+  const formatarMotivoReduzidoParaCelula = (motivoReduzido) => {
+    if (motivoReduzido == null) return '-';
+    if (Array.isArray(motivoReduzido)) {
+      const texto = motivoReduzido.filter(Boolean).join(', ');
+      return texto || '-';
+    }
+    const texto = String(motivoReduzido).trim();
+    return texto || '-';
+  };
+
   /**
    * Exportar relatório para XLSX
    */
@@ -1347,7 +1359,9 @@ const RelatoriosOuvidoria = () => {
           'Status': r.status || '-',
           'Data Entrada': r.dataEntrada || '-',
           'Data Resolvido': formatDateRegistro(r.dataResolucao, '-'),
-          'Motivo': r.motivoReduzido || '-',
+          'Motivo': formatarMotivoReduzidoParaCelula(r.motivoReduzido),
+          'Produto': r.produto || '-',
+          'Origem': r.origem || '-',
           'Responsável': r.responsavel || '-',
         }));
         const wsReclamacoes = XLSX.utils.json_to_sheet(dadosReclamacoes);
