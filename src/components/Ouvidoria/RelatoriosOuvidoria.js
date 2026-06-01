@@ -1,8 +1,10 @@
 /**
  * VeloHub V3 - RelatoriosOuvidoria Component
- * VERSION: v2.17.8 | DATE: 2026-06-01 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.18.0 | DATE: 2026-06-01 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v2.18.0: Exportação aba Reclamações: layout A–L (CPF…Data Resolvido; sem # e Origem)
+ * - v2.17.9: Exportação aba Reclamações: PIX Liberado (L)
  * - v2.17.8: Exportação aba Reclamações: origem (J), responsável (K)
  * - v2.17.7: Exportação aba Reclamações: motivoReduzido (H), produto (I), responsável (J)
  * - v2.17.6: MOTIVOS_CONHECIDOS_FRONTEND: «Elegibilidade»
@@ -1227,6 +1229,14 @@ const RelatoriosOuvidoria = () => {
     return texto || '-';
   };
 
+  const formatarPixLiberadoParaCelula = (reclamacao) => {
+    const statusLegadoLiberado = ['Liberado', 'Excluído', 'Solicitada'];
+    if (reclamacao?.pixLiberado === true) return 'Sim';
+    if (statusLegadoLiberado.includes(reclamacao?.pixStatus)) return 'Sim';
+    if (reclamacao?.pixLiberado === false) return 'Não';
+    return '-';
+  };
+
   /**
    * Exportar relatório para XLSX
    */
@@ -1351,18 +1361,19 @@ const RelatoriosOuvidoria = () => {
 
       // Planilha: Reclamações (mantida)
       if (relatorio.reclamacoes) {
-        const dadosReclamacoes = (relatorio.reclamacoes || []).map((r, index) => ({
-          '#': index + 1,
-          'Nome': r.nome || '-',
+        const dadosReclamacoes = (relatorio.reclamacoes || []).map((r) => ({
           'CPF': r.cpf || '-',
+          'Nome': r.nome || '-',
           'Tipo': r.tipo || '-',
-          'Status': r.status || '-',
-          'Data Entrada': r.dataEntrada || '-',
-          'Data Resolvido': formatDateRegistro(r.dataResolucao, '-'),
-          'Motivo': formatarMotivoReduzidoParaCelula(r.motivoReduzido),
+          'Data Entrada': formatDateRegistro(r.dataEntrada, '-'),
+          'Descrição': r.motivoDetalhado || '-',
+          'Observação': r.observacoes || '-',
           'Produto': r.produto || '-',
-          'Origem': r.origem || '-',
+          'Motivo': formatarMotivoReduzidoParaCelula(r.motivoReduzido),
+          'PIX Liberado': formatarPixLiberadoParaCelula(r),
           'Responsável': r.responsavel || '-',
+          'Status': r.status || '-',
+          'Data Resolvido': formatDateRegistro(r.dataResolucao, '-'),
         }));
         const wsReclamacoes = XLSX.utils.json_to_sheet(dadosReclamacoes);
         XLSX.utils.book_append_sheet(wb, wsReclamacoes, 'Reclamações');
