@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.27 | DATE: 2026-06-01 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.28 | DATE: 2026-06-02 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,20 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - Permissões: refresh no boot + heartbeat/reactivate**
+- **Data/Hora**: 2026-06-02
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: auth.js v1.14.0, userSessionLogger v1.6.0, server.js v2.50.26, App_v6 v2.28.6, RequisicoesPage v1.26.0, DEPLOY_LOG v1.1.28
+- **Arquivos Modificados**:
+  - `src/services/auth.js`
+  - `backend/services/logging/userSessionLogger.js`
+  - `backend/server.js`
+  - `src/App_v6.js`
+  - `src/pages/RequisicoesPage.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Propaga mudanças de atuação sem logout — validate-access sempre no boot; heartbeat e reactivate recalculam permissoesVelohub no hub_sessions e atualizam localStorage; evento velohub:permissoes-refresh atualiza header e abas Req_Prod.
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - Home portal, corporate compliance, permissões e integrações**
 - **Data/Hora**: 2026-06-01

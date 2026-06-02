@@ -1,8 +1,9 @@
 /**
  * VeloHub V3 — componente principal da aplicação (App_v6.js; antes App_v2-1.js)
- * VERSION: v2.28.5 | DATE: 2026-05-29 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.28.6 | DATE: 2026-06-02 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v2.28.6: Header — refresh permissoesVelohub sempre no mount + evento velohub:permissoes-refresh
  * - v2.28.5: «Ler depois» — reset do ciclo ao concluir todas as ciências pendentes
  * - v2.28.4: Compliance — snooze «Ler depois» libera navegação por 10 min
  * - v2.28.3: Pós-login sempre Home; URL resetada (não restaura hero anterior ao logout)
@@ -334,7 +335,7 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
   useEffect(() => {
     let cancelled = false;
     const syncPermissoes = async () => {
-      if (!getPermissoesVelohub() && getUserSession()?.user?.email) {
+      if (getUserSession()?.user?.email) {
         await refreshPermissoesVelohubFromBackend();
       }
       if (!cancelled) {
@@ -342,14 +343,21 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
       }
     };
     syncPermissoes();
+    const onPermissoesRefresh = () => {
+      if (!cancelled) {
+        setPermissoesVelohub(getPermissoesVelohub());
+      }
+    };
     const onStorage = (e) => {
       if (e.key === 'velohub_permissoes_velohub' || e.key === 'velohub_session_id') {
         setPermissoesVelohub(getPermissoesVelohub());
       }
     };
+    window.addEventListener('velohub:permissoes-refresh', onPermissoesRefresh);
     window.addEventListener('storage', onStorage);
     return () => {
       cancelled = true;
+      window.removeEventListener('velohub:permissoes-refresh', onPermissoesRefresh);
       window.removeEventListener('storage', onStorage);
     };
   }, []);

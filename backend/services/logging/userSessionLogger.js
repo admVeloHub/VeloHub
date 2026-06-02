@@ -1,5 +1,9 @@
 // User Session Logger - Log de sessões de login/logout dos usuários
-// VERSION: v1.5.1 | DATE: 2026-05-29 | AUTHOR: VeloHub Development Team
+// VERSION: v1.6.0 | DATE: 2026-06-02 | AUTHOR: VeloHub Development Team
+//
+// Mudanças v1.6.0:
+// - Heartbeat e reactivate recalculam permissoesVelohub a partir do cadastro (propaga mudanças de atuação)
+// - updateSession: success por matchedCount (não falha quando snapshot de permissões é o único delta)
 //
 // Mudanças v1.5.1:
 // - Corrigido require de funcionariosCollections (../../config a partir de services/logging)
@@ -404,9 +408,45 @@ class UserSessionLogger {
   }
 
   /**
+   * Recalcula permissoesVelohub a partir do cadastro do colaborador.
+   * @param {object} sessionDoc — documento hub_sessions
+   * @returns {Promise<object|null>} payload { permissoesVelohub, funcoesSnapshot, atuacaoIds }
+   */
+  async _resolvePermissoesPayloadForSession(sessionDoc) {
+    if (!sessionDoc?.userEmail) return null;
+
+    const { getFuncionariosDb, getCadastroCollection } = require('../../config/funcionariosDb');
+    const { resolvePermissoesVelohub } = require('../../utils/resolvePermissoesVelohub');
+
+    const normalizedEmail = String(sessionDoc.userEmail).toLowerCase().trim();
+    const cadastro = getCadastroCollection(this.client);
+
+    let funcionario = await cadastro.findOne({ userMail: normalizedEmail });
+    if (!funcionario) {
+      funcionario = await cadastro.findOne({
+        $or: [
+          { userMail: sessionDoc.userEmail },
+          {
+            userMail: {
+              $regex: new RegExp(
+                `^${normalizedEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+                'i'
+              ),
+            },
+          },
+        ],
+      });
+    }
+
+    if (!funcionario) return null;
+
+    return resolvePermissoesVelohub(getFuncionariosDb(this.client), funcionario);
+  }
+
+  /**
    * Atualiza sessão (heartbeat) - mantém isActive=true
    * @param {string} sessionId - ID da sessão
-   * @returns {Promise<Object>} { success: boolean, expired: boolean }
+   * @returns {Promise<Object>} { success: boolean, expired: boolean, permissoesVelohub?, funcoesSnapshot? }
    */
   async updateSession(sessionId) {
     try {
@@ -469,7 +509,14 @@ class UserSessionLogger {
         // Isso garante que sessões reativadas sempre voltem para 'online'
         updateData.chatStatus = 'online';
       }
-      
+
+      const permissoesPayload = await this._resolvePermissoesPayloadForSession(session);
+      if (permissoesPayload) {
+        updateData.permissoesVelohub = permissoesPayload.permissoesVelohub;
+        updateData.funcoesSnapshot = permissoesPayload.funcoesSnapshot;
+        updateData.atuacaoIds = permissoesPayload.atuacaoIds;
+      }
+
       const result = await this.collection.updateOne(
         { sessionId: sessionId },
         {
@@ -477,19 +524,21 @@ class UserSessionLogger {
         }
       );
 
-      if (result.modifiedCount > 0) {
+      if (result.matchedCount > 0) {
         console.log(`💓 SessionLogger: Heartbeat recebido - ${session.colaboradorNome}`);
         return {
           success: true,
-          expired: false
-        };
-      } else {
-        return {
-          success: false,
           expired: false,
-          error: 'Erro ao atualizar sessão'
+          permissoesVelohub: permissoesPayload?.permissoesVelohub ?? session.permissoesVelohub ?? null,
+          funcoesSnapshot: permissoesPayload?.funcoesSnapshot ?? session.funcoesSnapshot ?? null,
         };
       }
+
+      return {
+        success: false,
+        expired: false,
+        error: 'Erro ao atualizar sessão'
+      };
 
     } catch (error) {
       console.error('❌ SessionLogger: Erro ao atualizar sessão:', error.message);
@@ -539,17 +588,24 @@ class UserSessionLogger {
           };
         }
 
+        const reactivateSet = {
+          isActive: true,
+          updatedAt: now,
+        };
+
+        const permissoesPayload = await this._resolvePermissoesPayloadForSession(latestSession);
+        if (permissoesPayload) {
+          reactivateSet.permissoesVelohub = permissoesPayload.permissoesVelohub;
+          reactivateSet.funcoesSnapshot = permissoesPayload.funcoesSnapshot;
+          reactivateSet.atuacaoIds = permissoesPayload.atuacaoIds;
+        }
+
         const result = await this.collection.updateOne(
           { sessionId: latestSession.sessionId },
-          {
-            $set: {
-              isActive: true,
-              updatedAt: now,
-            },
-          }
+          { $set: reactivateSet }
         );
 
-        if (result.modifiedCount > 0) {
+        if (result.matchedCount > 0) {
           console.log(
             `🔄 SessionLogger: Sessão reativada - ${latestSession.colaboradorNome} (${latestSession.sessionId})`
           );
@@ -557,6 +613,8 @@ class UserSessionLogger {
             success: true,
             sessionId: latestSession.sessionId,
             expired: false,
+            permissoesVelohub: permissoesPayload?.permissoesVelohub ?? latestSession.permissoesVelohub ?? null,
+            funcoesSnapshot: permissoesPayload?.funcoesSnapshot ?? latestSession.funcoesSnapshot ?? null,
           };
         }
 

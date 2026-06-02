@@ -1,5 +1,6 @@
 // Sistema de Autenticação Centralizado para VeloHub
-// VERSION: v1.13.3 | DATE: 2026-05-29 | AUTHOR: VeloHub Development Team
+// VERSION: v1.14.0 | DATE: 2026-06-02 | AUTHOR: VeloHub Development Team
+// v1.14.0: Permissões sempre atualizadas no boot (validate-access); heartbeat/reactivate persistem snapshot; evento velohub:permissoes-refresh
 // v1.13.3: logout — resetComplianceModalCycle (modal compliance no próximo login)
 // v1.13.2: logout — replaceState('/') antes do reload (não preservar /portal/*)
 // v1.13.1: Após registerLoginSession — evento velohub:compliance-refresh para pending corporativo
@@ -93,6 +94,9 @@ function persistPermissoesVelohubFromAuth(payload) {
         }
         if (payload.funcoesSnapshot) {
             localStorage.setItem(FUNCOES_SNAPSHOT_KEY, JSON.stringify(payload.funcoesSnapshot));
+        }
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('velohub:permissoes-refresh'));
         }
     } catch (e) {
         console.warn('[auth] Falha ao persistir permissoesVelohub:', e);
@@ -543,7 +547,7 @@ async function sendHeartbeat() {
         }
         
         if (result.success) {
-            // Heartbeat enviado com sucesso (log silencioso)
+            persistPermissoesVelohubFromAuth(result);
         } else {
             console.warn('⚠️ Erro ao enviar heartbeat:', result.error);
         }
@@ -645,6 +649,7 @@ async function reactivateSession() {
             if (result.sessionId) {
                 localStorage.setItem('velohub_session_id', result.sessionId);
             }
+            persistPermissoesVelohubFromAuth(result);
             console.log('✅ Sessão reativada:', result.sessionId);
             return true;
         } else {
@@ -823,11 +828,9 @@ async function checkAuthenticationState() {
         
         console.log('✅ sessionId garantido:', sessionId.substring(0, 8) + '...');
 
-        if (!getPermissoesVelohub()) {
-            await refreshPermissoesVelohubFromBackend(session.user?.picture);
-        }
-        
-        // Tentar reativar sessão se necessário (pode atualizar sessionId)
+        await refreshPermissoesVelohubFromBackend(session.user?.picture);
+
+        // Tentar reativar sessão se necessário (pode atualizar sessionId e permissoesVelohub)
         const reactivated = await reactivateSession();
         
         if (reactivated) {

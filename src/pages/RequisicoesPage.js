@@ -1,8 +1,9 @@
 /**
  * VeloHub V3 — RequisicoesPage (módulo Requisições / Req_Prod)
- * VERSION: v1.25.0 | DATE: 2026-05-28 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.26.0 | DATE: 2026-06-02 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.26.0: Abas Req_Prod reagem a velohub:permissoes-refresh (heartbeat/boot atualiza snapshot)
  * - v1.25.0: Conta bypass desenvolvedor — abas Req_Prod liberadas via auth.js (sem depender de MongoDB)
  * - v1.23.0: Abas Req_Prod filtradas por permissoesVelohub (atendimento, liberacaoPix, acompanhamento) com fallback API legado
  * - v1.22.0: Propaga pixLiberado também no primeiro load de liberações já «feito» (dedup sessionStorage)
@@ -133,6 +134,20 @@ const RequisicoesPage = () => {
   const [hasAtendimento, setHasAtendimento] = useState(contaBypass ? true : (permInicial ? !!permInicial.atendimento : null));
   /** Aba Dev — conta bypass ou env */
   const [hasDevTab, setHasDevTab] = useState(contaBypass);
+  const applyPermissoesTabsFromSnapshot = useCallback(() => {
+    if (contaBypass) {
+      setHasAtendimento(true);
+      setHasApoioN1(true);
+      setHasChavePix(true);
+      return true;
+    }
+    const p = getPermissoesVelohub();
+    if (!p) return false;
+    setHasAtendimento(!!p.atendimento);
+    setHasApoioN1(!!p.acompanhamento);
+    setHasChavePix(!!p.liberacaoPix);
+    return true;
+  }, [contaBypass]);
   const [logs, setLogs] = useState([]);
   const [searchCpf, setSearchCpf] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
@@ -693,11 +708,7 @@ const RequisicoesPage = () => {
   }, [activeTab, loadStats]);
 
   useEffect(() => {
-    const p = getPermissoesVelohub();
-    if (p) {
-      setHasAtendimento(!!p.atendimento);
-      setHasApoioN1(!!p.acompanhamento);
-      setHasChavePix(!!p.liberacaoPix);
+    if (applyPermissoesTabsFromSnapshot()) {
       return undefined;
     }
 
@@ -736,7 +747,15 @@ const RequisicoesPage = () => {
     fetchModulo('acompanhamento', setHasApoioN1);
     fetchModulo('liberacaoPix', setHasChavePix);
     return undefined;
-  }, []);
+  }, [applyPermissoesTabsFromSnapshot]);
+
+  useEffect(() => {
+    const onPermissoesRefresh = () => {
+      applyPermissoesTabsFromSnapshot();
+    };
+    window.addEventListener('velohub:permissoes-refresh', onPermissoesRefresh);
+    return () => window.removeEventListener('velohub:permissoes-refresh', onPermissoesRefresh);
+  }, [applyPermissoesTabsFromSnapshot]);
 
   useEffect(() => {
     if (emailContaLogadaTemBypassVelohub()) {

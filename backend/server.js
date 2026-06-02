@@ -1,6 +1,7 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.50.25 | DATE: 2026-06-01 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.50.26 | DATE: 2026-06-02 | AUTHOR: VeloHub Development Team
+ * - v2.50.26: heartbeat/reactivate retornam permissoesVelohub recalculadas (propaga atuações)
  * - v2.50.25: hub_avisos feed; destaques só carrossel; app.listen após todas as rotas
  * - v2.50.24: proxy /api/images — prefixo img_avisos/ (mídias avisos corporativos)
  * - v2.50.23: API corporate — Políticas, LGPD, Termos + compliance pending
@@ -4942,7 +4943,9 @@ app.post('/api/auth/session/heartbeat', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Heartbeat recebido'
+      message: 'Heartbeat recebido',
+      permissoesVelohub: result.permissoesVelohub ?? null,
+      funcoesSnapshot: result.funcoesSnapshot ?? null,
     });
 
   } catch (error) {
@@ -4996,7 +4999,9 @@ app.post('/api/auth/session/reactivate', async (req, res) => {
     res.json({
       success: true,
       sessionId: result.sessionId,
-      message: 'Sessão reativada com sucesso'
+      message: 'Sessão reativada com sucesso',
+      permissoesVelohub: result.permissoesVelohub ?? null,
+      funcoesSnapshot: result.funcoesSnapshot ?? null,
     });
 
   } catch (error) {
