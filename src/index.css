@@ -1,8 +1,14 @@
 /**
  * VeloHub V3 - Main Styles
- * VERSION: v1.5.0 | DATE: 2026-05-21 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.5.6 | DATE: 2026-05-29 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.5.6: Footer — conteúdo nos limites esquerdo/direito da viewport (sem max-width)
+ * - v1.5.5: Footer — alinhamento esquerda (Termos) / direita (copyright + versão)
+ * - v1.5.4: Footer — botão link Termos de Uso (.footer-link-btn)
+ * - v1.5.3: Apoio — cards 2× (28rem × 23rem)
+ * - v1.5.2: Apoio — cards centralizados de fato (fit-content + painel vertical)
+ * - v1.5.1: Apoio — grid de cards centralizado e redimensionado (.apoio-cards-*)
  * - v1.5.0: Checkboxes — margem à direita 1,5px (espaço antes do rótulo)
  * - v1.4.9: Checkboxes — +30% tamanho; border-radius 2,5px
  * - v1.4.8: Checkboxes — appearance none + quinas 1,5px visíveis (nativo ignora só border-radius)
@@ -241,6 +247,49 @@ body {
 
 .dark .container-secondary {
   border-color: var(--blue-opaque);
+}
+
+/* Apoio — cards Solicite Apoio (centralizados na área útil) */
+.apoio-solicitar-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: min(58vh, calc(100vh - 14rem));
+  box-sizing: border-box;
+  padding: 1.5rem 0 2.5rem;
+}
+
+.apoio-cards-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.apoio-cards-grid {
+  --apoio-card-width: 28rem;
+  --apoio-card-min-height: 23rem;
+  display: grid;
+  gap: 3rem;
+  width: fit-content;
+  max-width: calc(100% - 2rem);
+  grid-template-columns: repeat(3, var(--apoio-card-width));
+}
+
+@media (max-width: 767px) {
+  .apoio-cards-grid {
+    grid-template-columns: minmax(0, var(--apoio-card-width));
+  }
+}
+
+.apoio-card-btn {
+  width: var(--apoio-card-width);
+  max-width: 100%;
+  min-height: var(--apoio-card-min-height);
+  box-sizing: border-box;
 }
 
 /* Tema escuro */
@@ -641,22 +690,38 @@ code {
 }
 
 .footer-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 20px;
+    max-width: none;
+    margin: 0;
+    padding: 0 15px;
     width: 100%;
     height: 100%;
     display: flex;
     align-items: center;
+    box-sizing: border-box;
 }
 
 .footer-content {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 8px;
+    width: 100%;
     height: 100%;
+    box-sizing: border-box;
+}
+
+.footer-section--left {
+    justify-content: flex-start;
+    flex-shrink: 0;
+    margin-right: auto;
+}
+
+.footer-section--right {
+    justify-content: flex-end;
+    flex-shrink: 0;
+    margin-left: auto;
+    text-align: right;
 }
 
 .footer-section {
@@ -671,6 +736,32 @@ code {
     margin: 0;
     padding: 0;
     line-height: 1;
+}
+
+.footer-link-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    color: var(--blue-medium, #1694ff);
+    font-size: 0.7rem;
+    font-family: 'Poppins', sans-serif;
+    line-height: 1;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.footer-link-btn:hover {
+    color: var(--blue-dark, #000058);
+}
+
+.dark .footer-link-btn {
+    color: var(--blue-light, #1694ff);
+}
+
+.dark .footer-link-btn:hover {
+    color: #fff;
 }
 
 /* Tema escuro - Footer */

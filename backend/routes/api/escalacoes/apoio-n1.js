@@ -1,13 +1,17 @@
 /**
  * VeloHub V3 - Escalações API — rotas restritas Apoio N1 (visão geral Req_Prod)
- * VERSION: v1.1.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.2.0 | DATE: 2026-05-29 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.2.0: Gate alinhado a permissoesVelohub.acompanhamento (atuacao/modulosVelohub + fallback apoioN1)
  * - v1.1.0: GET /overview e /agentes: incluem coleção liberacao_pix_prod (Liberação chave PIX) — query ?origem=liberacao-chave-pix ou origem=todos
  */
 
 const express = require('express');
+const { getCadastroCollection, getFuncionariosDb } = require('../../../config/funcionariosDb');
 const { getStatusChamadoFromDoc, normalizeReplyArrays } = require('./escalacoesReplyStatusDerive');
+const { resolvePermissoesVelohub } = require('../../../utils/resolvePermissoesVelohub');
+const { emailTemBypassVelohub } = require('../../../utils/contaBypassVelohub');
 
 const router = express.Router();
 
@@ -49,9 +53,11 @@ async function assertApoioN1Access(client, connectToMongo, email) {
   if (!email) {
     return { ok: false, status: 400, message: 'Email obrigatório' };
   }
+  if (emailTemBypassVelohub(email)) {
+    return { ok: true };
+  }
   await connectToMongo();
-  const db = client.db('console_analises');
-  const funcionariosCollection = db.collection('qualidade_funcionarios');
+  const funcionariosCollection = getCadastroCollection(client);
   const funcionario = await findFuncionarioByEmail(funcionariosCollection, email);
   if (!funcionario) {
     return { ok: false, status: 403, message: 'Acesso negado' };
@@ -62,8 +68,12 @@ async function assertApoioN1Access(client, connectToMongo, email) {
     acessos.velohub === true ||
     acessos.VeloHub === true ||
     acessos.VELOHUB === true;
-  const apoioN1 = acessos.apoioN1 === true || acessos.apoion1 === true;
-  if (!acessoVelohub || !apoioN1) {
+  if (!acessoVelohub) {
+    return { ok: false, status: 403, message: 'Acesso negado' };
+  }
+
+  const { permissoesVelohub } = await resolvePermissoesVelohub(getFuncionariosDb(client), funcionario);
+  if (permissoesVelohub?.acompanhamento !== true) {
     return { ok: false, status: 403, message: 'Acesso negado' };
   }
   return { ok: true };

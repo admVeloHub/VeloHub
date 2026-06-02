@@ -1,8 +1,9 @@
 /**
  * VeloHub V3 - Helpers compartilhados (modal Req_Prod / Erros-Bugs)
- * VERSION: v1.0.12 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.13 | DATE: 2026-05-27 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.0.13: partition modal histórico — agenteLabel (colaboradorNome) por linha
  * - v1.0.12: formatDataAberturaRequisicaoModal + buildModalHistoricoLiberacaoPixFromGetResponse (Ouvidoria Solicitar Liberação)
  * - v1.0.11: Filtrar lista GET pela aba Requisições (Solicitações vs Liberação PIX) + partition abertas/resolvidas (modal antes de novo envio)
  * - v1.0.10: Rename ficheiro escalacoesModalHelpers → requisicoesModalHelpers; reconcileRequisicoesLocalLogs; logs `[requisicoesModalHelpers]` (chaves STORAGE inalteradas)
@@ -213,6 +214,22 @@ export const getOrigemExibicaoRequisicaoDoc = (doc) => {
 };
 
 /**
+ * Nome do agente/colaborador para exibição no modal histórico por CPF.
+ * @param {Object|null|undefined} doc
+ * @returns {string}
+ */
+export const getColaboradorExibicaoRequisicaoDoc = (doc) => {
+  const top = String(doc?.colaboradorNome || doc?.agente || '').trim();
+  if (top) return top;
+  const pl = doc?.payload;
+  if (pl && typeof pl === 'object') {
+    const sub = String(pl.agente || '').trim();
+    if (sub) return sub;
+  }
+  return '';
+};
+
+/**
  * Particiona documentos do CPF em «abertas» (status enviado) e «resolvidas» (feito / não feito / Cancelado).
  * Ordenação: `createdAt` mais recente primeiro.
  * @param {Array<Object>} docs
@@ -234,6 +251,7 @@ export const partitionRequisicoesAbertasResolvidasParaModal = (docs) => {
       key: normalizeMongoId(doc?._id ?? doc?.id) || `${String(doc?.tipo)}-${String(doc?.createdAt)}`,
       tipo: String(doc?.tipo || '').trim() || '—',
       origemLabel: getOrigemExibicaoRequisicaoDoc(doc),
+      agenteLabel: getColaboradorExibicaoRequisicaoDoc(doc),
       createdAt: doc?.createdAt,
       statusChamado: st,
     };

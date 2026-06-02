@@ -1,5 +1,7 @@
 /**
  * VeloHub V3 - Escalações API Routes - Erros/Bugs
+ * VERSION: v1.10.1 | DATE: 2026-05-22 | AUTHOR: VeloHub Development Team
+ * - v1.10.1: Octadesk PUT comentário interno — valida protocolosCentral como número de ticket
  * VERSION: v1.10.0 | DATE: 2026-05-20 | AUTHOR: VeloHub Development Team
  *
  * Branch: main (recuperado de escalacoes)
@@ -486,7 +488,9 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
 
       console.log(`✅ Erro/Bug criado: ${result.insertedId}`);
 
-      const ticketNum = protoVal.values[0];
+      const ticketNum = resolveOctadeskTicketFromRequisicao({
+        protocolosCentral: protoVal.values,
+      });
       const headerText = buildErroBugHeaderComment({
         agente: colaboradorNome,
         cpf: erroBug.cpf,
@@ -494,10 +498,16 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
         payload: payloadCompleto,
         descricao,
       });
-      octadeskSyncFireAndForget(
-        () => addInternalComment(ticketNum, headerText),
-        `erros-bugs-criado-${result.insertedId}`
-      );
+      if (ticketNum) {
+        octadeskSyncFireAndForget(
+          () => addInternalComment(ticketNum, headerText),
+          `erros-bugs-criado-${result.insertedId}`
+        );
+      } else {
+        console.warn(
+          `[Octadesk] erros-bugs-criado-${result.insertedId}: Ticket Octadesk inválido em protocolosCentral`
+        );
+      }
 
       // Log de atividade
       if (userActivityLogger) {

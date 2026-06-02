@@ -1,5 +1,12 @@
 // Sistema de Autenticação Centralizado para VeloHub
-// VERSION: v1.8.2 | DATE: 2026-05-21 | AUTHOR: VeloHub Development Team
+// VERSION: v1.13.3 | DATE: 2026-05-29 | AUTHOR: VeloHub Development Team
+// v1.13.3: logout — resetComplianceModalCycle (modal compliance no próximo login)
+// v1.13.2: logout — replaceState('/') antes do reload (não preservar /portal/*)
+// v1.13.1: Após registerLoginSession — evento velohub:compliance-refresh para pending corporativo
+// v1.13.0: paginaPermitidaVelohub / paginaParaNavItem — bloqueio de rotas além do header
+// v1.11.0: refreshPermissoesVelohubFromBackend — sessão existente atualiza snapshot (corrige nav vazio)
+// v1.10.0: navItemPermitidoVelohub — default negado (sem bypass implícito para itens desconhecidos)
+// v1.9.0: Snapshot permissoesVelohub/funcoesSnapshot no localStorage (login, validate-access, session/login); getPermissoesVelohub; limpeza no logout
 // v1.8.2: Removida instrumentação agent log (localhost:7635) em ensureSessionId
 // Mudanças v1.8.1:
 // - CRÍTICO: `velotax_agent` vinculado ao `userMail` da sessão (`velotax_agent_for_email`): troca de conta ou cache sem dono descarta valor antigo; logout limpa esse cache — evita «mesmo colaborador» entre Google e conta senha
@@ -29,6 +36,7 @@
 // - Usuários permanecem online mesmo com aba fora de visualização
 import { GOOGLE_CONFIG } from '../config/google-config';
 import { API_BASE_URL } from '../config/api-config';
+import { resetComplianceModalCycle } from './corporateCompliance';
 
 console.log('=== auth.js carregado ===');
 
@@ -36,6 +44,191 @@ console.log('=== auth.js carregado ===');
 const USER_SESSION_KEY = GOOGLE_CONFIG.SESSION_KEY;
 const DOMINIO_PERMITIDO = GOOGLE_CONFIG.AUTHORIZED_DOMAIN;
 const SESSION_DURATION = GOOGLE_CONFIG.SESSION_DURATION;
+const PERMISSOES_VELOHUB_KEY = 'velohub_permissoes_velohub';
+const FUNCOES_SNAPSHOT_KEY = 'velohub_funcoes_snapshot';
+
+/** Conta desenvolvedor — bypass total no VeloHub (código; não depende de modulosVelohub no MongoDB). */
+const BYPASS_VELOHUB_EMAIL = 'lucas.gravina@velotax.com.br';
+
+function normalizarEmailConta(email) {
+    if (email == null || typeof email !== 'string') return '';
+    return email.trim().toLowerCase();
+}
+
+function emailTemBypassVelohubConta(email) {
+    return normalizarEmailConta(email) === BYPASS_VELOHUB_EMAIL;
+}
+
+function permissoesVelohubBypassContaTotal() {
+    return {
+        corporativo: true,
+        atendimento: true,
+        liberacaoPix: true,
+        acompanhamento: true,
+        reclamacoes: true,
+        sociais: true,
+    };
+}
+
+function emailContaLogadaTemBypassVelohub() {
+    try {
+        const sessionData = localStorage.getItem(USER_SESSION_KEY);
+        if (!sessionData) return false;
+        const session = JSON.parse(sessionData);
+        return emailTemBypassVelohubConta(session?.user?.email);
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Persiste snapshot de permissões VeloHub retornado pelo backend (login / validate-access / session/login).
+ * @param {object} payload
+ */
+function persistPermissoesVelohubFromAuth(payload) {
+    if (!payload || typeof payload !== 'object') return;
+    try {
+        if (payload.permissoesVelohub && typeof payload.permissoesVelohub === 'object') {
+            localStorage.setItem(PERMISSOES_VELOHUB_KEY, JSON.stringify(payload.permissoesVelohub));
+        }
+        if (payload.funcoesSnapshot) {
+            localStorage.setItem(FUNCOES_SNAPSHOT_KEY, JSON.stringify(payload.funcoesSnapshot));
+        }
+    } catch (e) {
+        console.warn('[auth] Falha ao persistir permissoesVelohub:', e);
+    }
+}
+
+/**
+ * Objeto agregado de permissões VeloHub (OR das funções em atuacao) — espelho da sessão hub_sessions.
+ * @returns {object|null}
+ */
+function getPermissoesVelohub() {
+    if (emailContaLogadaTemBypassVelohub()) {
+        return permissoesVelohubBypassContaTotal();
+    }
+    try {
+        const raw = localStorage.getItem(PERMISSOES_VELOHUB_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch {
+        return null;
+    }
+}
+
+function clearPermissoesVelohubStorage() {
+    try {
+        localStorage.removeItem(PERMISSOES_VELOHUB_KEY);
+        localStorage.removeItem(FUNCOES_SNAPSHOT_KEY);
+    } catch (_) {
+        /* ignore */
+    }
+}
+
+/**
+ * Busca permissoesVelohub no backend (validate-access) e persiste no localStorage.
+ * Necessário quando há sessão ativa mas o snapshot local ainda não foi gravado.
+ * @param {string} [picture] — URL opcional (SSO) para sync de avatar
+ * @returns {Promise<object|null>}
+ */
+async function refreshPermissoesVelohubFromBackend(picture) {
+    const session = getUserSession();
+    const email = session?.user?.email;
+    if (!email) return getPermissoesVelohub();
+
+    try {
+        const body = { email };
+        if (picture && String(picture).startsWith('http')) {
+            body.picture = picture;
+        }
+        const response = await fetch(`${API_BASE_URL}/auth/validate-access`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        if (!response.ok) {
+            return getPermissoesVelohub();
+        }
+        const result = await response.json();
+        if (result.success) {
+            persistPermissoesVelohubFromAuth(result);
+        }
+    } catch (e) {
+        console.warn('[auth] refreshPermissoesVelohubFromBackend:', e);
+    }
+    return getPermissoesVelohub();
+}
+
+/**
+ * Indica se um item do header VeloHub deve aparecer com base no snapshot local.
+ * @param {string} navItem
+ * @param {object|null} permissoes
+ * @returns {boolean}
+ */
+function navItemPermitidoVelohub(navItem, permissoes) {
+    if (emailContaLogadaTemBypassVelohub()) return true;
+    if (navItem === 'VeloAcademy') return true;
+    if (!permissoes || typeof permissoes !== 'object') return false;
+    switch (navItem) {
+        case 'Home':
+        case 'Conhecimento':
+        case 'Apoio':
+            return permissoes.corporativo === true;
+        case 'Atendimento':
+        case 'VeloBot':
+            return permissoes.atendimento === true;
+        case 'Req_Prod':
+            return (
+                permissoes.atendimento === true ||
+                permissoes.liberacaoPix === true ||
+                permissoes.acompanhamento === true
+            );
+        case 'Reclamações':
+            return permissoes.reclamacoes === true;
+        case 'Sociais':
+            return permissoes.sociais === true;
+        default:
+            return false;
+    }
+}
+
+const PAGE_TO_NAV_ITEM = {
+    Conhecimento: 'Conhecimento',
+    Apoio: 'Apoio',
+    Atendimento: 'Atendimento',
+    VeloBot: 'VeloBot',
+    Req_Prod: 'Req_Prod',
+    'Reclamações': 'Reclamações',
+    Sociais: 'Sociais',
+    VeloAcademy: 'VeloAcademy',
+};
+
+const PAGINAS_LIVRES_POS_LOGIN = new Set(['Home', 'Perfil']);
+
+/**
+ * Mapeia chave interna de página para item do header VeloHub.
+ * @param {string} pageKey
+ * @returns {string|null}
+ */
+function paginaParaNavItem(pageKey) {
+    if (!pageKey) return null;
+    return PAGE_TO_NAV_ITEM[pageKey] || null;
+}
+
+/**
+ * Indica se a página pode ser aberta (header, atalhos, URL interna).
+ * @param {string} pageKey
+ * @param {object|null} permissoes
+ * @returns {boolean}
+ */
+function paginaPermitidaVelohub(pageKey, permissoes) {
+    if (emailContaLogadaTemBypassVelohub()) return true;
+    if (PAGINAS_LIVRES_POS_LOGIN.has(pageKey)) return true;
+    const navItem = paginaParaNavItem(pageKey);
+    if (!navItem) return true;
+    return navItemPermitidoVelohub(navItem, permissoes);
+}
 
 /** Nome persistido nos formulários Req_Prod: era global antes e vazava entre contas se o logout não limpasse. */
 const VELOTAX_AGENT_KEY = 'velotax_agent';
@@ -98,7 +291,7 @@ async function registerLoginSession(userData, maxRetries = 3, retryDelay = 1000)
     // Verificar se já existe sessionId válido antes de criar novo
     const existingSessionId = localStorage.getItem('velohub_session_id');
     if (existingSessionId && existingSessionId.trim().length > 0) {
-        console.log('⚠️ registerLoginSession: sessionId já existe, retornando existente:', existingSessionId.substring(0, 8) + '...');
+        await refreshPermissoesVelohubFromBackend(userData?.picture);
         return existingSessionId;
     }
     
@@ -145,11 +338,16 @@ async function registerLoginSession(userData, maxRetries = 3, retryDelay = 1000)
             if (result.success && result.sessionId && typeof result.sessionId === 'string' && result.sessionId.trim().length > 0) {
                 // Salvar sessionId no localStorage
                 localStorage.setItem('velohub_session_id', result.sessionId);
+                persistPermissoesVelohubFromAuth(result);
                 console.log(`✅ Login registrado no backend (tentativa ${attempt}):`, result.sessionId);
                 
                 // Iniciar heartbeat após login bem-sucedido
                 startHeartbeat();
-                
+
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('velohub:compliance-refresh'));
+                }
+
                 return result.sessionId;
             } else {
                 const errorMsg = result.error || 'sessionId não retornado pelo servidor';
@@ -188,14 +386,15 @@ async function registerLoginSession(userData, maxRetries = 3, retryDelay = 1000)
  * @returns {Promise<string|null>} sessionId ou null se não conseguir recuperar
  */
 async function ensureSessionId() {
+    const session = getUserSession();
     // Verificar se já existe sessionId válido
     const existingSessionId = localStorage.getItem('velohub_session_id');
     if (existingSessionId && existingSessionId.trim().length > 0) {
+        if (!getPermissoesVelohub()) {
+            await refreshPermissoesVelohubFromBackend(session?.user?.picture);
+        }
         return existingSessionId;
     }
-    
-    // Se não existe sessionId mas usuário está logado, tentar recuperar
-    const session = getUserSession();
     if (!session || !session.user || !session.user.email) {
         console.log('⚠️ ensureSessionId: Usuário não está logado, não é possível garantir sessionId');
         return null;
@@ -505,20 +704,30 @@ function logout() {
     
     // Parar heartbeat
     stopHeartbeat();
+
+    const sessionBeforeLogout = getUserSession();
+    const logoutEmail = sessionBeforeLogout?.user?.email;
+    if (logoutEmail) {
+        resetComplianceModalCycle(logoutEmail);
+    }
     
     // Registrar logout no backend antes de limpar localStorage
     registerLogoutSession();
     
     localStorage.removeItem(USER_SESSION_KEY);
     localStorage.removeItem('velohub_session_id');
+    clearPermissoesVelohubStorage();
     clearVelotaxAgentScopedCache();
     // Limpar também os dados antigos para compatibilidade
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userName');
     localStorage.removeItem('userPicture');
-    
-    // Recarregar a página para voltar ao login
-    window.location.reload();
+
+    if (typeof window !== 'undefined') {
+        window.history.replaceState({}, '', '/');
+        window.location.reload();
+        return;
+    }
 }
 
 /**
@@ -613,6 +822,10 @@ async function checkAuthenticationState() {
         }
         
         console.log('✅ sessionId garantido:', sessionId.substring(0, 8) + '...');
+
+        if (!getPermissoesVelohub()) {
+            await refreshPermissoesVelohubFromBackend(session.user?.picture);
+        }
         
         // Tentar reativar sessão se necessário (pode atualizar sessionId)
         const reactivated = await reactivateSession();
@@ -711,7 +924,16 @@ export {
     startHeartbeat,
     stopHeartbeat,
     reactivateSession,
-    ensureSessionId
+    ensureSessionId,
+    persistPermissoesVelohubFromAuth,
+    getPermissoesVelohub,
+    navItemPermitidoVelohub,
+    paginaParaNavItem,
+    paginaPermitidaVelohub,
+    refreshPermissoesVelohubFromBackend,
+    emailTemBypassVelohubConta,
+    emailContaLogadaTemBypassVelohub,
+    permissoesVelohubBypassContaTotal,
 };
 
 // Listener para logout automático ao fechar página/navegador

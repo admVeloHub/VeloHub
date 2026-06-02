@@ -1,8 +1,30 @@
 /**
  * VeloHub V3 — componente principal da aplicação (App_v6.js; antes App_v2-1.js)
- * VERSION: v2.19.56 | DATE: 2026-05-22 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.28.5 | DATE: 2026-05-29 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v2.28.5: «Ler depois» — reset do ciclo ao concluir todas as ciências pendentes
+ * - v2.28.4: Compliance — snooze «Ler depois» libera navegação por 10 min
+ * - v2.28.3: Pós-login sempre Home; URL resetada (não restaura hero anterior ao logout)
+ * - v2.28.2: Compliance pending pré-carregado na LoadingPage (sem fetch duplicado pós-login)
+ * - v2.28.1: Footer — Termos à esquerda; copyright + V6.1.0 à direita
+ * - v2.28.0: Compliance corporativo — modal bloqueante, guard de navegação, footer Termos
+ * - v2.27.0: Bloqueio de módulos via atalhos — paginaPermitidaVelohub + VelohubNavAccessGuard
+ * - v2.26.1: Header — badge Reclamações usa permissoesVelohub (corrige moduleAccess is not defined)
+ * - v2.26.0: Conhecimento — aba Documentos (sidebar, busca, cards hub_documentos)
+ * - v2.25.7: Nav — módulo B2C renomeado para Atendimento
+ * - v2.25.6: Conhecimento — aba Tutoriais renomeada para Vídeos
+ * - v2.25.5: Conhecimento — abas Manuais e Documentos (antes Artigos e Arquivo)
+ * - v2.25.4: Caixa de Sugestões — modal na Home; Apoio sem apoioFocus sugestoes
+ * - v2.25.3: Apoio — cards 2× (ícones e tipografia proporcionais)
+ * - v2.25.2: Apoio — cards centralizados na área útil (horizontal + vertical)
+ * - v2.25.1: Apoio — cards centralizados e redimensionados na aba Solicitar
+ * - v2.25.0: Apoio — 3 cards agrupados (Conteúdo, Recursos de Atendimento, Gestão); atalho Caixa de Sugestões
+ * - v2.24.0: Conhecimento — aba Arquivo; atalhos Serviços pra você → Apoio/Conhecimento
+ * - v2.23.0: Header — ordem nav: Home, Conhecimento, Apoio, B2C, VeloBot, demais
+ * - v2.22.0: Páginas do hero (container 1) — rotas /portal/* + indexação em heroPagesIndex.js
+ * - v2.21.0: Nova Home wireframe — componentes Home/*; B2C usa HomeServicesStatus + HomeRecentUpdates
+ * - v2.20.0: Nav — módulo antigo Home renomeado para B2C; nova HomePage em src/pages/HomePage.js
  * - v2.19.56: Atalho header VeloAcademy — URL GCP Cloud Run (veloacademy-278491073220.us-east1.run.app)
  * - v2.19.55: Badge Reclamações (Minhas ouvid.) — reclamacoesAPI.getByColaborador com `colaboradorEmail` da sessão
  * - v2.19.54: Header Req_Prod unread — nome agente via `getVelotaxAgentForLoggedUser()` (cache escopado por userMail)
@@ -26,9 +48,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Home, FileText, MessageSquare, LifeBuoy, Book, Search, User, Sun, Moon, FilePlus, Bot, GraduationCap, Map, Puzzle, PlusSquare, Send, ThumbsUp, ThumbsDown, BookOpen, X, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Toaster } from 'react-hot-toast';
-import { mainAPI, veloNewsAPI, articlesAPI, tutorialsAPI, faqAPI } from './services/api';
-import { checkAuthenticationState, updateUserInfo, getUserSession, stopHeartbeat, logout, isSessionValid, getVelotaxAgentForLoggedUser } from './services/auth';
+import { Toaster, toast } from 'react-hot-toast';
+import { mainAPI, veloNewsAPI, articlesAPI, hubDocumentosAPI, tutorialsAPI, faqAPI, corporateAPI } from './services/api';
+import {
+  getComplianceModalSnoozeUntil,
+  isComplianceNavigationBlocked,
+  resetComplianceModalCycle,
+  normalizeCompliancePending,
+} from './services/corporateCompliance';
+import { checkAuthenticationState, updateUserInfo, getUserSession, stopHeartbeat, logout, isSessionValid, getVelotaxAgentForLoggedUser, getPermissoesVelohub, navItemPermitidoVelohub, paginaPermitidaVelohub, refreshPermissoesVelohubFromBackend } from './services/auth';
 import { API_BASE_URL, getVeloChatWsUrl } from './config/api-config';
 import { io } from 'socket.io-client';
 import NewsHistoryModal from './components/NewsHistoryModal';
@@ -36,7 +64,7 @@ import LoginPage from './components/LoginPage';
 import LoadingPage from './components/LoadingPage';
 import Chatbot from './components/Chatbot';
 import RefinarRascunhoPanel from './components/RefinarRascunhoPanel';
-import SupportModal from './components/SupportModal';
+import SupportModal, { SUPPORT_CARD_GROUPS } from './components/SupportModal';
 // VeloChatWidget - arquivo restaurado do Git
 import VeloChatWidget from './components/VeloChatWidget';
 import ChatStatusSelector from './components/ChatStatusSelector';
@@ -45,7 +73,18 @@ import OuvidoriaPage from './pages/OuvidoriaPage';
 import OuvidoriaAccessGuard from './components/Ouvidoria/OuvidoriaAccessGuard';
 import SociaisPage from './pages/SociaisPage';
 import SociaisAccessGuard from './components/Sociais/SociaisAccessGuard';
+import VelohubNavAccessGuard from './components/VelohubNavAccessGuard';
 import PerfilPage from './pages/PerfilPage';
+import HomePage from './pages/HomePage';
+import {
+  HERO_PAGE_BY_ACTIVE_KEY,
+  resolveHeroPageFromPath,
+  isHeroActivePage,
+  navigateHeroPage,
+} from './pages/home/heroPagesIndex';
+import HomeServicesStatus from './components/Home/HomeServicesStatus';
+import HomeRecentUpdates from './components/Home/HomeRecentUpdates';
+import { homeTitleLogoSrc, HOME_SIDEBAR_TITLE_IMG_CLASS, homePublicAtalhoImgSrc } from './components/Home/homeAssets';
 import TermosPage from './pages/TermosPage';
 import PrivacidadePage from './pages/PrivacidadePage';
 import VelonewsCommentThread from './components/VelonewsCommentThread';
@@ -205,21 +244,33 @@ window.debugCriticalModal = () => {
 };
 
 // Componente do Footer
-const Footer = ({ isDarkMode }) => {
+const Footer = ({ isDarkMode, setActivePage }) => {
   const currentYear = new Date().getFullYear();
-  
+
+  const handleTermosClick = () => {
+    if (typeof setActivePage !== 'function') return;
+    navigateHeroPage(
+      {
+        id: 'termo-usuario',
+        path: '/portal/termo-usuario',
+        activePageKey: 'Hero_TermoUsuario',
+      },
+      setActivePage
+    );
+  };
+
   return (
     <footer className="velohub-footer">
       <div className="footer-container">
         <div className="footer-content">
-          <div className="footer-section">
-            <p className="footer-text">
-              © {currentYear} VeloHub. Todos os direitos reservados.
-            </p>
+          <div className="footer-section footer-section--left">
+            <button type="button" className="footer-link-btn" onClick={handleTermosClick}>
+              Termos de Uso
+            </button>
           </div>
-          <div className="footer-section">
+          <div className="footer-section footer-section--right">
             <p className="footer-text">
-              v6.0.0
+              © {currentYear} VeloHub. Todos os direitos reservados. V6.1.0
             </p>
           </div>
         </div>
@@ -269,54 +320,38 @@ const notifyProdutosUnreadForHeader = (items, source, activePage) => {
 
 // Componente do Cabe├ºalho
 const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
-  const baseNavItems = ['Home', 'VeloBot', 'Conhecimento', 'Apoio', 'Req_Prod', 'Reclamações', 'Sociais', 'VeloAcademy'];
+  const baseNavItems = ['Home', 'Conhecimento', 'Apoio', 'Atendimento', 'VeloBot', 'Req_Prod', 'Reclamações', 'Sociais', 'VeloAcademy'];
   const rotuloNavItem = (id) => (id === 'Req_Prod' ? 'Requisições' : id);
-  const [moduleAccess, setModuleAccess] = useState({ ouvidoria: false, sociais: false });
+  const [permissoesVelohub, setPermissoesVelohub] = useState(() => getPermissoesVelohub());
   const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
   const [reqProdUnreadCount, setReqProdUnreadCount] = useState(0);
   const [ouvidReclamacoesBadgeParts, setOuvidReclamacoesBadgeParts] = useState({ feito: 0, fusao: 0 });
   const [userName, setUserName] = useState('Usu├írio VeloHub');
   const [userPicture, setUserPicture] = useState(null);
 
-  // Filtrar navItems com base no acesso do usuário
-  const navItems = baseNavItems.filter(item => {
-    if (item === 'Reclamações') return moduleAccess.ouvidoria;
-    if (item === 'Sociais') return moduleAccess.sociais;
-    return true;
-  });
+  const navItems = baseNavItems.filter((item) => navItemPermitidoVelohub(item, permissoesVelohub));
 
-  // Buscar acessos aos módulos restritos (ouvidoria, sociais)
   useEffect(() => {
-    const fetchModuleAccess = async () => {
-      try {
-        const session = getUserSession();
-        const email = session?.user?.email;
-        if (!email) {
-          return;
-        }
-        const sessionId = localStorage.getItem('velohub_session_id');
-        const headers = {
-          'Content-Type': 'application/json',
-          ...(sessionId && { 'x-session-id': sessionId }),
-          ...(email && { 'x-user-email': email }),
-        };
-        const [ouvidoriaRes, sociaisRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/auth/check-module-access?email=${encodeURIComponent(email)}&module=ouvidoria${sessionId ? `&sessionId=${sessionId}` : ''}`, { headers }),
-          fetch(`${API_BASE_URL}/auth/check-module-access?email=${encodeURIComponent(email)}&module=sociais${sessionId ? `&sessionId=${sessionId}` : ''}`, { headers }),
-        ]);
-        const [ouvidoriaData, sociaisData] = await Promise.all([
-          ouvidoriaRes.json(),
-          sociaisRes.json(),
-        ]);
-        setModuleAccess({
-          ouvidoria: ouvidoriaData.success && ouvidoriaData.hasAccess === true,
-          sociais: sociaisData.success && sociaisData.hasAccess === true,
-        });
-      } catch (error) {
-        console.error('Erro ao verificar acesso aos módulos:', error);
+    let cancelled = false;
+    const syncPermissoes = async () => {
+      if (!getPermissoesVelohub() && getUserSession()?.user?.email) {
+        await refreshPermissoesVelohubFromBackend();
+      }
+      if (!cancelled) {
+        setPermissoesVelohub(getPermissoesVelohub());
       }
     };
-    fetchModuleAccess();
+    syncPermissoes();
+    const onStorage = (e) => {
+      if (e.key === 'velohub_permissoes_velohub' || e.key === 'velohub_session_id') {
+        setPermissoesVelohub(getPermissoesVelohub());
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('storage', onStorage);
+    };
   }, []);
 
   // Função para buscar contagem de tickets não visualizados
@@ -852,14 +887,20 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
                 }
               }
               
-              if (result.success && result.user?.picture) {
-                userPicture = result.user.picture;
-                // Atualizar sess├úo com foto do backend
-                const updatedSession = {
-                  ...session,
-                  user: { ...session.user, picture: userPicture }
-                };
-                localStorage.setItem('velohub_user_session', JSON.stringify(updatedSession));
+              if (result.success) {
+                if (result.permissoesVelohub) {
+                  try {
+                    localStorage.setItem('velohub_permissoes_velohub', JSON.stringify(result.permissoesVelohub));
+                  } catch (_) { /* ignore */ }
+                }
+                if (result.user?.picture) {
+                  userPicture = result.user.picture;
+                  const updatedSession = {
+                    ...session,
+                    user: { ...session.user, picture: userPicture }
+                  };
+                  localStorage.setItem('velohub_user_session', JSON.stringify(updatedSession));
+                }
               }
             } catch (error) {
               // Silenciar erro - n├úo cr├¡tico
@@ -969,7 +1010,7 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
   }, [activePage]);
 
   const fetchOuvidReqProdFeitoUnreadBadge = useCallback(async () => {
-    if (!moduleAccess.ouvidoria) {
+    if (!navItemPermitidoVelohub('Reclamações', permissoesVelohub)) {
       setOuvidReclamacoesBadgeParts({ feito: 0, fusao: 0 });
       return;
     }
@@ -998,7 +1039,7 @@ const Header = ({ activePage, setActivePage, isDarkMode, toggleDarkMode }) => {
     } catch (err) {
       console.error('[Header] Reclamações — badge Minhas:', err);
     }
-  }, [moduleAccess.ouvidoria]);
+  }, [permissoesVelohub]);
 
   useEffect(() => {
     try {
@@ -1501,6 +1542,72 @@ export default function App_v6() {
   const [veloNews, setVeloNews] = useState([]);
   const [acknowledgedNewsIds, setAcknowledgedNewsIds] = useState([]);
   const [publicPage, setPublicPage] = useState(null);
+  const [pendingModuleIntent, setPendingModuleIntent] = useState(null);
+  const [compliancePending, setCompliancePending] = useState([]);
+  const compliancePreloadedRef = useRef(false);
+  const [complianceSnoozeTick, setComplianceSnoozeTick] = useState(0);
+
+  const refreshCompliancePending = useCallback(async () => {
+    const session = getUserSession();
+    const email = session?.user?.email;
+    if (!email) {
+      setCompliancePending([]);
+      return [];
+    }
+    try {
+      const res = await corporateAPI.getCompliancePending(email);
+      const pending = normalizeCompliancePending(res?.pending || []);
+      setCompliancePending(pending);
+      if (pending.length === 0) {
+        resetComplianceModalCycle(email);
+      }
+      return pending;
+    } catch (error) {
+      console.error('Erro ao carregar compliance pending:', error);
+      setCompliancePending([]);
+      return [];
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setCompliancePending([]);
+      compliancePreloadedRef.current = false;
+      return undefined;
+    }
+
+    if (!compliancePreloadedRef.current) {
+      refreshCompliancePending();
+    } else {
+      compliancePreloadedRef.current = false;
+    }
+
+    const handler = () => {
+      refreshCompliancePending();
+    };
+    window.addEventListener('velohub:compliance-refresh', handler);
+    return () => window.removeEventListener('velohub:compliance-refresh', handler);
+  }, [isAuthenticated, refreshCompliancePending]);
+
+  useEffect(() => {
+    const onSnoozeChanged = () => setComplianceSnoozeTick((tick) => tick + 1);
+    window.addEventListener('velohub:compliance-snooze-changed', onSnoozeChanged);
+    return () => window.removeEventListener('velohub:compliance-snooze-changed', onSnoozeChanged);
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || compliancePending.length === 0) return undefined;
+    const email = getUserSession()?.user?.email;
+    if (!email) return undefined;
+    const until = getComplianceModalSnoozeUntil(email);
+    const remaining = until - Date.now();
+    if (remaining <= 0) return undefined;
+    const timer = window.setTimeout(() => {
+      setComplianceSnoozeTick((tick) => tick + 1);
+      window.dispatchEvent(new CustomEvent('velohub:compliance-snooze-changed'));
+    }, remaining);
+    return () => window.clearTimeout(timer);
+  }, [isAuthenticated, compliancePending.length, complianceSnoozeTick]);
 
   useEffect(() => {
     // Verificar se é uma página pública (termos ou privacidade)
@@ -1519,12 +1626,13 @@ export default function App_v6() {
     // Verificar se há sessão válida antes de mostrar LoadingPage
     // Se não houver sessão (ex: após logout), vai direto para LoginPage sem áudio
     if (isSessionValid()) {
-      // Mostrar LoadingPage apenas se houver sessão válida
-      // Ela fará a verificação de autenticação internamente
       setShowLoadingPage(true);
     } else {
-      // Sem sessão válida, não mostrar LoadingPage (vai direto para LoginPage)
       setIsAuthenticated(false);
+      setActivePage('Home');
+      if (pathname !== '/' && pathname !== '') {
+        window.history.replaceState({}, '', '/');
+      }
     }
     setIsCheckingAuth(false);
     
@@ -1589,48 +1697,171 @@ export default function App_v6() {
     setShowLoadingPage(true);
   };
 
-  const handleLoadingComplete = (isAuth) => {
-    // Após loading page completar, verificar resultado da autenticação
-    // A inicialização da sessão já foi feita dentro da LoadingPage
+  const handleLoadingComplete = (isAuth, preload = {}) => {
     if (isAuth) {
+      window.history.replaceState({}, '', '/');
+      setActivePage('Home');
       setIsAuthenticated(true);
+      if (Array.isArray(preload.compliancePending)) {
+        setCompliancePending(preload.compliancePending);
+        compliancePreloadedRef.current = true;
+      }
     } else {
       setIsAuthenticated(false);
+      setActivePage('Home');
+      window.history.replaceState({}, '', '/');
     }
     setShowLoadingPage(false);
     setPendingUserData(null);
   };
 
-  const handleAuthCheck = (isAuth) => {
-    // Callback para quando LoadingPage verificar autenticação
-    // Apenas atualizar estado - LoadingPage continuará rodando até completar
-    setIsAuthenticated(isAuth);
+  const handleAuthCheck = () => {
+    // Autenticação efetiva só após onComplete — evita fetch duplicado antes do fim da LoadingPage
   };
 
   const [refreshAcknowledgedNews, setRefreshAcknowledgedNews] = useState(null);
   const [updateAcknowledgedNewsCallback, setUpdateAcknowledgedNewsCallback] = useState(null);
 
+  const changeActivePage = (page, intent = null) => {
+    const permissoes = getPermissoesVelohub();
+    if (!paginaPermitidaVelohub(page, permissoes)) {
+      toast.error('Você não tem permissão para acessar este módulo.');
+      return;
+    }
+
+    if (isComplianceNavigationBlocked(getUserSession()?.user?.email, compliancePending)) {
+      const allowedPages = new Set([
+        'Home',
+        ...compliancePending.map((item) => item.activePageKey),
+      ]);
+      if (!allowedPages.has(page)) {
+        toast.error('Confirme a ciência dos documentos pendentes antes de continuar.');
+        if (activePage !== 'Home') {
+          window.history.pushState({}, '', '/');
+          setActivePage('Home');
+        }
+        return;
+      }
+    }
+
+    if (intent) {
+      setPendingModuleIntent(intent);
+    }
+    if (page === 'Home') {
+      window.history.pushState({}, '', '/');
+      setActivePage('Home');
+      return;
+    }
+    if (isHeroActivePage(activePage)) {
+      window.history.pushState({}, '', '/');
+    }
+    setActivePage(page);
+  };
+
+  useEffect(() => {
+    const onPopState = () => {
+      const heroPage = resolveHeroPageFromPath(window.location.pathname);
+      if (heroPage) {
+        changeActivePage(heroPage.activePageKey);
+        return;
+      }
+      if (window.location.pathname === '/' || window.location.pathname === '') {
+        changeActivePage('Home');
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [compliancePending, activePage, complianceSnoozeTick]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !isComplianceNavigationBlocked(getUserSession()?.user?.email, compliancePending)) {
+      return;
+    }
+    const allowedPages = new Set([
+      'Home',
+      ...compliancePending.map((item) => item.activePageKey),
+    ]);
+    if (!allowedPages.has(activePage)) {
+      window.history.pushState({}, '', '/');
+      setActivePage('Home');
+      toast.error('Confirme a ciência dos documentos pendentes antes de continuar.');
+    }
+  }, [isAuthenticated, compliancePending, activePage, complianceSnoozeTick]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const permissoes = getPermissoesVelohub();
+    if (!paginaPermitidaVelohub(activePage, permissoes)) {
+      setActivePage('Home');
+    }
+  }, [activePage, isAuthenticated]);
+
+  const clearModuleIntent = () => setPendingModuleIntent(null);
+
   const renderContent = () => {
+    if (HERO_PAGE_BY_ACTIVE_KEY[activePage]) {
+      const HeroPage = HERO_PAGE_BY_ACTIVE_KEY[activePage];
+      return (
+        <HeroPage
+          setActivePage={changeActivePage}
+          onComplianceAcknowledged={refreshCompliancePending}
+        />
+      );
+    }
+
     switch (activePage) {
       case 'Home':
-        return <HomePage 
-          setCriticalNews={setCriticalNews} 
-          setShowHistoryModal={setShowHistoryModal} 
-          setVeloNews={setVeloNews} 
-          veloNews={veloNews}
-          setRefreshAcknowledgedNews={setRefreshAcknowledgedNews}
-          setAcknowledgedNewsIds={setAcknowledgedNewsIds}
-          setUpdateAcknowledgedNewsCallback={setUpdateAcknowledgedNewsCallback}
-          setActivePage={setActivePage}
-        />;
-             case 'VeloBot':
-        return <ProcessosPage />;
+        return (
+          <HomePage
+            setActivePage={changeActivePage}
+            compliancePending={compliancePending}
+          />
+        );
+      case 'Atendimento':
+        return (
+          <VelohubNavAccessGuard navItem="Atendimento">
+            <AtendimentoPage 
+              setCriticalNews={setCriticalNews} 
+              setShowHistoryModal={setShowHistoryModal} 
+              setVeloNews={setVeloNews} 
+              veloNews={veloNews}
+              setRefreshAcknowledgedNews={setRefreshAcknowledgedNews}
+              setAcknowledgedNewsIds={setAcknowledgedNewsIds}
+              setUpdateAcknowledgedNewsCallback={setUpdateAcknowledgedNewsCallback}
+              setActivePage={changeActivePage}
+            />
+          </VelohubNavAccessGuard>
+        );
+      case 'VeloBot':
+        return (
+          <VelohubNavAccessGuard navItem="VeloBot">
+            <ProcessosPage />
+          </VelohubNavAccessGuard>
+        );
       case 'Conhecimento':
-        return <ArtigosPage />;
+        return (
+          <VelohubNavAccessGuard navItem="Conhecimento">
+            <ArtigosPage
+              moduleIntent={pendingModuleIntent}
+              clearModuleIntent={clearModuleIntent}
+            />
+          </VelohubNavAccessGuard>
+        );
       case 'Apoio':
-        return <ApoioPage />;
+        return (
+          <VelohubNavAccessGuard navItem="Apoio">
+            <ApoioPage
+              moduleIntent={pendingModuleIntent}
+              clearModuleIntent={clearModuleIntent}
+            />
+          </VelohubNavAccessGuard>
+        );
       case 'Req_Prod':
-        return <RequisicoesPage />;
+        return (
+          <VelohubNavAccessGuard navItem="Req_Prod">
+            <RequisicoesPage />
+          </VelohubNavAccessGuard>
+        );
       case 'Reclamações':
         return (
           <OuvidoriaAccessGuard>
@@ -1648,15 +1879,7 @@ export default function App_v6() {
       case 'VeloAcademy':
         return <div className="text-center p-10 text-gray-800 dark:text-gray-200"><h1 className="text-3xl">VeloAcademy</h1><p>Clique no bot├úo VeloAcademy no header para acessar a plataforma.</p></div>;
       default:
-        return <HomePage 
-          setCriticalNews={setCriticalNews} 
-          setShowHistoryModal={setShowHistoryModal} 
-          setVeloNews={setVeloNews} 
-          veloNews={veloNews}
-          setRefreshAcknowledgedNews={setRefreshAcknowledgedNews}
-          setAcknowledgedNewsIds={setAcknowledgedNewsIds}
-          setActivePage={setActivePage}
-        />;
+        return <HomePage />;
     }
   };
 
@@ -1705,11 +1928,16 @@ export default function App_v6() {
           },
         }}
       />
-      <Header activePage={activePage} setActivePage={setActivePage} isDarkMode={isDarkMode} toggleDarkMode={() => setIsDarkMode(!isDarkMode)} />
+      <Header
+        activePage={isHeroActivePage(activePage) ? 'Home' : activePage}
+        setActivePage={changeActivePage}
+        isDarkMode={isDarkMode}
+        toggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+      />
       <main className="flex-1 min-h-0 flex flex-col w-full overflow-hidden">
         <div
           className={
-            activePage === 'Home'
+            activePage === 'Atendimento' || activePage === 'Home'
               ? 'velohub-main-inner flex-1 min-h-0 w-full overflow-hidden flex flex-col'
               : 'velohub-main-inner flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden'
           }
@@ -1798,7 +2026,7 @@ export default function App_v6() {
           }
         }}
       />
-      <Footer isDarkMode={isDarkMode} />
+      <Footer isDarkMode={isDarkMode} setActivePage={changeActivePage} />
       {/* Modal de Pílulas - Exibição automática a cada 25 minutos */}
       {isAuthenticated && <PilulasModal />}
       </div>
@@ -2100,26 +2328,6 @@ const processContentHtml = (htmlContent, mediaImages = []) => {
 
   return processedHtml;
 };
-
-/**
- * URLs dos banners PNG em `public/titles and logos/` (encode para espaços e acentos).
- * Home (sidebar esquerda, VeloNews, FAQ). VERSION: v2.19.15
- */
-function homeTitleLogoSrc(fileName) {
-    const root = process.env.PUBLIC_URL || '';
-    const relPath = `/titles and logos/${fileName}`;
-    return encodeURI(`${root}${relPath}`);
-}
-
-/** PNG de seção na sidebar esquerda da Home (80% de h-8 / sm:h-9). VERSION: v1.0.0 */
-const HOME_SIDEBAR_TITLE_IMG_CLASS =
-    'block h-[1.6rem] sm:h-[1.8rem] w-auto max-w-full object-contain object-left select-none pointer-events-none';
-
-/** Ícones de atalhos na raiz de `public/` (ex.: OCTA-METAL.png). VERSION: v1.0.0 */
-function homePublicAtalhoImgSrc(fileName) {
-    const root = process.env.PUBLIC_URL || '';
-    return encodeURI(`${root}/${fileName}`);
-}
 
 // Função helper reutilizável para renderizar sidebar direito com chat
 // VERSION: v1.0.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
@@ -2457,10 +2665,9 @@ const HOME_SIDEBAR_ATALHOS = [
     },
 ];
 
-// Conte├║do da P├ígina Home - VERS├âO MELHORADA
-const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews, setRefreshAcknowledgedNews, setAcknowledgedNewsIds: setParentAcknowledgedNewsIds, setUpdateAcknowledgedNewsCallback, setActivePage }) => {
+// Conteúdo da Página Atendimento (antiga Home / B2C) - VERSÃO MELHORADA
+const AtendimentoPage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews, setRefreshAcknowledgedNews, setAcknowledgedNewsIds: setParentAcknowledgedNewsIds, setUpdateAcknowledgedNewsCallback, setActivePage }) => {
     const [selectedNews, setSelectedNews] = useState(null);
-    const [selectedArticle, setSelectedArticle] = useState(null);
     const [showComments, setShowComments] = useState(false);
     // Estado para controle de som do chat
     const [soundEnabled, setSoundEnabled] = useState(() => {
@@ -2481,7 +2688,6 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
             console.error('Erro ao salvar preferência de som:', error);
         }
     };
-    const [recentItems, setRecentItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [lastRefresh, setLastRefresh] = useState(Date.now());
     const [lastCriticalNewsId, setLastCriticalNewsId] = useState(null);
@@ -2505,47 +2711,6 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
         }, 600);
     };
     
-    // Estados dos m├│dulos - controlados pelo Console VeloHub
-    const [moduleStatus, setModuleStatus] = useState({
-        'credito-trabalhador': 'on',
-        'credito-pessoal': 'on', 
-        'antecipacao': 'off',
-        'pagamento-antecipado': 'on',
-        'modulo-irpf': 'off',
-        'seguro-cred': 'on',
-        'seguro-cel': 'on',
-        'clube-velotax': 'on',
-        'divida-zero': 'on',
-        'perda-renda': 'on',
-        'cupons': 'on',
-        'seguro-pessoal': 'on'
-    });
-
-    // Função para buscar status dos módulos do Console VeloHub
-    const fetchModuleStatus = async () => {
-        try {
-            const url = `${API_BASE_URL}/module-status`;
-            console.log('🔍 HomePage: Buscando status dos módulos em:', url);
-            
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            });
-            
-            if (response.ok) {
-                const statusData = await response.json();
-                console.log('✅ HomePage: Status dos módulos recebido:', statusData);
-                setModuleStatus((prev) => ({ ...prev, ...statusData }));
-            } else {
-                console.error('❌ HomePage: Erro HTTP:', response.status, response.statusText);
-            }
-        } catch (error) {
-            console.error('❌ HomePage: Erro ao buscar status dos módulos:', error);
-        }
-    };
-
     // Fun├º├úo para carregar acknowledges do usu├írio
     const loadAcknowledgedNews = async () => {
         try {
@@ -2599,64 +2764,6 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
             setUpdateAcknowledgedNewsCallback(() => addAcknowledgedNewsId);
         }
     }, [setRefreshAcknowledgedNews, setUpdateAcknowledgedNewsCallback]);
-
-    // Fun├º├úo para abrir modal de artigo
-    const handleArticleClick = (article) => {
-        setSelectedArticle(article);
-    };
-
-    // Fun├º├úo para renderizar status do m├│dulo como badge
-    const renderModuleStatus = (moduleKey, moduleName, title) => {
-        const status = moduleStatus[moduleKey];
-        let badgeConfig = {};
-        
-        switch (status) {
-            case 'on':
-                badgeConfig = {
-                    bgColor: 'bg-green-100',
-                    textColor: 'text-green-800',
-                    darkBg: 'dark:bg-green-900',
-                    darkText: 'dark:text-green-200',
-                    title: 'Servi├ºo Online - Funcionando normalmente'
-                };
-                break;
-            case 'revisao':
-                badgeConfig = {
-                    bgColor: 'bg-yellow-100',
-                    textColor: 'text-yellow-800',
-                    darkBg: 'dark:bg-yellow-900',
-                    darkText: 'dark:text-yellow-200',
-                    title: 'Em Revis├úo - Servi├ºo temporariamente indispon├¡vel'
-                };
-                break;
-            case 'off':
-                badgeConfig = {
-                    bgColor: 'bg-red-100',
-                    textColor: 'text-red-800',
-                    darkBg: 'dark:bg-red-900',
-                    darkText: 'dark:text-red-200',
-                    title: 'Servi├ºo Offline - Indispon├¡vel no momento'
-                };
-                break;
-            default:
-                badgeConfig = {
-                    bgColor: 'bg-gray-100',
-                    textColor: 'text-gray-800',
-                    darkBg: 'dark:bg-gray-900',
-                    darkText: 'dark:text-gray-200',
-                    title: 'Status Desconhecido'
-                };
-        }
-        
-        return (
-            <span 
-                className={`${badgeConfig.bgColor} ${badgeConfig.textColor} ${badgeConfig.darkBg} ${badgeConfig.darkText} text-xs px-2 py-1 rounded-full`}
-                title={badgeConfig.title}
-            >
-                {moduleName}
-            </span>
-        );
-    };
 
     // ===== FUN├ç├âO PARA ACKNOWLEDGE DE NOT├ìCIAS =====
     const handleAcknowledgeNews = async (newsId, userName) => {
@@ -2775,55 +2882,17 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                 };
                 
                 await checkCriticalNews();
-
-                // Buscar artigos recentes para o sidebar
-                const fetchRecentItems = async () => {
-                    try {
-                        const articlesResponse = await articlesAPI.getAll();
-                        
-                        if (articlesResponse.data && articlesResponse.data.length > 0) {
-                            const recentArticles = articlesResponse.data
-                                .filter(article => article.createdAt)
-                                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                                .slice(0, 3);
-
-                            setRecentItems(recentArticles);
-                        } else {
-                            setRecentItems([]);
-                        }
-                    } catch (error) {
-                        console.error('Erro ao buscar artigos recentes:', error);
-                        setRecentItems([]);
-                    }
-                };
-
-                fetchRecentItems();
-                
-                // Carregar status dos m├│dulos
-                fetchModuleStatus();
             } catch (error) {
                 console.error('❌ Erro ao carregar dados da API:', error);
                 setVeloNews([]);
                 setCriticalNews(null);
-                setRecentItems([]);
             } finally {
                 setLoading(false);
             }
         };
         
         fetchAllData();
-        
-        // Carregar status dos m├│dulos imediatamente ao carregar a p├ígina
-        fetchModuleStatus();
     }, [setCriticalNews, lastCriticalNewsId]);
-
-    // Status dos serviços (module-status): a cada 1 minuto (independente do refresh de VeloNews/artigos)
-    useEffect(() => {
-        const id = setInterval(() => {
-            fetchModuleStatus();
-        }, 60 * 1000);
-        return () => clearInterval(id);
-    }, []);
 
     // Refresh inteligente - verifica mudan├ºas antes de atualizar
     // NOTA: getAll() carrega todas as notícias porque é necessário para:
@@ -2836,9 +2905,8 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
         const intelligentRefresh = async () => {
             try {
                 // Buscar novos dados
-                const [newVeloNewsData, newArticlesData] = await Promise.all([
+                const [newVeloNewsData] = await Promise.all([
                     veloNewsAPI.getAll().then(res => res.data || []),
-                    articlesAPI.getAll().then(res => res.data || [])
                 ]);
                 
                 // Comparar veloNews
@@ -2893,30 +2961,16 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                     console.log('✅ Sem mudanças em VeloNews, mantendo dados atuais');
                 }
                 
-                // Atualizar recentItems apenas se necess├írio
-                const newRecentItems = newArticlesData
-                    .filter(article => article.createdAt)
-                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                    .slice(0, 3);
-                
-                const recentItemsChanged = JSON.stringify(newRecentItems) !== JSON.stringify(recentItems);
-                if (recentItemsChanged) {
-                    console.log('✅ Mudanças detectadas em RecentItems, atualizando...');
-                    setRecentItems(newRecentItems);
-                } else {
-                    console.log('✅ Sem mudanças em RecentItems, mantendo dados atuais');
-                }
-                
             } catch (error) {
                             console.error('❌ Erro no refresh inteligente:', error);
             }
         };
         
-        // Refresh inteligente (VeloNews + artigos recentes) a cada 3 minutos; module-status tem polling próprio a 1 min
+        // Refresh inteligente (VeloNews) a cada 3 minutos
         const intelligentInterval = setInterval(intelligentRefresh, 3 * 60 * 1000);
         
         return () => clearInterval(intelligentInterval);
-    }, [veloNews, recentItems, setCriticalNews, lastCriticalNewsId]);
+    }, [veloNews, setCriticalNews, lastCriticalNewsId]);
 
     // Fun├º├úo para calcular grid columns dinamicamente
     const getGridColumns = (leftCollapsed, rightCollapsed) => {
@@ -3018,79 +3072,9 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                             }}
                         />
                     </button>
-                {/* Widget Serviços - NOVO NO TOPO */}
-                <div className="mb-6">
-                    <div className="mb-4 border-b pb-2 flex justify-start velohub-title" style={{ borderColor: 'var(--blue-opaque)' }}>
-                        <img
-                            src={homeTitleLogoSrc('serviços.png')}
-                            alt="Status dos serviços"
-                            decoding="async"
-                            className={HOME_SIDEBAR_TITLE_IMG_CLASS}
-                        />
-                    </div>
-                    {/* Grid de Status dos Serviços - demonstrador 3 colunas (8 serviços) */}
-                    <div className="grid grid-cols-3 gap-1">
-                        {renderModuleStatus('antecipacao', 'Antecipação')}
-                        {renderModuleStatus('credito-pessoal', 'Cr. Pessoal')}
-                        {renderModuleStatus('pagamento-antecipado', 'Pgto Antec')}
-                        {renderModuleStatus('seguro-cred', 'Prestamista')}
-                        {renderModuleStatus('seguro-cel', 'Seguro Cel')}
-                        {renderModuleStatus('perda-renda', 'Perda de Renda')}
-                        {renderModuleStatus('cupons', 'Cupons')}
-                        {renderModuleStatus('seguro-pessoal', 'Seguro Pessoal')}
-                    </div>
-                </div>
-
-                {/* Widget Recentes - SIMPLIFICADO */}
-                <div className="mt-6">
-                    <div className="mb-4 border-b pb-2 flex justify-start velohub-title" style={{ borderColor: 'var(--blue-opaque)' }}>
-                        <img
-                            src={homeTitleLogoSrc('atualizações.png')}
-                            alt="Últimas atualizações"
-                            decoding="async"
-                            className={HOME_SIDEBAR_TITLE_IMG_CLASS}
-                        />
-                    </div>
-                {loading ? (
-                    <div className="text-center py-8">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
-                        <p className="text-gray-500 dark:text-gray-400 mt-2 text-sm">Carregando...</p>
-                    </div>
-                 ) : recentItems.length > 0 ? (
-                    <div className="space-y-3">
-                         {recentItems.slice(0, 2).map(item => (
-                             <div key={item._id || item.id} className="border-b dark:border-gray-700 pb-3 last:border-b-0">
-                                 <div className="flex items-center justify-between gap-2 mb-2">
-                                     <div className="flex items-center gap-2">
-                                         <span className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs px-2 py-1 rounded-full">
-                                             Artigo
-                                         </span>
-                                         {item.category && (
-                                             <span className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 text-xs px-2 py-1 rounded-full">
-                                                 {item.category}
-                                             </span>
-                                         )}
-                                     </div>
-                                     <span className="text-xs text-green-600 dark:text-green-400 whitespace-nowrap">
-                                         {new Date(item.createdAt).toLocaleDateString('pt-BR')}
-                                     </span>
-                                 </div>
-                                 <h4 
-                                     className="font-semibold text-sm text-gray-800 dark:text-gray-200 line-clamp-2 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200"
-                                     onClick={() => handleArticleClick(item)}
-                                     title="Clique para ler o artigo completo"
-                                 >
-                                     {item.title}
-                                 </h4>
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="text-center py-8">
-                         <p className="text-gray-500 dark:text-gray-400 text-sm">Nenhum item recente</p>
-                    </div>
-                )}
-                </div>
+                {/* Widget Serviços + Recentes (componentes compartilhados Home/Atendimento) */}
+                <HomeServicesStatus className="mb-6" />
+                <HomeRecentUpdates className="mt-6" />
 
                 {/* Atalhos — grid 2×2 (HOME_SIDEBAR_ATALHOS) */}
                 <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-600 flex-shrink-0">
@@ -3585,140 +3569,6 @@ const HomePage = ({ setCriticalNews, setShowHistoryModal, setVeloNews, veloNews,
                         className="max-w-full max-h-full object-contain rounded-lg"
                         onClick={e => e.stopPropagation()}
                     />
-                </div>
-            )}
-
-            {selectedArticle && (
-                <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[9999] p-4" onClick={() => setSelectedArticle(null)} style={{ zIndex: 9999 }}>
-                    <div className="rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] bg-white dark:bg-gray-800 flex flex-col overflow-hidden" onClick={e => e.stopPropagation()} style={{borderRadius: 'var(--velohub-radius-container)', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)', zIndex: 10000}}>
-                        {/* Header fixo */}
-                        <div className="flex justify-between items-center p-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-                            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200 pr-3 line-clamp-2">{selectedArticle.title}</h2>
-                            <button onClick={() => setSelectedArticle(null)} className="text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white text-xl flex-shrink-0">&times;</button>
-                        </div>
-                        
-                        {/* Metadados fixos */}
-                        <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-                            <div className="flex flex-wrap items-center gap-1">
-                                {selectedArticle.category && (
-                                    <span className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 text-xs px-2 py-0.5 rounded-full">
-                                        {selectedArticle.category}
-                                    </span>
-                                )}
-                                <span className="text-xs text-gray-500 dark:text-gray-400">
-                                    {new Date(selectedArticle.createdAt).toLocaleDateString('pt-BR')}
-                                </span>
-                            </div>
-                        </div>
-                        
-                        {/* Conte├║do com scroll */}
-                        <div className="flex-1 overflow-y-auto p-4">
-                            {/* Renderizar todas as imagens */}
-                            {(() => {
-                                const allImages = getAllImages(selectedArticle);
-                                return allImages.length > 0 && (
-                                    <div className="mb-4 space-y-3">
-                                        {allImages.map((imgUrl, idx) => {
-                                            if (!imgUrl) return null;
-                                            return (
-                                                <div key={idx} className="relative">
-                                                    <img 
-                                                        src={imgUrl} 
-                                                        alt={`${selectedArticle.title || selectedArticle.titulo} - Imagem ${idx + 1}`}
-                                                        className="w-full h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                                                        style={{ maxHeight: '400px', objectFit: 'contain' }}
-                                                        onClick={() => setExpandedImage(imgUrl)}
-                                                        onError={(e) => {
-                                                            e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="200"%3E%3Crect width="400" height="200" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-family="Arial" font-size="14"%3EImagem n├úo encontrada%3C/text%3E%3C/svg%3E';
-                                                        }}
-                                                    />
-                                                    <div className="text-center mt-2 text-sm text-gray-500 dark:text-gray-400">
-                                                        Clique para expandir
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                );
-                            })()}
-                            
-                            {/* Renderizar v├¡deos do YouTube */}
-                            {(() => {
-                                const videos = selectedArticle?.media?.videos || selectedArticle?.videos || [];
-                                console.log('📹 Modal Artigo - vídeos encontrados:', videos);
-                                
-                                // Processar v├¡deos (podem ser strings ou objetos)
-                                const youtubeVideos = videos
-                                    .map(v => {
-                                        if (typeof v === 'string') {
-                                            // ├ë uma string de URL
-                                            if (v.includes('youtube.com') || v.includes('youtu.be')) {
-                                                return { url: v, embed: convertYouTubeUrlToEmbed(v) };
-                                            }
-                                            return null;
-                                        } else if (v && typeof v === 'object') {
-                                            // ├ë um objeto
-                                            if (v.type === 'youtube' || v.embed || v.url) {
-                                                return {
-                                                    url: v.url || v.embed || '',
-                                                    embed: v.embed || convertYouTubeUrlToEmbed(v.url || v.embed || '')
-                                                };
-                                            }
-                                        }
-                                        return null;
-                                    })
-                                    .filter(v => v !== null && v.embed);
-                                
-                                console.log('📹 Modal Artigo - vídeos processados:', youtubeVideos);
-                                
-                                return youtubeVideos.length > 0 ? (
-                                    <div className="mb-4 space-y-3">
-                                        {youtubeVideos.map((vid, idx) => {
-                                            if (!vid.embed) return null;
-                                            // Detectar se ├® Shorts para aplicar propor├º├úo 9:16 com tamanho limitado
-                                            const isShorts = isYouTubeShorts(vid.url);
-                                            if (isShorts) {
-                                                // Para Shorts: propor├º├úo 9:16 (largura:altura = 9:16)
-                                                // Definir altura m├íxima e calcular largura, ou vice-versa
-                                                // Altura m├íxima de 400px -> largura = 400 ├ù (9/16) = 225px
-                                                return (
-                                                    <div key={idx} className="flex justify-center">
-                                                        <div className="relative rounded-lg overflow-hidden" style={{ width: '225px', maxWidth: '100%', height: '400px', maxHeight: '50vh' }}>
-                                                            <iframe
-                                                                src={vid.embed}
-                                                                className="w-full h-full rounded-lg"
-                                                                frameBorder="0"
-                                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                                                allowFullScreen
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                );
-                                            } else {
-                                                // Para v├¡deos normais: propor├º├úo 16:9 padr├úo
-                                                return (
-                                                    <div key={idx} className="relative w-full" style={{ paddingBottom: '56.25%', height: 0 }}>
-                                                        <iframe
-                                                            src={vid.embed}
-                                                            className="absolute top-0 left-0 w-full h-full rounded-lg"
-                                                            frameBorder="0"
-                                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                                            allowFullScreen
-                                                        />
-                                                    </div>
-                                                );
-                                            }
-                                        })}
-                                    </div>
-                                ) : null;
-                            })()}
-                            
-                            <div 
-                                className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
-                                dangerouslySetInnerHTML={{ __html: processContentHtml(formatResponseText(selectedArticle.content || '', 'article'), selectedArticle?.media?.images || []) }}
-                            />
-                        </div>
-                    </div>
                 </div>
             )}
 
@@ -4348,11 +4198,16 @@ const TicketsListPage = () => {
     );
 };
 
-// Conte├║do da P├ígina de Apoio
-function ApoioPage() {
+// Conteúdo da Página de Apoio
+function ApoioPage({ moduleIntent, clearModuleIntent }) {
     const [activeModal, setActiveModal] = useState(null);
     const [activeTab, setActiveTab] = useState('solicitar');
-    
+
+    useEffect(() => {
+        if (!moduleIntent?.apoioTab) return;
+        setActiveTab(moduleIntent.apoioTab);
+        clearModuleIntent?.();
+    }, [moduleIntent, clearModuleIntent]);
     // Estados do sidebar direito com chat
     const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(true); // Recolhido por padrão
     const [chatActiveTab, setChatActiveTab] = useState('conversations');
@@ -4456,77 +4311,18 @@ function ApoioPage() {
         markTicketsAsViewed();
     }, []);
     
-    const supportItems = [
-        // Primeira linha
-        { 
-            name: 'Artigo', 
-            icon: <FileText size={32} />, 
-            type: 'artigo',
-            title: 'Solicitar Artigo',
-            description: 'Solicite a criação ou alteração de artigos da central'
-        }, 
-        { 
-            name: 'Processo', 
-            icon: <Bot size={32} />, 
-            type: 'bot',
-            title: 'Solicitar Processo/Informação',
-            description: 'Adição ou Correção de respostas do bot'
-        },
-        { 
-            name: 'Roteiro', 
-            icon: <Map size={32} />, 
-            type: 'roteiro',
-            title: 'Solicitar Roteiro',
-            description: 'Macros, respostas prontas e roteiros de atendimento'
-        },
-        // Segunda linha
-        { 
-            name: 'Treinamento', 
-            icon: <GraduationCap size={32} />, 
-            type: 'treinamento',
-            title: 'Solicitar Treinamento',
-            description: 'Solicite treinamentos e capacitações'
-        }, 
-        { 
-            name: 'Funcionalidade', 
-            icon: <Puzzle size={32} />, 
-            type: 'funcionalidade',
-            title: 'Solicitar Funcionalidade',
-            description: 'Solicite melhorias ou novas funcionalidades'
-        }, 
-        { 
-            name: 'Recurso Adicional', 
-            icon: <PlusSquare size={32} />, 
-            type: 'recurso',
-            title: 'Solicitar Recurso Adicional',
-            description: 'Solicite recursos visuais, ou outros materiais para auxiliar em atendimentos.'
-        },
-        // Terceira linha
-        { 
-            name: 'Gestão', 
-            icon: <User size={32} />, 
-            type: 'gestao',
-            title: 'Solicitar Gestão',
-            description: 'Solicitações, agendamentos e notificações para gestão'
-        },
-        { 
-            name: 'RH e Financeiro', 
-            icon: <BookOpen size={32} />, 
-            type: 'rh_financeiro',
-            title: 'Solicitar RH e Financeiro',
-            description: 'Solicitações para RH ou setor financeiro'
-        },
-        { 
-            name: 'Facilities', 
-            icon: <LifeBuoy size={32} />, 
-            type: 'facilities',
-            title: 'Solicitar Facilities',
-            description: 'Solicitações para facilities e infraestrutura'
-        },
-    ];
+    const supportGroupIcons = {
+        conteudo: <BookOpen size={56} />,
+        recursos_atendimento: <Puzzle size={56} />,
+        gestao: <User size={56} />,
+    };
 
-    const handleCardClick = (item) => {
-        setActiveModal(item);
+    const handleCardClick = (group) => {
+        setActiveModal({
+            cardGroup: group.id,
+            title: group.title,
+            mode: 'default',
+        });
     };
 
     const handleCloseModal = () => {
@@ -4574,140 +4370,23 @@ function ApoioPage() {
 
             {/* Conte├║do baseado na aba ativa */}
             {activeTab === 'solicitar' && (
-            <div className="space-y-4">
-                {/* Primeira linha - Artigo, Processo, Roteiro */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {supportItems.slice(0, 3).map(item => (
-                    <button 
-                        key={item.name} 
-                        onClick={() => handleCardClick(item)}
-                        className="rounded-lg flex flex-col items-center justify-center velohub-card" 
+            <div className="apoio-solicitar-panel">
+            <div className="apoio-cards-wrap">
+                <div className="apoio-cards-grid">
+                {SUPPORT_CARD_GROUPS.map((group) => (
+                    <button
+                        key={group.id}
+                        type="button"
+                        onClick={() => handleCardClick(group)}
+                        className="rounded-lg flex flex-col items-center justify-center velohub-card apoio-card-btn"
                         style={{
-                            padding: '18.432px',
+                            padding: '32px 28px',
                             borderRadius: 'var(--velohub-radius-btn-rect)',
                             boxShadow: '0 5.76px 23.04px rgba(0, 0, 0, 0.1)',
                             transition: 'box-shadow 0.3s ease, border 0.3s ease, transform 0.3s ease',
                             cursor: 'pointer',
                             position: 'relative',
                             overflow: 'hidden',
-                            width: '100%',
-                            height: 'auto'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.boxShadow = '0 16px 32px rgba(0, 0, 0, 0.15)';
-                            e.currentTarget.style.outline = '2px solid var(--blue-medium)';
-                            e.currentTarget.style.outlineOffset = '-2px';
-                            e.currentTarget.style.transform = 'translateY(-3.2px)';
-                            // Barra superior animada
-                            e.currentTarget.style.setProperty('--bar-width', '100%');
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.boxShadow = '0 6.4px 25.6px rgba(0, 0, 0, 0.1)';
-                            e.currentTarget.style.outline = 'none';
-                            e.currentTarget.style.transform = 'translateY(0)';
-                            // Barra superior desaparece
-                            e.currentTarget.style.setProperty('--bar-width', '0%');
-                        }}
-                    >
-                        {/* Barra Superior Animada */}
-                        <div style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            height: '3.2px',
-                            background: 'linear-gradient(90deg, var(--blue-medium), var(--blue-light), var(--blue-medium))',
-                            transform: 'scaleX(var(--bar-width, 0%))',
-                            transition: 'transform 0.3s ease',
-                            zIndex: 1
-                        }}></div>
-                        <div className="text-blue-500 dark:text-blue-400 mb-3">{item.icon}</div>
-                        <span className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-1.5">{item.name}</span>
-                        <p className="text-xs text-center" style={{color: 'var(--cor-texto-secundario)'}}>
-                            {item.description}
-                        </p>
-                    </button>
-                ))}
-                </div>
-
-                {/* Linha separadora */}
-                <div className="w-full h-px" style={{ backgroundColor: 'var(--cor-borda)', opacity: 0.5 }}></div>
-
-                {/* Segunda linha - Treinamento, Funcionalidade, Recurso Adicional */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {supportItems.slice(3, 6).map(item => (
-                    <button 
-                        key={item.name} 
-                        onClick={() => handleCardClick(item)}
-                        className="rounded-lg flex flex-col items-center justify-center velohub-card" 
-                        style={{
-                            padding: '18.432px',
-                            borderRadius: 'var(--velohub-radius-btn-rect)',
-                            boxShadow: '0 5.76px 23.04px rgba(0, 0, 0, 0.1)',
-                            transition: 'box-shadow 0.3s ease, border 0.3s ease, transform 0.3s ease',
-                            cursor: 'pointer',
-                            position: 'relative',
-                            overflow: 'hidden',
-                            width: '100%',
-                            height: 'auto'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.boxShadow = '0 16px 32px rgba(0, 0, 0, 0.15)';
-                            e.currentTarget.style.outline = '2px solid var(--blue-medium)';
-                            e.currentTarget.style.outlineOffset = '-2px';
-                            e.currentTarget.style.transform = 'translateY(-3.2px)';
-                            // Barra superior animada
-                            e.currentTarget.style.setProperty('--bar-width', '100%');
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.boxShadow = '0 6.4px 25.6px rgba(0, 0, 0, 0.1)';
-                            e.currentTarget.style.outline = 'none';
-                            e.currentTarget.style.transform = 'translateY(0)';
-                            // Barra superior desaparece
-                            e.currentTarget.style.setProperty('--bar-width', '0%');
-                        }}
-                    >
-                        {/* Barra Superior Animada */}
-                        <div style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            height: '3.2px',
-                            background: 'linear-gradient(90deg, var(--blue-medium), var(--blue-light), var(--blue-medium))',
-                            transform: 'scaleX(var(--bar-width, 0%))',
-                            transition: 'transform 0.3s ease',
-                            zIndex: 1
-                        }}></div>
-                        <div className="text-blue-500 dark:text-blue-400 mb-3">{item.icon}</div>
-                        <span className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-1.5">{item.name}</span>
-                        <p className="text-xs text-center" style={{color: 'var(--cor-texto-secundario)'}}>
-                            {item.description}
-                        </p>
-                    </button>
-                ))}
-                </div>
-
-                {/* Linha separadora */}
-                <div className="w-full h-px" style={{ backgroundColor: 'var(--cor-borda)', opacity: 0.5 }}></div>
-
-                {/* Terceira linha - Gestão, RH e Financeiro, Facilities */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {supportItems.slice(6, 9).map(item => (
-                    <button 
-                        key={item.name} 
-                        onClick={() => handleCardClick(item)}
-                        className="rounded-lg flex flex-col items-center justify-center velohub-card" 
-                        style={{
-                            padding: '18.432px',
-                            borderRadius: 'var(--velohub-radius-btn-rect)',
-                            boxShadow: '0 5.76px 23.04px rgba(0, 0, 0, 0.1)',
-                            transition: 'box-shadow 0.3s ease, border 0.3s ease, transform 0.3s ease',
-                            cursor: 'pointer',
-                            position: 'relative',
-                            overflow: 'hidden',
-                            width: '100%',
-                            height: 'auto'
                         }}
                         onMouseEnter={(e) => {
                             e.currentTarget.style.boxShadow = '0 16px 32px rgba(0, 0, 0, 0.15)';
@@ -4732,16 +4411,17 @@ function ApoioPage() {
                             background: 'linear-gradient(90deg, var(--blue-medium), var(--blue-light), var(--blue-medium))',
                             transform: 'scaleX(var(--bar-width, 0%))',
                             transition: 'transform 0.3s ease',
-                            zIndex: 1
-                        }}></div>
-                        <div className="text-blue-500 dark:text-blue-400 mb-3">{item.icon}</div>
-                        <span className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-1.5">{item.name}</span>
-                        <p className="text-xs text-center" style={{color: 'var(--cor-texto-secundario)'}}>
-                            {item.description}
+                            zIndex: 1,
+                        }} />
+                        <div className="text-blue-500 dark:text-blue-400 mb-4">{supportGroupIcons[group.id]}</div>
+                        <span className="text-2xl font-semibold text-gray-700 dark:text-gray-200 mb-2 text-center">{group.name}</span>
+                        <p className="text-sm text-center leading-snug" style={{ color: 'var(--cor-texto-secundario)' }}>
+                            {group.description}
                         </p>
                     </button>
                 ))}
                 </div>
+            </div>
             </div>
             )}
 
@@ -4755,7 +4435,8 @@ function ApoioPage() {
                         <SupportModal
                             isOpen={!!activeModal}
                             onClose={handleCloseModal}
-                            type={activeModal.type}
+                            cardGroup={activeModal.cardGroup}
+                            mode={activeModal.mode || 'default'}
                             title={activeModal.title}
                         />
                     )}
@@ -4782,8 +4463,8 @@ function ApoioPage() {
     );
 };
 
-// Página Conhecimento (abas Artigos / Tutoriais); artigos inalterados; tutoriais = playlist YouTube
-function ArtigosPage() {
+// Página Conhecimento (abas Vídeos / Manuais / Documentos)
+function ArtigosPage({ moduleIntent, clearModuleIntent }) {
     const [articles, setArticles] = useState([]);
     const [filteredArticles, setFilteredArticles] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -4795,8 +4476,25 @@ function ArtigosPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
     const [expandedImage, setExpandedImage] = useState(null);
-    /** Aba principal do módulo: artigos | tutoriais */
+    /** Aba principal do módulo: tutoriais | artigos | arquivo */
     const [knowledgeTab, setKnowledgeTab] = useState('tutoriais');
+
+    const [documents, setDocuments] = useState([]);
+    const [filteredDocuments, setFilteredDocuments] = useState([]);
+    const [documentsLoading, setDocumentsLoading] = useState(false);
+    const [documentCategories, setDocumentCategories] = useState([]);
+    const [loadingDocumentCategories, setLoadingDocumentCategories] = useState(false);
+    const [selectedDocumentCategory, setSelectedDocumentCategory] = useState('Todas');
+    const [selectedDocument, setSelectedDocument] = useState(null);
+    const [documentSearchTerm, setDocumentSearchTerm] = useState('');
+    const [debouncedDocumentSearchTerm, setDebouncedDocumentSearchTerm] = useState('');
+
+    useEffect(() => {
+        if (moduleIntent?.knowledgeTab) {
+            setKnowledgeTab(moduleIntent.knowledgeTab);
+            clearModuleIntent?.();
+        }
+    }, [moduleIntent, clearModuleIntent]);
 
     /** Tutoriais: itens da playlist YouTube (resposta GET /api/tutorials) */
     const [tutorialVideos, setTutorialVideos] = useState([]);
@@ -4882,6 +4580,27 @@ function ArtigosPage() {
         });
     };
 
+    const searchDocuments = (term, documentsList) => {
+        if (!term || term.trim() === '') {
+            return documentsList;
+        }
+
+        const normalized = term.toLowerCase().trim();
+
+        return documentsList.filter((doc) => {
+            const titleMatch = doc.title && doc.title.toLowerCase().includes(normalized);
+            const contentMatch = doc.content && doc.content.toLowerCase().includes(normalized);
+            const categoryMatch = doc.category && doc.category.toLowerCase().includes(normalized);
+            return titleMatch || contentMatch || categoryMatch;
+        });
+    };
+
+    const getDocumentPreview = (content, maxLen = 200) => {
+        const text = (content || '').replace(/\s+/g, ' ').trim();
+        if (!text) return '';
+        return text.length > maxLen ? `${text.slice(0, maxLen)}…` : text;
+    };
+
     useEffect(() => {
         let cancelled = false;
         const fetchCategories = async () => {
@@ -4930,6 +4649,47 @@ function ArtigosPage() {
         fetchArticles();
     }, []);
 
+    useEffect(() => {
+        if (knowledgeTab !== 'arquivo') return undefined;
+
+        let cancelled = false;
+
+        const fetchDocumentCategories = async () => {
+            setLoadingDocumentCategories(true);
+            try {
+                const response = await hubDocumentosAPI.getCategories();
+                if (!cancelled) {
+                    setDocumentCategories(Array.isArray(response.data) ? response.data : []);
+                }
+            } catch (error) {
+                console.error('Erro ao carregar categorias de documentos:', error);
+                if (!cancelled) setDocumentCategories([]);
+            } finally {
+                if (!cancelled) setLoadingDocumentCategories(false);
+            }
+        };
+
+        const fetchDocuments = async () => {
+            setDocumentsLoading(true);
+            try {
+                const response = await hubDocumentosAPI.getAll();
+                if (!cancelled) {
+                    setDocuments(Array.isArray(response.data) ? response.data : []);
+                }
+            } catch (error) {
+                console.error('Erro ao carregar documentos:', error);
+                if (!cancelled) setDocuments([]);
+            } finally {
+                if (!cancelled) setDocumentsLoading(false);
+            }
+        };
+
+        fetchDocumentCategories();
+        fetchDocuments();
+
+        return () => { cancelled = true; };
+    }, [knowledgeTab]);
+
     // Debounce para o termo de busca
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -4938,6 +4698,14 @@ function ArtigosPage() {
 
         return () => clearTimeout(timer);
     }, [searchTerm]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedDocumentSearchTerm(documentSearchTerm);
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [documentSearchTerm]);
 
     // Filtrar artigos por categoria e busca
     useEffect(() => {
@@ -4959,6 +4727,20 @@ function ArtigosPage() {
         setFilteredArticles(filtered);
     }, [selectedCategory, articles, debouncedSearchTerm]);
 
+    useEffect(() => {
+        let filtered = documents;
+
+        if (selectedDocumentCategory !== 'Todas') {
+            filtered = filtered.filter((doc) => doc.category === selectedDocumentCategory);
+        }
+
+        if (debouncedDocumentSearchTerm && debouncedDocumentSearchTerm.trim() !== '') {
+            filtered = searchDocuments(debouncedDocumentSearchTerm, filtered);
+        }
+
+        setFilteredDocuments(filtered);
+    }, [selectedDocumentCategory, documents, debouncedDocumentSearchTerm]);
+
     const handleCategoryChange = (categoryKey) => {
         setSelectedCategory(categoryKey);
     };
@@ -4967,6 +4749,11 @@ function ArtigosPage() {
         selectedCategory === 'Todas'
             ? 'Todas'
             : (articleCategories.find((c) => c.categoria_id === selectedCategory)?.categoria_titulo || selectedCategory);
+
+    const selectedDocumentCategoryTitle =
+        selectedDocumentCategory === 'Todas'
+            ? 'Todas'
+            : (documentCategories.find((c) => c.categoria_id === selectedDocumentCategory)?.categoria_titulo || selectedDocumentCategory);
 
     const handleSearchChange = (term) => {
         setSearchTerm(term);
@@ -4983,7 +4770,7 @@ function ArtigosPage() {
             const res = await tutorialsAPI.getPlaylistVideos();
             setTutorialVideos(Array.isArray(res.data) ? res.data : []);
         } catch (err) {
-            const msg = err?.message || 'Não foi possível carregar a playlist de tutoriais.';
+            const msg = err?.message || 'Não foi possível carregar a playlist de vídeos.';
             setTutorialError(msg);
             setTutorialVideos([]);
         } finally {
@@ -5004,6 +4791,9 @@ function ArtigosPage() {
             setSelectedArticle(null);
             setExpandedImage(null);
         }
+        if (knowledgeTab !== 'arquivo') {
+            setSelectedDocument(null);
+        }
         if (knowledgeTab !== 'tutoriais') {
             setSelectedTutorialVideo(null);
         }
@@ -5022,7 +4812,7 @@ function ArtigosPage() {
                             color: knowledgeTab === 'tutoriais' ? 'var(--blue-light)' : 'var(--cor-texto-secundario)'
                         }}
                     >
-                        Tutoriais
+                        Vídeos
                     </button>
                     <button
                         type="button"
@@ -5032,7 +4822,17 @@ function ArtigosPage() {
                             color: knowledgeTab === 'artigos' ? 'var(--blue-light)' : 'var(--cor-texto-secundario)'
                         }}
                     >
-                        Artigos
+                        Manuais
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setKnowledgeTab('arquivo')}
+                        className={`px-6 py-3 text-2xl font-semibold transition-colors duration-200 ${knowledgeTab === 'arquivo' ? '' : 'opacity-50'}`}
+                        style={{
+                            color: knowledgeTab === 'arquivo' ? 'var(--blue-light)' : 'var(--cor-texto-secundario)'
+                        }}
+                    >
+                        Documentos
                     </button>
                 </div>
                 <div className="w-full" style={{ height: '1px', backgroundColor: 'var(--cor-borda)', opacity: 0.5 }} />
@@ -5045,7 +4845,30 @@ function ArtigosPage() {
                     transition: 'grid-template-columns 0.3s ease'
                 }}
             >
-                {knowledgeTab === 'artigos' ? (
+                {(knowledgeTab === 'artigos' || knowledgeTab === 'arquivo') ? (() => {
+                const isDocumentosTab = knowledgeTab === 'arquivo';
+                const catalogItems = isDocumentosTab ? filteredDocuments : filteredArticles;
+                const catalogAllItems = isDocumentosTab ? documents : articles;
+                const catalogLoading = isDocumentosTab ? documentsLoading : loading;
+                const catalogCategories = isDocumentosTab ? documentCategories : articleCategories;
+                const catalogLoadingCategories = isDocumentosTab ? loadingDocumentCategories : loadingCategories;
+                const catalogSelectedCategory = isDocumentosTab ? selectedDocumentCategory : selectedCategory;
+                const catalogSearchTerm = isDocumentosTab ? documentSearchTerm : searchTerm;
+                const catalogDebouncedSearch = isDocumentosTab ? debouncedDocumentSearchTerm : debouncedSearchTerm;
+                const catalogCategoryTitle = isDocumentosTab ? selectedDocumentCategoryTitle : selectedCategoryTitle;
+                const catalogLabel = isDocumentosTab ? 'documento' : 'manual';
+                const catalogLabelPlural = isDocumentosTab ? 'documentos' : 'manuais';
+                const onCatalogCategoryChange = isDocumentosTab
+                    ? (key) => setSelectedDocumentCategory(key)
+                    : handleCategoryChange;
+                const onCatalogSearchChange = isDocumentosTab
+                    ? (term) => setDocumentSearchTerm(term)
+                    : handleSearchChange;
+                const onCatalogItemClick = isDocumentosTab
+                    ? (item) => setSelectedDocument(item)
+                    : handleArticleClick;
+
+                return (
                 <div className="grid grid-cols-1 lg:grid-cols-4" style={{gap: '30px', minWidth: 0}}>
                     {/* Sidebar de Categorias */}
                     <aside className="lg:col-span-1 p-6 rounded-lg shadow-sm h-fit velohub-container" style={{borderRadius: 'var(--velohub-radius-container)', boxShadow: '0 3.2px 16px rgba(0, 0, 0, 0.1)', padding: '19.2px'}}>
@@ -5054,9 +4877,9 @@ function ArtigosPage() {
                         <div className="relative w-full">
                             <input
                                 type="text"
-                                value={searchTerm}
-                                onChange={(e) => handleSearchChange(e.target.value)}
-                                placeholder="Buscar artigos..."
+                                value={catalogSearchTerm}
+                                onChange={(e) => onCatalogSearchChange(e.target.value)}
+                                placeholder={`Buscar ${catalogLabelPlural}...`}
                                 className="w-full px-4 pl-12 pr-4 border focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                                 style={{
                                     backgroundColor: 'var(--cor-container)',
@@ -5072,9 +4895,9 @@ function ArtigosPage() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                 </svg>
                             </div>
-                            {searchTerm && (
+                            {catalogSearchTerm && (
                                 <button
-                                    onClick={() => handleSearchChange('')}
+                                    onClick={() => onCatalogSearchChange('')}
                                     className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                                 >
                                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5085,15 +4908,15 @@ function ArtigosPage() {
                         </div>
                         
                         {/* Indicador de resultados */}
-                        {debouncedSearchTerm && (
+                        {catalogDebouncedSearch && (
                             <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                {filteredArticles.length > 0 ? (
+                                {catalogItems.length > 0 ? (
                                     <span>
-                                        {filteredArticles.length} artigo{filteredArticles.length !== 1 ? 's' : ''} encontrado{filteredArticles.length !== 1 ? 's' : ''} para "{debouncedSearchTerm}"
+                                        {catalogItems.length} {catalogLabel}{catalogItems.length !== 1 ? 's' : ''} encontrado{catalogItems.length !== 1 ? 's' : ''} para "{catalogDebouncedSearch}"
                                     </span>
                                 ) : (
                                     <span className="text-red-500 dark:text-red-400">
-                                        Nenhum artigo encontrado para "{debouncedSearchTerm}"
+                                        Nenhum {catalogLabel} encontrado para "{catalogDebouncedSearch}"
                                     </span>
                                 )}
                             </div>
@@ -5104,7 +4927,7 @@ function ArtigosPage() {
                         Categorias
                     </h3>
                     
-                    {loadingCategories ? (
+                    {catalogLoadingCategories ? (
                         <div className="text-center py-4">
                             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
                             <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm">Carregando categorias...</p>
@@ -5114,22 +4937,22 @@ function ArtigosPage() {
                             <button
                                 type="button"
                                 key="todas"
-                                onClick={() => handleCategoryChange('Todas')}
+                                onClick={() => onCatalogCategoryChange('Todas')}
                                 className={`w-full text-left px-3 py-2 rounded-md transition-colors duration-200 text-sm ${
-                                    selectedCategory === 'Todas'
+                                    catalogSelectedCategory === 'Todas'
                                         ? 'bg-blue-600 text-white'
                                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                                 }`}
                             >
                                 Todas
                             </button>
-                            {articleCategories.map((cat) => (
+                            {catalogCategories.map((cat) => (
                                 <button
                                     type="button"
                                     key={cat.categoria_id}
-                                    onClick={() => handleCategoryChange(cat.categoria_id)}
+                                    onClick={() => onCatalogCategoryChange(cat.categoria_id)}
                                     className={`w-full text-left px-3 py-2 rounded-md transition-colors duration-200 text-sm ${
-                                        selectedCategory === cat.categoria_id
+                                        catalogSelectedCategory === cat.categoria_id
                                             ? 'bg-blue-600 text-white'
                                             : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                                     }`}
@@ -5140,16 +4963,16 @@ function ArtigosPage() {
                         </div>
                     )}
                     
-                    {!loading && (
+                    {!catalogLoading && (
                         <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
                             <p className="text-sm text-gray-600 dark:text-gray-400">
-                                {debouncedSearchTerm ? (
+                                {catalogDebouncedSearch ? (
                                     <span>
-                                        {filteredArticles.length} de {articles.length} artigo{articles.length !== 1 ? 's' : ''}
+                                        {catalogItems.length} de {catalogAllItems.length} {catalogLabel}{catalogAllItems.length !== 1 ? 's' : ''}
                                     </span>
                                 ) : (
                                     <span>
-                                        {filteredArticles.length} artigo{filteredArticles.length !== 1 ? 's' : ''} encontrado{filteredArticles.length !== 1 ? 's' : ''}
+                                        {catalogItems.length} {catalogLabel}{catalogItems.length !== 1 ? 's' : ''} encontrado{catalogItems.length !== 1 ? 's' : ''}
                                     </span>
                                 )}
                             </p>
@@ -5157,22 +4980,22 @@ function ArtigosPage() {
                     )}
                 </aside>
 
-                {/* Lista de Artigos */}
+                {/* Lista de Manuais / Documentos */}
                 <div className="lg:col-span-3">
-                    {loading && (
+                    {catalogLoading && (
                         <div className="text-center py-12">
                             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                            <p className="text-gray-600 dark:text-gray-400 mt-4">Carregando artigos...</p>
+                            <p className="text-gray-600 dark:text-gray-400 mt-4">Carregando {catalogLabelPlural}...</p>
                         </div>
                     )}
                     
-                    {!loading && (
+                    {!catalogLoading && (
                         <>
-                            {filteredArticles.length > 0 ? (
+                            {catalogItems.length > 0 ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2" style={{gap: '25px'}}>
-                                    {filteredArticles.map(article => (
+                                    {catalogItems.map((item) => (
                                          <div 
-                                             key={article._id || article.id} 
+                                             key={item._id || item.id} 
                                              className="rounded-lg shadow-md p-6 cursor-pointer velohub-card"
                                              style={{
                                                  borderRadius: 'var(--velohub-radius-container)',
@@ -5188,18 +5011,15 @@ function ArtigosPage() {
                                                  e.currentTarget.style.boxShadow = '0 20px 40px rgba(0, 0, 0, 0.15)';
                                                  e.currentTarget.style.outline = '2px solid var(--blue-medium)';
                                                  e.currentTarget.style.outlineOffset = '-2px';
-                                                 // Barra superior animada
                                                  e.currentTarget.style.setProperty('--bar-width', '100%');
                                              }}
                                              onMouseLeave={(e) => {
                                                  e.currentTarget.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.1)';
                                                  e.currentTarget.style.outline = 'none';
-                                                 // Barra superior desaparece
                                                  e.currentTarget.style.setProperty('--bar-width', '0%');
                                              }}
-                                             onClick={() => handleArticleClick(article)}
+                                             onClick={() => onCatalogItemClick(item)}
                                          >
-                                             {/* Barra Superior Animada */}
                                              <div style={{
                                                  position: 'absolute',
                                                  top: 0,
@@ -5213,18 +5033,17 @@ function ArtigosPage() {
                                              }}></div>
                                             <div className="mb-3 flex justify-between items-start">
                                                 <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full text-xs font-medium">
-                                                    {article.category}
+                                                    {item.category}
                                                 </span>
-                                                {article.createdAt && (
+                                                {item.createdAt && (
                                                     <span className="text-xs text-gray-500 dark:text-gray-400">
-                                                        {new Date(article.createdAt).toLocaleDateString('pt-BR')}
+                                                        {new Date(item.createdAt).toLocaleDateString('pt-BR')}
                                                     </span>
                                                 )}
                                             </div>
-                                            <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-3">{article.title}</h3>
+                                            <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-3">{item.title}</h3>
                                             
-                                            {/* Renderizar primeira imagem se existir */}
-                                            {getImageUrl(article) && (
+                                            {!isDocumentosTab && getImageUrl(item) && (
                                                 <div className="mb-3">
                                                     <div className="relative inline-block" style={{ 
                                                         maxWidth: '280px', 
@@ -5234,8 +5053,8 @@ function ArtigosPage() {
                                                         border: '1px solid #e5e7eb'
                                                     }}>
                                                         <img 
-                                                            src={getImageUrl(article)} 
-                                                            alt={article.title}
+                                                            src={getImageUrl(item)} 
+                                                            alt={item.title}
                                                             className="w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
                                                             style={{
                                                                 maxHeight: '120px',
@@ -5245,25 +5064,31 @@ function ArtigosPage() {
                                                             }}
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                setSelectedArticle(article);
+                                                                onCatalogItemClick(item);
                                                             }}
                                                             onError={(e) => {
-                                                                e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="280" height="120"%3E%3Crect width="280" height="120" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-family="Arial" font-size="12"%3EImagem n├úo encontrada%3C/text%3E%3C/svg%3E';
+                                                                e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="280" height="120"%3E%3Crect width="280" height="120" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-family="Arial" font-size="12"%3EImagem n%C3%A3o encontrada%3C/text%3E%3C/svg%3E';
                                                             }}
                                                         />
                                                     </div>
                                                 </div>
                                             )}
-                                            {article.content && (
+                                            {item.content && (
+                                                isDocumentosTab ? (
+                                                    <p className="text-gray-600 dark:text-gray-400 mb-4 line-clamp-3 m-0">
+                                                        {getDocumentPreview(item.content, 200)}
+                                                    </p>
+                                                ) : (
                                                  <div 
                                                      className="text-gray-600 dark:text-gray-400 mb-4 line-clamp-3 prose prose-sm dark:prose-invert max-w-none"
-                                                     dangerouslySetInnerHTML={{ __html: processContentHtml(formatArticleContent(article.content, 200), article?.media?.images || []) }}
+                                                     dangerouslySetInnerHTML={{ __html: processContentHtml(formatArticleContent(item.content, 200), item?.media?.images || []) }}
                                                  />
+                                                )
                                             )}
-                                            {article.tag && (
+                                            {!isDocumentosTab && item.tag && (
                                                 <div className="flex flex-wrap gap-2">
                                                     <span className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-full text-xs">
-                                                        {article.tag}
+                                                        {item.tag}
                                                     </span>
                                                 </div>
                                             )}
@@ -5273,7 +5098,7 @@ function ArtigosPage() {
                             ) : (
                                 <div className="text-center py-12">
                                     <p className="text-gray-500 dark:text-gray-400 text-lg">
-                                        Nenhum artigo encontrado na categoria "{selectedCategoryTitle}"
+                                        Nenhum {catalogLabel} encontrado na categoria "{catalogCategoryTitle}"
                                     </p>
                                 </div>
                             )}
@@ -5281,7 +5106,8 @@ function ArtigosPage() {
                     )}
                 </div>
                 </div>
-                ) : (
+                );
+                })() : knowledgeTab === 'tutoriais' ? (
                 <div className="min-w-0 w-full" style={{ minWidth: 0 }}>
                     <div className="flex flex-wrap justify-end items-center gap-3 mb-6">
                         <button
@@ -5301,7 +5127,7 @@ function ArtigosPage() {
                     {tutorialLoading && tutorialVideos.length === 0 && (
                         <div className="text-center py-12">
                             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto" />
-                            <p className="text-gray-600 dark:text-gray-400 mt-4">Carregando tutoriais…</p>
+                            <p className="text-gray-600 dark:text-gray-400 mt-4">Carregando vídeos…</p>
                         </div>
                     )}
 
@@ -5383,7 +5209,7 @@ function ArtigosPage() {
                         </div>
                     )}
                 </div>
-                )}
+                ) : null}
                 
                 {/* Sidebar direito com chat */}
                 {renderRightSidebarChat({
@@ -5546,6 +5372,47 @@ function ArtigosPage() {
                                     </div>
                                 </div>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            )}
+
+            {knowledgeTab === 'arquivo' && selectedDocument && (
+                <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
+                    <div className="rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden bg-white dark:bg-gray-800" style={{borderRadius: 'var(--velohub-radius-container)', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)', zIndex: 10000}}>
+                        <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+                            <div>
+                                <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full text-sm font-medium">
+                                    {selectedDocument.category}
+                                </span>
+                                {selectedDocument.createdAt && (
+                                    <span className="ml-3 text-sm text-gray-500 dark:text-gray-400">
+                                        {new Date(selectedDocument.createdAt).toLocaleDateString('pt-BR')}
+                                    </span>
+                                )}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setSelectedDocument(null)}
+                                className="text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white text-2xl font-bold"
+                                aria-label="Fechar"
+                            >
+                                &times;
+                            </button>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                            <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-6">
+                                {selectedDocument.title}
+                            </h2>
+                            <div
+                                className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap"
+                                style={{ lineHeight: 1.6 }}
+                            >
+                                {selectedDocument.content}
+                            </div>
                         </div>
                     </div>
                 </div>

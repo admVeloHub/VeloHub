@@ -1,0 +1,100 @@
+{
+  "requester": {
+    "email": "atendimento@velotax.com",
+    "name": "nome na ocorrencia"
+  },
+  "summary": "Registro de Reclamação: BACEN",
+  "description": "Reclamação registrada junto ao time competente. Protocolo da reclamação BACEN-2026-000123\nE-mail do cliente: cliente@exemplo.com\n\nProtocolo: BACEN-2026-000123\nTipo: BACEN\nCPF: 123.456.789-00\nE-mail do cliente: cliente@exemplo.com\nCanal de origem: Octadesk\nResponsável: Maria Silva\nMotivo (principal): Atraso na restituição\nDemais motivos: Cobrança indevida; Dificuldade de contato\nData: 20/05/2026\nDescrição: Cliente informou que não recebeu o valor.\nObservações: Aguardando comprovante.",
+  "form": { "id": "33f703a1-0a58-454f-a856-550464e1037c" },
+  "group": { "id": "9d4372d5-5039-470e-a15e-053a0971ff28" },
+  "customField": [
+    { "key": "cpf_do_titular", "value": "12345678900" },
+    { "key": "nome", "value": "nome na ocorrencia" },
+    { "key": "canal_de_contato", "value": "Interno" },
+    { "key": "classificacao", "value": "Reclamação" },
+    { "key": "categoria_de_assunto", "value": "Casos Especiais" },
+    { "key": "motivos_casos_especiais", "value": "Atraso na restituição" }
+  ],
+  "idCurrentStatus": "b2c80a95-840c-4cd0-baa3-f266f303d626",
+  "tags": ["velohub-reclamacao"]
+}
+
+--- PUT /tickets/{number} — comentário interno (Requisições; spec Tickets/update) ---
+Método: PUT
+Path: /tickets/100150402
+Headers: X-API-KEY, octa-agent-email (ex.: atendimento@velotax.com)
+Body (mínimo — number só no path, não no body):
+{
+  "comments": {
+    "internal": {
+      "content": "Nova Solicitação Técnica - …\n\nAgente: …\nCPF: …"
+    }
+  }
+}
+
+--------------------------------
+INFORMAÇOES DE REFERENCIA. NAO APAGUE.
+Campos do form (key | type):
+  nome_do_solicitante	text
+  email_do_solicitante	text
+  titulo_do_ticket	text
+  nome	text
+  cpf_do_titular	text
+  consulta_veloboard	list
+  canal_de_contato	list
+  categoria_de_assunto	text
+  motivos_casos_especiais	list
+  reatribuicao__devolutiva	list
+  escalar_chamado	list
+  plano_contratado	list
+  valor_do_estorno__proporcional	text
+  data_da_solicitacao	text
+  motivo_de_estorno	list
+  aprovacao__cs	list
+  retorno_financeiro	list
+  observacoes_do_cliente	text
+  tags	text
+  classificacao	list
+  descricao_do_ticket	text
+
+ENV OCTADESK_CUSTOM_FIELD_CANAL_ORIGEM_KEY= (vazio)
+sem customField: OK #100150314
+map + cpf_do_titular=12345678901: The customFields must have a valid key
+map + nome=Probe Nome: The customFields must have a valid key
+map + canal_de_contato=Interno: The customFields must have a valid key
+map + canal_de_contato=Interno : The customFields must have a valid key
+map + classificacao=Reclamação: The customFields must have a valid key
+map + categoria_de_assunto=Casos Especiais: The customFields must have a valid key
+map + categoria_de_assunto=casos especiais: The customFields must have a valid key
+map + motivos_casos_especiais=Portabilidade pix: The customFields must have a valid key
+map + motivos_casos_especiais=Atraso na restituição: The customFields must have a valid key
+map + canal_de_origem=Octadesk: The customFields must have a valid key
+
+--- buildCreateTicketFromReclamacao (mapa atual) ---
+customField keys: [
+  'cpf_do_titular',
+  'nome',
+  'canal_de_contato',
+  'classificacao',
+  'categoria_de_assunto',
+  'motivos_casos_especiais'
+]
+{
+  "cpf_do_titular": "12345678901",
+  "nome": "Probe",
+  "canal_de_contato": "Interno",
+  "classificacao": "Reclamação",
+  "categoria_de_assunto": "Casos Especiais",
+  "motivos_casos_especiais": "Portabilidade pix"
+}
+buildCreate completo: The customFields must have a valid key
+somente cpf_do_titular: The customFields must have a valid key
+somente nome: The customFields must have a valid key
+somente canal_de_contato: The customFields must have a valid key
+somente classificacao: The customFields must have a valid key
+somente categoria_de_assunto: The customFields must have a valid key
+somente motivos_casos_especiais: The customFields must have a valid key
+form{id}+customField[] (TicketDTO api001): OK — form RA/Procon; campos preenchidos
+idForm+customFields[]: API aceita POST mas form = Solicitação de Atendimento (default); customFields ignorados
+customFields array (OpenAPI legado): OK #100150315 sem form correto
+customFieldOpenAPI array: OK #100150316

@@ -1,0 +1,24 @@
+{
+  "VERSION": "checkpoint-v1.3.4",
+  "DATE": "2026-05-21",
+  "NOTE": "Estado imediatamente anterior a v1.4.0 (modelo octa-api-example + requester fixo + customField mapa).",
+  "resolveRequesterForCreate": {
+    "emailCandidates": ["reclamacao.email", "reclamacao.responsavelEmail", "config.OCTADESK_API_EMAIL"],
+    "fallback": "ouvidoria+{protocolo|cpf}@velotax.com.br",
+    "nameFrom": ["reclamacao.nome", "reclamacao.nomeCliente", "reclamacao.responsavel"]
+  },
+  "buildCustomFieldsForOpen": {
+    "enabledWhen": "OCTADESK_INCLUDE_CUSTOM_FIELD_ON_CREATE === 'true'",
+    "format": "array [{ key, value }]",
+    "fields": ["cpf_do_titular only"]
+  },
+  "buildCreateTicketFromReclamacao": {
+    "description": "descricaoPublica + internalComment (sem e-mail do cliente na description)",
+    "customField": "array opcional CPF",
+    "requester": "e-mail da reclamação ou fallback sintético"
+  },
+  "frontendGerarTicket": {
+    "FormReclamacao": "exige reclamacaoIdSalva (salvar antes)",
+    "FormReclamacaoEdit": "usa _id da reclamação aberta, sem PUT prévio"
+  }
+}

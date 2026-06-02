@@ -1,8 +1,9 @@
 /**
  * VeloHub V3 — Modal histórico Req_Prod por CPF (antes de novo envio / Solicitar Liberação)
- * VERSION: v1.0.2 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.3 | DATE: 2026-05-27 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.0.3: Linhas do histórico exibem Agente (colaboradorNome)
  * - v1.0.2: Subtexto no cabeçalho — «Certifique-se de não ser uma requisição redundante»
  * - v1.0.1: Título do histórico — «Histórico de requisições para o CPF» (sem «nesta aba»)
  * - v1.0.0: Paridade visual com FormSolicitacao (abertas / resolvidas, confirmar ou fechar)
@@ -90,6 +91,11 @@ export default function ModalHistoricoRequisicaoCpf({
                         Origem: {row.origemLabel}
                       </div>
                     ) : null}
+                    {row.agenteLabel ? (
+                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                        Agente: {row.agenteLabel}
+                      </div>
+                    ) : null}
                     <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                       Status: {row.statusChamado === 'enviado' ? 'enviado' : row.statusChamado}
                       {' · '}
@@ -117,6 +123,11 @@ export default function ModalHistoricoRequisicaoCpf({
                     {row.origemLabel ? (
                       <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
                         Origem: {row.origemLabel}
+                      </div>
+                    ) : null}
+                    {row.agenteLabel ? (
+                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                        Agente: {row.agenteLabel}
                       </div>
                     ) : null}
                     <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">

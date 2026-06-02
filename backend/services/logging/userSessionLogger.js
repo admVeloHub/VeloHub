@@ -1,5 +1,8 @@
 // User Session Logger - Log de sessões de login/logout dos usuários
-// VERSION: v1.5.0 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+// VERSION: v1.5.1 | DATE: 2026-05-29 | AUTHOR: VeloHub Development Team
+//
+// Mudanças v1.5.1:
+// - Corrigido require de funcionariosCollections (../../config a partir de services/logging)
 //
 // Mudanças v1.5.0:
 // - Reconexão automática quando a topologia MongoDB está fechada ("Topology is closed")
@@ -137,8 +140,9 @@ class UserSessionLogger {
 
       this.client = new MongoClient(uri, MONGO_CLIENT_OPTIONS);
       await this.client.connect();
-      this.db = this.client.db('console_conteudo');
-      this.collection = this.db.collection('hub_sessions');
+      const { FUNCIONARIOS_DB_NAME, FUNCIONARIOS_COLLECTIONS } = require('../../config/funcionariosCollections');
+      this.db = this.client.db(FUNCIONARIOS_DB_NAME);
+      this.collection = this.db.collection(FUNCIONARIOS_COLLECTIONS.HUB_SESSIONS);
       this.isConnected = true;
 
       console.log('✅ SessionLogger: Conectado ao MongoDB');
@@ -163,7 +167,7 @@ class UserSessionLogger {
    * @param {string} userAgent - User Agent (opcional)
    * @returns {Promise<Object>} { success: boolean, sessionId: string }
    */
-  async logLogin(colaboradorNome, userEmail, ipAddress = null, userAgent = null) {
+  async logLogin(colaboradorNome, userEmail, ipAddress = null, userAgent = null, permissoesPayload = null) {
     try {
       return await this._withMongoRetry(async () => {
         await this.connect();
@@ -184,6 +188,18 @@ class UserSessionLogger {
           createdAt: now,
           updatedAt: now,
         };
+
+        if (permissoesPayload && typeof permissoesPayload === 'object') {
+          if (Array.isArray(permissoesPayload.atuacaoIds)) {
+            session.atuacaoIds = permissoesPayload.atuacaoIds;
+          }
+          if (Array.isArray(permissoesPayload.funcoesSnapshot)) {
+            session.funcoesSnapshot = permissoesPayload.funcoesSnapshot;
+          }
+          if (permissoesPayload.permissoesVelohub && typeof permissoesPayload.permissoesVelohub === 'object') {
+            session.permissoesVelohub = permissoesPayload.permissoesVelohub;
+          }
+        }
 
         const result = await this.collection.insertOne(session);
 

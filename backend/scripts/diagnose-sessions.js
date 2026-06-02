@@ -58,7 +58,7 @@ async function diagnoseSessions() {
     await client.connect();
     console.log('✅ Conectado ao MongoDB\n');
     
-    const db = client.db('console_conteudo');
+    const db = client.db(process.env.CONSOLE_FUNCIONARIOS_DB || 'console_funcionarios');
     const sessionsCollection = db.collection('hub_sessions');
     
     const now = new Date();

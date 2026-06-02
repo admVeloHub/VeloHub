@@ -1,14 +1,15 @@
 /**
  * LoadingPage - Página de Loading Intermediária
- * VERSION: v2.4.2 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.6.0 | DATE: 2026-05-29 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
- * - v2.1.0: CORREÇÃO: Adicionada proteção contra criação duplicada de sessionId (React StrictMode)
- * - v2.0.0: REFATORAÇÃO: Criação de sessionId movida do LoginPage para LoadingPage
+ * - v2.6.0: Login — reset snooze compliance para exibir modal com pendências
+ * - v2.4.2: Proteção contra criação duplicada de sessionId (React StrictMode)
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { updateUserInfo, checkAuthenticationState, getUserSession, registerLoginSession } from '../services/auth';
+import { prefetchCompliancePending, ensureComplianceModalOnLogin } from '../services/corporateCompliance';
 import * as velochatApi from '../services/velochatApi';
 import { veloNewsAPI } from '../services/api';
 
@@ -28,6 +29,8 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
     const [resolvedUserData, setResolvedUserData] = useState(userData);
     const [sessionIdCreated, setSessionIdCreated] = useState(false);
     const sessionCreationStartedRef = useRef(false);
+    const compliancePendingRef = useRef([]);
+    const bootstrapDoneRef = useRef(false);
     const [videoVisible, setVideoVisible] = useState(false);
     const videoRevealDoneRef = useRef(false);
 
@@ -47,7 +50,7 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
         setVideoEnded(true);
     }, []);
 
-    const createSessionIdWithRetry = async (userData, maxRetries = 5) => {
+    const createSessionIdWithRetry = async (loginUserData, maxRetries = 5) => {
         const existingSessionId = localStorage.getItem('velohub_session_id');
         if (existingSessionId && existingSessionId.trim().length > 0) {
             console.log('✅ sessionId já existe, usando existente:', existingSessionId.substring(0, 8) + '...');
@@ -64,7 +67,7 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
                     return checkSessionId;
                 }
 
-                const sessionId = await registerLoginSession(userData, 1, 1000);
+                const sessionId = await registerLoginSession(loginUserData, 1, 1000);
                 if (sessionId) {
                     console.log(`✅ sessionId criado com sucesso na tentativa ${attempt}/${maxRetries}`);
                     setSessionIdCreated(true);
@@ -74,7 +77,7 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
                 console.error(`❌ Tentativa ${attempt}/${maxRetries} falhou:`, error);
 
                 if (attempt < maxRetries) {
-                    await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+                    await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
                 } else {
                     console.error('❌ Todas as tentativas de criar sessionId falharam');
                     return null;
@@ -85,42 +88,41 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
         return null;
     };
 
+    const runBootstrap = async (loginUserData) => {
+        const email = loginUserData?.email;
+        const [sessionId, rawPending] = await Promise.all([
+            createSessionIdWithRetry(loginUserData, 5),
+            prefetchCompliancePending(email),
+        ]);
+
+        compliancePendingRef.current = ensureComplianceModalOnLogin(email, rawPending);
+
+        if (!sessionId) {
+            console.error('❌ LoadingPage: Não foi possível criar sessionId após tentativas - autenticação falhou');
+            setIsAuthenticated(false);
+            setAuthChecked(true);
+            if (onAuthCheck) {
+                onAuthCheck(false);
+            }
+            bootstrapDoneRef.current = true;
+            return;
+        }
+
+        console.log('✅ LoadingPage: bootstrap concluído (session + compliance em paralelo)');
+        setResolvedUserData(loginUserData);
+        setIsAuthenticated(true);
+        setAuthChecked(true);
+        bootstrapDoneRef.current = true;
+    };
+
     useEffect(() => {
         if (userData) {
             if (sessionCreationStartedRef.current) {
-                console.log('⚠️ LoadingPage: Criação de sessionId já iniciada, ignorando chamada duplicada');
+                console.log('⚠️ LoadingPage: Bootstrap já iniciado, ignorando chamada duplicada');
                 return;
             }
             sessionCreationStartedRef.current = true;
-
-            const createSession = async () => {
-                try {
-                    const sessionId = await createSessionIdWithRetry(userData, 5);
-
-                    if (!sessionId) {
-                        console.error('❌ LoadingPage: Não foi possível criar sessionId após 5 tentativas - autenticação falhou');
-                        setIsAuthenticated(false);
-                        setAuthChecked(true);
-                        if (onAuthCheck) {
-                            onAuthCheck(false);
-                        }
-                        return;
-                    }
-
-                    console.log('✅ LoadingPage: sessionId criado com sucesso:', sessionId.substring(0, 8) + '...');
-                    setResolvedUserData(userData);
-                    setIsAuthenticated(true);
-                    setAuthChecked(true);
-                } catch (error) {
-                    console.error('❌ LoadingPage: Erro ao criar sessionId para userData:', error);
-                    setIsAuthenticated(false);
-                    setAuthChecked(true);
-                    if (onAuthCheck) {
-                        onAuthCheck(false);
-                    }
-                }
-            };
-            createSession();
+            runBootstrap(userData);
             return;
         }
 
@@ -131,16 +133,34 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
 
                 if (isAuth) {
                     const session = getUserSession();
-                    if (session && session.user) {
-                        setResolvedUserData(session.user);
+                    const loginUserData = session?.user || null;
+                    if (loginUserData) {
+                        setResolvedUserData(loginUserData);
                     }
+
                     const existingSessionId = localStorage.getItem('velohub_session_id');
+                    const complianceTask = prefetchCompliancePending(loginUserData?.email);
+
                     if (existingSessionId) {
                         setSessionIdCreated(true);
+                        compliancePendingRef.current = await complianceTask;
+                    } else if (loginUserData) {
+                        sessionCreationStartedRef.current = true;
+                        const [sessionId, pending] = await Promise.all([
+                            createSessionIdWithRetry(loginUserData, 5),
+                            complianceTask,
+                        ]);
+                        compliancePendingRef.current = pending;
+                        if (!sessionId) {
+                            setIsAuthenticated(false);
+                        }
+                    } else {
+                        compliancePendingRef.current = await complianceTask;
                     }
                 }
 
                 setAuthChecked(true);
+                bootstrapDoneRef.current = true;
 
                 if (onAuthCheck) {
                     onAuthCheck(isAuth);
@@ -149,6 +169,7 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
                 console.error('Erro ao verificar autenticação:', error);
                 setIsAuthenticated(false);
                 setAuthChecked(true);
+                bootstrapDoneRef.current = true;
                 if (onAuthCheck) {
                     onAuthCheck(false);
                 }
@@ -181,7 +202,7 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
         const fetchContacts = async () => {
             try {
                 if (isAuthenticated && sessionIdCreated) {
-                    velochatApi.getContacts().catch(err => {
+                    velochatApi.getContacts().catch((err) => {
                         console.error('Erro ao buscar contatos:', err);
                     });
                 }
@@ -193,7 +214,7 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
         const updateNews = async () => {
             try {
                 if (isAuthenticated && sessionIdCreated) {
-                    veloNewsAPI.getRecent(4).catch(err => {
+                    veloNewsAPI.getRecent(4).catch((err) => {
                         console.error('Erro ao atualizar notícias:', err);
                     });
                 }
@@ -203,12 +224,8 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
         };
 
         initSession();
-        setTimeout(() => {
-            fetchContacts();
-        }, 500);
-        setTimeout(() => {
-            updateNews();
-        }, 1000);
+        fetchContacts();
+        updateNews();
 
         const handleVisibilityChange = () => {
             if (!document.hidden && isInitializing) {
@@ -221,7 +238,7 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [authChecked, isAuthenticated, resolvedUserData, sessionIdCreated]);
+    }, [authChecked, isAuthenticated, resolvedUserData, sessionIdCreated, isInitializing]);
 
     useEffect(() => {
         const fallback = window.setTimeout(() => {
@@ -269,25 +286,29 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
         };
     }, [markVideoEnded, tryRevealVideo]);
 
+    const dispatchComplete = useCallback(
+        (success) => {
+            if (completionDispatchedRef.current) return;
+            completionDispatchedRef.current = true;
+            setIsInitializing(false);
+            if (onComplete) {
+                onComplete(success, {
+                    compliancePending: compliancePendingRef.current || [],
+                });
+            }
+        },
+        [onComplete]
+    );
+
     useEffect(() => {
-        if (!sessionIdCreated || !isAuthenticated || !authChecked || !videoEnded) return;
-        if (completionDispatchedRef.current) return;
-        completionDispatchedRef.current = true;
-        setIsInitializing(false);
-        if (onComplete) {
-            onComplete(true);
-        }
-    }, [sessionIdCreated, isAuthenticated, authChecked, videoEnded, onComplete]);
+        if (!bootstrapDoneRef.current || !sessionIdCreated || !isAuthenticated || !authChecked || !videoEnded) return;
+        dispatchComplete(true);
+    }, [sessionIdCreated, isAuthenticated, authChecked, videoEnded, dispatchComplete]);
 
     useEffect(() => {
         if (isAuthenticated || !authChecked || !videoEnded) return;
-        if (completionDispatchedRef.current) return;
-        completionDispatchedRef.current = true;
-        setIsInitializing(false);
-        if (onComplete) {
-            onComplete(false);
-        }
-    }, [isAuthenticated, authChecked, videoEnded, onComplete]);
+        dispatchComplete(false);
+    }, [isAuthenticated, authChecked, videoEnded, dispatchComplete]);
 
     return (
         <div
@@ -298,7 +319,7 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                zIndex: 9999
+                zIndex: 9999,
             }}
         >
             <div
@@ -308,7 +329,7 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
                     backgroundImage: `url(${LOADING_STATIC_BG})`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat'
+                    backgroundRepeat: 'no-repeat',
                 }}
             />
             <video
@@ -331,7 +352,7 @@ const LoadingPage = ({ userData, onComplete, onAuthCheck }) => {
                     objectPosition: 'center',
                     opacity: videoVisible ? 1 : 0,
                     transition: 'opacity 0.55s ease-in-out',
-                    willChange: 'opacity'
+                    willChange: 'opacity',
                 }}
             />
         </div>

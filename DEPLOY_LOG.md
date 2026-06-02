@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.26 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.27 | DATE: 2026-06-01 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,22 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push - Home portal, corporate compliance, permissões e integrações**
+- **Data/Hora**: 2026-06-01
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: App_v6, HomePage, server.js, auth.js, octadeskTicketsService, DEPLOY_LOG v1.1.27
+- **Arquivos Modificados**:
+  - **Home / portal**: `src/pages/HomePage.js`, `src/pages/home/*`, `src/components/Home/*`, `src/styles/home.css`, assets `public/icone/*`, `public/titles and logos/*`
+  - **Corporate / compliance**: `backend/routes/api/corporate/hub-corporate.js`, `src/services/corporateCompliance.js`, `src/components/Home/Corporate*.js`, `src/config/politicasNormasAccordions.js`, `LGPD001.docx`
+  - **APIs home/conhecimento/portal**: `backend/routes/api/home/*`, `backend/routes/api/conhecimento/hub-documentos.js`, `backend/routes/api/portal/denuncias.js`, `backend/services/googleCalendar/*`, `backend/services/support/skynetSendDenuncia.js`
+  - **Permissões / auth**: `backend/utils/resolvePermissoesVelohub.js`, `backend/utils/modulosVelohub.js`, `backend/utils/contaBypassVelohub.js`, `src/components/VelohubNavAccessGuard.js`, guards Ouvidoria/Sociais, `src/services/auth.js`, `backend/middleware/*Access.js`
+  - **Backend core**: `backend/server.js`, `backend/config.js`, `backend/config/*`, `backend/services/octadesk/octadeskTicketsService.js`, scripts Octadesk/seed
+  - **Requisições / suporte**: `src/components/SupportModal.js`, `src/components/LoadingPage.js`, rotas escalações, `src/pages/RequisicoesPage.js`
+  - **App shell**: `src/App_v6.js`, `src/index.js`, `src/index.css`, `src/services/api.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Push integral do working tree local — portal Home (destaques, agenda Google, hero pages, denúncias), corporate/LGPD/políticas, permissões por módulo VeloHub, APIs hub e ajustes em auth, Octadesk, requisições e navegação.
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push - Hotfix: POST liberação PIX (resolveOctadeskTicketNumber v1.0.2)**
 - **Data/Hora**: 2026-05-26

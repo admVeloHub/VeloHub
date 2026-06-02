@@ -8,6 +8,7 @@
 
 const express = require('express');
 const router = express.Router();
+const { getCadastroCollection } = require('../../../config/funcionariosDb');
 
 /**
  * Inicializar rotas de colaboradores
@@ -30,8 +31,7 @@ const initColaboradoresRoutes = (client, connectToMongo) => {
       }
 
       await connectToMongo();
-      const db = client.db('console_analises');
-      const funcionariosCollection = db.collection('qualidade_funcionarios');
+      const funcionariosCollection = getCadastroCollection(client);
 
       // Buscar funcionários com acesso à ouvidoria (verifica variações de case)
       const funcionarios = await funcionariosCollection.find({

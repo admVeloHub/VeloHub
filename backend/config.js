@@ -1,5 +1,6 @@
 // Configuração do VeloHub V3 - Baseada em Variáveis de Ambiente
-// VERSION: v1.7.6 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
+// VERSION: v1.7.7 | DATE: 2026-05-27 | AUTHOR: VeloHub Development Team
+// v1.7.7: SKYNET_DENUNCIA_API_URL — denúncias usam SKYNET em produção (GCP) mesmo em dev local
 // v1.7.6: VELOBOT_PRIMARY_RAG_ENABLED — RAG OpenAI VeloBot (congelado via velobotRagConstants FORCE_DISABLED)
 // v1.7.5: VELOHUB_PIX_RECONCILE_SECRET — header X-Velohub-Pix-Reconcile-Secret (job reconciliação pixLiberado 15 min)
 // v1.7.1: OCTADESK_STATUS_RESOLVIDO_ID obrigatório na abertura de ticket (GET /tickets/status)
@@ -46,6 +47,15 @@ function resolveSkynetApiBaseUrl() {
     return `http://${s}`;
   }
   return s;
+}
+
+/** SKYNET para canal de denúncias — default GCP (deploy real), independente de SKYNET local. */
+function resolveSkynetDenunciaApiBaseUrl() {
+  const explicit = process.env.SKYNET_DENUNCIA_API_URL;
+  if (explicit != null && String(explicit).trim() !== '') {
+    return String(explicit).trim().replace(/\/+$/, '');
+  }
+  return 'https://backend-gcp-278491073220.us-east1.run.app';
 }
 
 module.exports = {
@@ -105,6 +115,9 @@ module.exports = {
   
   // SKYNET: URL base (produção: SKYNET_API_URL; teste local: SKYNET= porta ou URL em FONTE DA VERDADE/.env)
   SKYNET_API_URL: resolveSkynetApiBaseUrl(),
+
+  // SKYNET só para denúncias — default URL GCP em deploy; override: SKYNET_DENUNCIA_API_URL
+  SKYNET_DENUNCIA_API_URL: resolveSkynetDenunciaApiBaseUrl(),
 
   // Segredo compartilhado: header X-Velohub-Ticket-Notify-Secret no POST notify-new-ticket-velohub (variável VELOHUB_TICKET_NOTIFY_SECRET)
   VELOHUB_TICKET_NOTIFY_SECRET:

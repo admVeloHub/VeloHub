@@ -1,8 +1,10 @@
 /**
  * VeloHub V3 — RequisicoesPage (módulo Requisições / Req_Prod)
- * VERSION: v1.22.0 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.25.0 | DATE: 2026-05-28 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.25.0: Conta bypass desenvolvedor — abas Req_Prod liberadas via auth.js (sem depender de MongoDB)
+ * - v1.23.0: Abas Req_Prod filtradas por permissoesVelohub (atendimento, liberacaoPix, acompanhamento) com fallback API legado
  * - v1.22.0: Propaga pixLiberado também no primeiro load de liberações já «feito» (dedup sessionStorage)
  * - v1.21.0: Refresh liberação PIX enviado→feito dispara POST propagar-pix-liberado (sync ouvidoria)
  * - v1.20.9: Cards da busca CPF agregada exibem selo «Origem» (Solicitações | Erros/Bugs | Liberação chave pix)
@@ -26,11 +28,11 @@ import ApoioN1PanoramaTab from '../components/Requisicoes/ApoioN1PanoramaTab';
 import DevChamadoOpcoesMenu from '../components/Requisicoes/DevChamadoOpcoesMenu';
 import DevRequisicoesTab from '../components/Requisicoes/DevRequisicoesTab';
 import VeloChatWidget from '../components/VeloChatWidget';
-import { getUserSession, getVelotaxAgentForLoggedUser, setVelotaxAgentForLoggedUser } from '../services/auth';
+import { getUserSession, getVelotaxAgentForLoggedUser, setVelotaxAgentForLoggedUser, getPermissoesVelohub, emailContaLogadaTemBypassVelohub } from '../services/auth';
 import ChatStatusSelector from '../components/ChatStatusSelector';
 import { errosBugsAPI, solicitacoesAPI } from '../services/requisicoesApi';
 import { API_BASE_URL } from '../config/api-config';
-import { usuarioPodeMarcacaoDevChamado } from '../config/devMarcacaoChamadoLocal';
+import { usuarioPodeMarcacaoDevChamado, usuarioTemDevTabRequisicoes } from '../config/devMarcacaoChamadoLocal';
 import toast from 'react-hot-toast';
 import {
   STORAGE_PROD_READ_SOLICITACOES,
@@ -51,8 +53,6 @@ import {
   hasProdutosNotificationBeenSent,
   markProdutosNotificationSent,
 } from '../utils/requisicoesModalHelpers';
-
-const DEV_TAB_EMAIL = 'lucas.gravina@velotax.com.br';
 
 /**
  * Documento da coleção `liberacao_pix_prod` no payload mesclado de GET /escalacoes/solicitacoes
@@ -122,13 +122,17 @@ function markPixPropagateAttempted(id) {
  * Página principal do módulo Requisições (Req_Prod)
  */
 const RequisicoesPage = () => {
+  const contaBypass = emailContaLogadaTemBypassVelohub();
   const [activeTab, setActiveTab] = useState('solicitacoes');
-  /** null = verificando; só usuários com acessos.apoioN1 veem a aba Visão geral */
-  const [hasApoioN1, setHasApoioN1] = useState(null);
-  /** null = verificando; só usuários com acessos.ChavePix veem a aba Liberação chave pix */
-  const [hasChavePix, setHasChavePix] = useState(null);
-  /** Aba Dev exclusiva para usuário autorizado */
-  const [hasDevTab, setHasDevTab] = useState(false);
+  const permInicial = getPermissoesVelohub();
+  /** null = verificando; permissoesVelohub.acompanhamento */
+  const [hasApoioN1, setHasApoioN1] = useState(contaBypass ? true : (permInicial ? !!permInicial.acompanhamento : null));
+  /** null = verificando; permissoesVelohub.liberacaoPix */
+  const [hasChavePix, setHasChavePix] = useState(contaBypass ? true : (permInicial ? !!permInicial.liberacaoPix : null));
+  /** null = verificando; permissoesVelohub.atendimento — abas Solicitações e Erros/Bugs */
+  const [hasAtendimento, setHasAtendimento] = useState(contaBypass ? true : (permInicial ? !!permInicial.atendimento : null));
+  /** Aba Dev — conta bypass ou env */
+  const [hasDevTab, setHasDevTab] = useState(contaBypass);
   const [logs, setLogs] = useState([]);
   const [searchCpf, setSearchCpf] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
@@ -689,18 +693,26 @@ const RequisicoesPage = () => {
   }, [activeTab, loadStats]);
 
   useEffect(() => {
-    const checkApoioN1 = async () => {
+    const p = getPermissoesVelohub();
+    if (p) {
+      setHasAtendimento(!!p.atendimento);
+      setHasApoioN1(!!p.acompanhamento);
+      setHasChavePix(!!p.liberacaoPix);
+      return undefined;
+    }
+
+    const fetchModulo = async (module, setter) => {
       try {
         const session = getUserSession();
         const em = session?.user?.email;
         if (!em) {
-          setHasApoioN1(false);
+          setter(false);
           return;
         }
         const sessionId = localStorage.getItem('velohub_session_id');
         const url = new URL(`${API_BASE_URL}/auth/check-module-access`);
         url.searchParams.append('email', em);
-        url.searchParams.append('module', 'apoioN1');
+        url.searchParams.append('module', module);
         if (sessionId) url.searchParams.append('sessionId', sessionId);
         const response = await fetch(url.toString(), {
           headers: {
@@ -710,75 +722,58 @@ const RequisicoesPage = () => {
           },
         });
         if (!response.ok) {
-          setHasApoioN1(false);
+          setter(false);
           return;
         }
         const data = await response.json();
-        setHasApoioN1(Boolean(data.success && data.hasAccess));
+        setter(Boolean(data.success && data.hasAccess));
       } catch {
-        setHasApoioN1(false);
+        setter(false);
       }
     };
-    checkApoioN1();
+
+    fetchModulo('atendimento', setHasAtendimento);
+    fetchModulo('acompanhamento', setHasApoioN1);
+    fetchModulo('liberacaoPix', setHasChavePix);
+    return undefined;
   }, []);
 
   useEffect(() => {
-    const checkChavePix = async () => {
-      try {
-        const session = getUserSession();
-        const em = session?.user?.email;
-        if (!em) {
-          setHasChavePix(false);
-          return;
-        }
-        const sessionId = localStorage.getItem('velohub_session_id');
-        const url = new URL(`${API_BASE_URL}/auth/check-module-access`);
-        url.searchParams.append('email', em);
-        url.searchParams.append('module', 'ChavePix');
-        if (sessionId) url.searchParams.append('sessionId', sessionId);
-        const response = await fetch(url.toString(), {
-          headers: {
-            'Content-Type': 'application/json',
-            ...(sessionId && { 'x-session-id': sessionId }),
-            'x-user-email': em,
-          },
-        });
-        if (!response.ok) {
-          setHasChavePix(false);
-          return;
-        }
-        const data = await response.json();
-        setHasChavePix(Boolean(data.success && data.hasAccess));
-      } catch {
-        setHasChavePix(false);
-      }
-    };
-    checkChavePix();
-  }, []);
-
-  useEffect(() => {
+    if (emailContaLogadaTemBypassVelohub()) {
+      setHasDevTab(true);
+      return;
+    }
     try {
       const session = getUserSession();
       const email = String(session?.user?.email || session?.email || '')
         .trim()
         .toLowerCase();
-      setHasDevTab(email === DEV_TAB_EMAIL);
+      setHasDevTab(usuarioTemDevTabRequisicoes(email));
     } catch {
       setHasDevTab(false);
     }
   }, []);
 
   useEffect(() => {
-    if (hasApoioN1 === false && activeTab === 'apoio-n1-panorama') {
-      setActiveTab('solicitacoes');
+    if (hasAtendimento === false && (activeTab === 'solicitacoes' || activeTab === 'erros-bugs')) {
+      if (hasChavePix) setActiveTab('liberacao-chave-pix');
+      else if (hasApoioN1) setActiveTab('apoio-n1-panorama');
     }
-  }, [hasApoioN1, activeTab]);
+  }, [hasAtendimento, hasChavePix, hasApoioN1, activeTab]);
+
+  useEffect(() => {
+    if (hasApoioN1 === false && activeTab === 'apoio-n1-panorama') {
+      if (hasAtendimento) setActiveTab('solicitacoes');
+      else if (hasChavePix) setActiveTab('liberacao-chave-pix');
+    }
+  }, [hasApoioN1, hasAtendimento, hasChavePix, activeTab]);
 
   useEffect(() => {
     if (hasChavePix === false && activeTab === 'liberacao-chave-pix') {
-      setActiveTab('solicitacoes');
+      if (hasAtendimento) setActiveTab('solicitacoes');
+      else if (hasApoioN1) setActiveTab('apoio-n1-panorama');
     }
-  }, [hasChavePix, activeTab]);
+  }, [hasChavePix, hasAtendimento, hasApoioN1, activeTab]);
 
   useEffect(() => {
     if (hasDevTab === false && activeTab === 'dev') {
@@ -1229,6 +1224,7 @@ const RequisicoesPage = () => {
             <div className="mb-8" style={{marginTop: '-15px'}}>
           {/* Abas */}
           <div className="flex justify-start flex-wrap mb-2" style={{ gap: '2rem' }}>
+            {hasAtendimento === true && (
             <button
               onClick={() => setActiveTab('solicitacoes')}
               className={`px-6 py-3 text-2xl font-semibold transition-colors duration-200 ${activeTab === 'solicitacoes' ? '' : 'opacity-50'}`}
@@ -1238,6 +1234,8 @@ const RequisicoesPage = () => {
             >
               Solicitações
             </button>
+            )}
+            {hasAtendimento === true && (
             <button
               onClick={() => setActiveTab('erros-bugs')}
               className={`px-6 py-3 text-2xl font-semibold transition-colors duration-200 ${activeTab === 'erros-bugs' ? '' : 'opacity-50'}`}
@@ -1247,6 +1245,7 @@ const RequisicoesPage = () => {
             >
               Erros/Bugs
             </button>
+            )}
             {hasChavePix === true && (
               <button
                 type="button"
@@ -1288,7 +1287,7 @@ const RequisicoesPage = () => {
         </div>
 
         {/* Conteúdo baseado na aba ativa */}
-        {activeTab === 'solicitacoes' && (
+        {activeTab === 'solicitacoes' && hasAtendimento === true && (
           <div className="flex gap-8 items-start">
           {/* Card principal: define a altura de referência; sidebar copia via ResizeObserver (bases alinhadas) */}
           <div
@@ -1790,7 +1789,7 @@ const RequisicoesPage = () => {
         </div>
         )}
 
-        {activeTab === 'erros-bugs' && (
+        {activeTab === 'erros-bugs' && hasAtendimento === true && (
           <ErrosBugsTab />
         )}
 

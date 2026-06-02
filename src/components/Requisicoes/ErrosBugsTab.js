@@ -1,8 +1,9 @@
 /**
  * VeloHub V3 - ErrosBugsTab Component
- * VERSION: v1.29.24 | DATE: 2026-05-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.29.25 | DATE: 2026-05-27 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.29.25: Modal histórico CPF — exibe Agente por linha (colaboradorNome)
  * - v1.29.24: Cards da busca CPF agregada exibem selo «Origem» (Solicitações | Erros/Bugs | Liberação chave pix)
  * - v1.29.23: Busca CPF da sidebar passa a agregar Solicitações + Erros/Bugs + Liberação chave pix (todas as abas)
  * - v1.29.22: Agente formulário inicial — `getVelotaxAgentForLoggedUser()` / `setVelotaxAgentForLoggedUser()` (escopo por userMail; sem herdar nome de troca de login)
@@ -1272,6 +1273,11 @@ const ErrosBugsTab = () => {
                               Origem: {row.origemLabel}
                             </div>
                           ) : null}
+                          {row.agenteLabel ? (
+                            <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                              Agente: {row.agenteLabel}
+                            </div>
+                          ) : null}
                           <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                             Status: {row.statusChamado === 'enviado' ? 'enviado' : row.statusChamado}
                             {' · '}
@@ -1299,6 +1305,11 @@ const ErrosBugsTab = () => {
                           {row.origemLabel ? (
                             <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
                               Origem: {row.origemLabel}
+                            </div>
+                          ) : null}
+                          {row.agenteLabel ? (
+                            <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                              Agente: {row.agenteLabel}
                             </div>
                           ) : null}
                           <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">

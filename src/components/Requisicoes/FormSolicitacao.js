@@ -1,10 +1,11 @@
 /**
  * VeloHub V3 — FormSolicitacao (módulo Requisições)
- * VERSION: v1.21.16 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.21.17 | DATE: 2026-05-27 | AUTHOR: VeloHub Development Team
  *
  * Branch: requisicoes
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.21.17: Modal histórico CPF — exibe Agente por linha (colaboradorNome)
  * - v1.21.16: Modal histórico CPF — subtexto «Certifique-se de não ser uma requisição redundante»
  * - v1.21.15: Modal histórico CPF — título «Histórico de requisições para o CPF» (sem «nesta aba»)
  * - v1.21.14: Tipo de solicitação — opção «Aumento de Consultas» no seletor e typeMap da mensagem
@@ -1033,6 +1034,11 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
                               Origem: {row.origemLabel}
                             </div>
                           ) : null}
+                          {row.agenteLabel ? (
+                            <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                              Agente: {row.agenteLabel}
+                            </div>
+                          ) : null}
                           <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                             Status: {row.statusChamado === 'enviado' ? 'enviado' : row.statusChamado}
                             {' · '}
@@ -1060,6 +1066,11 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
                           {row.origemLabel ? (
                             <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
                               Origem: {row.origemLabel}
+                            </div>
+                          ) : null}
+                          {row.agenteLabel ? (
+                            <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                              Agente: {row.agenteLabel}
                             </div>
                           ) : null}
                           <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">

@@ -1,6 +1,7 @@
 /**
  * Mostrar ferramentas de marcação rápida (feito / não feito): flag + conta + hostname seguro (localhost ou LAN configurada).
- * VERSION: v1.2.1 | DATE: 2026-05-15 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.3.0 | DATE: 2026-05-28 | AUTHOR: VeloHub Development Team
+ * - v1.3.0: Aba Dev Req_Prod via REACT_APP_VELOHUB_DEV_REQUISICOES_TAB_EMAIL (sem e-mail hardcoded)
  *
  * Referência:
  * - v1.2.1: Comentários — referência ao cliente `requisicoesApi.js` (antes escalacoesApi)
@@ -13,6 +14,7 @@
  * - REACT_APP_VELOHUB_DEV_MARCACAO_CHAMADO=1
  * - REACT_APP_VELOHUB_DEV_MARCACAO_EMAIL=email@que.pode usar
  * - REACT_APP_VELOHUB_DEV_MARCACAO_ALLOW_LAN=1 opcional para abrir quando hostname é 192.168.x etc.
+ * - REACT_APP_VELOHUB_DEV_REQUISICOES_TAB_EMAIL=email@dev (aba Dev em Req_Prod; lista separada por vírgula)
  */
 
 /**
@@ -103,4 +105,29 @@ export function usuarioPodeMarcacaoDevChamado(emailUsuario) {
   const u = explicit || lerEmailPreferenciaUsuarioVelohub();
   if (!u) return false;
   return listaEmailsMarcacaoDevNormalizados().includes(u);
+}
+
+/**
+ * E-mails autorizados à aba Dev em Req_Prod (somente via env; sem hardcode).
+ * @returns {string[]}
+ */
+export function listaEmailsDevRequisicoesTabNormalizados() {
+  const raw = String(process.env.REACT_APP_VELOHUB_DEV_REQUISICOES_TAB_EMAIL || '').trim();
+  return raw
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/**
+ * @param {string|null|undefined} [emailUsuario]
+ * @returns {boolean}
+ */
+export function usuarioTemDevTabRequisicoes(emailUsuario) {
+  const list = listaEmailsDevRequisicoesTabNormalizados();
+  if (list.length === 0) return false;
+  const explicit = String(emailUsuario || '').trim().toLowerCase();
+  const u = explicit || lerEmailPreferenciaUsuarioVelohub();
+  if (!u) return false;
+  return list.includes(u);
 }

@@ -1,19 +1,14 @@
 /**
  * VeloHub V3 - OuvidoriaAccessGuard Component
- * VERSION: v1.2.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
- *
- * Referência (duas entradas; detalhes no Git):
- * - v1.2.0: Adicionado bypass para conta do desenvolvedor (Lucas Gravina)
- * - v1.1.0: Adicionado suporte para sessionId nas requisições de verificação
+ * VERSION: v1.5.0 | DATE: 2026-05-28 | AUTHOR: VeloHub Development Team
+ * v1.5.0: Bypass código lucas.gravina@velotax.com.br
+ * v1.4.0: Removido bloco morto de bypass por email
+ * v1.3.0: Checagem local permissoesVelohub.reclamacoes antes do fallback API
  */
-
-// Lista de emails com bypass de acesso (desenvolvedores/admin)
-// Bypass removido - acesso agora é verificado normalmente através da coleção qualidade_funcionarios
-const BYPASS_EMAILS = [];
 
 import React, { useEffect, useState } from 'react';
 import { API_BASE_URL } from '../../config/api-config';
-import { getUserSession } from '../../services/auth';
+import { getUserSession, getPermissoesVelohub, emailTemBypassVelohubConta } from '../../services/auth';
 
 /**
  * Obtém email do usuário da sessão ativa (usa mesma fonte que auth.js - velohub_user_session)
@@ -68,23 +63,31 @@ const OuvidoriaAccessGuard = ({ children }) => {
 
       const normalizedEmail = email.toLowerCase().trim();
 
-      // Bypass para desenvolvedores/admin
-      if (BYPASS_EMAILS.includes(normalizedEmail)) {
-        console.log(`✅ [OuvidoriaAccessGuard] Bypass ativado para: ${normalizedEmail}`);
+      if (emailTemBypassVelohubConta(normalizedEmail)) {
         setHasAccess(true);
+        setLoading(false);
+        return;
+      }
+
+      const permissoes = getPermissoesVelohub();
+      if (permissoes) {
+        if (permissoes.reclamacoes === true) {
+          setHasAccess(true);
+        } else {
+          setHasAccess(false);
+          setError('Acesso ao módulo Reclamações não autorizado');
+        }
         setLoading(false);
         return;
       }
 
       console.log(`🔍 [OuvidoriaAccessGuard] Verificando acesso ao módulo Ouvidoria para: ${normalizedEmail}`);
 
-      // Obter sessionId se disponível
       const sessionId = localStorage.getItem('velohub_session_id');
       
-      // Construir URL com parâmetros
       const url = new URL(`${API_BASE_URL}/auth/check-module-access`);
       url.searchParams.append('email', email);
-      url.searchParams.append('module', 'ouvidoria');
+      url.searchParams.append('module', 'reclamacoes');
       if (sessionId) {
         url.searchParams.append('sessionId', sessionId);
       }

@@ -1,5 +1,13 @@
 /**
  * VeloHub V3 - Backend Server
+ * VERSION: v2.50.25 | DATE: 2026-06-01 | AUTHOR: VeloHub Development Team
+ * - v2.50.25: hub_avisos feed; destaques só carrossel; app.listen após todas as rotas
+ * - v2.50.24: proxy /api/images — prefixo img_avisos/ (mídias avisos corporativos)
+ * - v2.50.23: API corporate — Políticas, LGPD, Termos + compliance pending
+ * - v2.50.22: dev local — fallback DNS público para querySrv Atlas (ECONNREFUSED no Windows)
+ * - v2.50.21: check-module-access — bypass código lucas.gravina@velotax.com.br
+ * - v2.50.20: Removido bloco morto de bypass em check-module-access
+ * - v2.50.19: FONTE DA VERDADE/.env via utils/loadFonteEnv; log OCTADESK_ID_FORM na subida
  * VERSION: v2.50.18 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
@@ -8,44 +16,29 @@
  * - v2.50.2: Removidos logs de configuração WhatsApp na subida (integração descontinuada; sem WHATSAPP_* em config)
  */
 
-(function loadVelohubFonteEnv(here) {
-  const path = require('path');
-  const fs = require('fs');
-  let d = here;
-  let bootstrapLoaded = false;
-  for (let i = 0; i < 14; i++) {
-    const loader = path.join(d, 'FONTE DA VERDADE', 'bootstrapFonteEnv.cjs');
-    if (fs.existsSync(loader)) {
-      require(loader).loadFrom(here);
-      bootstrapLoaded = true;
-      break;
-    }
-    const parent = path.dirname(d);
-    if (parent === d) break;
-    d = parent;
-  }
+const { loadFonteEnv } = require('./utils/loadFonteEnv');
+const fonteEnvLoad = loadFonteEnv(__dirname);
+if (fonteEnvLoad.envPath && !fonteEnvLoad.bootstrapLoaded) {
+  console.log('✅ FONTE DA VERDADE/.env carregado via dotenv:', fonteEnvLoad.envPath);
+}
 
-  // Complemento: GEMINI_API_KEY e outras linhas podem existir só no .env; o bootstrap pode não repassá-las (ou o .cjs pode não estar no disco nesta máquina).
+// Dev local: DNS IPv6 do Windows pode recusar querySrv do MongoDB Atlas (ECONNREFUSED no Node)
+if (
+  process.env.NODE_ENV !== 'production' &&
+  process.env.MONGO_ENV &&
+  String(process.env.MONGO_ENV).startsWith('mongodb+srv://')
+) {
   try {
-    const dotenv = require('dotenv');
-    d = here;
-    for (let i = 0; i < 14; i++) {
-      const envPath = path.join(d, 'FONTE DA VERDADE', '.env');
-      if (fs.existsSync(envPath)) {
-        dotenv.config({ path: envPath });
-        if (!bootstrapLoaded) {
-          console.log('✅ FONTE DA VERDADE/.env carregado via dotenv (bootstrapFonteEnv.cjs não encontrado a partir de backend/).');
-        }
-        break;
-      }
-      const parent = path.dirname(d);
-      if (parent === d) break;
-      d = parent;
+    const dns = require('dns');
+    const current = dns.getServers().filter(Boolean);
+    if (!current.includes('8.8.8.8')) {
+      dns.setServers(['8.8.8.8', '1.1.1.1', ...current]);
+      console.log('🔧 DNS fallback (dev): 8.8.8.8 / 1.1.1.1 para MongoDB Atlas SRV');
     }
-  } catch (e) {
-    console.warn('⚠️ Complemento dotenv FONTE DA VERDADE:', e.message);
+  } catch (dnsErr) {
+    console.warn('⚠️ dns.setServers (dev):', dnsErr.message);
   }
-})(__dirname);
+}
 
 // ===== FALLBACK PARA TESTES LOCAIS =====
 const FALLBACK_FOR_LOCAL_TESTING = {
@@ -74,6 +67,8 @@ console.log(`- OPENAI_API_KEY existe: ${!!process.env.OPENAI_API_KEY}`);
 console.log(`- GEMINI_API_KEY existe: ${!!process.env.GEMINI_API_KEY}`);
 console.log(`- MONGO_ENV existe: ${!!process.env.MONGO_ENV}`);
 console.log(`- PORT: ${process.env.PORT}`);
+console.log(`- OCTADESK_ID_FORM definido: ${!!process.env.OCTADESK_ID_FORM}`);
+console.log(`- OCTADESK_GROUP_CASOS_ESPECIAIS_ID definido: ${!!process.env.OCTADESK_GROUP_CASOS_ESPECIAIS_ID}`);
 
 const express = require('express');
 const cors = require('cors');
@@ -159,6 +154,14 @@ try {
   // Isso garante que o container não falhe completamente no Cloud Run
 }
 
+const { resolvePermissoesVelohub } = require('./utils/resolvePermissoesVelohub');
+const {
+  getFuncionariosDb,
+  getCadastroCollection,
+  getHubSessionsCollection,
+} = require('./config/funcionariosDb');
+const { resolverChaveModulo, MODULOS_VELOHUB_PADRAO } = require('./utils/modulosVelohub');
+
 const app = express();
 // Cloud Run injeta PORT=8080. Em dev local sem PORT: 8090 (api-config.js: front 8080 → API 8090)
 const PORT = process.env.PORT || 8090;
@@ -168,9 +171,10 @@ app.use(cors({
   origin: [
     'https://app.velohub.velotax.com.br', // NOVO DOMÍNIO PERSONALIZADO
     process.env.CORS_ORIGIN || 'https://velohub-278491073220.us-east1.run.app',
+    'https://console-v2-hfsqj6konq-ue.a.run.app', // Console VeloHub (Google Agenda OAuth)
     'http://localhost:8080', // Frontend padrão (regra estabelecida)
     'http://127.0.0.1:8080', // localhost alternativo
-    'http://localhost:3000', // Compatibilidade
+    'http://localhost:3000', // Console local
     'http://localhost:5000'  // Compatibilidade
   ],
   credentials: true
@@ -308,8 +312,7 @@ async function resolveColaboradorNomeForChatbotLog(userId, colaboradorNomeFromBo
   if (!client) return uid;
   try {
     await connectToMongo();
-    const db = client.db('console_analises');
-    const funcionariosCollection = db.collection('qualidade_funcionarios');
+    const funcionariosCollection = getCadastroCollection(client);
     const normalizedEmail = uid.toLowerCase();
     let funcionario = await funcionariosCollection.findOne({ userMail: normalizedEmail });
     if (!funcionario) {
@@ -1614,7 +1617,9 @@ app.get('/api/chatbot/init', async (req, res) => {
       aiStatus: {
         primaryAI: primaryAI,
         fallbackAI: fallbackAI,
-        anyAvailable: aiStatus.openai.available || aiStatus.gemini.available
+        anyAvailable: aiStatus.openai.available || aiStatus.gemini.available,
+        primaryRagEnabled: aiService.isPrimaryVelobotRagConfigured(),
+        primaryRagPaused: aiService.isPrimaryVelobotRagPaused()
       },
       cacheStatus: {
         botPerguntas: dataCache.getBotPerguntasData()?.length || 0,
@@ -1919,6 +1924,10 @@ app.post('/api/chatbot/ask', async (req, res) => {
 
     const logChatbotQuestion = () =>
       userActivityLogger.logQuestion(resolvedColaboradorNome, cleanQuestion, session.id);
+
+    if (aiService.isPrimaryVelobotRagPaused()) {
+      console.log('⏸️ VeloBot RAG primário pausado — atendimento pelo fluxo legado (Mongo/Gemini)');
+    }
 
     // Modo primário: OpenAI Responses + file_search (duas vector stores) — sem PONTO 3 / clarification
     if (aiService.isPrimaryVelobotRagConfigured()) {
@@ -2625,8 +2634,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     // Conectar ao MongoDB
     await connectToMongo();
-    const db = client.db('console_analises');
-    const funcionariosCollection = db.collection('qualidade_funcionarios');
+    const funcionariosCollection = getCadastroCollection(client);
 
     // Buscar usuário por email
     const funcionario = await funcionariosCollection.findOne({
@@ -2708,17 +2716,19 @@ app.post('/api/auth/login', async (req, res) => {
       picture: funcionario.profile_pic || funcionario.fotoPerfil || null
     };
 
-    // Registrar login no sistema de sessões
+    const funcionariosDbLogin = getFuncionariosDb(client);
+    const permissoesPayload = await resolvePermissoesVelohub(funcionariosDbLogin, funcionario);
+
     const sessionResult = await userSessionLogger.logLogin(
       funcionario.colaboradorNome,
       funcionario.userMail,
       ipAddress,
-      userAgent
+      userAgent,
+      permissoesPayload
     );
 
     if (!sessionResult.success) {
       console.error('⚠️ Erro ao registrar sessão:', sessionResult.error);
-      // Continuar mesmo com erro na sessão (login foi bem-sucedido)
     }
 
     console.log(`✅ Login bem-sucedido: ${funcionario.colaboradorNome} (${email})`);
@@ -2727,6 +2737,8 @@ app.post('/api/auth/login', async (req, res) => {
       success: true,
       user: userData,
       sessionId: sessionResult.sessionId,
+      permissoesVelohub: permissoesPayload.permissoesVelohub,
+      funcoesSnapshot: permissoesPayload.funcoesSnapshot,
       message: 'Login realizado com sucesso'
     });
 
@@ -2761,8 +2773,7 @@ async function syncSSOAvatar(email, googlePictureUrl) {
     
     // Conectar ao MongoDB
     await connectToMongo();
-    const db = client.db('console_analises');
-    const funcionariosCollection = db.collection('qualidade_funcionarios');
+    const funcionariosCollection = getCadastroCollection(client);
     
     // Buscar funcionário atual
     const funcionario = await funcionariosCollection.findOne({
@@ -2951,8 +2962,7 @@ app.post('/api/auth/validate-access', async (req, res) => {
 
     // Conectar ao MongoDB
     await connectToMongo();
-    const db = client.db('console_analises');
-    const funcionariosCollection = db.collection('qualidade_funcionarios');
+    const funcionariosCollection = getCadastroCollection(client);
 
     // Buscar usuário por email - tentar múltiplas variações
     let funcionario = await funcionariosCollection.findOne({
@@ -3070,9 +3080,14 @@ app.post('/api/auth/validate-access', async (req, res) => {
 
     console.log(`✅ [validate-access] Acesso validado: ${funcionario.colaboradorNome} (${funcionarioEmail})`);
 
+    const funcionariosDbValidate = getFuncionariosDb(client);
+    const permissoesValidate = await resolvePermissoesVelohub(funcionariosDbValidate, funcionario);
+
     res.json({
       success: true,
       user: userData,
+      permissoesVelohub: permissoesValidate.permissoesVelohub,
+      funcoesSnapshot: permissoesValidate.funcoesSnapshot,
       message: 'Acesso validado com sucesso'
     });
 
@@ -3109,26 +3124,20 @@ app.get('/api/auth/check-module-access', async (req, res) => {
     const normalizedEmail = email.toLowerCase().trim();
     console.log(`🔍 [check-module-access] Verificando acesso ao módulo ${module} para: ${normalizedEmail}`);
 
-    // Lista de emails com bypass de acesso (desenvolvedores/admin)
-    // Bypass removido - acesso agora é verificado normalmente através da coleção qualidade_funcionarios
-    const BYPASS_EMAILS = [];
-
-    // Bypass para desenvolvedores/admin (desabilitado)
-    // if (BYPASS_EMAILS.includes(normalizedEmail) && module === 'ouvidoria') {
-    //   console.log(`✅ [check-module-access] Bypass ativado para: ${normalizedEmail}`);
-    //   return res.json({
-    //     success: true,
-    //     hasAccess: true,
-    //     module: module,
-    //     email: normalizedEmail,
-    //     bypass: true
-    //   });
-    // }
+    const { emailTemBypassVelohub } = require('./utils/contaBypassVelohub');
+    if (emailTemBypassVelohub(normalizedEmail)) {
+      return res.json({
+        success: true,
+        hasAccess: true,
+        module: module,
+        email: normalizedEmail,
+        bypassConta: true,
+      });
+    }
 
     // Conectar ao MongoDB
     await connectToMongo();
-    const db = client.db('console_analises');
-    const funcionariosCollection = db.collection('qualidade_funcionarios');
+    const funcionariosCollection = getCadastroCollection(client);
 
     // Buscar usuário por email
     let funcionario = await funcionariosCollection.findOne({
@@ -3170,27 +3179,28 @@ app.get('/api/auth/check-module-access', async (req, res) => {
       });
     }
 
-    // Verificar acesso ao módulo específico
+    const chaveModulo = resolverChaveModulo(module);
+    let permissoesVelohub = null;
+
+    const sessionIdQuery = req.query.sessionId || req.headers['x-session-id'];
+    if (sessionIdQuery) {
+      const sessionDoc = await getHubSessionsCollection(client).findOne({
+        sessionId: sessionIdQuery,
+        isActive: true,
+      });
+      if (sessionDoc?.permissoesVelohub) {
+        permissoesVelohub = sessionDoc.permissoesVelohub;
+      }
+    }
+
+    if (!permissoesVelohub) {
+      const resolved = await resolvePermissoesVelohub(getFuncionariosDb(client), funcionario);
+      permissoesVelohub = resolved.permissoesVelohub;
+    }
+
     let hasModuleAccess = false;
-    
-    if (module === 'ouvidoria') {
-      // Verificar acesso ao módulo Ouvidoria (verifica variações de case)
-      hasModuleAccess = acessos.ouvidoria === true || 
-                        acessos.Ouvidoria === true || 
-                        acessos.OUVIDORIA === true;
-    } else if (module === 'sociais') {
-      // Verificar acesso ao módulo Sociais (verifica variações de case)
-      hasModuleAccess = acessos.sociais === true || 
-                        acessos.Sociais === true || 
-                        acessos.SOCIAIS === true;
-    } else if (module === 'apoioN1' || module === 'apoion1') {
-      hasModuleAccess = acessos.apoioN1 === true || acessos.apoion1 === true;
-    } else if (module === 'ChavePix' || module === 'chavePix' || module === 'chavepix') {
-      hasModuleAccess = acessos.ChavePix === true || acessos.chavepix === true;
-    } else {
-      // Para outros módulos, verificar campo correspondente
-      const moduleKey = module.charAt(0).toLowerCase() + module.slice(1);
-      hasModuleAccess = acessos[module] === true || acessos[moduleKey] === true;
+    if (chaveModulo && permissoesVelohub) {
+      hasModuleAccess = permissoesVelohub[chaveModulo] === true;
     }
 
     console.log(`🔍 [check-module-access] Acesso ao módulo ${module}: ${hasModuleAccess}`);
@@ -3280,8 +3290,7 @@ app.post('/api/auth/profile/upload-photo', async (req, res) => {
 
     // Conectar ao MongoDB
     await connectToMongo();
-    const db = client.db('console_analises');
-    const funcionariosCollection = db.collection('qualidade_funcionarios');
+    const funcionariosCollection = getCadastroCollection(client);
 
     // Verificar se usuário existe
     const funcionario = await funcionariosCollection.findOne({
@@ -3469,8 +3478,7 @@ app.get('/api/auth/profile/get-upload-url', async (req, res) => {
 
     // Conectar ao MongoDB para validar usuário
     await connectToMongo();
-    const db = client.db('console_analises');
-    const funcionariosCollection = db.collection('qualidade_funcionarios');
+    const funcionariosCollection = getCadastroCollection(client);
 
     // Verificar se usuário existe
     const funcionario = await funcionariosCollection.findOne({
@@ -3752,8 +3760,7 @@ app.post('/api/auth/profile/confirm-upload', async (req, res) => {
 
     // Conectar ao MongoDB
     await connectToMongo();
-    const db = client.db('console_analises');
-    const funcionariosCollection = db.collection('qualidade_funcionarios');
+    const funcionariosCollection = getCadastroCollection(client);
 
     // Verificar se usuário existe
     const funcionario = await funcionariosCollection.findOne({
@@ -3922,8 +3929,7 @@ app.post('/api/chat/attachments/get-upload-url', async (req, res) => {
 
     // Obter dados do usuário da sessão
     await connectToMongo();
-    const db = client.db('console_conteudo');
-    const session = await db.collection('hub_sessions').findOne({
+    const session = await getHubSessionsCollection(client).findOne({
       sessionId: sessionId,
       isActive: true
     });
@@ -4588,8 +4594,7 @@ app.get('/api/auth/profile', async (req, res) => {
 
     // Conectar ao MongoDB
     await connectToMongo();
-    const db = client.db('console_analises');
-    const funcionariosCollection = db.collection('qualidade_funcionarios');
+    const funcionariosCollection = getCadastroCollection(client);
 
     // Buscar usuário por email
     const funcionario = await funcionariosCollection.findOne({
@@ -4651,8 +4656,7 @@ app.put('/api/auth/profile', async (req, res) => {
 
     // Conectar ao MongoDB
     await connectToMongo();
-    const db = client.db('console_analises');
-    const funcionariosCollection = db.collection('qualidade_funcionarios');
+    const funcionariosCollection = getCadastroCollection(client);
 
     // Verificar se usuário existe
     const funcionario = await funcionariosCollection.findOne({
@@ -4740,8 +4744,7 @@ app.post('/api/auth/profile/change-password', async (req, res) => {
 
     // Conectar ao MongoDB
     await connectToMongo();
-    const db = client.db('console_analises');
-    const funcionariosCollection = db.collection('qualidade_funcionarios');
+    const funcionariosCollection = getCadastroCollection(client);
 
     // Buscar usuário por email
     const funcionario = await funcionariosCollection.findOne({
@@ -4807,12 +4810,28 @@ app.post('/api/auth/session/login', async (req, res) => {
 
     console.log(`🔐 Login: Novo login de ${colaboradorNome} (${userEmail})`);
 
-    // Registrar login
+    await connectToMongo();
+    const funcionariosDbSessao = getFuncionariosDb(client);
+    const normalizedSessionEmail = userEmail.toLowerCase().trim();
+    const funcionarioSessao = await getCadastroCollection(client).findOne({
+      userMail: normalizedSessionEmail,
+    });
+
+    let permissoesPayload = {
+      permissoesVelohub: MODULOS_VELOHUB_PADRAO(),
+      funcoesSnapshot: [],
+      atuacaoIds: [],
+    };
+    if (funcionarioSessao) {
+      permissoesPayload = await resolvePermissoesVelohub(funcionariosDbSessao, funcionarioSessao);
+    }
+
     const result = await userSessionLogger.logLogin(
       colaboradorNome,
       userEmail,
       ipAddress,
-      userAgent
+      userAgent,
+      permissoesPayload
     );
 
     if (!result.success) {
@@ -4823,10 +4842,11 @@ app.post('/api/auth/session/login', async (req, res) => {
       });
     }
 
-    // Resposta de sucesso
     res.json({
       success: true,
       sessionId: result.sessionId,
+      permissoesVelohub: permissoesPayload.permissoesVelohub,
+      funcoesSnapshot: permissoesPayload.funcoesSnapshot,
       message: 'Login registrado com sucesso'
     });
 
@@ -5061,8 +5081,7 @@ app.put('/api/auth/session/chat-status', async (req, res) => {
     }
 
     await connectToMongo();
-    const db = client.db('console_conteudo');
-    const sessionsCollection = db.collection('hub_sessions');
+    const sessionsCollection = getHubSessionsCollection(client);
 
     // Buscar sessão ativa
     const session = await sessionsCollection.findOne({
@@ -5180,8 +5199,7 @@ app.get('/api/status', async (req, res) => {
     }
 
     await connectToMongo();
-    const db = client.db('console_conteudo');
-    const sessionsCollection = db.collection('hub_sessions');
+    const sessionsCollection = getHubSessionsCollection(client);
 
     // Buscar sessão no MongoDB
     const session = await sessionsCollection.findOne({
@@ -5373,64 +5391,27 @@ app.get('/api/velo-news/acknowledgments/:userEmail', async (req, res) => {
   }
 });
 
-// Iniciar servidor
-console.log('🔄 Iniciando servidor...');
-console.log(`📍 Porta configurada: ${PORT}`);
-console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-console.log(`📁 Diretório de trabalho: ${process.cwd()}`);
-console.log(`📁 Arquivos no diretório:`, require('fs').readdirSync('.'));
+// ===== API HOME — DESTAQUES / AVISOS / AGENDA (antes do listen) =====
+console.log('🏠 Registrando rotas Home (destaques, avisos, agenda)...');
+try {
+  const { initHomeDestaquesRoutes } = require('./routes/api/home/destaques');
+  const homeDestaquesRouter = initHomeDestaquesRoutes(client, connectToMongo);
+  app.use('/api/home/destaques', homeDestaquesRouter);
+  console.log('✅ Rotas Home Destaques registradas: /api/home/destaques/carousel');
 
-console.log('🚀 Tentando iniciar servidor na porta', PORT);
+  const { initHomeAvisosRoutes } = require('./routes/api/home/avisos');
+  const homeAvisosRouter = initHomeAvisosRoutes(client, connectToMongo, parseTextContent);
+  app.use('/api/home/avisos', homeAvisosRouter);
+  console.log('✅ Rotas Home Avisos registradas: /api/home/avisos/feed');
 
-const server = app.listen(PORT, '0.0.0.0', (error) => {
-  if (error) {
-    console.error('❌ Erro ao iniciar servidor:', error);
-    process.exit(1);
-  }
-  
-  console.log(`✅ Servidor backend rodando na porta ${PORT}`);
-  console.log(`🌐 Acessível em: http://localhost:${PORT}`);
-  console.log(`🌐 Acessível na rede local: http://0.0.0.0:${PORT}`);
-  console.log(`📡 Endpoint principal: http://localhost:${PORT}/api/data`);
-  console.log(`📡 Teste a API em: http://localhost:${PORT}/api/test`);
-  
-  // Tentar conectar ao MongoDB em background (não bloqueia o startup)
-  connectToMongo().catch(error => {
-    console.warn('⚠️ MongoDB: Falha na conexão inicial, tentando reconectar...', error.message);
-  });
-  
-  // Inicializar cache de status dos módulos
-  setTimeout(async () => {
-    try {
-      console.log('🚀 Inicializando cache de status dos módulos...');
-      await getModuleStatus();
-      console.log('✅ Cache de status inicializado com sucesso');
-    } catch (error) {
-      console.error('❌ Erro ao inicializar cache de status:', error);
-    }
-  }, 2000); // Aguardar 2 segundos para MongoDB conectar
-});
-
-// Log de erro se o servidor não conseguir iniciar
-server.on('error', (error) => {
-  console.error('❌ Erro no servidor:', error);
-  process.exit(1);
-});
-
-server.on('listening', () => {
-  console.log('🎉 Servidor está escutando na porta', PORT);
-});
-
-// Tratamento de erros não capturados
-process.on('uncaughtException', (error) => {
-  console.error('❌ Erro não capturado:', error);
-  // Não encerrar o processo, apenas logar o erro
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Promise rejeitada não tratada:', reason);
-  // Não encerrar o processo, apenas logar o erro
-});
+  const { initHomeAgendaRoutes } = require('./routes/api/home/agenda');
+  const homeAgendaRouter = initHomeAgendaRoutes(client, connectToMongo);
+  app.use('/api/home/agenda', homeAgendaRouter);
+  console.log('✅ Rotas Home Agenda registradas: /api/home/agenda/* e /api/home/agenda/eventos');
+} catch (error) {
+  console.error('❌ Erro ao registrar rotas Home (destaques/avisos/agenda):', error.message);
+  throw error;
+}
 
 // ========================================
 // SISTEMA DE CONTROLE DE STATUS DOS MÓDULOS
@@ -6620,6 +6601,56 @@ try {
   throw error;
 }
 
+// ===== API HOME — DESTAQUES / AVISOS / AGENDA (registradas antes do listen) =====
+
+// ===== API CONHECIMENTO — HUB DOCUMENTOS =====
+console.log('📄 Registrando rotas Hub Documentos...');
+try {
+  const { initHubDocumentosRoutes } = require('./routes/api/conhecimento/hub-documentos');
+  const hubDocumentosRouter = initHubDocumentosRoutes(client, connectToMongo);
+  app.use('/api/hub-documentos', hubDocumentosRouter);
+  console.log('✅ Rotas Hub Documentos registradas: /api/hub-documentos/*');
+} catch (error) {
+  console.error('❌ Erro ao registrar rotas Hub Documentos:', error.message);
+  throw error;
+}
+
+// ===== API PORTAL — DENÚNCIAS =====
+console.log('📋 Registrando rotas Portal Denúncias...');
+try {
+  const { initPortalDenunciasRoutes } = require('./routes/api/portal/denuncias');
+  const portalDenunciasRouter = initPortalDenunciasRoutes(client, connectToMongo);
+  app.use('/api/portal/denuncias', portalDenunciasRouter);
+  console.log('✅ Rotas Portal Denúncias registradas: POST /api/portal/denuncias');
+} catch (error) {
+  console.error('❌ Erro ao registrar rotas Portal Denúncias:', error.message);
+  throw error;
+}
+
+// ===== API HOME — GOOGLE CALENDAR (AGENDA PESSOAL) =====
+console.log('📅 Registrando rotas Google Calendar...');
+try {
+  const { initGoogleCalendarRoutes } = require('./routes/api/home/google-calendar');
+  const googleCalendarRouter = initGoogleCalendarRoutes(client, connectToMongo);
+  app.use('/api/google-calendar', googleCalendarRouter);
+  console.log('✅ Rotas Google Calendar registradas: /api/google-calendar/*');
+} catch (error) {
+  console.error('❌ Erro ao registrar rotas Google Calendar:', error.message);
+  throw error;
+}
+
+// ===== API CORPORATE — POLÍTICAS, LGPD, TERMOS =====
+console.log('📋 Registrando rotas Corporate (Políticas, LGPD, Termos)...');
+try {
+  const { initHubCorporateRoutes } = require('./routes/api/corporate/hub-corporate');
+  const hubCorporateRouter = initHubCorporateRoutes(client, connectToMongo);
+  app.use('/api/corporate', hubCorporateRouter);
+  console.log('✅ Rotas Corporate registradas: /api/corporate/*');
+} catch (error) {
+  console.error('❌ Erro ao registrar rotas Corporate:', error.message);
+  throw error;
+}
+
 // ===== API PARA MÓDULO VELOCHAT =====
 // VERSION: v2.0.0 | DATE: 2025-01-31 | AUTHOR: VeloHub Development Team
 // 
@@ -6756,12 +6787,19 @@ app.use('/api/images', async (req, res, next) => {
       bucketName: process.env.GCS_BUCKET_NAME2
     });
     
-    // Validar caminho (deve começar com img_velonews/, img_artigos/ ou mediabank_velohub/img_pilulas/)
-    if (!imagePath || (!imagePath.startsWith('img_velonews/') && !imagePath.startsWith('img_artigos/') && !imagePath.startsWith('mediabank_velohub/img_pilulas/'))) {
+    // Validar caminho (img_velonews, img_artigos, img_pilulas, img_destaques, img_avisos)
+    const allowedPrefixes = [
+      'img_velonews/',
+      'img_artigos/',
+      'img_avisos/',
+      'mediabank_velohub/img_pilulas/',
+      'mediabank_velohub/img_destaques/',
+    ];
+    if (!imagePath || !allowedPrefixes.some((prefix) => imagePath.startsWith(prefix))) {
       console.error('❌ BACKEND - Caminho inválido:', imagePath);
       return res.status(400).json({
         success: false,
-        message: 'Caminho de imagem inválido. Deve começar com img_velonews/, img_artigos/ ou mediabank_velohub/img_pilulas/'
+        message: 'Caminho de imagem inválido. Deve começar com img_velonews/, img_artigos/, img_avisos/, mediabank_velohub/img_pilulas/ ou mediabank_velohub/img_destaques/'
       });
     }
 
@@ -7159,4 +7197,51 @@ app.all('*', (req, res, next) => {
       method: req.method
     });
   }
+});
+
+// ===== INICIAR SERVIDOR (após registro de todas as rotas) =====
+console.log('🔄 Iniciando servidor...');
+console.log(`📍 Porta configurada: ${PORT}`);
+console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+
+const server = app.listen(PORT, '0.0.0.0', (error) => {
+  if (error) {
+    console.error('❌ Erro ao iniciar servidor:', error);
+    process.exit(1);
+  }
+
+  console.log(`✅ Servidor backend rodando na porta ${PORT}`);
+  console.log(`🌐 Acessível em: http://localhost:${PORT}`);
+  console.log(`🌐 Acessível na rede local: http://0.0.0.0:${PORT}`);
+
+  connectToMongo().catch((mongoError) => {
+    console.warn('⚠️ MongoDB: Falha na conexão inicial, tentando reconectar...', mongoError.message);
+  });
+
+  setTimeout(async () => {
+    try {
+      console.log('🚀 Inicializando cache de status dos módulos...');
+      await getModuleStatus();
+      console.log('✅ Cache de status inicializado com sucesso');
+    } catch (cacheError) {
+      console.error('❌ Erro ao inicializar cache de status:', cacheError);
+    }
+  }, 2000);
+});
+
+server.on('error', (error) => {
+  console.error('❌ Erro no servidor:', error);
+  process.exit(1);
+});
+
+server.on('listening', () => {
+  console.log('🎉 Servidor está escutando na porta', PORT);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('❌ Erro não capturado:', error);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('❌ Promise rejeitada não tratada:', reason);
 });

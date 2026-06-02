@@ -1,4 +1,5 @@
-﻿// VERSION: v3.1.18 | DATE: 2026-05-20 | AUTHOR: VeloHub Development Team
+﻿// VERSION: v3.2.0 | DATE: 2026-05-28 | AUTHOR: VeloHub Development Team
+// v3.2.0: Persiste permissoesVelohub/funcoesSnapshot no localStorage após login e validate-access
 // Mudanças v3.1.18:
 // - fix: largura do botão Google agora usa dimensão disponível real (container/pai/viewport), evitando overflow em cards estreitos
 // Mudanças v3.1.17:
@@ -72,7 +73,7 @@
 // - Adicionada validação de acesso liberado para Google SSO
 // - Verifica acessos.Velohub, desligado, afastado e suspenso
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { saveUserSession, decodeJWT } from '../services/auth';
+import { saveUserSession, decodeJWT, persistPermissoesVelohubFromAuth } from '../services/auth';
 import { getClientId } from '../config/google-config';
 import { API_BASE_URL } from '../config/api-config';
 
@@ -362,13 +363,9 @@ const LoginPage = ({ onLoginSuccess }) => {
 
         // Salvar sessão
         saveUserSession(userData);
+        persistPermissoesVelohubFromAuth(validateResult);
 
-        // Verificar acesso Velohub (acessos.Velohub === true)
-        // Validação já foi feita no backend através de validate-access
-        // Se chegou aqui, significa que acesso foi validado com sucesso
-        
         console.log('✅ Login realizado com sucesso - credenciais validadas');
-        // Chamar onLoginSuccess para ir para LoadingPage (que criará sessionId)
         onLoginSuccess(userData);
       } else {
         console.log('Email não encontrado no payload:', payload);
@@ -461,15 +458,10 @@ const LoginPage = ({ onLoginSuccess }) => {
       // Login bem-sucedido
       const userData = result.user;
 
-      // Salvar sessão
       saveUserSession(userData);
+      persistPermissoesVelohubFromAuth(result);
 
-      // Verificar acesso Velohub (acessos.Velohub === true)
-      // Validação já foi feita no backend através de /auth/login
-      // Se chegou aqui, significa que acesso foi validado com sucesso
-      
       console.log('✅ Login realizado com sucesso - credenciais validadas');
-      // Chamar onLoginSuccess para ir para LoadingPage (que criará sessionId)
       onLoginSuccess(userData);
     } catch (error) {
       console.error('Erro no login:', error);

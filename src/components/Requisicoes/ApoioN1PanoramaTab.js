@@ -1,8 +1,10 @@
 /**
  * VeloHub V3 - ApoioN1PanoramaTab (Req_Prod — visão geral, credencial Apoio N1)
- * VERSION: v1.0.12 | DATE: 2026-05-22 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.14 | DATE: 2026-06-01 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.0.14: Botões «Aplicar filtros» e «Atualizar» com h-12 (alinhamento vertical com FloatingLabelField)
+ * - v1.0.13: Removido helperText do filtro Tipo (subtítulo «Solicitações, Erros/Bugs ou Liberação chave PIX»)
  * - v1.0.12: Paginação da tabela (50/página) + subcomponentes em arquivos separados (evita stack overflow React Refresh)
  * - v1.0.11: CPF na listagem com `text-sm` (alinhado à tabela; antes `text-xs`)
  * - v1.0.10: Ícone copiar CPF com SVG inline (evita stack overflow do Fast Refresh com lucide Copy)
@@ -24,6 +26,10 @@ const PAGE_SIZE = 50;
 
 const inputClass =
   'border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 text-sm outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white';
+
+/** Mesma faixa dos campos (min-h-12 do FloatingLabelField) — paridade Ouvidoria/Reclamações */
+const btnFilterRowClass =
+  'shrink-0 inline-flex h-12 min-h-12 box-border items-center justify-center px-4 rounded-lg text-sm font-medium';
 
 const getUserEmail = () => {
   try {
@@ -177,7 +183,6 @@ function ApoioN1PanoramaTab() {
             <FloatingLabelField
               label="Tipo"
               value={origem}
-              helperText="Solicitações, Erros/Bugs ou Liberação chave PIX"
             >
               <select
                 value={origem}
@@ -200,7 +205,7 @@ function ApoioN1PanoramaTab() {
                 className={`${inputClass} min-w-[9.5rem]`}
               />
             </FloatingLabelField>
-            <span className="text-gray-500 text-sm shrink-0 pb-2.5">até</span>
+            <span className="text-gray-500 text-sm shrink-0 h-12 flex items-center">até</span>
             <FloatingLabelField id="apoio-n1-data-fim" label="Data final" value={dataFim}>
               <input
                 type="date"
@@ -245,7 +250,7 @@ function ApoioN1PanoramaTab() {
           <button
             type="submit"
             disabled={loading}
-            className="shrink-0 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            className={`${btnFilterRowClass} bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50`}
           >
             {loading ? 'Carregando…' : 'Aplicar filtros'}
           </button>
@@ -255,7 +260,7 @@ function ApoioN1PanoramaTab() {
               loadAgentes();
               loadOverview();
             }}
-            className="shrink-0 px-4 py-2 rounded-lg border border-gray-400 dark:border-gray-500 text-sm text-gray-800 dark:text-gray-200"
+            className={`${btnFilterRowClass} border border-gray-400 dark:border-gray-500 text-gray-800 dark:text-gray-200`}
           >
             Atualizar
           </button>

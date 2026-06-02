@@ -1,10 +1,11 @@
 /**
  * VeloHub V3 - Middleware de Verificação de Acesso ao Módulo Sociais
- * VERSION: v1.0.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
- *
- * Middleware que verifica se o usuário tem sessão ativa (já logado no VeloHub)
- * O acesso ao módulo Sociais é verificado no frontend via check-module-access
+ * VERSION: v1.2.0 | DATE: 2026-05-28 | AUTHOR: VeloHub Development Team
+ * v1.2.0: Bypass código lucas.gravina@velotax.com.br na sessão
  */
+
+const { emailTemBypassVelohub } = require('../utils/contaBypassVelohub');
+const { getHubSessionsCollection } = require('../config/funcionariosDb');
 
 const checkSociaisAccess = (client, connectToMongo) => {
   return async (req, res, next) => {
@@ -28,8 +29,7 @@ const checkSociaisAccess = (client, connectToMongo) => {
       }
 
       await connectToMongo();
-      const db = client.db('console_conteudo');
-      const sessionsCollection = db.collection('hub_sessions');
+      const sessionsCollection = getHubSessionsCollection(client);
 
       const session = await sessionsCollection.findOne({
         sessionId: sessionId,
@@ -41,6 +41,15 @@ const checkSociaisAccess = (client, connectToMongo) => {
           success: false,
           error: 'Sessão inválida ou expirada. Faça login novamente.',
           hasAccess: false
+        });
+      }
+
+      const perm = session.permissoesVelohub;
+      if (!emailTemBypassVelohub(session.userEmail) && perm && typeof perm === 'object' && perm.sociais !== true) {
+        return res.status(403).json({
+          success: false,
+          error: 'Acesso ao módulo Sociais não autorizado',
+          hasAccess: false,
         });
       }
 

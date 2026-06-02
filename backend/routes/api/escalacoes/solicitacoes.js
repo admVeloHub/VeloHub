@@ -1,8 +1,9 @@
 /**
  * VeloHub V3 - Escalações API Routes - Solicitações Técnicas
- * VERSION: v1.14.1 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.14.2 | DATE: 2026-05-28 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.14.2: POST /reply produtos terminal — exige permissoesVelohub.atendimento (sem e-mail hardcoded)
  * - v1.14.1: POST liberação PIX — recusa duplicata quando já existe liberacao_pix_prod para ouvidoriaReclamacaoId
  * - v1.14.0: POST internal/reconciliar-pix-liberado-ouvidoria — job Cloud Scheduler 15 min (header X-Velohub-Pix-Reconcile-Secret)
  * - v1.13.0: Status reply «feito» propaga pixLiberado na ouvidoria (util compartilhado + POST propagar-pix-liberado)
@@ -28,6 +29,9 @@ const { ObjectId } = require('mongodb');
 const { getHubOuvidoriaReclamacaoCollectionByTipo } = require('../../../utils/hubOuvidoriaReclamacaoCollectionByTipo');
 const { getStatusChamadoFromDoc } = require('../../../utils/escalacoesReplyStatus');
 const { permiteDevMarcacaoChamado } = require('../../../utils/devLocalMarcacaoChamado');
+const { resolvePermissoesVelohub } = require('../../../utils/resolvePermissoesVelohub');
+const { getCadastroCollection, getFuncionariosDb } = require('../../../config/funcionariosDb');
+const { emailTemBypassVelohub } = require('../../../utils/contaBypassVelohub');
 const {
   validateProtocolosCentralRequired,
   resolveOctadeskTicketFromRequisicao,
@@ -72,7 +76,32 @@ function isTerminalChamadoStatus(status) {
     .trim();
   return s === 'feito' || s === 'não feito' || s === 'nao feito' || s === 'cancelado';
 }
-const DEV_REQUISICOES_ALLOWED_EMAIL = 'lucas.gravina@velotax.com.br';
+
+/**
+ * @param {import('mongodb').MongoClient} mongoClient
+ * @param {string} email
+ * @returns {Promise<boolean>}
+ */
+async function usuarioTemPermissaoAtendimentoVelohub(mongoClient, email) {
+  const normalized = String(email || '').trim().toLowerCase();
+  if (!normalized || !mongoClient) return false;
+
+  const cadastroCol = getCadastroCollection(mongoClient);
+  let funcionario = await cadastroCol.findOne({
+    userMail: normalized,
+  });
+  if (!funcionario) {
+    funcionario = await cadastroCol.findOne({
+      userMail: {
+        $regex: new RegExp(`^${normalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'),
+      },
+    });
+  }
+  if (!funcionario) return false;
+
+  const resolved = await resolvePermissoesVelohub(getFuncionariosDb(mongoClient), funcionario);
+  return resolved?.permissoesVelohub?.atendimento === true;
+}
 
 /**
  * @param {import('express').Request} req
@@ -1243,11 +1272,20 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
       const statusTerminal = stLow === 'feito' || stLow === 'não feito' || stLow === 'nao feito';
       if (origemNorm === 'produtos' && statusTerminal) {
         const headerEmail = String(req.headers['x-user-email'] || '').trim().toLowerCase();
-        if (headerEmail !== DEV_REQUISICOES_ALLOWED_EMAIL) {
+        if (!headerEmail) {
           return res.status(403).json({
             ok: false,
-            error: 'Operação restrita para usuário autorizado',
+            error: 'Operação restrita — identifique o usuário (x-user-email)',
           });
+        }
+        if (!emailTemBypassVelohub(headerEmail)) {
+          const temAtendimento = await usuarioTemPermissaoAtendimentoVelohub(client, headerEmail);
+          if (!temAtendimento) {
+            return res.status(403).json({
+              ok: false,
+              error: 'Operação restrita — módulo Atendimento não autorizado',
+            });
+          }
         }
       }
 

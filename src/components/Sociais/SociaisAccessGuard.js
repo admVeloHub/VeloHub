@@ -1,16 +1,13 @@
 /**
  * VeloHub V3 - SociaisAccessGuard Component
- * VERSION: v1.0.0 | DATE: 2026-03-17 | AUTHOR: VeloHub Development Team
- * 
- * Componente que verifica acesso ao módulo Sociais antes de renderizar conteúdo
+ * VERSION: v1.3.0 | DATE: 2026-05-28 | AUTHOR: VeloHub Development Team
+ * v1.3.0: Bypass código lucas.gravina@velotax.com.br
+ * v1.1.0: Checagem local permissoesVelohub.sociais antes do fallback API
  */
-
-// Lista de emails com bypass de acesso (desenvolvedores/admin)
-const BYPASS_EMAILS = [];
 
 import React, { useEffect, useState } from 'react';
 import { API_BASE_URL } from '../../config/api-config';
-import { getUserSession } from '../../services/auth';
+import { getUserSession, getPermissoesVelohub, emailTemBypassVelohubConta } from '../../services/auth';
 
 /**
  * Obtém email do usuário da sessão ativa (usa mesma fonte que auth.js - velohub_user_session)
@@ -65,17 +62,26 @@ const SociaisAccessGuard = ({ children }) => {
 
       const normalizedEmail = email.toLowerCase().trim();
 
-      // Bypass para desenvolvedores/admin
-      if (BYPASS_EMAILS.includes(normalizedEmail)) {
-        console.log(`✅ [SociaisAccessGuard] Bypass ativado para: ${normalizedEmail}`);
+      if (emailTemBypassVelohubConta(normalizedEmail)) {
         setHasAccess(true);
+        setLoading(false);
+        return;
+      }
+
+      const permissoes = getPermissoesVelohub();
+      if (permissoes) {
+        if (permissoes.sociais === true) {
+          setHasAccess(true);
+        } else {
+          setHasAccess(false);
+          setError('Acesso ao módulo Sociais não autorizado');
+        }
         setLoading(false);
         return;
       }
 
       console.log(`🔍 [SociaisAccessGuard] Verificando acesso ao módulo Sociais para: ${normalizedEmail}`);
 
-      // Obter sessionId se disponível
       const sessionId = localStorage.getItem('velohub_session_id');
       
       // Construir URL com parâmetros

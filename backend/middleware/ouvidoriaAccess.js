@@ -1,10 +1,11 @@
 /**
  * VeloHub V3 - Middleware de Verificação de Acesso ao Módulo Ouvidoria
- * VERSION: v2.0.1 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
- *
- * Referência (duas entradas; detalhes no Git):
- * - v2.0.0: Simplificado para usar apenas a sessão ativa (usuário já está logado)
+ * VERSION: v2.2.0 | DATE: 2026-05-28 | AUTHOR: VeloHub Development Team
+ * v2.2.0: Bypass código lucas.gravina@velotax.com.br na sessão
  */
+
+const { emailTemBypassVelohub } = require('../utils/contaBypassVelohub');
+const { getHubSessionsCollection } = require('../config/funcionariosDb');
 
 /**
  * Middleware para verificar acesso ao módulo Ouvidoria
@@ -38,8 +39,7 @@ const checkOuvidoriaAccess = (client, connectToMongo) => {
 
       // Conectar ao MongoDB e buscar sessão
       await connectToMongo();
-      const db = client.db('console_conteudo');
-      const sessionsCollection = db.collection('hub_sessions');
+      const sessionsCollection = getHubSessionsCollection(client);
       
       const session = await sessionsCollection.findOne({
         sessionId: sessionId,
@@ -58,9 +58,17 @@ const checkOuvidoriaAccess = (client, connectToMongo) => {
       // Capturar nome do usuário da sessão
       const userName = session.userName || session.user?.name || session.userEmail || 'Usuário';
       
+      const perm = session.permissoesVelohub;
+      if (!emailTemBypassVelohub(session.userEmail) && perm && typeof perm === 'object' && perm.reclamacoes !== true) {
+        return res.status(403).json({
+          success: false,
+          error: 'Acesso ao módulo Reclamações não autorizado',
+          hasAccess: false,
+        });
+      }
+
       console.log(`✅ [ouvidoriaAccess] Sessão válida encontrada para: ${userName}`);
       
-      // Adicionar informações do usuário ao request para uso posterior
       req.user = {
         email: session.userEmail || '',
         name: userName,
