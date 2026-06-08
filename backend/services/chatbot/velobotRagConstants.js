@@ -1,6 +1,7 @@
 /**
  * Constantes RAG do chat principal VeloBot (POST /api/chatbot/ask)
- * VERSION: v1.3.1 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.4.0 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
+ * v1.4.0: VELOBOT_PRIMARY_RAG_FORCE_DISABLED lê env (default true) — prod desligado; local: false + ENABLED=1
  * v1.3.1: VELOBOT_PRIMARY_RAG_FORCE_DISABLED — congela RAG novo; /ask usa só fluxo legado (Mongo/Gemini)
  * v1.3.0: VELOBOT_PRIMARY_RAG_ENABLED — pausa do RAG OpenAI (default false → só fallback legado)
  * v1.2.0: guardrail factual customizado (velobotGuardrails v2)
@@ -26,19 +27,20 @@ const VELOBOT_GUARDRAIL_CONFIDENCE = 0.8;
 /** false = /api/chatbot/ask usa só fallback legado; true = tenta RAG OpenAI antes do legado */
 const VELOBOT_PRIMARY_RAG_ENABLED_DEFAULT = false;
 
-/** true = ignora env e mantém RAG OpenAI desligado (reativar: false + VELOBOT_PRIMARY_RAG_ENABLED=1) */
-const VELOBOT_PRIMARY_RAG_FORCE_DISABLED = true;
+/** Default true — prod sem env usa só fluxo legado (Mongo/Gemini) */
+const VELOBOT_PRIMARY_RAG_FORCE_DISABLED_DEFAULT = true;
+
+/** @deprecated use isVelobotPrimaryRagForceDisabled — mantido para compatibilidade de export */
+const VELOBOT_PRIMARY_RAG_FORCE_DISABLED = VELOBOT_PRIMARY_RAG_FORCE_DISABLED_DEFAULT;
 
 /**
  * @param {string|undefined|null} envValue
+ * @param {boolean} defaultValue
  * @returns {boolean}
  */
-function isPrimaryVelobotRagEnabled(envValue) {
-  if (VELOBOT_PRIMARY_RAG_FORCE_DISABLED) {
-    return false;
-  }
+function parseEnvBool(envValue, defaultValue) {
   if (envValue == null || String(envValue).trim() === '') {
-    return VELOBOT_PRIMARY_RAG_ENABLED_DEFAULT;
+    return defaultValue;
   }
   const v = String(envValue).trim().toLowerCase();
   if (v === '0' || v === 'false' || v === 'no' || v === 'off') {
@@ -47,7 +49,28 @@ function isPrimaryVelobotRagEnabled(envValue) {
   if (v === '1' || v === 'true' || v === 'yes' || v === 'on') {
     return true;
   }
-  return VELOBOT_PRIMARY_RAG_ENABLED_DEFAULT;
+  return defaultValue;
+}
+
+/**
+ * Congela RAG OpenAI (GPT + file_search). Default true; local: VELOBOT_PRIMARY_RAG_FORCE_DISABLED=false
+ * @param {string|undefined|null} forceDisabledEnv
+ * @returns {boolean}
+ */
+function isVelobotPrimaryRagForceDisabled(forceDisabledEnv) {
+  return parseEnvBool(forceDisabledEnv, VELOBOT_PRIMARY_RAG_FORCE_DISABLED_DEFAULT);
+}
+
+/**
+ * @param {string|undefined|null} envValue
+ * @param {string|undefined|null} [forceDisabledEnv]
+ * @returns {boolean}
+ */
+function isPrimaryVelobotRagEnabled(envValue, forceDisabledEnv) {
+  if (isVelobotPrimaryRagForceDisabled(forceDisabledEnv)) {
+    return false;
+  }
+  return parseEnvBool(envValue, VELOBOT_PRIMARY_RAG_ENABLED_DEFAULT);
 }
 
 /**
@@ -77,7 +100,10 @@ module.exports = {
   VELOBOT_GUARDRAIL_MODEL,
   VELOBOT_GUARDRAIL_CONFIDENCE,
   VELOBOT_PRIMARY_RAG_ENABLED_DEFAULT,
+  VELOBOT_PRIMARY_RAG_FORCE_DISABLED_DEFAULT,
   VELOBOT_PRIMARY_RAG_FORCE_DISABLED,
+  parseEnvBool,
+  isVelobotPrimaryRagForceDisabled,
   isPrimaryVelobotRagEnabled,
   getPrimaryVelobotVectorStoreIds,
   getVelobotResponsesModel

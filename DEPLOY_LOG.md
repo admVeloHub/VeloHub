@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.31 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.32 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,18 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push — VeloBot: prod legado; RAG GPT só local**
+- **Data/Hora**: 2026-06-08
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: velobotRagConstants v1.4.0, config.js v1.7.8, cloudbuild.yaml v1.2.4, DEPLOY_LOG v1.1.32
+- **Arquivos Modificados**:
+  - `backend/services/chatbot/velobotRagConstants.js`
+  - `backend/config.js`
+  - `cloudbuild.yaml`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Produção usa exclusivamente VeloBot legado (Mongo/Gemini). `VELOBOT_PRIMARY_RAG_FORCE_DISABLED` passa a ler env com default `true`; Cloud Run recebe `VELOBOT_PRIMARY_RAG_FORCE_DISABLED=true` no deploy. Rede local reativa RAG GPT via FONTE `.env` (`FORCE_DISABLED=false`, `ENABLED=1`) sem alterar o repositório.
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push — Ouvidoria SLA (BACEN/Procon) e diagnóstico canal Denúncias**
 - **Data/Hora**: 2026-06-08

@@ -1,5 +1,6 @@
 // Configuração do VeloHub V3 - Baseada em Variáveis de Ambiente
-// VERSION: v1.7.7 | DATE: 2026-05-27 | AUTHOR: VeloHub Development Team
+// VERSION: v1.7.8 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
+// v1.7.8: VELOBOT_PRIMARY_RAG_FORCE_DISABLED via env (default true — prod legado; local false + ENABLED=1)
 // v1.7.7: SKYNET_DENUNCIA_API_URL — denúncias usam SKYNET em produção (GCP) mesmo em dev local
 // v1.7.6: VELOBOT_PRIMARY_RAG_ENABLED — RAG OpenAI VeloBot (congelado via velobotRagConstants FORCE_DISABLED)
 // v1.7.5: VELOHUB_PIX_RECONCILE_SECRET — header X-Velohub-Pix-Reconcile-Secret (job reconciliação pixLiberado 15 min)
@@ -76,7 +77,10 @@ module.exports = {
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
 
   // RAG OpenAI VeloBot (Responses + file_search) — false = fluxo legado Mongo/Gemini em /api/chatbot/ask
-  VELOBOT_PRIMARY_RAG_ENABLED: isPrimaryVelobotRagEnabled(process.env.VELOBOT_PRIMARY_RAG_ENABLED),
+  VELOBOT_PRIMARY_RAG_ENABLED: isPrimaryVelobotRagEnabled(
+    process.env.VELOBOT_PRIMARY_RAG_ENABLED,
+    process.env.VELOBOT_PRIMARY_RAG_FORCE_DISABLED
+  ),
   
   // ===========================================
   // BANCO DE DADOS

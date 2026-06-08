@@ -1,5 +1,6 @@
 # cloudbuild.yaml - CI/CD para Google Cloud Build
-# VERSION: v1.2.3 | DATE: 2026-04-07 | AUTHOR: Lucas Gravina - VeloHub Development Team
+# VERSION: v1.2.4 | DATE: 2026-06-08 | AUTHOR: Lucas Gravina - VeloHub Development Team
+# v1.2.4: VELOBOT_PRIMARY_RAG_FORCE_DISABLED=true no Cloud Run — prod usa só VeloBot legado (Mongo/Gemini)
 # Configuração para deploy automático do VeloHub V3 - Variáveis de ambiente corrigidas
 # 
 # Mudanças v1.2.3:
@@ -19,6 +20,7 @@
 # - GOOGLE_CLIENT_ID (via Secret Manager)
 # - GOOGLE_CLIENT_SECRET (via Secret Manager)
 # - GOOGLE_CREDENTIALS (via Secret Manager)
+# - VELOBOT_PRIMARY_RAG_FORCE_DISABLED=true (VeloBot legado em prod — definido no step deploy)
 
 steps:
   # Instalar dependências
@@ -79,7 +81,7 @@ steps:
       - '--port'
       - '8080'
       - '--set-env-vars'
-      - 'GCS_BUCKET_NAME2=mediabank_velohub,GCP_PROJECT_ID=velohub-471220'
+      - 'GCS_BUCKET_NAME2=mediabank_velohub,GCP_PROJECT_ID=velohub-471220,VELOBOT_PRIMARY_RAG_FORCE_DISABLED=true'
     dir: '.'
 
 # Configurações do build
