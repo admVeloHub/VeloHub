@@ -1,6 +1,7 @@
 /**
  * VeloHub V3 - OuvidoriaAccessGuard Component
- * VERSION: v1.5.0 | DATE: 2026-05-28 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.6.0 | DATE: 2026-06-01 | AUTHOR: VeloHub Development Team
+ * v1.6.0: permissoesVelohub reclamacoesN1/N2 (retrocompat reclamacoes)
  * v1.5.0: Bypass código lucas.gravina@velotax.com.br
  * v1.4.0: Removido bloco morto de bypass por email
  * v1.3.0: Checagem local permissoesVelohub.reclamacoes antes do fallback API
@@ -9,6 +10,7 @@
 import React, { useEffect, useState } from 'react';
 import { API_BASE_URL } from '../../config/api-config';
 import { getUserSession, getPermissoesVelohub, emailTemBypassVelohubConta } from '../../services/auth';
+import { reclamacoesModuloPermitido } from '../../utils/reclamacoesPermissoesVelohub';
 
 /**
  * Obtém email do usuário da sessão ativa (usa mesma fonte que auth.js - velohub_user_session)
@@ -71,7 +73,7 @@ const OuvidoriaAccessGuard = ({ children }) => {
 
       const permissoes = getPermissoesVelohub();
       if (permissoes) {
-        if (permissoes.reclamacoes === true) {
+        if (reclamacoesModuloPermitido(permissoes)) {
           setHasAccess(true);
         } else {
           setHasAccess(false);

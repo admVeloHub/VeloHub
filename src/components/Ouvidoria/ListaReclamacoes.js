@@ -1,8 +1,9 @@
 /**
  * VeloHub V3 - ListaReclamacoes Component
- * VERSION: v1.31.2 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.31.4 | DATE: 2026-06-02 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.31.4: Filtro Colaborador — ensureSessionId + retry; normaliza payload da API
  * - v1.31.2: Pós-fusão — refresh do ticket aberto (getById) + patch imediato Liberação Anterior
  * - v1.31.1: Botão Fundir no editar — comparação de `_id` normalizada com ctx de fusão
  * - v1.31.0: Status lista — tickets absorvidos por fusão exibidos como Resolvido (isFusaoAbsorvoAlvo)
@@ -16,6 +17,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { reclamacoesAPI, colaboradoresAPI, anexosAPI } from '../../services/ouvidoriaApi';
+import { ensureSessionId } from '../../services/auth';
 import { FloatingLabelField } from '../shared/FloatingLabelField';
 import FormReclamacaoEdit from './FormReclamacaoEdit';
 import FusaoFundidoBadge from './FusaoFundidoBadge';
@@ -174,6 +176,7 @@ const ListaReclamacoes = ({
   const [reclamacoes, setReclamacoes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [colaboradores, setColaboradores] = useState([]);
+  const [colaboradoresLoading, setColaboradoresLoading] = useState(false);
   const [filtros, setFiltros] = useState({
     tipo: '',
     cpf: '',
@@ -295,16 +298,61 @@ const ListaReclamacoes = ({
   };
 
   /**
+   * Normaliza lista retornada por GET /ouvidoria/colaboradores.
+   * @param {unknown} payload
+   * @returns {Array<{ nome: string, email: string }>}
+   */
+  const normalizarListaColaboradores = (payload) => {
+    const raw = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : [];
+    return raw
+      .map((item) => {
+        if (item == null) return null;
+        if (typeof item === 'string') {
+          const nome = item.trim();
+          return nome ? { nome, email: '' } : null;
+        }
+        const nome = String(item.nome || item.colaboradorNome || item.name || '').trim();
+        if (!nome) return null;
+        return {
+          nome,
+          email: String(item.email || item.userMail || '').trim(),
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  };
+
+  /**
    * Carregar lista de colaboradores
    */
   const loadColaboradores = async () => {
-    try {
-      const resultado = await colaboradoresAPI.getColaboradores();
-      setColaboradores(resultado.data || resultado || []);
-    } catch (error) {
-      console.error('Erro ao carregar colaboradores:', error);
+    setColaboradoresLoading(true);
+    let lastError = null;
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        await ensureSessionId();
+        const resultado = await colaboradoresAPI.getColaboradores();
+        const lista = normalizarListaColaboradores(resultado);
+        setColaboradores(lista);
+        if (lista.length > 0 || attempt === 2) {
+          setColaboradoresLoading(false);
+          return;
+        }
+      } catch (error) {
+        lastError = error;
+        console.error(`Erro ao carregar colaboradores (tentativa ${attempt}):`, error);
+        if (attempt === 2) break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 800));
+    }
+    if (lastError) {
       toast.error('Erro ao carregar lista de colaboradores');
     }
+    setColaboradoresLoading(false);
   };
 
   /**
@@ -602,8 +650,9 @@ const ListaReclamacoes = ({
                       value={filtros.colaboradorNome}
                       onChange={(e) => setFiltros((prev) => ({ ...prev, colaboradorNome: e.target.value }))}
                       className={fieldClass}
+                      disabled={colaboradoresLoading}
                     >
-                      <option value="">Todos</option>
+                      <option value="">{colaboradoresLoading ? 'Carregando…' : 'Todos'}</option>
                       {colaboradores.map((colab, index) => (
                         <option key={index} value={colab.nome}>
                           {colab.nome}

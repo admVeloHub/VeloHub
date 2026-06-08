@@ -1,16 +1,59 @@
-// VERSION: v1.0.0 | DATE: 2026-05-28 | AUTHOR: VeloHub Development Team
+// VERSION: v1.3.0 | DATE: 2026-06-02 | AUTHOR: VeloHub Development Team
+// CHANGELOG: v1.3.0 - Removido aplicarFallbackAcessosLegado (sem qualidade_funcionarios.acessos)
+// CHANGELOG: v1.2.0 - Reclamações N1/N2; retrocompat reclamacoes → N2; check-module reclamacoes
+// CHANGELOG: v1.1.0 - Chave velobot (visibilidade exclusiva VeloBot; retrocompat atendimento)
 
 const MODULOS_VELOHUB_KEYS = [
   'corporativo',
   'atendimento',
+  'velobot',
   'liberacaoPix',
   'acompanhamento',
-  'reclamacoes',
+  'reclamacoesN1',
+  'reclamacoesN2',
   'sociais',
 ];
 
 const MODULOS_VELOHUB_PADRAO = () =>
   Object.fromEntries(MODULOS_VELOHUB_KEYS.map((k) => [k, false]));
+
+function temChaveExplicita(obj, key) {
+  return obj && Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+function reclamacoesAcessoTodasAbas(perm) {
+  if (!perm || typeof perm !== 'object') return false;
+  if (perm.reclamacoesN2 === true) return true;
+  const hasN1 = temChaveExplicita(perm, 'reclamacoesN1');
+  const hasN2 = temChaveExplicita(perm, 'reclamacoesN2');
+  if (perm.reclamacoes === true && !hasN1 && !hasN2) return true;
+  return false;
+}
+
+function reclamacoesModuloPermitido(perm) {
+  if (!perm || typeof perm !== 'object') return false;
+  if (reclamacoesAcessoTodasAbas(perm)) return true;
+  return perm.reclamacoesN1 === true;
+}
+
+function aplicarRetrocompatVelobotNoItem(item, merged) {
+  if (!item || typeof item !== 'object') return;
+  const hasVelobotKey =
+    Object.prototype.hasOwnProperty.call(item, 'velobot') ||
+    Object.prototype.hasOwnProperty.call(item, 'VeloBot');
+  if (!hasVelobotKey && item.atendimento === true) {
+    merged.velobot = true;
+  }
+}
+
+function aplicarRetrocompatReclamacoesNoItem(item, merged) {
+  if (!item || typeof item !== 'object') return;
+  const hasN1 = Object.prototype.hasOwnProperty.call(item, 'reclamacoesN1');
+  const hasN2 = Object.prototype.hasOwnProperty.call(item, 'reclamacoesN2');
+  if (!hasN1 && !hasN2 && item.reclamacoes === true) {
+    merged.reclamacoesN2 = true;
+  }
+}
 
 function normalizarModulosVelohub(input) {
   if (input == null) {
@@ -25,6 +68,8 @@ function normalizarModulosVelohub(input) {
     MODULOS_VELOHUB_KEYS.forEach((k) => {
       if (item[k] === true) merged[k] = true;
     });
+    aplicarRetrocompatVelobotNoItem(item, merged);
+    aplicarRetrocompatReclamacoesNoItem(item, merged);
   });
   return [hasAny ? merged : MODULOS_VELOHUB_PADRAO()];
 }
@@ -41,24 +86,21 @@ function agregarPermissoesVelohub(funcoesDocs) {
   return out;
 }
 
-function aplicarFallbackAcessosLegado(permissoes, acessosLegado) {
-  if (!acessosLegado || typeof acessosLegado !== 'object') return permissoes;
-  const temAlgum = MODULOS_VELOHUB_KEYS.some((k) => permissoes[k] === true);
-  if (temAlgum) return permissoes;
-  const out = { ...permissoes };
-  if (acessosLegado.Ouvidoria === true || acessosLegado.ouvidoria === true) {
-    out.reclamacoes = true;
+/**
+ * @param {Record<string, boolean>|null} permissoes
+ * @param {string} chave
+ */
+function permissaoModuloAtiva(permissoes, chave) {
+  if (!permissoes || typeof permissoes !== 'object') return false;
+  if (chave === 'velobot') {
+    if (permissoes.velobot === true) return true;
+    if (permissoes.velobot === false) return false;
+    return permissoes.atendimento === true;
   }
-  if (acessosLegado.Sociais === true || acessosLegado.sociais === true) {
-    out.sociais = true;
+  if (chave === 'reclamacoes') {
+    return reclamacoesModuloPermitido(permissoes);
   }
-  if (acessosLegado.apoioN1 === true || acessosLegado.apoion1 === true) {
-    out.acompanhamento = true;
-  }
-  if (acessosLegado.ChavePix === true || acessosLegado.chavepix === true) {
-    out.liberacaoPix = true;
-  }
-  return out;
+  return permissoes[chave] === true;
 }
 
 /** Mapeia parâmetro legado de check-module-access para chave nova */
@@ -75,6 +117,8 @@ function resolverChaveModulo(module) {
     acompanhamento: 'acompanhamento',
     corporativo: 'corporativo',
     atendimento: 'atendimento',
+    velobot: 'velobot',
+    processos: 'velobot',
   };
   return map[m] || null;
 }
@@ -84,6 +128,7 @@ module.exports = {
   MODULOS_VELOHUB_PADRAO,
   normalizarModulosVelohub,
   agregarPermissoesVelohub,
-  aplicarFallbackAcessosLegado,
+  permissaoModuloAtiva,
+  reclamacoesModuloPermitido,
   resolverChaveModulo,
 };

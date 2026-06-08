@@ -1,6 +1,7 @@
 // Sistema de Autenticação Centralizado para VeloHub
-// VERSION: v1.14.0 | DATE: 2026-06-02 | AUTHOR: VeloHub Development Team
-// v1.14.0: Permissões sempre atualizadas no boot (validate-access); heartbeat/reactivate persistem snapshot; evento velohub:permissoes-refresh
+// VERSION: v1.15.0 | DATE: 2026-06-01 | AUTHOR: VeloHub Development Team
+// v1.15.0: Reclamações N1/N2 — nav e bypass (retrocompat permissoesVelohub.reclamacoes)
+// v1.14.1: modulosVelohub.velobot — VeloBot independente de atendimento (retrocompat atendimento legado)
 // v1.13.3: logout — resetComplianceModalCycle (modal compliance no próximo login)
 // v1.13.2: logout — replaceState('/') antes do reload (não preservar /portal/*)
 // v1.13.1: Após registerLoginSession — evento velohub:compliance-refresh para pending corporativo
@@ -38,6 +39,7 @@
 import { GOOGLE_CONFIG } from '../config/google-config';
 import { API_BASE_URL } from '../config/api-config';
 import { resetComplianceModalCycle } from './corporateCompliance';
+import { reclamacoesModuloPermitido } from '../utils/reclamacoesPermissoesVelohub';
 
 console.log('=== auth.js carregado ===');
 
@@ -64,11 +66,21 @@ function permissoesVelohubBypassContaTotal() {
     return {
         corporativo: true,
         atendimento: true,
+        velobot: true,
         liberacaoPix: true,
         acompanhamento: true,
-        reclamacoes: true,
+        reclamacoesN1: true,
+        reclamacoesN2: true,
         sociais: true,
     };
+}
+
+/** VeloBot: chave velobot; retrocompat — atendimento legado sem velobot explícito */
+function velobotPermitido(permissoes) {
+    if (!permissoes || typeof permissoes !== 'object') return false;
+    if (permissoes.velobot === true) return true;
+    if (permissoes.velobot === false) return false;
+    return permissoes.atendimento === true;
 }
 
 function emailContaLogadaTemBypassVelohub() {
@@ -180,8 +192,9 @@ function navItemPermitidoVelohub(navItem, permissoes) {
         case 'Apoio':
             return permissoes.corporativo === true;
         case 'Atendimento':
-        case 'VeloBot':
             return permissoes.atendimento === true;
+        case 'VeloBot':
+            return velobotPermitido(permissoes);
         case 'Req_Prod':
             return (
                 permissoes.atendimento === true ||
@@ -189,7 +202,7 @@ function navItemPermitidoVelohub(navItem, permissoes) {
                 permissoes.acompanhamento === true
             );
         case 'Reclamações':
-            return permissoes.reclamacoes === true;
+            return reclamacoesModuloPermitido(permissoes);
         case 'Sociais':
             return permissoes.sociais === true;
         default:

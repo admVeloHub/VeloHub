@@ -1,10 +1,11 @@
-// VERSION: v1.4.0 | DATE: 2026-05-28 | AUTHOR: VeloHub Development Team
+// VERSION: v1.5.1 | DATE: 2026-06-02 | AUTHOR: VeloHub Development Team
+// v1.5.1: funcoesDocsParaAtuacao + permissoesVelohubFromAtuacao (batch, sem N+1)
+// v1.5.0: Permissões só via atuacao → gerenciamento_atuacoes.modulosVelohub (sem fallback acessos legado)
 // v1.4.0: atuacao [{ funcao }] ou legado ObjectId/string
 
 const { ObjectId } = require('mongodb');
 const {
   agregarPermissoesVelohub,
-  aplicarFallbackAcessosLegado,
   normalizarModulosVelohub,
 } = require('./modulosVelohub');
 const { emailTemBypassVelohub, permissoesVelohubBypassTotal } = require('./contaBypassVelohub');
@@ -43,6 +44,35 @@ function extrairNomesAtuacao(atuacaoRaw) {
 }
 
 /**
+ * Filtra documentos de gerenciamento_atuacoes já carregados para uma atuação.
+ * @param {unknown} atuacaoRaw
+ * @param {Array<object>} allAtuacoesDocs
+ */
+function funcoesDocsParaAtuacao(atuacaoRaw, allAtuacoesDocs) {
+  const { funcaoNomes, objectIds } = extrairNomesAtuacao(atuacaoRaw);
+  if (!Array.isArray(allAtuacoesDocs) || allAtuacoesDocs.length === 0) return [];
+  if (funcaoNomes.length === 0 && objectIds.length === 0) return [];
+
+  const idSet = new Set(objectIds.map((id) => String(id)));
+  const nomeSet = new Set(funcaoNomes.map((n) => String(n).trim().toLowerCase()));
+
+  return allAtuacoesDocs.filter((doc) => {
+    if (doc?._id && idSet.has(String(doc._id))) return true;
+    const nome = doc?.funcao != null ? String(doc.funcao).trim().toLowerCase() : '';
+    return nome && nomeSet.has(nome);
+  });
+}
+
+/**
+ * Permissões a partir de atuação + cache de gerenciamento_atuacoes (sem query por colaborador).
+ * @param {unknown} atuacaoRaw
+ * @param {Array<object>} allAtuacoesDocs
+ */
+function permissoesVelohubFromAtuacao(atuacaoRaw, allAtuacoesDocs) {
+  return agregarPermissoesVelohub(funcoesDocsParaAtuacao(atuacaoRaw, allAtuacoesDocs));
+}
+
+/**
  * Resolve permissões VeloHub a partir do funcionário e suas funções (atuacao).
  */
 async function resolvePermissoesVelohub(funcionariosDb, funcionario) {
@@ -70,11 +100,7 @@ async function resolvePermissoesVelohub(funcionariosDb, funcionario) {
 
   const atuacaoIds = funcoesDocs.map((doc) => String(doc._id));
 
-  let permissoesVelohub = agregarPermissoesVelohub(funcoesDocs);
-  permissoesVelohub = aplicarFallbackAcessosLegado(
-    permissoesVelohub,
-    funcionario?.acessos || {}
-  );
+  const permissoesVelohub = agregarPermissoesVelohub(funcoesDocs);
 
   const funcoesSnapshot = funcoesDocs.map((doc) => ({
     funcaoId: doc._id,
@@ -89,4 +115,9 @@ async function resolvePermissoesVelohub(funcionariosDb, funcionario) {
   };
 }
 
-module.exports = { resolvePermissoesVelohub };
+module.exports = {
+  resolvePermissoesVelohub,
+  extrairNomesAtuacao,
+  funcoesDocsParaAtuacao,
+  permissoesVelohubFromAtuacao,
+};

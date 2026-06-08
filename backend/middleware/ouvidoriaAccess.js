@@ -1,10 +1,12 @@
 /**
  * VeloHub V3 - Middleware de Verificação de Acesso ao Módulo Ouvidoria
- * VERSION: v2.2.0 | DATE: 2026-05-28 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.3.0 | DATE: 2026-06-01 | AUTHOR: VeloHub Development Team
+ * v2.3.0: permissoesVelohub — reclamacoesN1/N2 (retrocompat reclamacoes)
  * v2.2.0: Bypass código lucas.gravina@velotax.com.br na sessão
  */
 
 const { emailTemBypassVelohub } = require('../utils/contaBypassVelohub');
+const { reclamacoesModuloPermitido } = require('../utils/modulosVelohub');
 const { getHubSessionsCollection } = require('../config/funcionariosDb');
 
 /**
@@ -59,7 +61,12 @@ const checkOuvidoriaAccess = (client, connectToMongo) => {
       const userName = session.userName || session.user?.name || session.userEmail || 'Usuário';
       
       const perm = session.permissoesVelohub;
-      if (!emailTemBypassVelohub(session.userEmail) && perm && typeof perm === 'object' && perm.reclamacoes !== true) {
+      if (
+        !emailTemBypassVelohub(session.userEmail) &&
+        perm &&
+        typeof perm === 'object' &&
+        !reclamacoesModuloPermitido(perm)
+      ) {
         return res.status(403).json({
           success: false,
           error: 'Acesso ao módulo Reclamações não autorizado',

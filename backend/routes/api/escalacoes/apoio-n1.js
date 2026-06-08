@@ -3,7 +3,7 @@
  * VERSION: v1.2.0 | DATE: 2026-05-29 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
- * - v1.2.0: Gate alinhado a permissoesVelohub.acompanhamento (atuacao/modulosVelohub + fallback apoioN1)
+ * - v1.2.0: Gate alinhado a permissoesVelohub.acompanhamento (atuacao/modulosVelohub)
  * - v1.1.0: GET /overview e /agentes: incluem coleção liberacao_pix_prod (Liberação chave PIX) — query ?origem=liberacao-chave-pix ou origem=todos
  */
 

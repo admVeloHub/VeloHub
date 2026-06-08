@@ -1,6 +1,7 @@
 /**
  * VeloHub V3 - Backend Server
- * VERSION: v2.50.26 | DATE: 2026-06-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.50.27 | DATE: 2026-06-02 | AUTHOR: VeloHub Development Team
+ * - v2.50.27: check-module-access usa permissaoModuloAtiva (reclamacoes N1/N2, velobot)
  * - v2.50.26: heartbeat/reactivate retornam permissoesVelohub recalculadas (propaga atuações)
  * - v2.50.25: hub_avisos feed; destaques só carrossel; app.listen após todas as rotas
  * - v2.50.24: proxy /api/images — prefixo img_avisos/ (mídias avisos corporativos)
@@ -161,7 +162,7 @@ const {
   getCadastroCollection,
   getHubSessionsCollection,
 } = require('./config/funcionariosDb');
-const { resolverChaveModulo, MODULOS_VELOHUB_PADRAO } = require('./utils/modulosVelohub');
+const { resolverChaveModulo, MODULOS_VELOHUB_PADRAO, permissaoModuloAtiva } = require('./utils/modulosVelohub');
 
 const app = express();
 // Cloud Run injeta PORT=8080. Em dev local sem PORT: 8090 (api-config.js: front 8080 → API 8090)
@@ -3201,7 +3202,7 @@ app.get('/api/auth/check-module-access', async (req, res) => {
 
     let hasModuleAccess = false;
     if (chaveModulo && permissoesVelohub) {
-      hasModuleAccess = permissoesVelohub[chaveModulo] === true;
+      hasModuleAccess = permissaoModuloAtiva(permissoesVelohub, chaveModulo);
     }
 
     console.log(`🔍 [check-module-access] Acesso ao módulo ${module}: ${hasModuleAccess}`);

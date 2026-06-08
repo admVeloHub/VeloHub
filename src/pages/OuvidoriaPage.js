@@ -1,6 +1,8 @@
 /**
  * VeloHub V3 - OuvidoriaPage (Módulo Ouvidoria/BACEN)
- * VERSION: v1.18.5 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.19.0 | DATE: 2026-06-01 | AUTHOR: VeloHub Development Team
+ *
+ * - v1.19.0: Abas filtradas por visibilidade Reclamações N1 vs N2 (permissoesVelohub)
  *
  * Referência (duas entradas; detalhes no Git):
  * - v1.18.5: Patch imediato no form após fusão (`fusaoPatchFormulario`) — Liberação Anterior visível sem reabrir
@@ -42,7 +44,15 @@ import ChatStatusSelector from '../components/ChatStatusSelector';
 import toast from 'react-hot-toast';
 import { countUnreadFeitoOuvidReqProd } from '../utils/ouvidoriaReqProdNotif';
 import { countUnreadFusaoAbsAlvo } from '../utils/ouvidoriaFusaoNotif';
-import { getUserSession } from '../services/auth';
+import {
+  getUserSession,
+  getPermissoesVelohub,
+  emailContaLogadaTemBypassVelohub,
+} from '../services/auth';
+import {
+  abasReclamacoesPermitidas,
+  RECLAMACOES_ABAS_TODAS,
+} from '../utils/reclamacoesPermissoesVelohub';
 import ModalFusaoOcorrencias from '../components/Ouvidoria/ModalFusaoOcorrencias';
 import {
   buildFusaoAlvosFromSelection,
@@ -81,6 +91,13 @@ const OuvidoriaPage = () => {
   /** Patch imediato no form aberto após fusão confirmada (Liberação Anterior + estado fundido) */
   const [fusaoPatchFormulario, setFusaoPatchFormulario] = useState(null);
   const [ouvidMinhasBadgeParts, setOuvidMinhasBadgeParts] = useState({ feito: 0, fusao: 0 });
+  const [abasPermitidas, setAbasPermitidas] = useState(() =>
+    emailContaLogadaTemBypassVelohub()
+      ? [...RECLAMACOES_ABAS_TODAS]
+      : abasReclamacoesPermitidas(getPermissoesVelohub())
+  );
+
+  const abaReclamacaoVisivel = (abaId) => abasPermitidas.includes(abaId);
 
   const ouvidMinhasBadgeSum =
     ouvidMinhasBadgeParts.feito + ouvidMinhasBadgeParts.fusao;
@@ -147,6 +164,35 @@ const OuvidoriaPage = () => {
       window.removeEventListener('storage', syncFromAuth);
     };
   }, []);
+
+  const syncAbasReclamacoesPermitidas = useCallback(() => {
+    if (emailContaLogadaTemBypassVelohub()) {
+      setAbasPermitidas([...RECLAMACOES_ABAS_TODAS]);
+      return;
+    }
+    setAbasPermitidas(abasReclamacoesPermitidas(getPermissoesVelohub()));
+  }, []);
+
+  useEffect(() => {
+    syncAbasReclamacoesPermitidas();
+    const onPerm = () => syncAbasReclamacoesPermitidas();
+    window.addEventListener('velohub:permissoes-refresh', onPerm);
+    const onStorage = (e) => {
+      if (e.key === 'velohub_permissoes_velohub') syncAbasReclamacoesPermitidas();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('velohub:permissoes-refresh', onPerm);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, [syncAbasReclamacoesPermitidas]);
+
+  useEffect(() => {
+    if (abasPermitidas.length === 0) return;
+    if (!abasPermitidas.includes(activeTab)) {
+      setActiveTab(abasPermitidas[0]);
+    }
+  }, [abasPermitidas, activeTab]);
 
   const refreshOuvidReqProdUnread = useCallback(async () => {
     const nome = String(userSession?.user?.name || userSession?.colaboradorNome || '').trim();
@@ -825,6 +871,7 @@ const OuvidoriaPage = () => {
           {/* Abas + Fundir (contexto consulta CPF; na aba Nova o botão fica no FormReclamacao, após o seletor de tipo) */}
           <div className="flex flex-wrap justify-between items-center gap-3 mb-2">
           <div className="flex justify-start flex-wrap" style={{gap: '2rem'}}>
+            {abaReclamacaoVisivel('nova') ? (
             <button
               onClick={() => setActiveTab('nova')}
               className={`px-6 py-3 text-2xl font-semibold transition-colors duration-200 ${activeTab === 'nova' ? '' : 'opacity-50'}`}
@@ -834,6 +881,8 @@ const OuvidoriaPage = () => {
             >
               Nova Reclamação
             </button>
+            ) : null}
+            {abaReclamacaoVisivel('minhas') ? (
             <button
               onClick={() => setActiveTab('minhas')}
               className={`relative px-6 py-3 text-2xl font-semibold transition-colors duration-200 ${activeTab === 'minhas' ? '' : 'opacity-50'}`}
@@ -852,6 +901,8 @@ const OuvidoriaPage = () => {
                 </span>
               ) : null}
             </button>
+            ) : null}
+            {abaReclamacaoVisivel('lista') ? (
             <button
               onClick={() => setActiveTab('lista')}
               className={`px-6 py-3 text-2xl font-semibold transition-colors duration-200 ${activeTab === 'lista' ? '' : 'opacity-50'}`}
@@ -861,6 +912,8 @@ const OuvidoriaPage = () => {
             >
               Lista de Reclamações
             </button>
+            ) : null}
+            {abaReclamacaoVisivel('chargeback') ? (
             <button
               type="button"
               onClick={() => setActiveTab('chargeback')}
@@ -871,6 +924,8 @@ const OuvidoriaPage = () => {
             >
               Chargeback
             </button>
+            ) : null}
+            {abaReclamacaoVisivel('dashboard') ? (
             <button
               onClick={() => setActiveTab('dashboard')}
               className={`px-6 py-3 text-2xl font-semibold transition-colors duration-200 ${activeTab === 'dashboard' ? '' : 'opacity-50'}`}
@@ -880,6 +935,8 @@ const OuvidoriaPage = () => {
             >
               Dashboard
             </button>
+            ) : null}
+            {abaReclamacaoVisivel('relatorios') ? (
             <button
               onClick={() => setActiveTab('relatorios')}
               className={`px-6 py-3 text-2xl font-semibold transition-colors duration-200 ${activeTab === 'relatorios' ? '' : 'opacity-50'}`}
@@ -889,6 +946,8 @@ const OuvidoriaPage = () => {
             >
               Relatórios
             </button>
+            ) : null}
+            {abaReclamacaoVisivel('analise-diaria') ? (
             <button
               onClick={() => setActiveTab('analise-diaria')}
               className={`px-6 py-3 text-2xl font-semibold transition-colors duration-200 ${activeTab === 'analise-diaria' ? '' : 'opacity-50'}`}
@@ -898,6 +957,7 @@ const OuvidoriaPage = () => {
             >
               Análise Diária
             </button>
+            ) : null}
           </div>
           {podeExibirBotaoFundir && activeTab !== 'nova' ? (
             <button

@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.28 | DATE: 2026-06-02 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.29 | DATE: 2026-06-02 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,27 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **Commit local — Credenciamento Reclamações (atuacao/modulosVelohub, colaboradores lista)**
+- **Data/Hora**: 2026-06-02
+- **Tipo**: Commit local (push pendente)
+- **Versão (componentes)**: colaboradores.js v1.4.0, modulosVelohub v1.3.0, resolvePermissoesVelohub v1.5.1, auth.js v1.15.0, ListaReclamacoes v1.31.4, OuvidoriaPage v1.19.0, server.js v2.50.27, DEPLOY_LOG v1.1.29
+- **Arquivos Modificados**:
+  - `backend/routes/api/ouvidoria/colaboradores.js`
+  - `backend/utils/modulosVelohub.js`
+  - `backend/utils/resolvePermissoesVelohub.js`
+  - `backend/utils/contaBypassVelohub.js`
+  - `backend/middleware/ouvidoriaAccess.js`
+  - `backend/routes/api/escalacoes/apoio-n1.js`
+  - `backend/server.js`
+  - `src/utils/reclamacoesPermissoesVelohub.js` (novo)
+  - `src/services/auth.js`
+  - `src/pages/OuvidoriaPage.js`
+  - `src/components/Ouvidoria/OuvidoriaAccessGuard.js`
+  - `src/components/Ouvidoria/ListaReclamacoes.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Credenciamento Reclamações só via `funcionarios_cadastroColaboradores.atuacao` + `gerenciamento_atuacoes.modulosVelohub` (reclamacoesN1/N2); removido fallback legado `acessos.Ouvidoria/ChavePix/...`. GET `/api/ouvidoria/colaboradores` — batch atuacoes + união com `distinct(responsavel)` em hub_ouvidoria. Front: filtro Colaborador com retry/sessão; abas N1 vs N2; nav/guards alinhados.
+- **Status**: ⏳ Commit local — push/deploy pendente
 
 ### **GitHub Push - Permissões: refresh no boot + heartbeat/reactivate**
 - **Data/Hora**: 2026-06-02
