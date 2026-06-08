@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - FormReclamacao Component
- * VERSION: v3.55.1 | DATE: 2026-06-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.56.0 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v3.56.0:
+ * - Comentários SLA: BACEN 10 dias úteis; Procon 10 dias corridos; N2 inalterado (+2 corridos)
  *
  * Mudanças v3.55.1:
  * - MOTIVOS_* importados de utils/ouvidoriaMotivoOpcoes (fonte única)
@@ -1436,7 +1439,7 @@ const FormReclamacao = ({
           </div>
         </div>
 
-        {/* Linha 2: Motivo (prazo BACEN é automático na API: +10 dias após createdAt UTC) */}
+        {/* Linha 2: Motivo (prazo BACEN é automático na API: +10 dias úteis após createdAt) */}
         <div className="mb-4">
           {renderCampoMotivo(
             MOTIVOS_REDUZIDOS,
@@ -2732,6 +2735,8 @@ const FormReclamacao = ({
               'motivo-procon'
             )}
           </div>
+
+          {/* Prazo Procon/Consumidor.gov: automático na API (+10 dias corridos após createdAt) */}
 
           {/* Linha 3: Descrição */}
           <div className="mb-4">

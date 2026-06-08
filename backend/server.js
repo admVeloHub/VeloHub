@@ -6627,6 +6627,15 @@ try {
   const { initPortalDenunciasRoutes } = require('./routes/api/portal/denuncias');
   const portalDenunciasRouter = initPortalDenunciasRoutes(client, connectToMongo);
   app.use('/api/portal/denuncias', portalDenunciasRouter);
+  const denunciasSecret =
+    process.env.VELOHUB_TICKET_NOTIFY_SECRET != null
+      ? String(process.env.VELOHUB_TICKET_NOTIFY_SECRET).trim()
+      : '';
+  if (!denunciasSecret) {
+    console.warn(
+      '⚠️ [Portal Denúncias] VELOHUB_TICKET_NOTIFY_SECRET ausente — POST /api/portal/denuncias falhará até configurar no ambiente (Cloud Run / FONTE DA VERDADE/.env)'
+    );
+  }
   console.log('✅ Rotas Portal Denúncias registradas: POST /api/portal/denuncias');
 } catch (error) {
   console.error('❌ Erro ao registrar rotas Portal Denúncias:', error.message);

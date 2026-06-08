@@ -1,8 +1,9 @@
 /**
  * VeloHub V3 - FormReclamacaoEdit Component
- * VERSION: v1.51.3 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.52.0 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.52.0: SLA — BACEN 10 dias úteis; Procon 10 dias corridos (exibição prazoProcon); N2 inalterado
  * - v1.51.3: Legado Chave pix → Liberação chave pix; Portabilidade pix → Portabilidade chave pix
  * - v1.51.2: LEGADO_MOTIVO_REDUZIDOS — Encerramento cta Celcoin / Encerramento cta App (canônico)
  * - v1.51.1: MOTIVOS_* importados de utils/ouvidoriaMotivoOpcoes (fonte única)
@@ -43,6 +44,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { reclamacoesAPI, anexosAPI } from '../../services/ouvidoriaApi';
 import { formatDateRegistro } from '../../utils/dateUtils';
+import { dataPrazoAutomaticoYmdParaExibicao } from '../../utils/slaOuvidoriaPrazo';
 import {
   OPCOES_TIPO_RECLAMACAO_POR_HIERARQUIA,
   tierIndexFromTipo,
@@ -202,32 +204,6 @@ const LEGADO_PRODUTO_GRAFIA = {
 /** Valores antigos só Reclame Aqui → canônicos do select */
 const LEGADO_PRODUTO_RECLAME_AQUI = {
   VeloPrime: 'Veloprime',
-};
-
-/** Dias UTC após createdAt para prévia do prazo quando o campo ainda não existe (alinhado SLA API reclamacoes). */
-const SLA_EXIB_CREATED_AT_PLUS_DIAS_BACEN = 10;
-const SLA_EXIB_CREATED_AT_PLUS_DIAS_OUVIDORIA = 2;
-
-/** Data YYYY-MM-DD do prazo (campo salvo ou derivado de createdAt + N dias UTC) */
-const dataPrazoAutomaticoParaExibicao = (tipoNorm, rec) => {
-  if (!rec) return '';
-  const salvo = tipoNorm === 'BACEN' ? rec.prazoBacen : tipoNorm === 'OUVIDORIA' ? rec.prazoOuvidoria : null;
-  if (salvo) {
-    try {
-      const d = new Date(salvo);
-      if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
-    } catch { /* ignore */ }
-  }
-  if (!rec.createdAt) return '';
-  const c = new Date(rec.createdAt);
-  if (isNaN(c.getTime())) return '';
-  const p = new Date(c.getTime());
-  const dias =
-    tipoNorm === 'BACEN'
-      ? SLA_EXIB_CREATED_AT_PLUS_DIAS_BACEN
-      : SLA_EXIB_CREATED_AT_PLUS_DIAS_OUVIDORIA;
-  p.setUTCDate(p.getUTCDate() + dias);
-  return p.toISOString().split('T')[0];
 };
 
 /**
@@ -1687,9 +1663,9 @@ const FormReclamacaoEdit = ({
           )}
         </div>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Prazo (automático — 10 dias após a criação do registro):{' '}
+          Prazo (automático — 10 dias úteis após a criação do registro):{' '}
           <span className="font-medium text-gray-800 dark:text-gray-200">
-            {dataPrazoAutomaticoParaExibicao('BACEN', reclamacao) || '—'}
+            {dataPrazoAutomaticoYmdParaExibicao('BACEN', reclamacao) || '—'}
           </span>
         </p>
 
@@ -1841,7 +1817,7 @@ const FormReclamacaoEdit = ({
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
           Prazo (automático — 2 dias após a criação do registro):{' '}
           <span className="font-medium text-gray-800 dark:text-gray-200">
-            {dataPrazoAutomaticoParaExibicao('OUVIDORIA', reclamacao) || '—'}
+            {dataPrazoAutomaticoYmdParaExibicao('OUVIDORIA', reclamacao) || '—'}
           </span>
         </p>
 
@@ -3061,6 +3037,13 @@ const FormReclamacaoEdit = ({
               'motivo-procon-edit'
             )}
           </div>
+
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Prazo (automático — 10 dias corridos após a criação do registro):{' '}
+            <span className="font-medium text-gray-800 dark:text-gray-200">
+              {dataPrazoAutomaticoYmdParaExibicao('PROCON', reclamacao) || '—'}
+            </span>
+          </p>
 
           {/* Linha 3: Descrição */}
           <div className="mb-4">

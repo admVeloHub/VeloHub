@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.30 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.31 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,26 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push — Ouvidoria SLA (BACEN/Procon) e diagnóstico canal Denúncias**
+- **Data/Hora**: 2026-06-08
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: slaOuvidoriaPrazo v1.0.0, reclamacoes.js v2.33.0, dashboard.js v2.33.7, dateUtils v1.2.0, FormReclamacaoEdit v1.52.0, FormReclamacao v3.56.0, skynetSendDenuncia v1.0.2, denuncias.js v1.0.1, server.js, DEPLOY_LOG v1.1.31
+- **Arquivos Modificados**:
+  - `backend/utils/slaOuvidoriaPrazo.js` (novo)
+  - `src/utils/slaOuvidoriaPrazo.js` (novo)
+  - `backend/routes/api/ouvidoria/reclamacoes.js`
+  - `backend/routes/api/ouvidoria/dashboard.js`
+  - `backend/routes/api/portal/denuncias.js`
+  - `backend/services/support/skynetSendDenuncia.js`
+  - `backend/server.js`
+  - `backend/scripts/normalizar-datas-string-para-date.js`
+  - `src/utils/dateUtils.js`
+  - `src/components/Ouvidoria/FormReclamacao.js`
+  - `src/components/Ouvidoria/FormReclamacaoEdit.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: SLA automático — BACEN passa a 10 dias úteis (America/Sao_Paulo); Procon/Consumidor.gov ganha prazoProcon (+10 dias corridos UTC); N2 inalterado (+2 corridos). Dashboard «Prazo vencendo» inclui Procon. Canal Denúncias: validação de VELOHUB_TICKET_NOTIFY_SECRET na subida e mensagens amigáveis quando SKYNET retorna 403 ou secret ausente.
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push — Ouvidoria: motivos canônicos, filtros Lista e paginação**
 - **Data/Hora**: 2026-06-08

@@ -1,8 +1,9 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Dashboard
- * VERSION: v2.33.6 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.33.7 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v2.33.7: Prazo vencendo — inclui prazoProcon (Procon / Consumidor.gov)
  * - v2.33.6: porTipo.Procon — `ocorrenciasProcon` / `ocorrenciasConsumidorGov` (bucket alinhado a relatórios)
  * - v2.33.5: Comentário exemplo query produtos: Empréstimo Pessoal (antes Credito Pessoal)
  * - v2.33.3: Comentários dos cards solLiberacao alinhados ao match case-insensitive (canônico: Liberação chave pix)
@@ -433,17 +434,18 @@ const initDashboardRoutes = (client, connectToMongo) => {
         r.Finalizado?.Resolvido === true
       ).length;
       
-      // Prazo vencendo (prazoBacen ou prazoOuvidoria <= hoje + 1 dia completo)
-      // Nota: Apenas BACEN e N2 Pix têm campos de prazo (prazoBacen e prazoOuvidoria)
-      // As outras collections (reclameAqui, procon, judicial) não têm campos de prazo
+      // Prazo vencendo (prazoBacen, prazoOuvidoria ou prazoProcon <= hoje + 1 dia completo)
       const prazoLimite = new Date(hoje);
       prazoLimite.setDate(prazoLimite.getDate() + 1);
       prazoLimite.setHours(23, 59, 59, 999);
       const prazoVencendo = todas.filter(r => {
-        // Para BACEN: verificar prazoBacen
-        // Para N2 Pix: verificar prazoOuvidoria
-        // Outras collections não têm campo de prazo, então retornam false
-        const prazo = r.prazoBacen ? new Date(r.prazoBacen) : (r.prazoOuvidoria ? new Date(r.prazoOuvidoria) : null);
+        const prazo = r.prazoBacen
+          ? new Date(r.prazoBacen)
+          : r.prazoOuvidoria
+            ? new Date(r.prazoOuvidoria)
+            : r.prazoProcon
+              ? new Date(r.prazoProcon)
+              : null;
         if (!prazo) return false;
         // Prazo vencendo: hoje <= prazo <= hoje + 1 dia completo (até 23:59:59.999)
         return prazo >= hoje && prazo <= prazoLimite;

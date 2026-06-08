@@ -1,6 +1,8 @@
 /**
  * VeloHub V3 — API Portal Denúncias
- * VERSION: v1.0.0 | DATE: 2026-05-27 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.1 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
+ *
+ * - v1.0.1: Mensagens de falha do SKYNET repassadas ao cliente (evita «Forbidden» genérico)
  *
  * POST /api/portal/denuncias — proxy para SKYNET send-denuncia-velohub
  */

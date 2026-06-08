@@ -1,8 +1,9 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Reclamações
- * VERSION: v2.32.3 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.33.0 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v2.33.0: SLA — BACEN 10 dias úteis (SP); Procon 10 dias corridos (prazoProcon); N2 inalterado (+2 corridos UTC)
  * - v2.32.3: GET /reclamacoes filtro motivo — legado Chave pix / Portabilidade pix (pré-migração)
  * - v2.32.2: GET /reclamacoes filtro motivo — canônico + variantes legadas encerramento (até migração base)
  * - v2.32.1: Fusão — hidrata PIX via Req_Prod «feito»; patch liberacaoAnterior usa tipo do parâmetro
@@ -45,6 +46,7 @@ const {
   hidratarPixLiberadoReclamacaoParaFusao,
 } = require(path.join(__dirname, '../../../utils/liberacaoPixOuvidoriaSync'));
 const { resolveOctadeskTicketFromReclamacao } = require(path.join(__dirname, '../../../utils/resolveOctadeskTicketNumber'));
+const { aplicarPrazoAutomaticoPorColecao } = require(path.join(__dirname, '../../../utils/slaOuvidoriaPrazo'));
 const {
   syncNativoParaBloco792,
   mirrorTicketRegistro,
@@ -738,51 +740,9 @@ async function demoteFormerSuperiors(db, cpfLimpo, newTopId, newTopCollectionNam
 /** Lista de campos que devem ser Date (não string) */
 const CAMPOS_DATA = [
   'dataEntrada', 'dataEntradaN2', 'dataReclam', 'dataProcon',
-  'prazoBacen', 'prazoOuvidoria', 'processoEncaminhadoData', 'dataProcessoEncerrado',
+  'prazoBacen', 'prazoOuvidoria', 'prazoProcon', 'processoEncaminhadoData', 'dataProcessoEncerrado',
   'dataAudiencia', 'dataEntradaProcesso'
 ];
-
-/** SLA automático: dias corridos (UTC) somados ao createdAt. */
-const SLA_DIAS_CORRIDOS_BACEN = 10;
-const SLA_DIAS_CORRIDOS_N2_OUVIDORIA = 2;
-
-/**
- * Data limite = N dias corridos (UTC) após a data de criação do registro.
- * @param {Date|string|null|undefined} createdAt
- * @param {number} diasCorridos
- * @returns {Date}
- */
-const prazoAutomaticoDiasUtcAposCriacao = (createdAt, diasCorridos) => {
-  const n = Number(diasCorridos);
-  const dias = Number.isFinite(n) && n > 0 ? n : 2;
-  const base =
-    createdAt instanceof Date
-      ? createdAt
-      : createdAt
-        ? new Date(createdAt)
-        : new Date();
-  if (isNaN(base.getTime())) return new Date();
-  const d = new Date(base.getTime());
-  d.setUTCDate(d.getUTCDate() + dias);
-  return d;
-};
-
-/**
- * Define prazoBacen (reclamacoes_bacen) ou prazoOuvidoria (reclamacoes_n2Pix); remove o campo da outra família se vier misturado no body.
- * @param {Record<string, unknown>} alvo — documento de insert ou objeto $set do update
- * @param {string} collectionName
- * @param {Date|string|null|undefined} createdAtRef — createdAt do registro (POST: novo; PUT: existente)
- */
-const aplicarPrazoAutomaticoPorColecao = (alvo, collectionName, createdAtRef) => {
-  if (!alvo || typeof alvo !== 'object') return;
-  if (collectionName === 'reclamacoes_bacen') {
-    alvo.prazoBacen = prazoAutomaticoDiasUtcAposCriacao(createdAtRef, SLA_DIAS_CORRIDOS_BACEN);
-    delete alvo.prazoOuvidoria;
-  } else if (collectionName === 'reclamacoes_n2Pix') {
-    alvo.prazoOuvidoria = prazoAutomaticoDiasUtcAposCriacao(createdAtRef, SLA_DIAS_CORRIDOS_N2_OUVIDORIA);
-    delete alvo.prazoBacen;
-  }
-};
 
 /**
  * Normaliza campos de data no objeto: converte strings para Date

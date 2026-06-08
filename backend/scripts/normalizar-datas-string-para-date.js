@@ -33,7 +33,7 @@ const CAMPOS_DATA_POR_COLLECTION = {
   reclamacoes_bacen: ['dataEntrada', 'prazoBacen', 'Finalizado.dataResolucao'],
   reclamacoes_n2Pix: ['dataEntradaN2', 'prazoOuvidoria', 'Finalizado.dataResolucao'],
   reclamacoes_reclameAqui: ['dataReclam', 'Finalizado.dataResolucao'],
-  reclamacoes_procon: ['dataProcon', 'processoEncaminhadoData', 'dataProcessoEncerrado', 'Finalizado.dataResolucao'],
+  reclamacoes_procon: ['dataProcon', 'prazoProcon', 'processoEncaminhadoData', 'dataProcessoEncerrado', 'Finalizado.dataResolucao'],
   reclamacoes_judicial: ['dataEntrada', 'dataAudiencia', 'Finalizado.dataResolucao']
 };
 

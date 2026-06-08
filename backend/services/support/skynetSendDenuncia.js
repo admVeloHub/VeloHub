@@ -1,6 +1,8 @@
 /**
  * Envio de denúncia ao SKYNET (canal VeloHub → e-mail)
- * VERSION: v1.0.1 | DATE: 2026-05-27 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.2 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
+ *
+ * - v1.0.2: Falha antecipada sem VELOHUB_TICKET_NOTIFY_SECRET; mensagem amigável em 403 do SKYNET
  *
  * POST /api/support/send-denuncia-velohub
  * Header: X-Velohub-Ticket-Notify-Secret
@@ -30,6 +32,15 @@ async function sendDenunciaViaSkynet(payload) {
 
   const secret =
     config.VELOHUB_TICKET_NOTIFY_SECRET != null ? String(config.VELOHUB_TICKET_NOTIFY_SECRET).trim() : '';
+  if (!secret) {
+    console.warn('[Denúncias] VELOHUB_TICKET_NOTIFY_SECRET ausente — SKYNET rejeitaria a requisição (403)');
+    return {
+      success: false,
+      error:
+        'Canal de denúncias não configurado no servidor (VELOHUB_TICKET_NOTIFY_SECRET). Contate o administrador.',
+      status: 503,
+    };
+  }
   const url = `${baseUrl}${PATH_SEND}`;
   /** @type {Record<string, string>} */
   const headers = { 'Content-Type': 'application/json' };
@@ -60,9 +71,13 @@ async function sendDenunciaViaSkynet(payload) {
     }
 
     if (!res.ok) {
-      const errMsg =
+      let errMsg =
         (data && (data.error || data.message)) ||
         `SKYNET respondeu HTTP ${res.status}`;
+      if (res.status === 403) {
+        errMsg =
+          'Canal de denúncias: credencial do servidor inválida ou ausente (VELOHUB_TICKET_NOTIFY_SECRET). Contate o administrador.';
+      }
       console.warn(`[Denúncias] SKYNET send-denuncia HTTP ${res.status}`);
       return { success: false, error: errMsg, status: res.status };
     }
