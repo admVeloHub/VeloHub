@@ -1,8 +1,12 @@
 /**
  * Padronização de texto de um item de motivoReduzido (ouvidoria)
- * VERSION: v1.4.2 | DATE: 2026-05-11 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.5.1 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.5.1: RENOMEACOES_EXATAS: «Quitação automática sem chave pix»
+ * - v1.5.0: Chave pix → Liberação chave pix; Portabilidade pix → Portabilidade chave pix
+ * - v1.4.4: RENOMEACOES_EXATAS: encerramento de conta → Encerramento cta Celcoin (legado BACEN/N2/Procon)
+ * - v1.4.3: RENOMEACOES_EXATAS: quitação de contrato → Quitação de contrato
  * - v1.4.2: RENOMEACOES_EXATAS: elegibilidade → Elegibilidade
  * - v1.4.0: RENOMEACOES_EXATAS: juros abusivos → Juros abusivos (canônico igual ao form BACEN/RA)
  */
@@ -31,12 +35,18 @@ const RENOMEACOES_EXATAS = new Map([
   ['alega fraude', 'Alega fraude'],
   ['erro', 'Erro app'],
   ['erro app', 'Erro app'],
+  ['encerramento de conta', 'Encerramento cta Celcoin'],
   ['encerramento de conta celcoin', 'Encerramento cta Celcoin'],
   ['encerramento cta celcoin', 'Encerramento cta Celcoin'],
   ['lgpd', 'Encerramento cta App'],
   ['encerramento cta app', 'Encerramento cta App'],
-  ['portabilidade chave pix', 'Portabilidade pix'],
-  ['portabilidade pix', 'Portabilidade pix'],
+  ['chave pix', 'Liberação chave pix'],
+  ['chavepix', 'Liberação chave pix'],
+  ['liberação chave pix', 'Liberação chave pix'],
+  ['liberação de chave pix', 'Liberação chave pix'],
+  ['liberacao chave pix', 'Liberação chave pix'],
+  ['portabilidade chave pix', 'Portabilidade chave pix'],
+  ['portabilidade pix', 'Portabilidade chave pix'],
   ['valor minimo para contratação', 'Valor mínimo para contratação'],
   ['valor minimo para contrataçao', 'Valor mínimo para contratação'],
   ['valor mínimo para contratação', 'Valor mínimo para contratação'],
@@ -59,6 +69,10 @@ const RENOMEACOES_EXATAS = new Map([
   ['desativada nao considerar reclamação', 'Desativada - não considerar reclamação'],
   ['elegibilidade', 'Elegibilidade'],
   ['juros abusivos', 'Juros abusivos'],
+  ['quitação de contrato', 'Quitação de contrato'],
+  ['quitacao de contrato', 'Quitação de contrato'],
+  ['quitação automática sem chave pix', 'Quitação automática sem chave pix'],
+  ['quitacao automatica sem chave pix', 'Quitação automática sem chave pix'],
 ]);
 
 /**

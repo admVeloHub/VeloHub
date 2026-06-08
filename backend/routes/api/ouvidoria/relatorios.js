@@ -1,8 +1,12 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Relatórios
- * VERSION: v2.30.7 | DATE: 2026-06-01 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.31.1 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v2.31.1: MOTIVOS_VALIDOS / MOTIVOS_CONHECIDOS: «Quitação automática sem chave pix»
+ * - v2.31.0: MOTIVOS_VALIDOS: Portabilidade chave pix; removido Chave pix
+ * - v2.30.9: MOTIVOS_VALIDOS: Encerramento cta Celcoin / Encerramento cta App (canônico)
+ * - v2.30.8: MOTIVOS_CONHECIDOS / MOTIVOS_VALIDOS: «Quitação de contrato»
  * - v2.30.7: GET relatório (lista reclamacoes): motivoDetalhado e observacoes para exportação planilha Reclamações
  * - v2.30.6: GET relatório (lista reclamacoes): campo pixLiberado para exportação planilha Reclamações
  * - v2.30.5: GET relatório (lista reclamacoes): campo origem para exportação planilha Reclamações
@@ -35,7 +39,10 @@ function extrairDataResolucaoRelatorio(r) {
 const MOTIVOS_CONHECIDOS = [
   'Não recebeu restituição',
   'Liquidação antecipada',
+  'Quitação de contrato',
+  'Quitação automática sem chave pix',
   'Liberação chave pix',
+  'Portabilidade chave pix',
   'Encerramento de conta',
   'Exclusão de conta',
   'Bloqueio de conta',
@@ -49,7 +56,6 @@ const MOTIVOS_CONHECIDOS = [
   'Superendividamento',
   'Portabilidade',
   'Empréstimo',
-  'Chave pix',
   'Em cobrança',
   'Elegibilidade',
   'Alega fraude',
@@ -1464,19 +1470,20 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         'Abatimento de juros',
         'Juros abusivos',
         'Liberação chave pix',
-        'Portabilidade pix',
+        'Portabilidade chave pix',
         'Cancelamento até 7 dias',
         'Cancelamento superior a 7 dias',
+        'Quitação de contrato',
+        'Quitação automática sem chave pix',
         'Em cobrança',
         'Elegibilidade',
         'Alega fraude',
         'Erro app',
-        'Encerramento cta celcoin',
-        'Encerramento cta app',
+        'Encerramento cta Celcoin',
+        'Encerramento cta App',
         'Superendividamento',
         'Liquidação antecipada',
         'Não recebeu restituição',
-        'Chave pix',
         'Conta'
       ];
 

@@ -1,6 +1,12 @@
 /**
  * VeloHub V3 - FormReclamacao Component
- * VERSION: v3.54.3 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v3.55.1 | DATE: 2026-06-02 | AUTHOR: VeloHub Development Team
+ *
+ * Mudanças v3.55.1:
+ * - MOTIVOS_* importados de utils/ouvidoriaMotivoOpcoes (fonte única)
+ *
+ * Mudanças v3.55.0:
+ * - MOTIVOS_REDUZIDOS / MOTIVOS_RECLAME_AQUI: opção «Quitação de contrato»
  *
  * Mudanças v3.54.3:
  * - Pós-fusão — Liberação Anterior imediata via `fusaoPatchFormulario`
@@ -108,6 +114,11 @@ import {
   tipoSuportaLiberacaoAnterior,
 } from '../../utils/ouvidoriaFusaoModalDisplay';
 import { tipoOuvidoriaFormToOrigemReqProd } from '../../utils/liberacaoChavePixRules';
+import {
+  MOTIVOS_REDUZIDOS,
+  MOTIVOS_ACAO_JUDICIAL,
+  MOTIVOS_RECLAME_AQUI,
+} from '../../utils/ouvidoriaMotivoOpcoes';
 import { buildModalHistoricoLiberacaoPixFromGetResponse } from '../../utils/requisicoesModalHelpers';
 import { solicitacoesAPI } from '../../services/requisicoesApi';
 import ModalHistoricoRequisicaoCpf from '../Requisicoes/ModalHistoricoRequisicaoCpf';
@@ -179,45 +190,6 @@ const validarCPF = (cpf) => {
 };
 
 
-/**
- * Opções de motivo reduzido (BACEN / N2 Pix / Procon)
- * VERSION: v2.1.0 | DATE: 2026-04-02 | Alinhado lista operacional BACEN
- *
- * Ordem: Liberação Chave Pix e Portabilidade Pix no topo; depois Abatimento, cancelamentos (7 dias),
- * Em cobrança, Alega fraude, Erro App, encerramentos cta, Superendividamento.
- */
-const MOTIVOS_REDUZIDOS = [
-  'Liberação chave pix',
-  'Portabilidade pix',
-  'Abatimento de juros',
-  'Juros abusivos',
-  'Cancelamento até 7 dias',
-  'Cancelamento superior a 7 dias',
-  'Em cobrança',
-  'Alega fraude',
-  'Erro app',
-  'Elegibilidade',
-  'Encerramento cta celcoin',
-  'Encerramento cta app',
-  'Superendividamento',
-];
-
-/**
- * Opções de motivo para Ação Judicial (múltipla escolha)
- */
-const MOTIVOS_ACAO_JUDICIAL = [
-  'Juros',
-  'Chave pix',
-  'Restituição BB',
-  'Relatório',
-  'Repetição indébito',
-  'Superendividamento',
-  'Desconhece contratação'
-];
-
-/**
- * Opções de motivo para Reclame Aqui (múltipla escolha)
- */
 /** Time Portabilidade — API envia tipo TIME_PORTABILIDADE; produto/origem/motivo fixos no formulário */
 const TIME_PORTABILIDADE_TIPO = 'TIME_PORTABILIDADE';
 const TIME_PORT_PRODUTO = 'Antecipação 2026';
@@ -226,30 +198,6 @@ const TIME_PORT_MOTIVO_FIXO = ['Liberação chave pix'];
 
 /** Opções do campo tipo — ordem = hierarquia `TIER_ORDER` (ouvidoriaTierHierarchy) */
 const OPCOES_TIPO_RECLAMACAO = OPCOES_TIPO_RECLAMACAO_POR_HIERARQUIA;
-
-const MOTIVOS_RECLAME_AQUI = [
-  'Reativação do cadastro',
-  'Alteração cadastral',
-  'Abatimento de juros',
-  'Juros abusivos',
-  'Valor mínimo para contratação',
-  'Limite baixo do pix',
-  'Portabilidade pix',
-  'Em cobrança',
-  'Cancelamento até 7 dias',
-  'Cancelamento superior a 7 dias',
-  'Erro gov',
-  'Não elegível a crédito',
-  'Alega fraude',
-  'Desativado',
-  'Dívida prescrita',
-  'Dúvidas gerais',
-  'Encerramento cta App',
-  'Encerramento cta Celcoin',
-  'Erro app',
-  'Elegibilidade',
-  'Liberação chave pix',
-];
 
 /** @param {object|null} pendente */
 function normalizeFusaoPendenteTargets(pendente) {

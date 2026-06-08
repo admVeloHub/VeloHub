@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.29 | DATE: 2026-06-02 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.30 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -40,9 +40,31 @@
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
 
+### **GitHub Push — Ouvidoria: motivos canônicos, filtros Lista e paginação**
+- **Data/Hora**: 2026-06-08
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: ouvidoriaMotivoOpcoes v1.3.0, ListaReclamacoes v1.32.0, FormReclamacao v3.55.1, FormReclamacaoEdit v1.51.3, ouvidoriaApi v2.13.4, MinhasReclamacoes v1.19.6, colaboradores.js v1.5.0, reclamacoes.js v2.32.3, motivoReduzidoNormalize v1.5.1, relatorios.js v2.31.1, RelatoriosOuvidoria v2.18.3, AnaliseDiaria v2.8.9, DEPLOY_LOG v1.1.30
+- **Arquivos Modificados**:
+  - `src/utils/ouvidoriaMotivoOpcoes.js` (novo)
+  - `src/components/Ouvidoria/FormReclamacao.js`
+  - `src/components/Ouvidoria/FormReclamacaoEdit.js`
+  - `src/components/Ouvidoria/ListaReclamacoes.js`
+  - `src/components/Ouvidoria/MinhasReclamacoes.js`
+  - `src/components/Ouvidoria/RelatoriosOuvidoria.js`
+  - `src/components/Ouvidoria/AnaliseDiaria.js`
+  - `src/services/ouvidoriaApi.js`
+  - `backend/routes/api/ouvidoria/reclamacoes.js`
+  - `backend/routes/api/ouvidoria/colaboradores.js`
+  - `backend/routes/api/ouvidoria/relatorios.js`
+  - `backend/utils/motivoReduzidoNormalize.js`
+  - `backend/scripts/normalizar-motivos-capitalizacao.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Fonte única de motivos (`ouvidoriaMotivoOpcoes`) nos forms e filtro Motivo da Lista. Padronização Encerramento cta Celcoin/App; remoção de «Chave pix» em favor de Liberação/Portabilidade chave pix; novos motivos Quitação de contrato e Quitação automática sem chave pix. Filtro Lista: colaborador + motivo/produto/status/data com paginação server-side (total/páginas corretos). Colaboradores v1.5.0 — batch atuacoes e blocklist histórico. Minhas Reclamações — fetchAll. Normalização motivoReduzido na API e script MongoDB.
+- **Status**: ✅ Concluído com sucesso
+
 ### **Commit local — Credenciamento Reclamações (atuacao/modulosVelohub, colaboradores lista)**
 - **Data/Hora**: 2026-06-02
-- **Tipo**: Commit local (push pendente)
+- **Tipo**: Commit local (incluído no push 2026-06-08)
 - **Versão (componentes)**: colaboradores.js v1.4.0, modulosVelohub v1.3.0, resolvePermissoesVelohub v1.5.1, auth.js v1.15.0, ListaReclamacoes v1.31.4, OuvidoriaPage v1.19.0, server.js v2.50.27, DEPLOY_LOG v1.1.29
 - **Arquivos Modificados**:
   - `backend/routes/api/ouvidoria/colaboradores.js`
@@ -59,7 +81,7 @@
   - `src/components/Ouvidoria/ListaReclamacoes.js`
   - `DEPLOY_LOG.md`
 - **Descrição**: Credenciamento Reclamações só via `funcionarios_cadastroColaboradores.atuacao` + `gerenciamento_atuacoes.modulosVelohub` (reclamacoesN1/N2); removido fallback legado `acessos.Ouvidoria/ChavePix/...`. GET `/api/ouvidoria/colaboradores` — batch atuacoes + união com `distinct(responsavel)` em hub_ouvidoria. Front: filtro Colaborador com retry/sessão; abas N1 vs N2; nav/guards alinhados.
-- **Status**: ⏳ Commit local — push/deploy pendente
+- **Status**: ✅ Incluído no push 2026-06-08
 
 ### **GitHub Push - Permissões: refresh no boot + heartbeat/reactivate**
 - **Data/Hora**: 2026-06-02

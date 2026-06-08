@@ -1,6 +1,9 @@
 /**
  * VeloHub V3 - Ouvidoria API Service
- * VERSION: v2.13.2 | DATE: 2026-05-21 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.13.4 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
+ *
+ * v2.13.4: getAll — query opcional colaboradorNome (filtros server-side na Lista)
+ * v2.13.3: getByColaborador — opção fetchAll percorre todas as páginas (aba Minhas + filtros client-side)
  * v2.13.2: Removida instrumentação agent log (localhost:7635) em apiRequest
  *
  * Referência (detalhes no Git):
@@ -125,6 +128,7 @@ export const reclamacoesAPI = {
     if (params.motivo) query.append('motivo', params.motivo);
     if (params.produto) query.append('produto', params.produto);
     if (params.status) query.append('status', params.status);
+    if (params.colaboradorNome) query.append('colaboradorNome', params.colaboradorNome);
     const queryString = query.toString();
     return apiRequest(`/ouvidoria/reclamacoes${queryString ? `?${queryString}` : ''}`);
   },
@@ -231,12 +235,11 @@ export const reclamacoesAPI = {
     }),
 
   /**
-   * Buscar reclamações por colaborador
-   * @param {string} colaboradorNome - Nome do colaborador
+   * Monta query GET reclamações por colaborador.
+   * @param {string} colaboradorNome
    * @param {{ page?: number|string, limit?: number|string, colaboradorEmail?: string }} pagination
-   * @returns {Promise<Array>} Lista de reclamações
    */
-  getByColaborador: (colaboradorNome, pagination = {}) => {
+  _buildColaboradorQuery(colaboradorNome, pagination = {}) {
     const q = new URLSearchParams();
     const nome = String(colaboradorNome || '').trim();
     if (nome) {
@@ -255,7 +258,64 @@ export const reclamacoesAPI = {
     if (pagination.limit != null && String(pagination.limit).trim() !== '') {
       q.set('limit', String(pagination.limit));
     }
-    return apiRequest(`/ouvidoria/reclamacoes?${q.toString()}`);
+    return q;
+  },
+
+  /**
+   * Buscar reclamações por colaborador
+   * @param {string} colaboradorNome - Nome do colaborador
+   * @param {{ page?: number|string, limit?: number|string, colaboradorEmail?: string, fetchAll?: boolean }} pagination
+   * @returns {Promise<object>} Resposta paginada ou lista completa (fetchAll)
+   */
+  getByColaborador: async (colaboradorNome, pagination = {}) => {
+    if (!pagination.fetchAll) {
+      const q = reclamacoesAPI._buildColaboradorQuery(colaboradorNome, pagination);
+      return apiRequest(`/ouvidoria/reclamacoes?${q.toString()}`);
+    }
+
+    const pageLimit = Math.min(
+      100,
+      Math.max(1, parseInt(pagination.limit, 10) || 100),
+    );
+    const merged = [];
+    let page = 1;
+    let totalPages = 1;
+    let serverTotal = 0;
+    let lastMeta = {};
+
+    while (page <= totalPages) {
+      const q = reclamacoesAPI._buildColaboradorQuery(colaboradorNome, {
+        ...pagination,
+        fetchAll: undefined,
+        page,
+        limit: pageLimit,
+      });
+      const res = await apiRequest(`/ouvidoria/reclamacoes?${q.toString()}`);
+      const chunk = Array.isArray(res?.data) ? res.data : [];
+      merged.push(...chunk);
+      lastMeta = res || {};
+
+      if (page === 1) {
+        const tp = parseInt(res?.totalPages, 10);
+        totalPages = Number.isFinite(tp) && tp >= 1 ? tp : 1;
+        const t = parseInt(res?.total, 10);
+        serverTotal = Number.isFinite(t) && t >= 0 ? t : chunk.length;
+      }
+
+      if (chunk.length === 0) break;
+      page += 1;
+    }
+
+    return {
+      ...lastMeta,
+      success: lastMeta.success !== false,
+      data: merged,
+      count: merged.length,
+      total: serverTotal || merged.length,
+      page: 1,
+      limit: pageLimit,
+      totalPages: 1,
+    };
   },
 
   /**

@@ -1,8 +1,11 @@
 /**
  * VeloHub V3 - RelatoriosOuvidoria Component
- * VERSION: v2.18.0 | DATE: 2026-06-01 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.18.3 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v2.18.3: MOTIVOS_CONHECIDOS_FRONTEND: «Quitação automática sem chave pix»
+ * - v2.18.2: Chave pix → Liberação chave pix; Portabilidade pix → Portabilidade chave pix
+ * - v2.18.1: MOTIVOS_CONHECIDOS_FRONTEND: «Quitação de contrato»
  * - v2.18.0: Exportação aba Reclamações: layout A–L (CPF…Data Resolvido; sem # e Origem)
  * - v2.17.9: Exportação aba Reclamações: PIX Liberado (L)
  * - v2.17.8: Exportação aba Reclamações: origem (J), responsável (K)
@@ -53,7 +56,10 @@ const ORIGENS_PROCON_RELATORIO_CANONICAS = ['Procon', 'Consumidor.gov.br'];
 const MOTIVOS_CONHECIDOS_FRONTEND = [
   'Não recebeu restituição',
   'Liquidação antecipada',
+  'Quitação de contrato',
+  'Quitação automática sem chave pix',
   'Liberação chave pix',
+  'Portabilidade chave pix',
   'Encerramento de conta',
   'Exclusão de conta',
   'Bloqueio de conta',
@@ -66,7 +72,6 @@ const MOTIVOS_CONHECIDOS_FRONTEND = [
   'Superendividamento',
   'Portabilidade',
   'Empréstimo',
-  'Chave pix',
   'Em cobrança',
   'Elegibilidade',
   'Alega fraude',
@@ -235,14 +240,11 @@ const normalizarMotivoParaAgrupamento = (motivo) => {
     return 'Encerramento cta Celcoin';
   }
   
-  // Normalizar variações específicas conhecidas de "Chave Pix"
-  // Incluir casos onde apenas "pix" ou "PIX" aparece sozinho
-  if (motivoLower === 'chave pix' || motivoLower === 'chavepix' || motivoLower === 'chave pix cpf' || 
-      motivoLower === 'pix' || motivoLower.trim() === 'pix') {
-    return 'Chave pix';
-  }
-  
   if (motivoLower === 'liberação chave pix' || motivoLower === 'liberação de chave pix') {
+    return 'Liberação chave pix';
+  }
+
+  if (motivoLower === 'chave pix' || motivoLower === 'chavepix') {
     return 'Liberação chave pix';
   }
   
@@ -311,7 +313,7 @@ const normalizarMotivoParaAgrupamento = (motivo) => {
   }
   
   if (motivoLower === 'portabilidade' || (motivoLower.includes('portabilidade') && motivoLower.includes('pix'))) {
-    return 'Portabilidade pix';
+    return 'Portabilidade chave pix';
   }
   
   if (motivoLower.includes('encerramento') && motivoLower.includes('conta')) {
@@ -339,7 +341,7 @@ const normalizarMotivoParaAgrupamento = (motivo) => {
   }
   
   if (motivoLower.includes('portabilidade')) {
-    return 'Portabilidade pix';
+    return 'Portabilidade chave pix';
   }
   
   if (motivoLower === 'encerramento da' || motivoLower.startsWith('encerramento da')) {
@@ -392,8 +394,8 @@ const normalizarMotivoParaAgrupamento = (motivo) => {
   // Normalizar variações conhecidas específicas após processamento
   const normalizadoLower = normalizado.toLowerCase();
   
-  if (normalizadoLower === 'chave pix' || normalizadoLower === 'pix') {
-    normalizado = 'Chave pix';
+  if (normalizadoLower === 'chave pix' || normalizadoLower === 'chavepix') {
+    normalizado = 'Liberação chave pix';
   }
   
   if (normalizadoLower === 'liberação chave pix') {

@@ -1,6 +1,6 @@
 /**
  * Script de Normalização: motivoReduzido nas collections de ouvidoria (padrão 2026-03)
- * VERSION: v2.0.1 | DATE: 2026-03-23 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.0.3 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
 (function loadVelohubFonteEnv(here) {
   const path = require('path');
   const fs = require('fs');
@@ -17,6 +17,10 @@
   }
 })(__dirname);
 
+ *
+ * v2.0.3: util v1.5.0 — Chave pix → Liberação chave pix; Portabilidade pix → Portabilidade chave pix
+ *
+ * v2.0.2: util v1.4.4 — encerramento de conta → Encerramento cta Celcoin; cta app/celcoin → Celcoin/App
  *
  * v2.0.1: util v1.0.2 — Portabilidade chave pix → Portabilidade pix
  *

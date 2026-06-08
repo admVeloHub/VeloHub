@@ -1,8 +1,10 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Reclamações
- * VERSION: v2.32.1 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.32.3 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v2.32.3: GET /reclamacoes filtro motivo — legado Chave pix / Portabilidade pix (pré-migração)
+ * - v2.32.2: GET /reclamacoes filtro motivo — canônico + variantes legadas encerramento (até migração base)
  * - v2.32.1: Fusão — hidrata PIX via Req_Prod «feito»; patch liberacaoAnterior usa tipo do parâmetro
  * - v2.32.0: Fusão — sync pixLiberado (Req_Prod «feito») antes de patch liberacaoAnterior
  * - v2.31.0: enrich/sync pixLiberado em toda listagem + GET /:id; liberação por _id ou numeroProtocolo
@@ -28,7 +30,7 @@ const express = require('express');
 const path = require('path');
 const router = express.Router();
 const { ObjectId } = require('mongodb');
-const { normalizarCampoMotivoReduzido } = require(path.join(__dirname, '../../../utils/motivoReduzidoNormalize'));
+const { normalizarCampoMotivoReduzido, normalizarItemMotivoReduzido } = require(path.join(__dirname, '../../../utils/motivoReduzidoNormalize'));
 const {
   compareTier,
   tierIndexFromCollectionName,
@@ -798,6 +800,22 @@ const aplicarMotivoReduzidoNormalizado = (alvo) => {
   return alvo;
 };
 
+/** Filtro GET — canônico + grafias legadas de encerramento (pré-migração na base). */
+const filtroMotivoReduzidoQuery = (motivoRaw) => {
+  const canon = normalizarItemMotivoReduzido(String(motivoRaw || '').trim());
+  if (!canon) return null;
+  const variants = new Set([canon]);
+  if (canon === 'Encerramento cta App') variants.add('Encerramento cta app');
+  if (canon === 'Encerramento cta Celcoin') variants.add('Encerramento cta celcoin');
+  if (canon === 'Liberação chave pix') {
+    variants.add('Chave pix');
+    variants.add('Chave Pix');
+  }
+  if (canon === 'Portabilidade chave pix') variants.add('Portabilidade pix');
+  const list = [...variants];
+  return list.length > 1 ? { $in: list } : list[0];
+};
+
 const normalizarCamposDataParaDate = (obj) => {
   const result = { ...obj };
   // Mapear dataEntradaAtendimento → dataEntradaN2 (schema LISTA_SCHEMAS.rb tem apenas dataEntradaN2)
@@ -1058,7 +1076,8 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
         }
       }
       if (motivo && String(motivo).trim()) {
-        baseFilter.motivoReduzido = String(motivo).trim();
+        const motivoFilter = filtroMotivoReduzidoQuery(motivo);
+        if (motivoFilter) baseFilter.motivoReduzido = motivoFilter;
       }
       if (produto && String(produto).trim()) {
         baseFilter.produto = String(produto).trim();

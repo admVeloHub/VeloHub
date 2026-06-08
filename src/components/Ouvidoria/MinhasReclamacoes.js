@@ -1,8 +1,9 @@
 /**
  * VeloHub V3 - MinhasReclamacoes Component
- * VERSION: v1.19.5 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.19.6 | DATE: 2026-06-02 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.19.6: Minhas — fetchAll no getByColaborador (todas as páginas da API antes do filtro Situação)
  * - v1.19.5: Pós-fusão — refresh do ticket aberto (getById) + patch imediato Liberação Anterior
  * - v1.19.4: Botão Fundir no editar — comparação de `_id` normalizada com ctx de fusão
  * - v1.19.3: Removidos fetch ingest/debug da lista Minhas (sessão debug concluída)
@@ -195,6 +196,7 @@ const MinhasReclamacoes = ({
         userEmail != null ? String(userEmail || '').trim().toLowerCase() : '';
       const resultado = await reclamacoesAPI.getByColaborador(colaboradorNome, {
         colaboradorEmail: emailLc || undefined,
+        fetchAll: true,
       });
       const dados = resultado.data || resultado || [];
       setReclamacoes(dados);
@@ -453,7 +455,7 @@ const MinhasReclamacoes = ({
             );
             })}
 
-            {totalPaginasMinhas > 1 && (
+            {reclamacoesFiltradas.length > MINHAS_REC_PAGE_SIZE && (
               <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 mt-6">
                 <div className="text-sm text-gray-600 dark:text-gray-400">
                   Mostrando {(paginaLista - 1) * MINHAS_REC_PAGE_SIZE + 1} a{' '}

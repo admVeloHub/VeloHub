@@ -1,8 +1,12 @@
 /**
  * VeloHub V3 - AnaliseDiaria Component
- * VERSION: v2.8.5 | DATE: 2026-05-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.8.9 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v2.8.9: MOTIVOS_REDUZIDOS ref.: «Quitação automática sem chave pix»
+ * - v2.8.8: MOTIVOS_REDUZIDOS ref.: Portabilidade chave pix; removido Chave pix
+ * - v2.8.7: MOTIVOS_REDUZIDOS ref.: Encerramento cta Celcoin / Encerramento cta App
+ * - v2.8.6: MOTIVOS_REDUZIDOS: «Quitação de contrato» (referência alinhada ao form)
  * - v2.8.5: Removidos logs de instrumentação ingest 127.0.0.1:7244 e `console.log` `[DEBUG]` (Análise diária)
  * - v2.8.4: MOTIVOS_REDUZIDOS: «Elegibilidade» (referência alinhada ao form)
  * - v2.7.0: MOTIVOS_REDUZIDOS: padrão Xxxxx xxxxx xxxx, alinhado a FormReclamacao e motivoReduzidoNormalize
@@ -23,20 +27,21 @@ const ROTULOS_ORIGEM_EXCLUIR_DE_MOTIVOS_BACEN = [...ORIGENS_QUADRO_BACEN_ANALISE
 /** Lista fixa de motivos reduzidos (BACEN/N2) - referência. Tabela Motivos usa dados da API (motivoReduzido). Padrão: Xxxxx xxxxx xxxx */
 const MOTIVOS_REDUZIDOS = [
   'Liberação chave pix',
-  'Portabilidade pix',
+  'Portabilidade chave pix',
   'Abatimento de juros',
   'Cancelamento até 7 dias',
   'Cancelamento superior a 7 dias',
+  'Quitação de contrato',
+  'Quitação automática sem chave pix',
   'Em cobrança',
   'Alega fraude',
   'Erro app',
   'Elegibilidade',
-  'Encerramento cta celcoin',
-  'Encerramento cta app',
+  'Encerramento cta Celcoin',
+  'Encerramento cta App',
   'Superendividamento',
   'Liquidação antecipada',
   'Não recebeu restituição',
-  'Chave pix',
   'Conta'
 ];
 

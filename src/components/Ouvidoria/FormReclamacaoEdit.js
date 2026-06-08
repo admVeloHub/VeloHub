@@ -1,8 +1,12 @@
 /**
  * VeloHub V3 - FormReclamacaoEdit Component
- * VERSION: v1.50.8 | DATE: 2026-05-26 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.51.3 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.51.3: Legado Chave pix → Liberação chave pix; Portabilidade pix → Portabilidade chave pix
+ * - v1.51.2: LEGADO_MOTIVO_REDUZIDOS — Encerramento cta Celcoin / Encerramento cta App (canônico)
+ * - v1.51.1: MOTIVOS_* importados de utils/ouvidoriaMotivoOpcoes (fonte única)
+ * - v1.51.0: MOTIVOS_REDUZIDOS / MOTIVOS_RECLAME_AQUI: «Quitação de contrato»
  * - v1.50.8: Pós-fusão — Liberação Anterior imediata (`fusaoPatchFormulario`) + sync prop reclamacao
  * - v1.50.7: Remove eslint-disable de regra inexistente no projeto (react-hooks/exhaustive-deps)
  * - v1.50.6: Fix build — declaração duplicada de `fusaoLibAnteriorAplicadoSeqRef`
@@ -51,6 +55,11 @@ import {
   tipoSuportaLiberacaoAnterior,
 } from '../../utils/ouvidoriaFusaoModalDisplay';
 import { tipoOuvidoriaFormToOrigemReqProd } from '../../utils/liberacaoChavePixRules';
+import {
+  MOTIVOS_REDUZIDOS,
+  MOTIVOS_ACAO_JUDICIAL,
+  MOTIVOS_RECLAME_AQUI,
+} from '../../utils/ouvidoriaMotivoOpcoes';
 import { buildModalHistoricoLiberacaoPixFromGetResponse, normalizeMongoId } from '../../utils/requisicoesModalHelpers';
 import { solicitacoesAPI } from '../../services/requisicoesApi';
 import ModalHistoricoRequisicaoCpf from '../Requisicoes/ModalHistoricoRequisicaoCpf';
@@ -98,26 +107,6 @@ const validarCPF = (cpf) => {
   return cleaned.length === 11;
 };
 
-/**
- * Opções de motivo reduzido (BACEN / N2 Pix / Procon)
- * VERSION: v2.1.0 | DATE: 2026-04-02 | Igual FormReclamacao.js
- */
-const MOTIVOS_REDUZIDOS = [
-  'Liberação chave pix',
-  'Portabilidade pix',
-  'Abatimento de juros',
-  'Juros abusivos',
-  'Cancelamento até 7 dias',
-  'Cancelamento superior a 7 dias',
-  'Em cobrança',
-  'Alega fraude',
-  'Erro app',
-  'Elegibilidade',
-  'Encerramento cta celcoin',
-  'Encerramento cta app',
-  'Superendividamento',
-];
-
 const TIME_PORTABILIDADE_TIPO = 'TIME_PORTABILIDADE';
 const TIME_PORT_PRODUTO = 'Antecipação 2026';
 const TIME_PORT_ORIGEM = 'Atendimento';
@@ -133,10 +122,16 @@ const LEGADO_MOTIVO_REDUZIDOS = {
   'Alega Fraude': 'Alega fraude',
   Erro: 'Erro app',
   'Erro App': 'Erro app',
-  'Encerramento de Conta': 'Encerramento cta celcoin',
-  Lgpd: 'Encerramento cta app',
-  LGPD: 'Encerramento cta app',
+  'Encerramento de Conta': 'Encerramento cta Celcoin',
+  Lgpd: 'Encerramento cta App',
+  LGPD: 'Encerramento cta App',
+  'Encerramento cta celcoin': 'Encerramento cta Celcoin',
+  'Encerramento cta app': 'Encerramento cta App',
   'Juros Abusivos': 'Juros abusivos',
+  'Chave pix': 'Liberação chave pix',
+  'Chave Pix': 'Liberação chave pix',
+  'Portabilidade pix': 'Portabilidade chave pix',
+  'Portabilidade Pix': 'Portabilidade chave pix',
 };
 
 const normalizarMotivosReduzidosAoCarregar = (motivos) => {
@@ -144,45 +139,6 @@ const normalizarMotivosReduzidosAoCarregar = (motivos) => {
   return motivos.map((m) => LEGADO_MOTIVO_REDUZIDOS[m] || m);
 };
 
-/**
- * Opções de motivo para Ação Judicial (múltipla escolha)
- */
-const MOTIVOS_ACAO_JUDICIAL = [
-  'Juros',
-  'Chave pix',
-  'Restituição BB',
-  'Relatório',
-  'Repetição indébito',
-  'Superendividamento',
-  'Desconhece contratação'
-];
-
-/**
- * Opções de motivo para Reclame Aqui (múltipla escolha)
- */
-const MOTIVOS_RECLAME_AQUI = [
-  'Reativação do cadastro',
-  'Alteração cadastral',
-  'Abatimento de juros',
-  'Juros abusivos',
-  'Valor mínimo para contratação',
-  'Limite baixo do pix',
-  'Portabilidade pix',
-  'Em cobrança',
-  'Cancelamento até 7 dias',
-  'Cancelamento superior a 7 dias',
-  'Erro gov',
-  'Não elegível a crédito',
-  'Alega fraude',
-  'Desativado',
-  'Dívida prescrita',
-  'Dúvidas gerais',
-  'Encerramento cta App',
-  'Encerramento cta Celcoin',
-  'Erro app',
-  'Elegibilidade',
-  'Liberação chave pix',
-];
 const LEGADO_MOTIVO_RECLAME_AQUI = {
   Cobrança: 'Em cobrança',
   'Em Cobrança': 'Em cobrança',
@@ -194,8 +150,9 @@ const LEGADO_MOTIVO_RECLAME_AQUI = {
   'Encerramento cta celcoin': 'Encerramento cta Celcoin',
   LGPD: 'Encerramento cta App',
   'Encerramento cta app': 'Encerramento cta App',
-  'Portabilidade Pix': 'Portabilidade pix',
-  'Portabilidade chave pix': 'Portabilidade pix',
+  'Portabilidade Pix': 'Portabilidade chave pix',
+  'Portabilidade chave pix': 'Portabilidade chave pix',
+  'Portabilidade pix': 'Portabilidade chave pix',
   'Valor Minimo para contratação': 'Valor mínimo para contratação',
   'Valor Minimo Para Contratação': 'Valor mínimo para contratação',
   'Valor minimo para contratação': 'Valor mínimo para contratação',
@@ -207,11 +164,26 @@ const LEGADO_MOTIVO_RECLAME_AQUI = {
   'Dívida Prescrita': 'Dívida prescrita',
   'Reativação de cadastro': 'Reativação do cadastro',
   'Juros Abusivos': 'Juros abusivos',
+  'Chave pix': 'Liberação chave pix',
+  'Chave Pix': 'Liberação chave pix',
 };
 
 const normalizarMotivosReclameAquiAoCarregar = (motivos) => {
   if (!Array.isArray(motivos)) return motivos;
   return motivos.map((m) => LEGADO_MOTIVO_RECLAME_AQUI[m] || m);
+};
+
+/** Ação Judicial — legado «Chave pix» → Liberação chave pix */
+const LEGADO_MOTIVO_JUDICIAL = {
+  'Chave pix': 'Liberação chave pix',
+  'Chave Pix': 'Liberação chave pix',
+  'Portabilidade pix': 'Portabilidade chave pix',
+  'Portabilidade Pix': 'Portabilidade chave pix',
+};
+
+const normalizarMotivosJudicialAoCarregar = (motivos) => {
+  if (!Array.isArray(motivos)) return motivos;
+  return motivos.map((m) => LEGADO_MOTIVO_JUDICIAL[m] || m);
 };
 
 /** Grafia legada de produto → canônicos do select (todos os tipos) */
@@ -331,6 +303,9 @@ const converterParaFormData = (reclamacao) => {
         : (reclamacao.motivoReduzido ? [reclamacao.motivoReduzido] : []);
       if (tipoNormalizado === 'RECLAME_AQUI') {
         return normalizarMotivosReclameAquiAoCarregar(arr);
+      }
+      if (tipoNormalizado === 'PROCESSOS' || tipoNormalizado === 'JUDICIAL') {
+        return normalizarMotivosJudicialAoCarregar(arr);
       }
       if (tipoNormalizado === 'BACEN' || tipoNormalizado === 'OUVIDORIA' || tipoNormalizado === 'PROCON') {
         return normalizarMotivosReduzidosAoCarregar(arr);

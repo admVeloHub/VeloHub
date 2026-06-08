@@ -1,8 +1,10 @@
 /**
  * VeloHub V3 - ListaReclamacoes Component
- * VERSION: v1.31.4 | DATE: 2026-06-02 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.32.0 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.32.0: Colaborador + motivo/produto/status/data/tipo — filtros e paginação no servidor (getAll)
+ * - v1.31.5: Filtro Motivo — MOTIVOS_FILTRO_LISTA de utils/ouvidoriaMotivoOpcoes (forms)
  * - v1.31.4: Filtro Colaborador — ensureSessionId + retry; normaliza payload da API
  * - v1.31.2: Pós-fusão — refresh do ticket aberto (getById) + patch imediato Liberação Anterior
  * - v1.31.1: Botão Fundir no editar — comparação de `_id` normalizada com ctx de fusão
@@ -25,6 +27,7 @@ import { isFusaoAbsorvoAlvo } from '../../utils/ouvidoriaFusaoNotif';
 import { formatDateRegistro, getSlaBadgeReclamacao } from '../../utils/dateUtils';
 import toast from 'react-hot-toast';
 import { OUVIDORIA_PRODUTO_OPCOES as PRODUTOS_FILTRO_LISTA } from '../../utils/ouvidoriaProdutoOpcoes';
+import { MOTIVOS_FILTRO_LISTA } from '../../utils/ouvidoriaMotivoOpcoes';
 import { normalizeMongoId } from '../../utils/requisicoesModalHelpers';
 
 /**
@@ -64,61 +67,6 @@ const validarCPF = (cpf) => {
   const cleaned = cpf.replace(/\D/g, '');
   return cleaned.length === 11;
 };
-
-/**
- * União de todos os motivos (FormReclamacao) para filtro único na lista.
- * Mantido alinhado com FormReclamacao/FormReclamacaoEdit.
- */
-const MOTIVOS_REDUZIDOS = [ /* BACEN, N2 Pix, Procon */
-  'Liberação chave pix',
-  'Portabilidade pix',
-  'Abatimento de juros',
-  'Cancelamento até 7 dias',
-  'Cancelamento superior a 7 dias',
-  'Em cobrança',
-  'Alega fraude',
-  'Erro app',
-  'Elegibilidade',
-  'Encerramento cta celcoin',
-  'Encerramento cta app',
-  'Superendividamento',
-];
-const MOTIVOS_ACAO_JUDICIAL = [
-  'Juros',
-  'Chave pix',
-  'Restituição BB',
-  'Relatório',
-  'Repetição indébito',
-  'Superendividamento',
-  'Desconhece contratação',
-];
-const MOTIVOS_RECLAME_AQUI = [
-  'Reativação do cadastro',
-  'Alteração cadastral',
-  'Abatimento de juros',
-  'Valor mínimo para contratação',
-  'Limite baixo do pix',
-  'Portabilidade pix',
-  'Em cobrança',
-  'Cancelamento até 7 dias',
-  'Cancelamento superior a 7 dias',
-  'Erro gov',
-  'Não elegível a crédito',
-  'Alega fraude',
-  'Desativado',
-  'Dívida prescrita',
-  'Dúvidas gerais',
-  'Encerramento cta App',
-  'Encerramento cta Celcoin',
-  'Erro app',
-  'Elegibilidade',
-  'Liberação chave pix',
-];
-
-/** União deduplicada dos motivos dos formulários, ordenada para o select de filtro. */
-const MOTIVOS_FILTRO_LISTA = Array.from(
-  new Set([...MOTIVOS_REDUZIDOS, ...MOTIVOS_ACAO_JUDICIAL, ...MOTIVOS_RECLAME_AQUI])
-).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
 /**
  * Meta de página alinhada à API GET `/reclamacoes` (`total`, `limit`, `page`, `totalPages`).
@@ -374,7 +322,25 @@ const ListaReclamacoes = ({
   };
 
   /**
-   * Aplicar filtros de data e motivo (client-side para getByCpf/getByColaborador)
+   * Query GET /reclamacoes com filtros aplicados (paginação server-side).
+   */
+  const buildParamsReclamacoesLista = (filtros, pageMeta) => {
+    const params = {
+      page: pageMeta.page,
+      limit: pageMeta.limit,
+    };
+    if (filtros.tipo) params.tipo = filtros.tipo;
+    if (filtros.dataInicio) params.dataInicio = filtros.dataInicio;
+    if (filtros.dataFim) params.dataFim = filtros.dataFim;
+    if (filtros.motivo) params.motivo = filtros.motivo;
+    if (filtros.produto) params.produto = filtros.produto;
+    if (filtros.status) params.status = filtros.status;
+    if (filtros.colaboradorNome) params.colaboradorNome = filtros.colaboradorNome;
+    return params;
+  };
+
+  /**
+   * Aplicar filtros de data e motivo (client-side só para getByCpf com CPF completo)
    */
   const aplicarFiltrosDataEMotivo = (dados, filtros) => {
     let resultado = dados;
@@ -482,41 +448,9 @@ const ListaReclamacoes = ({
             page: 1,
           }));
         }
-      } else if (filtrosAplicados.colaboradorNome) {
-        resultado = await reclamacoesAPI.getByColaborador(filtrosAplicados.colaboradorNome, {
-          page: paginacao.page,
-          limit: paginacao.limit,
-        });
-        let dados = resultado.data || resultado || [];
-
-        if (filtrosAplicados.tipo) {
-          dados = dados.filter(r => {
-            const tipoNormalizado = normalizarTipoExibicao(r.tipo);
-            const filtroNormalizado = normalizarTipoExibicao(filtrosAplicados.tipo);
-            return tipoNormalizado === filtroNormalizado;
-          });
-        }
-        dados = aplicarFiltrosDataEMotivo(dados, filtrosAplicados);
-
-        setReclamacoes(dados);
-        setPaginacao((prev) => ({ ...prev, ...normalizarListaReclamacoesPaginacao(resultado, prev) }));
       } else {
-        // Busca geral com paginação
-        const params = {
-          page: paginacao.page,
-          limit: paginacao.limit,
-        };
-        
-        // Adicionar filtros como query params
-        if (filtrosAplicados.tipo) params.tipo = filtrosAplicados.tipo;
-        if (filtrosAplicados.dataInicio) params.dataInicio = filtrosAplicados.dataInicio;
-        if (filtrosAplicados.dataFim) params.dataFim = filtrosAplicados.dataFim;
-        if (filtrosAplicados.motivo) params.motivo = filtrosAplicados.motivo;
-        if (filtrosAplicados.produto) params.produto = filtrosAplicados.produto;
-        if (filtrosAplicados.status) params.status = filtrosAplicados.status;
+        resultado = await reclamacoesAPI.getAll(buildParamsReclamacoesLista(filtrosAplicados, paginacao));
 
-        resultado = await reclamacoesAPI.getAll(params);
-        
         const dados = resultado.data || [];
         setReclamacoes(dados);
         setPaginacao((prev) => ({ ...prev, ...normalizarListaReclamacoesPaginacao(resultado, prev) }));
