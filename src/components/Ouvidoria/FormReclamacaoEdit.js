@@ -2054,6 +2054,13 @@ const FormReclamacaoEdit = ({
             )}
           </div>
 
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Prazo (automático — 3 dias úteis após a criação do registro):{' '}
+            <span className="font-medium text-gray-800 dark:text-gray-200">
+              {dataPrazoAutomaticoYmdParaExibicao('RECLAME_AQUI', reclamacao) || '—'}
+            </span>
+          </p>
+
           {/* Descrição */}
           <div className="mb-4">
             <FloatingLabelField id="form-fr-edit-ra-descricao" label="Descrição" value={formData.motivoDetalhado}>

@@ -1,8 +1,9 @@
 /**
  * VeloHub V3 - AnaliseDiaria Component
- * VERSION: v2.8.9 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.9.0 | DATE: 2026-06-10 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v2.9.0: Tabelas de motivos (todos os tipos) ordenadas por Total decrescente
  * - v2.8.9: MOTIVOS_REDUZIDOS ref.: «Quitação automática sem chave pix»
  * - v2.8.8: MOTIVOS_REDUZIDOS ref.: Portabilidade chave pix; removido Chave pix
  * - v2.8.7: MOTIVOS_REDUZIDOS ref.: Encerramento cta Celcoin / Encerramento cta App
@@ -204,7 +205,7 @@ const AnaliseDiaria = () => {
       grupo.contagensPorDia.set(dia, contagemAtual + count);
     });
 
-    // Converter para array e ordenar por nome do motivo
+    // Converter para array e ordenar por total (decrescente)
     const tabela = Array.from(motivosAgrupados.values())
       .map(grupo => {
         const valores = dias.map(dia => {
@@ -213,7 +214,7 @@ const AnaliseDiaria = () => {
         const total = valores.reduce((sum, val) => sum + val, 0);
         return { motivo: grupo.motivo, valores, total };
       })
-      .sort((a, b) => String(a.motivo || '').localeCompare(String(b.motivo || '')));
+      .sort((a, b) => b.total - a.total);
 
     return { tabela, dias };
   }, [dadosDiarios, gerarDiasNoPeriodo]);
@@ -293,7 +294,7 @@ const AnaliseDiaria = () => {
         const total = valores.reduce((sum, val) => sum + val, 0);
         return { motivo: grupo.motivo, valores, total };
       })
-      .sort((a, b) => String(a.motivo || '').localeCompare(String(b.motivo || '')));
+      .sort((a, b) => b.total - a.total);
 
     return { tabela, dias };
   }, [dadosDiarios, gerarDiasNoPeriodo]);
@@ -330,7 +331,7 @@ const AnaliseDiaria = () => {
         const valores = dias.map(dia => grupo.contagensPorDia.get(dia) || 0);
         return { motivo: grupo.motivo, valores, total: valores.reduce((s, v) => s + v, 0) };
       })
-      .sort((a, b) => String(a.motivo || '').localeCompare(String(b.motivo || '')));
+      .sort((a, b) => b.total - a.total);
     return { tabela, dias };
   }, [dadosDiarios?.reclameAqui, gerarDiasNoPeriodo]);
 
@@ -398,7 +399,7 @@ const AnaliseDiaria = () => {
         const valores = dias.map(dia => grupo.contagensPorDia.get(dia) || 0);
         return { motivo: grupo.motivo, valores, total: valores.reduce((s, v) => s + v, 0) };
       })
-      .sort((a, b) => String(a.motivo || '').localeCompare(String(b.motivo || '')));
+      .sort((a, b) => b.total - a.total);
     return { tabela, dias };
   }, [dadosDiarios?.procon, gerarDiasNoPeriodo]);
 
@@ -433,7 +434,7 @@ const AnaliseDiaria = () => {
         const valores = dias.map(dia => grupo.contagensPorDia.get(dia) || 0);
         return { motivo: grupo.motivo, valores, total: valores.reduce((s, v) => s + v, 0) };
       })
-      .sort((a, b) => String(a.motivo || '').localeCompare(String(b.motivo || '')));
+      .sort((a, b) => b.total - a.total);
     return { tabela, dias };
   }, [dadosDiarios?.judicial, gerarDiasNoPeriodo]);
 

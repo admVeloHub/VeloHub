@@ -1,10 +1,11 @@
 /**
  * VeloHub V3 — SLA automático Ouvidoria (prazos por tipo de reclamação)
- * VERSION: v1.0.0 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.1.0 | DATE: 2026-06-10 | AUTHOR: VeloHub Development Team
  *
  * - BACEN: 10 dias úteis (seg–sex, calendário America/Sao_Paulo) após createdAt
  * - N2/Ouvidoria: 2 dias corridos UTC após createdAt
  * - Procon / Consumidor.gov: 10 dias corridos UTC após createdAt (campo prazoProcon)
+ * - Reclame Aqui: 3 dias úteis (SP) após createdAt (campo prazoReclameAqui)
  */
 
 'use strict';
@@ -14,6 +15,7 @@ const SP_TZ = 'America/Sao_Paulo';
 const SLA_DIAS_UTEIS_BACEN = 10;
 const SLA_DIAS_CORRIDOS_N2_OUVIDORIA = 2;
 const SLA_DIAS_CORRIDOS_PROCON = 10;
+const SLA_DIAS_UTEIS_RECLAME_AQUI = 3;
 
 /** @param {Date} instant */
 function spYmdFromInstant(instant) {
@@ -108,6 +110,9 @@ function calcularPrazoSlaPorColecao(collectionName, createdAtRef) {
   if (collectionName === 'reclamacoes_procon') {
     return prazoAutomaticoDiasCorridosUtcAposCriacao(createdAtRef, SLA_DIAS_CORRIDOS_PROCON);
   }
+  if (collectionName === 'reclamacoes_reclameAqui') {
+    return prazoAutomaticoDiasUteisSpAposCriacao(createdAtRef, SLA_DIAS_UTEIS_RECLAME_AQUI);
+  }
   return null;
 }
 
@@ -122,6 +127,7 @@ function aplicarPrazoAutomaticoPorColecao(alvo, collectionName, createdAtRef) {
   delete alvo.prazoBacen;
   delete alvo.prazoOuvidoria;
   delete alvo.prazoProcon;
+  delete alvo.prazoReclameAqui;
 
   const prazo = calcularPrazoSlaPorColecao(collectionName, createdAtRef);
   if (!prazo) return;
@@ -129,6 +135,7 @@ function aplicarPrazoAutomaticoPorColecao(alvo, collectionName, createdAtRef) {
   if (collectionName === 'reclamacoes_bacen') alvo.prazoBacen = prazo;
   else if (collectionName === 'reclamacoes_n2Pix') alvo.prazoOuvidoria = prazo;
   else if (collectionName === 'reclamacoes_procon') alvo.prazoProcon = prazo;
+  else if (collectionName === 'reclamacoes_reclameAqui') alvo.prazoReclameAqui = prazo;
 }
 
 module.exports = {
@@ -136,6 +143,7 @@ module.exports = {
   SLA_DIAS_UTEIS_BACEN,
   SLA_DIAS_CORRIDOS_N2_OUVIDORIA,
   SLA_DIAS_CORRIDOS_PROCON,
+  SLA_DIAS_UTEIS_RECLAME_AQUI,
   prazoAutomaticoDiasCorridosUtcAposCriacao,
   prazoAutomaticoDiasUteisSpAposCriacao,
   calcularPrazoSlaPorColecao,

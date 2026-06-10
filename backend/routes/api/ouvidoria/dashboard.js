@@ -1,8 +1,9 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Dashboard
- * VERSION: v2.33.7 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.33.8 | DATE: 2026-06-10 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v2.33.8: Prazo vencendo — inclui prazoReclameAqui (Reclame Aqui)
  * - v2.33.7: Prazo vencendo — inclui prazoProcon (Procon / Consumidor.gov)
  * - v2.33.6: porTipo.Procon — `ocorrenciasProcon` / `ocorrenciasConsumidorGov` (bucket alinhado a relatórios)
  * - v2.33.5: Comentário exemplo query produtos: Empréstimo Pessoal (antes Credito Pessoal)
@@ -434,7 +435,7 @@ const initDashboardRoutes = (client, connectToMongo) => {
         r.Finalizado?.Resolvido === true
       ).length;
       
-      // Prazo vencendo (prazoBacen, prazoOuvidoria ou prazoProcon <= hoje + 1 dia completo)
+      // Prazo vencendo (prazoBacen, prazoOuvidoria, prazoProcon ou prazoReclameAqui <= hoje + 1 dia completo)
       const prazoLimite = new Date(hoje);
       prazoLimite.setDate(prazoLimite.getDate() + 1);
       prazoLimite.setHours(23, 59, 59, 999);
@@ -445,7 +446,9 @@ const initDashboardRoutes = (client, connectToMongo) => {
             ? new Date(r.prazoOuvidoria)
             : r.prazoProcon
               ? new Date(r.prazoProcon)
-              : null;
+              : r.prazoReclameAqui
+                ? new Date(r.prazoReclameAqui)
+                : null;
         if (!prazo) return false;
         // Prazo vencendo: hoje <= prazo <= hoje + 1 dia completo (até 23:59:59.999)
         return prazo >= hoje && prazo <= prazoLimite;

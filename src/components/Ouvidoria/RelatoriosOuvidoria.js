@@ -1,8 +1,12 @@
 /**
  * VeloHub V3 - RelatoriosOuvidoria Component
- * VERSION: v2.18.3 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.19.3 | DATE: 2026-06-10 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v2.19.3: BACEN motivos — agregação por motivo canônico (sem duplicatas/concatenados)
+ * - v2.19.2: Tabelas de motivos (todos os tipos) ordenadas por Total decrescente
+ * - v2.19.1: Gráfico Procon — legendas «Procon» e «Consumidor.gov» (sem prefixo «Procon —»)
+ * - v2.19.0: Procon — 2 tabelas de motivos por origem (Procon / Consumidor.gov.br), ordenadas por Total decrescente; export XLSX com 2 abas
  * - v2.18.3: MOTIVOS_CONHECIDOS_FRONTEND: «Quitação automática sem chave pix»
  * - v2.18.2: Chave pix → Liberação chave pix; Portabilidade pix → Portabilidade chave pix
  * - v2.18.1: MOTIVOS_CONHECIDOS_FRONTEND: «Quitação de contrato»
@@ -426,6 +430,50 @@ const normalizarMotivoParaAgrupamento = (motivo) => {
   return normalizado;
 };
 
+/**
+ * Agrega motivosPorMes em uma linha por motivo canônico (divide concatenados e soma meses).
+ */
+const montarTabelaMotivosPorMesAgregada = (motivosPorMes, meses) => {
+  if (!Array.isArray(motivosPorMes) || motivosPorMes.length === 0 || !Array.isArray(meses)) return null;
+
+  const acumulado = new Map();
+
+  motivosPorMes.forEach((row) => {
+    if (!row?._id?.mes) return;
+    const mes = row._id.mes;
+    const count = row.count || 0;
+    const bruto = row._id.motivo ?? row._id.natureza;
+    const itensBrutos = Array.isArray(bruto) ? bruto : bruto != null ? [bruto] : [];
+
+    itensBrutos.forEach((itemBruto) => {
+      const texto = String(itemBruto || '').trim();
+      if (!texto) return;
+      dividirMotivoConcatenado(texto).forEach((parte) => {
+        const motivoCanon = normalizarMotivoParaAgrupamento(parte);
+        if (!motivoCanon) return;
+        const chave = motivoCanon.toLowerCase();
+        if (!acumulado.has(chave)) {
+          acumulado.set(chave, { motivo: motivoCanon, porMes: {} });
+        }
+        const reg = acumulado.get(chave);
+        reg.porMes[mes] = (reg.porMes[mes] || 0) + count;
+      });
+    });
+  });
+
+  if (acumulado.size === 0) return null;
+
+  const tabela = Array.from(acumulado.values())
+    .map(({ motivo, porMes }) => {
+      const valores = meses.map((m) => porMes[m] || 0);
+      const total = valores.reduce((s, v) => s + v, 0);
+      return { motivo, valores, total };
+    })
+    .sort((a, b) => b.total - a.total);
+
+  return { tabela, meses };
+};
+
 /** Acordeões independentes (evita grupo exclusivo de `<details>` no browser). Montado só onde `exibirSecaoTipo` já filtrou tipos. */
 function RelatorioSecaoAccordion({ titulo, children }) {
   const [aberto, setAberto] = useState(true);
@@ -796,7 +844,7 @@ const RelatoriosOuvidoria = () => {
         const corConsumidorGov = '#006AB9';
         return [
           criarDatasetLinha(
-            'Procon — Procon',
+            'Procon',
             meses.map((mes) => {
               const item = origensProcon.find((d) => d && d._id && d._id.mes === mes && d._id.origem === 'Procon');
               return item ? item.count || 0 : 0;
@@ -804,7 +852,7 @@ const RelatoriosOuvidoria = () => {
             corProcon
           ),
           criarDatasetLinha(
-            'Procon — Consumidor.gov.br',
+            'Consumidor.gov',
             meses.map((mes) => {
               const item = origensProcon.find(
                 (d) => d && d._id && d._id.mes === mes && d._id.origem === 'Consumidor.gov.br'
@@ -1040,53 +1088,8 @@ const RelatoriosOuvidoria = () => {
    * Processar motivos BACEN
    */
   const processarMotivosBacen = useMemo(() => {
-    if (!dadosDetalhados?.bacen?.motivosPorMes || !Array.isArray(dadosDetalhados.bacen.motivosPorMes)) return null;
-
-    const meses = gerarMesesNoPeriodo;
-    const dadosParaProcessar = dadosDetalhados.bacen.motivosPorMes;
-    if (!Array.isArray(dadosParaProcessar) || dadosParaProcessar.length === 0) return null;
-    
-    // Verificar se os dados estão usando 'natureza' ao invés de 'motivo' (erro no backend)
-    const primeiroItem = dadosParaProcessar[0];
-    if (primeiroItem && primeiroItem._id && primeiroItem._id.natureza) {
-      // Se os dados têm 'natureza' ao invés de 'motivo', há um erro no backend
-      // Mas vamos processar mesmo assim para não quebrar a interface
-      console.warn('⚠️ AVISO: motivosPorMes está retornando dados de natureza. Verifique o backend.');
-      const motivosUnicos = [...new Set(dadosParaProcessar.map(d => d?._id?.natureza).filter(Boolean))];
-      if (motivosUnicos.length === 0) return null;
-      
-      const tabela = motivosUnicos.map(motivo => {
-        const valores = meses.map(mes => {
-          if (!Array.isArray(dadosParaProcessar)) return 0;
-          const item = dadosParaProcessar.find(
-            d => d && d._id && d._id.mes === mes && d._id.natureza === motivo
-          );
-          return item ? (item.count || 0) : 0;
-        });
-        const total = valores.reduce((sum, val) => sum + val, 0);
-        return { motivo, valores, total };
-      });
-
-      return { tabela, meses };
-    }
-    
-    // Processamento normal com 'motivo'
-    const motivosUnicos = [...new Set(dadosParaProcessar.map(d => d?._id?.motivo).filter(Boolean))];
-    if (motivosUnicos.length === 0) return null;
-    
-    const tabela = motivosUnicos.map(motivo => {
-        const valores = meses.map(mes => {
-          if (!Array.isArray(dadosParaProcessar)) return 0;
-          const item = dadosParaProcessar.find(
-            d => d && d._id && d._id.mes === mes && d._id.motivo === motivo
-          );
-          return item ? (item.count || 0) : 0;
-        });
-      const total = valores.reduce((sum, val) => sum + val, 0);
-      return { motivo, valores, total };
-    });
-
-    return { tabela, meses };
+    if (!dadosDetalhados?.bacen?.motivosPorMes) return null;
+    return montarTabelaMotivosPorMesAgregada(dadosDetalhados.bacen.motivosPorMes, gerarMesesNoPeriodo);
   }, [dadosDetalhados, gerarMesesNoPeriodo]);
 
   /**
@@ -1112,7 +1115,7 @@ const RelatoriosOuvidoria = () => {
       });
       const total = valores.reduce((sum, val) => sum + val, 0);
       return { motivo, valores, total };
-    });
+    }).sort((a, b) => b.total - a.total);
 
     return { tabela, meses };
   }, [dadosDetalhados, gerarMesesNoPeriodo]);
@@ -1140,38 +1143,51 @@ const RelatoriosOuvidoria = () => {
       });
       const total = valores.reduce((sum, val) => sum + val, 0);
       return { motivo, valores, total };
-    });
+    }).sort((a, b) => b.total - a.total);
 
     return { tabela, meses };
   }, [dadosDetalhados, gerarMesesNoPeriodo]);
 
   /**
-   * Processar motivos Procon
+   * Processar motivos Procon por origem canônica (Procon | Consumidor.gov.br)
    */
-  const processarMotivosProcon = useMemo(() => {
+  const processarMotivosProconPorOrigem = (origemCanonica) => {
     if (!dadosDetalhados?.procon?.motivosPorMes || !Array.isArray(dadosDetalhados.procon.motivosPorMes)) return null;
 
     const meses = gerarMesesNoPeriodo;
-    const motivosPorMes = dadosDetalhados.procon.motivosPorMes;
+    const motivosPorMes = dadosDetalhados.procon.motivosPorMes.filter(
+      (d) => d && d._id && d._id.origem === origemCanonica
+    );
     if (motivosPorMes.length === 0) return null;
 
-    const motivosUnicos = [...new Set(motivosPorMes.map(d => d?._id?.motivo).filter(Boolean))];
+    const motivosUnicos = [...new Set(motivosPorMes.map((d) => d?._id?.motivo).filter(Boolean))];
     if (motivosUnicos.length === 0) return null;
-    
-    const tabela = motivosUnicos.map(motivo => {
-      const valores = meses.map(mes => {
-        if (!Array.isArray(motivosPorMes)) return 0;
-        const item = motivosPorMes.find(
-          d => d && d._id && d._id.mes === mes && d._id.motivo === motivo
-        );
-        return item ? (item.count || 0) : 0;
-      });
-      const total = valores.reduce((sum, val) => sum + val, 0);
-      return { motivo, valores, total };
-    });
 
-    return { tabela, meses };
-  }, [dadosDetalhados, gerarMesesNoPeriodo]);
+    const tabela = motivosUnicos
+      .map((motivo) => {
+        const valores = meses.map((mes) => {
+          const item = motivosPorMes.find(
+            (d) => d && d._id && d._id.mes === mes && d._id.motivo === motivo
+          );
+          return item ? item.count || 0 : 0;
+        });
+        const total = valores.reduce((sum, val) => sum + val, 0);
+        return { motivo, valores, total };
+      })
+      .sort((a, b) => b.total - a.total);
+
+    return { tabela, meses, origem: origemCanonica };
+  };
+
+  const processarMotivosProconOrigemProcon = useMemo(
+    () => processarMotivosProconPorOrigem('Procon'),
+    [dadosDetalhados, gerarMesesNoPeriodo]
+  );
+
+  const processarMotivosProconOrigemConsumidorGov = useMemo(
+    () => processarMotivosProconPorOrigem('Consumidor.gov.br'),
+    [dadosDetalhados, gerarMesesNoPeriodo]
+  );
 
   /**
    * Tabela Origens (Procon): duas linhas canônicas × meses
@@ -1216,7 +1232,7 @@ const RelatoriosOuvidoria = () => {
       });
       const total = valores.reduce((sum, val) => sum + val, 0);
       return { motivo, valores, total };
-    });
+    }).sort((a, b) => b.total - a.total);
 
     return { tabela, meses };
   }, [dadosDetalhados, gerarMesesNoPeriodo]);
@@ -1341,14 +1357,24 @@ const RelatoriosOuvidoria = () => {
         XLSX.utils.book_append_sheet(wb, wsOrigProcon, 'PROCON - Origens');
       }
 
-      if (tipoIncluido('PROCON') && processarMotivosProcon) {
+      if (tipoIncluido('PROCON') && processarMotivosProconOrigemProcon) {
         const dadosMotivosProcon = [];
-        dadosMotivosProcon.push(['Motivo', ...processarMotivosProcon.meses.map(formatarMes), 'Total']);
-        processarMotivosProcon.tabela.forEach((linha) => {
+        dadosMotivosProcon.push(['Motivo', ...processarMotivosProconOrigemProcon.meses.map(formatarMes), 'Total']);
+        processarMotivosProconOrigemProcon.tabela.forEach((linha) => {
           dadosMotivosProcon.push([linha.motivo, ...linha.valores, linha.total]);
         });
         const wsMotivosProcon = XLSX.utils.aoa_to_sheet(dadosMotivosProcon);
-        XLSX.utils.book_append_sheet(wb, wsMotivosProcon, 'PROCON - Motivos');
+        XLSX.utils.book_append_sheet(wb, wsMotivosProcon, 'PROCON - Motivos Procon');
+      }
+
+      if (tipoIncluido('PROCON') && processarMotivosProconOrigemConsumidorGov) {
+        const dadosMotivosGov = [];
+        dadosMotivosGov.push(['Motivo', ...processarMotivosProconOrigemConsumidorGov.meses.map(formatarMes), 'Total']);
+        processarMotivosProconOrigemConsumidorGov.tabela.forEach((linha) => {
+          dadosMotivosGov.push([linha.motivo, ...linha.valores, linha.total]);
+        });
+        const wsMotivosGov = XLSX.utils.aoa_to_sheet(dadosMotivosGov);
+        XLSX.utils.book_append_sheet(wb, wsMotivosGov, 'PROCON - Motivos Consumidor.gov');
       }
 
       if (tipoIncluido('PROCESSOS') && processarMotivosJudicial) {
@@ -2013,19 +2039,19 @@ const RelatoriosOuvidoria = () => {
             </div>
             )}
 
-          {/* Tabela Motivos Procon */}
-          {processarMotivosProcon && (
+          {/* Tabela Motivos Procon — origem Procon */}
+          {processarMotivosProconOrigemProcon && (
             <div
               className="container-secondary mb-6"
               style={{ borderColor: 'var(--blue-opaque)' }}
             >
-              <h3 className="text-lg font-semibold mb-4">Motivos</h3>
+              <h3 className="text-lg font-semibold mb-4">Motivos — Procon</h3>
               <div className={`overflow-x-auto ${gerarMesesNoPeriodo.length > 6 ? 'overflow-x-scroll' : ''}`}>
                 <table className="w-full border-collapse min-w-full">
                   <thead>
                     <tr>
                       <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left text-sm font-medium">Motivo</th>
-                      {processarMotivosProcon.meses.map(mes => (
+                      {processarMotivosProconOrigemProcon.meses.map(mes => (
                         <th key={mes} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
                           {formatarMes(mes)}
                         </th>
@@ -2034,7 +2060,47 @@ const RelatoriosOuvidoria = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {processarMotivosProcon.tabela.map((linha, index) => (
+                    {processarMotivosProconOrigemProcon.tabela.map((linha, index) => (
+                      <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm">{linha.motivo}</td>
+                        {linha.valores.map((valor, idx) => (
+                          <td key={idx} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm whitespace-nowrap">
+                            {valor}
+                          </td>
+                        ))}
+                        <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-semibold">
+                          {linha.total}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Tabela Motivos Procon — origem Consumidor.gov.br */}
+          {processarMotivosProconOrigemConsumidorGov && (
+            <div
+              className="container-secondary mb-6"
+              style={{ borderColor: 'var(--blue-opaque)' }}
+            >
+              <h3 className="text-lg font-semibold mb-4">Motivos — Consumidor.gov.br</h3>
+              <div className={`overflow-x-auto ${gerarMesesNoPeriodo.length > 6 ? 'overflow-x-scroll' : ''}`}>
+                <table className="w-full border-collapse min-w-full">
+                  <thead>
+                    <tr>
+                      <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left text-sm font-medium">Motivo</th>
+                      {processarMotivosProconOrigemConsumidorGov.meses.map(mes => (
+                        <th key={mes} className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium whitespace-nowrap">
+                          {formatarMes(mes)}
+                        </th>
+                      ))}
+                      <th className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-center text-sm font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {processarMotivosProconOrigemConsumidorGov.tabela.map((linha, index) => (
                       <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                         <td className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm">{linha.motivo}</td>
                         {linha.valores.map((valor, idx) => (

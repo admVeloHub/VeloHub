@@ -1,8 +1,10 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Relatórios
- * VERSION: v2.31.1 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.32.1 | DATE: 2026-06-10 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v2.32.1: BACEN motivosPorMes — unwind array, dividir concatenados e reagrupar (alinhado a N2/Procon)
+ * - v2.32.0: Procon motivosPorMes com _id.origem (bucket canônico); GET /relatorios CPF integral para exportação
  * - v2.31.1: MOTIVOS_VALIDOS / MOTIVOS_CONHECIDOS: «Quitação automática sem chave pix»
  * - v2.31.0: MOTIVOS_VALIDOS: Portabilidade chave pix; removido Chave pix
  * - v2.30.9: MOTIVOS_VALIDOS: Encerramento cta Celcoin / Encerramento cta App (canônico)
@@ -616,7 +618,7 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         reclamacoes: reclamacoes.map(r => ({
           _id: r._id,
           nome: r.nome,
-          cpf: r.cpf ? r.cpf.substring(0, 3) + '***' + r.cpf.substring(9) : '', // CPF parcial
+          cpf: r.cpf ? String(r.cpf).replace(/\D/g, '') : '',
           tipo: r.tipo,
           status: r.Finalizado?.Resolvido === true ? 'Resolvido' : 'Em Andamento',
           dataEntrada: (r.tipo === 'OUVIDORIA' || r.tipo === 'N2' || r.tipo === 'N2 Pix') ? r.dataEntradaN2 : (r.tipo === 'RECLAME AQUI' ? r.dataReclam : r.tipo === 'PROCON' ? r.dataProcon : r.dataEntrada),
@@ -779,16 +781,29 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         }
       ]).toArray();
 
-      // Motivos por mês - data de ENTRADA (nunca createdAt)
-      const motivosPorMesBacen = await bacenCollection.aggregate([
+      // Motivos por mês - data de ENTRADA (nunca createdAt); unwind + split concatenados
+      const motivosPorMesBacenRaw = await bacenCollection.aggregate([
         {
           $match: {
             dataEntrada: { $exists: true, $ne: null, $gte: dataInicioDate, $lte: dataFimDate },
-            motivoReduzido: { $exists: true, $ne: '' }
+            motivoReduzido: { $exists: true, $ne: null }
           }
         },
         {
           $addFields: {
+            motivoReduzidoArray: {
+              $cond: {
+                if: { $isArray: '$motivoReduzido' },
+                then: '$motivoReduzido',
+                else: {
+                  $cond: {
+                    if: { $eq: [{ $type: '$motivoReduzido' }, 'string'] },
+                    then: ['$motivoReduzido'],
+                    else: []
+                  }
+                }
+              }
+            },
             dataEntradaDate: {
               $cond: {
                 if: { $eq: [{ $type: '$dataEntrada' }, 'date'] },
@@ -799,18 +814,50 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
           }
         },
         {
-          $group: {
-            _id: {
-              mes: { $dateToString: { format: '%Y-%m', date: '$dataEntradaDate' } },
-              motivo: '$motivoReduzido'
-            },
-            count: { $sum: 1 }
+          $unwind: {
+            path: '$motivoReduzidoArray',
+            preserveNullAndEmptyArrays: false
           }
         },
         {
-          $sort: { '_id.mes': 1, '_id.motivo': 1 }
+          $project: {
+            mes: { $dateToString: { format: '%Y-%m', date: '$dataEntradaDate' } },
+            motivo: '$motivoReduzidoArray'
+          }
         }
       ]).toArray();
+
+      const motivosPorMesBacenMap = new Map();
+      motivosPorMesBacenRaw.forEach((item) => {
+        if (!item || !item.motivo || !item.mes) return;
+        try {
+          const motivosIndividuais = processarMotivosParaRelatorio(item.motivo);
+          if (Array.isArray(motivosIndividuais)) {
+            motivosIndividuais.forEach((motivo) => {
+              if (!motivo || typeof motivo !== 'string' || !motivo.trim()) return;
+              const canon = motivo.trim();
+              if (isOrigemBacen(canon)) return;
+              const key = `${item.mes}|${canon}`;
+              motivosPorMesBacenMap.set(key, (motivosPorMesBacenMap.get(key) || 0) + 1);
+            });
+          }
+        } catch (error) {
+          console.error('❌ Erro ao processar motivo BACEN:', error, item);
+        }
+      });
+
+      const motivosPorMesBacen = Array.from(motivosPorMesBacenMap.entries()).map(([key, count]) => {
+        const parts = key.split('|');
+        const mes = parts[0];
+        const motivo = parts.slice(1).join('|');
+        return {
+          _id: { mes, motivo },
+          count
+        };
+      }).sort((a, b) => {
+        if (a._id.mes !== b._id.mes) return a._id.mes.localeCompare(b._id.mes);
+        return a._id.motivo.localeCompare(b._id.motivo);
+      });
 
         resultado.bacen = {
           naturezaPorMes: naturezaPorMes || [],
@@ -1202,21 +1249,23 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
           {
             $project: {
               mes: { $dateToString: { format: '%Y-%m', date: '$dataProconDate' } },
-              motivo: '$motivoReduzidoArray'
+              motivo: '$motivoReduzidoArray',
+              origemRaw: { $ifNull: ['$origem', ''] }
             }
           }
         ]).toArray();
 
-        // Processar motivos concatenados e reagrupar
+        // Processar motivos concatenados e reagrupar (com origem canônica)
         const motivosPorMesProconMap = new Map();
         motivosPorMesProconRaw.forEach(item => {
           if (!item || !item.motivo || !item.mes) return;
+          const origem = bucketOrigemProconRelatorio(item.origemRaw);
           try {
             const motivosIndividuais = processarMotivosParaRelatorio(item.motivo);
             if (Array.isArray(motivosIndividuais)) {
               motivosIndividuais.forEach(motivo => {
                 if (motivo && typeof motivo === 'string' && motivo.trim()) {
-                  const key = `${item.mes}|${motivo.trim()}`;
+                  const key = `${item.mes}|${motivo.trim()}|${origem}`;
                   motivosPorMesProconMap.set(key, (motivosPorMesProconMap.get(key) || 0) + 1);
                 }
               });
@@ -1227,13 +1276,19 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
         });
 
         const motivosPorMesProcon = Array.from(motivosPorMesProconMap.entries()).map(([key, count]) => {
-          const [mes, motivo] = key.split('|');
+          const parts = key.split('|');
+          const mes = parts[0];
+          const origem = parts[parts.length - 1];
+          const motivo = parts.slice(1, -1).join('|');
           return {
-            _id: { mes, motivo },
+            _id: { mes, motivo, origem },
             count
           };
         }).sort((a, b) => {
           if (a._id.mes !== b._id.mes) return a._id.mes.localeCompare(b._id.mes);
+          if (String(a._id.origem || '') !== String(b._id.origem || '')) {
+            return String(a._id.origem || '').localeCompare(String(b._id.origem || ''));
+          }
           return a._id.motivo.localeCompare(b._id.motivo);
         });
 
@@ -1587,11 +1642,14 @@ const initRelatoriosRoutes = (client, connectToMongo) => {
               ? d.motivoReduzido.filter((m) => m && String(m).trim())
               : d.motivoReduzido ? [String(d.motivoReduzido).trim()] : [];
             motivosArr.forEach((m) => {
-              const motivo = String(m).trim();
-              if (!motivo) return;
-              if (isOrigemBacen(motivo)) return;
-              if (!motivosPorDiaMap[motivo]) motivosPorDiaMap[motivo] = {};
-              motivosPorDiaMap[motivo][dia] = (motivosPorDiaMap[motivo][dia] || 0) + 1;
+              const individuais = processarMotivosParaRelatorio(m);
+              individuais.forEach((motivoRaw) => {
+                const motivo = String(motivoRaw || '').trim();
+                if (!motivo) return;
+                if (isOrigemBacen(motivo)) return;
+                if (!motivosPorDiaMap[motivo]) motivosPorDiaMap[motivo] = {};
+                motivosPorDiaMap[motivo][dia] = (motivosPorDiaMap[motivo][dia] || 0) + 1;
+              });
             });
           });
           motivosPorDia = [];

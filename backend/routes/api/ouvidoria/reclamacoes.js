@@ -740,7 +740,7 @@ async function demoteFormerSuperiors(db, cpfLimpo, newTopId, newTopCollectionNam
 /** Lista de campos que devem ser Date (não string) */
 const CAMPOS_DATA = [
   'dataEntrada', 'dataEntradaN2', 'dataReclam', 'dataProcon',
-  'prazoBacen', 'prazoOuvidoria', 'prazoProcon', 'processoEncaminhadoData', 'dataProcessoEncerrado',
+  'prazoBacen', 'prazoOuvidoria', 'prazoProcon', 'prazoReclameAqui', 'processoEncaminhadoData', 'dataProcessoEncerrado',
   'dataAudiencia', 'dataEntradaProcesso'
 ];
 

@@ -1,6 +1,7 @@
 /**
  * Gera planilha XLSX do relatório de ouvidoria (aba Reclamações), alinhada ao GET /api/ouvidoria/relatorios
- * VERSION: v1.0.0 | DATE: 2026-04-10 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.1.0 | DATE: 2026-06-10 | AUTHOR: VeloHub Development Team
+ * - v1.1.0: CPF integral na aba Reclamações (sem mascaramento)
  *
  * Uso:
  *   node backend/scripts/gerar-relatorio-ouvidoria-xlsx.js [dataInicio] [dataFim] [caminhoSaida.xlsx]
@@ -147,7 +148,7 @@ async function main() {
   const rows = reclamacoes.map((r, index) => {
     const dataEntrada =
       r.tipo === 'N2 Pix' ? r.dataEntradaN2 : r.tipo === 'RECLAME AQUI' ? r.dataReclam : r.tipo === 'PROCON' ? r.dataProcon : r.dataEntrada;
-    const cpf = r.cpf ? `${String(r.cpf).replace(/\D/g, '').slice(0, 3)}***${String(r.cpf).replace(/\D/g, '').slice(9)}` : '';
+    const cpf = r.cpf ? String(r.cpf).replace(/\D/g, '') : '';
     const dr = extrairDataResolucaoRelatorio(r);
     return {
       '#': index + 1,

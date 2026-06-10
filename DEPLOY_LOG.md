@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.32 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.33 | DATE: 2026-06-10 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,27 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push — Ouvidoria: relatórios Procon, CPF export, SLA Reclame Aqui**
+- **Data/Hora**: 2026-06-10
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: relatorios.js v2.32.1, RelatoriosOuvidoria v2.19.3, AnaliseDiaria v2.9.0, slaOuvidoriaPrazo v1.1.0, dateUtils v1.3.0, dashboard.js v2.33.8, backfill-sla-ouvidoria-prazos v1.1.0, DEPLOY_LOG v1.1.33
+- **Arquivos Modificados**:
+  - `backend/routes/api/ouvidoria/relatorios.js`
+  - `backend/routes/api/ouvidoria/reclamacoes.js`
+  - `backend/routes/api/ouvidoria/dashboard.js`
+  - `backend/utils/slaOuvidoriaPrazo.js`
+  - `backend/scripts/backfill-sla-ouvidoria-prazos.js` (novo)
+  - `backend/scripts/gerar-relatorio-ouvidoria-xlsx.js`
+  - `backend/scripts/normalizar-datas-string-para-date.js`
+  - `src/components/Ouvidoria/RelatoriosOuvidoria.js`
+  - `src/components/Ouvidoria/AnaliseDiaria.js`
+  - `src/components/Ouvidoria/FormReclamacaoEdit.js`
+  - `src/utils/slaOuvidoriaPrazo.js`
+  - `src/utils/dateUtils.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Relatórios Procon — motivos separados por origem (Procon / Consumidor.gov), legendas do gráfico simplificadas, ordenação decrescente em todas as tabelas de motivos e agregação BACEN (split de concatenados). Exportação XLSX com CPF integral na aba Reclamações. SLA Reclame Aqui (3 dias úteis, badge e dashboard). Script de backfill unificado de prazos SLA (bulkWrite).
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push — VeloBot: prod legado; RAG GPT só local**
 - **Data/Hora**: 2026-06-08

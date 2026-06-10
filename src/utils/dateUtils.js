@@ -1,8 +1,9 @@
 /**
  * VeloHub V3 - dateUtils
- * VERSION: v1.2.0 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.3.0 | DATE: 2026-06-10 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.3.0: SLA — Reclame Aqui (prazoReclameAqui)
  * - v1.2.0: SLA — BACEN (prazoBacen), N2 (prazoOuvidoria), Procon (prazoProcon)
  * - v1.1.0: SLA Ouvidoria: helpers para badge nas listagens (prazoBacen / prazoOuvidoria), comparação por dia civil local
  */
@@ -58,7 +59,7 @@ export const hojeYyyyMmDdLocal = () => {
   return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
 };
 
-/** BACEN, N2 Pix e Procon possuem prazo no schema (prazoBacen / prazoOuvidoria / prazoProcon). */
+/** BACEN, N2 Pix, Procon e Reclame Aqui possuem prazo no schema. */
 export const reclamacaoTemCampoPrazoSla = (tipo) => {
   const raw = String(tipo || '').trim();
   const u = raw.toUpperCase();
@@ -67,12 +68,13 @@ export const reclamacaoTemCampoPrazoSla = (tipo) => {
   if (u === 'N2' || u === 'N2 & PIX' || u === 'N2&PIX') return true;
   if (raw === 'N2 Pix' || raw === 'Ouvidoria') return true;
   if (u === 'PROCON' || raw === 'Procon') return true;
+  if (u === 'RECLAME AQUI' || u === 'RECLAME_AQUI' || u === 'RECLAMEAQUI') return true;
   return false;
 };
 
 export const getPrazoRawReclamacao = (r) => {
   if (!r) return null;
-  return r.prazoBacen || r.prazoOuvidoria || r.prazoProcon || null;
+  return r.prazoBacen || r.prazoOuvidoria || r.prazoProcon || r.prazoReclameAqui || null;
 };
 
 /**

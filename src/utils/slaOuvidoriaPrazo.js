@@ -1,8 +1,9 @@
 /**
  * VeloHub V3 — SLA automático Ouvidoria (prazos por tipo de reclamação)
- * VERSION: v1.0.0 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.1.0 | DATE: 2026-06-10 | AUTHOR: VeloHub Development Team
  *
  * Espelho do backend/utils/slaOuvidoriaPrazo.js para prévia em formulários.
+ * - v1.1.0: Reclame Aqui — 3 dias úteis (prazoReclameAqui)
  */
 
 const SP_TZ = 'America/Sao_Paulo';
@@ -10,6 +11,7 @@ const SP_TZ = 'America/Sao_Paulo';
 export const SLA_DIAS_UTEIS_BACEN = 10;
 export const SLA_DIAS_CORRIDOS_N2_OUVIDORIA = 2;
 export const SLA_DIAS_CORRIDOS_PROCON = 10;
+export const SLA_DIAS_UTEIS_RECLAME_AQUI = 3;
 
 /** @param {Date} instant */
 function spYmdFromInstant(instant) {
@@ -100,6 +102,9 @@ export function calcularPrazoSlaPorTipoNorm(tipoNorm, createdAt) {
   if (t === 'PROCON') {
     return prazoAutomaticoDiasCorridosUtcAposCriacao(createdAt, SLA_DIAS_CORRIDOS_PROCON);
   }
+  if (t === 'RECLAME_AQUI' || t === 'RECLAME AQUI') {
+    return prazoAutomaticoDiasUteisSpAposCriacao(createdAt, SLA_DIAS_UTEIS_RECLAME_AQUI);
+  }
   return null;
 }
 
@@ -116,6 +121,7 @@ export function dataPrazoAutomaticoYmdParaExibicao(tipoNorm, rec) {
   if (t === 'BACEN') salvo = rec.prazoBacen;
   else if (t === 'OUVIDORIA' || t === 'N2 PIX' || t === 'N2') salvo = rec.prazoOuvidoria;
   else if (t === 'PROCON') salvo = rec.prazoProcon;
+  else if (t === 'RECLAME_AQUI' || t === 'RECLAME AQUI') salvo = rec.prazoReclameAqui;
 
   if (salvo) {
     try {
