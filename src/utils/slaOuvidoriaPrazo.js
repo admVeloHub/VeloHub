@@ -1,8 +1,10 @@
 /**
  * VeloHub V3 — SLA automático Ouvidoria (prazos por tipo de reclamação)
- * VERSION: v1.1.0 | DATE: 2026-06-10 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.3.0 | DATE: 2026-06-12 | AUTHOR: VeloHub Development Team
  *
  * Espelho do backend/utils/slaOuvidoriaPrazo.js para prévia em formulários.
+ * - v1.3.0: Procon — prazo a partir de dataProcon (não createdAt)
+ * - v1.2.0: BACEN — prazo a partir de dataEntrada (não createdAt)
  * - v1.1.0: Reclame Aqui — 3 dias úteis (prazoReclameAqui)
  */
 
@@ -89,27 +91,41 @@ export function prazoAutomaticoDiasUteisSpAposCriacao(createdAt, diasUteis) {
 }
 
 /**
+ * @param {string} tipoNorm
+ * @param {Record<string, unknown>|null|undefined} rec
+ * @returns {Date|string|null|undefined}
+ */
+export function dataReferenciaSlaPorTipoNorm(tipoNorm, rec) {
+  if (!rec) return null;
+  const t = String(tipoNorm || '').toUpperCase();
+  if (t === 'BACEN') return rec.dataEntrada ?? null;
+  if (t === 'PROCON') return rec.dataProcon ?? null;
+  return rec.createdAt ?? null;
+}
+
+/**
  * @param {string} tipoNorm — BACEN | OUVIDORIA | PROCON
- * @param {Date|string|null|undefined} createdAt
+ * @param {Date|string|null|undefined} dataReferencia
  * @returns {Date|null}
  */
-export function calcularPrazoSlaPorTipoNorm(tipoNorm, createdAt) {
+export function calcularPrazoSlaPorTipoNorm(tipoNorm, dataReferencia) {
+  if (!dataReferencia) return null;
   const t = String(tipoNorm || '').toUpperCase();
-  if (t === 'BACEN') return prazoAutomaticoDiasUteisSpAposCriacao(createdAt, SLA_DIAS_UTEIS_BACEN);
+  if (t === 'BACEN') return prazoAutomaticoDiasUteisSpAposCriacao(dataReferencia, SLA_DIAS_UTEIS_BACEN);
   if (t === 'OUVIDORIA' || t === 'N2 PIX' || t === 'N2') {
-    return prazoAutomaticoDiasCorridosUtcAposCriacao(createdAt, SLA_DIAS_CORRIDOS_N2_OUVIDORIA);
+    return prazoAutomaticoDiasCorridosUtcAposCriacao(dataReferencia, SLA_DIAS_CORRIDOS_N2_OUVIDORIA);
   }
   if (t === 'PROCON') {
-    return prazoAutomaticoDiasCorridosUtcAposCriacao(createdAt, SLA_DIAS_CORRIDOS_PROCON);
+    return prazoAutomaticoDiasCorridosUtcAposCriacao(dataReferencia, SLA_DIAS_CORRIDOS_PROCON);
   }
   if (t === 'RECLAME_AQUI' || t === 'RECLAME AQUI') {
-    return prazoAutomaticoDiasUteisSpAposCriacao(createdAt, SLA_DIAS_UTEIS_RECLAME_AQUI);
+    return prazoAutomaticoDiasUteisSpAposCriacao(dataReferencia, SLA_DIAS_UTEIS_RECLAME_AQUI);
   }
   return null;
 }
 
 /**
- * YYYY-MM-DD do prazo salvo ou derivado de createdAt (prévia em edição).
+ * YYYY-MM-DD do prazo salvo ou derivado da data de referência (prévia em edição).
  * @param {string} tipoNorm
  * @param {Record<string, unknown>|null|undefined} rec
  * @returns {string}
@@ -117,6 +133,13 @@ export function calcularPrazoSlaPorTipoNorm(tipoNorm, createdAt) {
 export function dataPrazoAutomaticoYmdParaExibicao(tipoNorm, rec) {
   if (!rec) return '';
   const t = String(tipoNorm || '').toUpperCase();
+
+  const ref = dataReferenciaSlaPorTipoNorm(t, rec);
+  if (ref) {
+    const prazo = calcularPrazoSlaPorTipoNorm(t, ref);
+    if (prazo && !Number.isNaN(prazo.getTime())) return prazo.toISOString().split('T')[0];
+  }
+
   let salvo = null;
   if (t === 'BACEN') salvo = rec.prazoBacen;
   else if (t === 'OUVIDORIA' || t === 'N2 PIX' || t === 'N2') salvo = rec.prazoOuvidoria;
@@ -131,8 +154,5 @@ export function dataPrazoAutomaticoYmdParaExibicao(tipoNorm, rec) {
       /* ignore */
     }
   }
-  if (!rec.createdAt) return '';
-  const prazo = calcularPrazoSlaPorTipoNorm(t, rec.createdAt);
-  if (!prazo || Number.isNaN(prazo.getTime())) return '';
-  return prazo.toISOString().split('T')[0];
+  return '';
 }

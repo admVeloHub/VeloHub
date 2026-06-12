@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.33 | DATE: 2026-06-10 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.34 | DATE: 2026-06-12 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,21 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push — Ouvidoria: SLA BACEN/Procon baseado na data de entrada**
+- **Data/Hora**: 2026-06-12
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: slaOuvidoriaPrazo v1.3.0 (backend/frontend), reclamacoes.js v2.35.0, backfill-sla-ouvidoria-prazos v1.3.0, FormReclamacaoEdit v1.54.0, FormReclamacao (comentários SLA), DEPLOY_LOG v1.1.34
+- **Arquivos Modificados**:
+  - `backend/utils/slaOuvidoriaPrazo.js`
+  - `backend/routes/api/ouvidoria/reclamacoes.js`
+  - `backend/scripts/backfill-sla-ouvidoria-prazos.js`
+  - `src/utils/slaOuvidoriaPrazo.js`
+  - `src/components/Ouvidoria/FormReclamacaoEdit.js`
+  - `src/components/Ouvidoria/FormReclamacao.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Corrige base de cálculo do SLA automático — BACEN usa `dataEntrada` (10 dias úteis SP) e Procon usa `dataProcon` (10 dias corridos UTC), em vez de `createdAt`. API POST/PUT, backfill e prévia nos formulários alinhados.
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push — Ouvidoria: relatórios Procon, CPF export, SLA Reclame Aqui**
 - **Data/Hora**: 2026-06-10

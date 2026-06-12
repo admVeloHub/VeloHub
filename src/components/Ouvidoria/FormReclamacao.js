@@ -3,7 +3,7 @@
  * VERSION: v3.56.0 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
  *
  * Mudanças v3.56.0:
- * - Comentários SLA: BACEN 10 dias úteis; Procon 10 dias corridos; N2 inalterado (+2 corridos)
+ * - Comentários SLA: BACEN 10 dias úteis após dataEntrada; Procon 10 dias corridos após dataProcon; N2 inalterado (+2 corridos)
  *
  * Mudanças v3.55.1:
  * - MOTIVOS_* importados de utils/ouvidoriaMotivoOpcoes (fonte única)
@@ -90,7 +90,7 @@
  * - MOTIVOS_REDUZIDOS / MOTIVOS_RECLAME_AQUI: opção «Elegibilidade»
  *
  * Mudanças v3.47.12:
- * - Comentário SLA BACEN: prazo na API (+10 dias após createdAt UTC)
+ * - Comentário SLA BACEN: prazo na API (+10 dias úteis após dataEntrada)
  *
  * Mudanças v3.47.11:
  * - Estado inicial (sem tipo): removido parágrafo «Selecione o tipo de ocorrência para abrir o formulário»; chips permanecem com `aria-label` no radiogroup
@@ -1439,7 +1439,7 @@ const FormReclamacao = ({
           </div>
         </div>
 
-        {/* Linha 2: Motivo (prazo BACEN é automático na API: +10 dias úteis após createdAt) */}
+        {/* Linha 2: Motivo (prazo BACEN é automático na API: +10 dias úteis após dataEntrada) */}
         <div className="mb-4">
           {renderCampoMotivo(
             MOTIVOS_REDUZIDOS,
@@ -2736,7 +2736,7 @@ const FormReclamacao = ({
             )}
           </div>
 
-          {/* Prazo Procon/Consumidor.gov: automático na API (+10 dias corridos após createdAt) */}
+          {/* Prazo Procon/Consumidor.gov: automático na API (+10 dias corridos após dataProcon) */}
 
           {/* Linha 3: Descrição */}
           <div className="mb-4">

@@ -1,8 +1,10 @@
 /**
  * VeloHub V3 - Ouvidoria API Routes - Reclamações
- * VERSION: v2.33.0 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
+ * VERSION: v2.35.0 | DATE: 2026-06-12 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v2.35.0: SLA Procon — prazoProcon calculado a partir de dataProcon (não createdAt)
+ * - v2.34.0: SLA BACEN — prazoBacen calculado a partir de dataEntrada (não createdAt)
  * - v2.33.0: SLA — BACEN 10 dias úteis (SP); Procon 10 dias corridos (prazoProcon); N2 inalterado (+2 corridos UTC)
  * - v2.32.3: GET /reclamacoes filtro motivo — legado Chave pix / Portabilidade pix (pré-migração)
  * - v2.32.2: GET /reclamacoes filtro motivo — canônico + variantes legadas encerramento (até migração base)
@@ -1554,7 +1556,7 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
 
       Object.assign(documento, syncNativoParaBloco792(documento, tipo));
 
-      aplicarPrazoAutomaticoPorColecao(documento, collection.collectionName, documento.createdAt);
+      aplicarPrazoAutomaticoPorColecao(documento, collection.collectionName);
 
       let resultado;
       if (fusaoPendenteBloc) {
@@ -1820,7 +1822,7 @@ const initReclamacoesRoutes = (client, connectToMongo, services = {}) => {
 
       Object.assign(updateDoc, aplicarSyncProtocolosNoPayload(existente, updateDoc, tipo));
 
-      aplicarPrazoAutomaticoPorColecao(updateDoc, collection.collectionName, existente.createdAt);
+      aplicarPrazoAutomaticoPorColecao(updateDoc, collection.collectionName, existente);
 
       const resultado = await collection.updateOne(
         { _id: new ObjectId(id) },

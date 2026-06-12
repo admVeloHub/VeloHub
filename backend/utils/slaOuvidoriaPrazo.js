@@ -1,10 +1,10 @@
 /**
  * VeloHub V3 — SLA automático Ouvidoria (prazos por tipo de reclamação)
- * VERSION: v1.1.0 | DATE: 2026-06-10 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.3.0 | DATE: 2026-06-12 | AUTHOR: VeloHub Development Team
  *
- * - BACEN: 10 dias úteis (seg–sex, calendário America/Sao_Paulo) após createdAt
+ * - BACEN: 10 dias úteis (seg–sex, calendário America/Sao_Paulo) após dataEntrada
  * - N2/Ouvidoria: 2 dias corridos UTC após createdAt
- * - Procon / Consumidor.gov: 10 dias corridos UTC após createdAt (campo prazoProcon)
+ * - Procon / Consumidor.gov: 10 dias corridos UTC após dataProcon (campo prazoProcon)
  * - Reclame Aqui: 3 dias úteis (SP) após createdAt (campo prazoReclameAqui)
  */
 
@@ -69,20 +69,20 @@ function prazoAutomaticoDiasCorridosUtcAposCriacao(createdAt, diasCorridos) {
 }
 
 /**
- * Data limite = N dias úteis (seg–sex) após o dia civil de createdAt em America/Sao_Paulo.
- * O dia de criação não entra na contagem.
- * @param {Date|string|null|undefined} createdAt
+ * Data limite = N dias úteis (seg–sex) após o dia civil da data de referência em America/Sao_Paulo.
+ * O dia de referência não entra na contagem.
+ * @param {Date|string|null|undefined} dataReferencia
  * @param {number} diasUteis
  * @returns {Date}
  */
-function prazoAutomaticoDiasUteisSpAposCriacao(createdAt, diasUteis) {
+function prazoAutomaticoDiasUteisSpAposCriacao(dataReferencia, diasUteis) {
   const n = Number(diasUteis);
   const alvo = Number.isFinite(n) && n > 0 ? n : SLA_DIAS_UTEIS_BACEN;
   const base =
-    createdAt instanceof Date
-      ? createdAt
-      : createdAt
-        ? new Date(createdAt)
+    dataReferencia instanceof Date
+      ? dataReferencia
+      : dataReferencia
+        ? new Date(dataReferencia)
         : new Date();
   if (Number.isNaN(base.getTime())) return new Date();
 
@@ -95,23 +95,52 @@ function prazoAutomaticoDiasUteisSpAposCriacao(createdAt, diasUteis) {
   return ymdToUtcNoonDate(ymd);
 }
 
+/** @param {unknown} value @returns {Date|null} */
+function parseRefDate(value) {
+  if (!value) return null;
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
+
 /**
+ * Data de referência do SLA conforme coleção (LISTA_SCHEMAS: BACEN → dataEntrada; Procon → dataProcon).
  * @param {string} collectionName
- * @param {Date|string|null|undefined} createdAtRef
+ * @param {Record<string, unknown>|null|undefined} alvo
+ * @param {Record<string, unknown>|null|undefined} existente
  * @returns {Date|null}
  */
-function calcularPrazoSlaPorColecao(collectionName, createdAtRef) {
+function resolverDataReferenciaSlaPorColecao(collectionName, alvo, existente) {
+  const src = alvo && typeof alvo === 'object' ? alvo : {};
+  const prev = existente && typeof existente === 'object' ? existente : {};
+
   if (collectionName === 'reclamacoes_bacen') {
-    return prazoAutomaticoDiasUteisSpAposCriacao(createdAtRef, SLA_DIAS_UTEIS_BACEN);
-  }
-  if (collectionName === 'reclamacoes_n2Pix') {
-    return prazoAutomaticoDiasCorridosUtcAposCriacao(createdAtRef, SLA_DIAS_CORRIDOS_N2_OUVIDORIA);
+    return parseRefDate(src.dataEntrada ?? prev.dataEntrada);
   }
   if (collectionName === 'reclamacoes_procon') {
-    return prazoAutomaticoDiasCorridosUtcAposCriacao(createdAtRef, SLA_DIAS_CORRIDOS_PROCON);
+    return parseRefDate(src.dataProcon ?? prev.dataProcon);
+  }
+  return parseRefDate(src.createdAt ?? prev.createdAt);
+}
+
+/**
+ * @param {string} collectionName
+ * @param {Date|string|null|undefined} dataReferencia
+ * @returns {Date|null}
+ */
+function calcularPrazoSlaPorColecao(collectionName, dataReferencia) {
+  if (!dataReferencia) return null;
+  if (collectionName === 'reclamacoes_bacen') {
+    return prazoAutomaticoDiasUteisSpAposCriacao(dataReferencia, SLA_DIAS_UTEIS_BACEN);
+  }
+  if (collectionName === 'reclamacoes_n2Pix') {
+    return prazoAutomaticoDiasCorridosUtcAposCriacao(dataReferencia, SLA_DIAS_CORRIDOS_N2_OUVIDORIA);
+  }
+  if (collectionName === 'reclamacoes_procon') {
+    return prazoAutomaticoDiasCorridosUtcAposCriacao(dataReferencia, SLA_DIAS_CORRIDOS_PROCON);
   }
   if (collectionName === 'reclamacoes_reclameAqui') {
-    return prazoAutomaticoDiasUteisSpAposCriacao(createdAtRef, SLA_DIAS_UTEIS_RECLAME_AQUI);
+    return prazoAutomaticoDiasUteisSpAposCriacao(dataReferencia, SLA_DIAS_UTEIS_RECLAME_AQUI);
   }
   return null;
 }
@@ -120,16 +149,17 @@ function calcularPrazoSlaPorColecao(collectionName, createdAtRef) {
  * Aplica prazo automático no documento conforme a coleção; remove campos de outras famílias.
  * @param {Record<string, unknown>} alvo
  * @param {string} collectionName
- * @param {Date|string|null|undefined} createdAtRef
+ * @param {Record<string, unknown>|null|undefined} [existente]
  */
-function aplicarPrazoAutomaticoPorColecao(alvo, collectionName, createdAtRef) {
+function aplicarPrazoAutomaticoPorColecao(alvo, collectionName, existente) {
   if (!alvo || typeof alvo !== 'object') return;
   delete alvo.prazoBacen;
   delete alvo.prazoOuvidoria;
   delete alvo.prazoProcon;
   delete alvo.prazoReclameAqui;
 
-  const prazo = calcularPrazoSlaPorColecao(collectionName, createdAtRef);
+  const dataRef = resolverDataReferenciaSlaPorColecao(collectionName, alvo, existente);
+  const prazo = calcularPrazoSlaPorColecao(collectionName, dataRef);
   if (!prazo) return;
 
   if (collectionName === 'reclamacoes_bacen') alvo.prazoBacen = prazo;
@@ -146,6 +176,7 @@ module.exports = {
   SLA_DIAS_UTEIS_RECLAME_AQUI,
   prazoAutomaticoDiasCorridosUtcAposCriacao,
   prazoAutomaticoDiasUteisSpAposCriacao,
+  resolverDataReferenciaSlaPorColecao,
   calcularPrazoSlaPorColecao,
   aplicarPrazoAutomaticoPorColecao,
 };

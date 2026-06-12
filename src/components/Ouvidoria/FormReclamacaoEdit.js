@@ -1,8 +1,10 @@
 /**
  * VeloHub V3 - FormReclamacaoEdit Component
- * VERSION: v1.52.0 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.54.0 | DATE: 2026-06-12 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.54.0: SLA Procon — prazo calculado a partir de dataProcon (prévia reativa no form)
+ * - v1.53.0: SLA BACEN — prazo calculado a partir de dataEntrada (prévia reativa no form)
  * - v1.52.0: SLA — BACEN 10 dias úteis; Procon 10 dias corridos (exibição prazoProcon); N2 inalterado
  * - v1.51.3: Legado Chave pix → Liberação chave pix; Portabilidade pix → Portabilidade chave pix
  * - v1.51.2: LEGADO_MOTIVO_REDUZIDOS — Encerramento cta Celcoin / Encerramento cta App (canônico)
@@ -1663,9 +1665,9 @@ const FormReclamacaoEdit = ({
           )}
         </div>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Prazo (automático — 10 dias úteis após a criação do registro):{' '}
+          Prazo (automático — 10 dias úteis após a data de entrada):{' '}
           <span className="font-medium text-gray-800 dark:text-gray-200">
-            {dataPrazoAutomaticoYmdParaExibicao('BACEN', reclamacao) || '—'}
+            {dataPrazoAutomaticoYmdParaExibicao('BACEN', { ...reclamacao, dataEntrada: formData.dataEntrada }) || '—'}
           </span>
         </p>
 
@@ -3046,9 +3048,9 @@ const FormReclamacaoEdit = ({
           </div>
 
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Prazo (automático — 10 dias corridos após a criação do registro):{' '}
+            Prazo (automático — 10 dias corridos após a data Procon):{' '}
             <span className="font-medium text-gray-800 dark:text-gray-200">
-              {dataPrazoAutomaticoYmdParaExibicao('PROCON', reclamacao) || '—'}
+              {dataPrazoAutomaticoYmdParaExibicao('PROCON', { ...reclamacao, dataProcon: formData.dataProcon }) || '—'}
             </span>
           </p>
 

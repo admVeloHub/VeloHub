@@ -1,6 +1,6 @@
 /**
  * Backfill unificado de prazos SLA Ouvidoria (BACEN, N2, Procon, Reclame Aqui).
- * Recalcula prazo a partir de createdAt usando slaOuvidoriaPrazo.js (mesma regra da API).
+ * Recalcula prazo a partir da data de referência de cada tipo (BACEN: dataEntrada; Procon: dataProcon; demais: createdAt).
  *
  * USO:
  *   node backend/scripts/backfill-sla-ouvidoria-prazos.js --dry-run
@@ -8,7 +8,9 @@
  *
  * Requer MONGO_ENV ou MONGODB_URI (loadMongoUri.js).
  *
- * VERSION: v1.1.0 | DATE: 2026-06-10 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.3.0 | DATE: 2026-06-12 | AUTHOR: VeloHub Development Team
+ * - v1.3.0: Procon — recalcula prazoProcon a partir de dataProcon
+ * - v1.2.0: BACEN — recalcula prazoBacen a partir de dataEntrada
  * - v1.1.0: bulkWrite em lotes (atualização em massa por coleção, muito mais rápido)
  */
 'use strict';
@@ -20,27 +22,18 @@ const { aplicarPrazoAutomaticoPorColecao } = require('../utils/slaOuvidoriaPrazo
 const DATABASE_NAME = 'hub_ouvidoria';
 const BULK_CHUNK_SIZE = 1000;
 
-/** @type {Array<{ collection: string, campo: string }>} */
+/** @type {Array<{ collection: string, campo: string, projecao: Record<string, 1> }>} */
 const COLECOES_SLA = [
-  { collection: 'reclamacoes_bacen', campo: 'prazoBacen' },
-  { collection: 'reclamacoes_n2Pix', campo: 'prazoOuvidoria' },
-  { collection: 'reclamacoes_procon', campo: 'prazoProcon' },
-  { collection: 'reclamacoes_reclameAqui', campo: 'prazoReclameAqui' },
+  { collection: 'reclamacoes_bacen', campo: 'prazoBacen', projecao: { dataEntrada: 1, createdAt: 1, prazoBacen: 1 } },
+  { collection: 'reclamacoes_n2Pix', campo: 'prazoOuvidoria', projecao: { createdAt: 1, prazoOuvidoria: 1 } },
+  { collection: 'reclamacoes_procon', campo: 'prazoProcon', projecao: { dataProcon: 1, createdAt: 1, prazoProcon: 1 } },
+  { collection: 'reclamacoes_reclameAqui', campo: 'prazoReclameAqui', projecao: { createdAt: 1, prazoReclameAqui: 1 } },
 ];
 
 function argDryRun() {
   return process.argv.includes('--dry-run') || process.argv.includes('-n');
 }
 
-/** @param {unknown} value */
-function createdAtValido(value) {
-  if (!value) return null;
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  return d;
-}
-
-/**
  * @param {import('mongodb').Collection} coll
  * @param {Array<import('mongodb').AnyBulkWriteOperation>} ops
  */
@@ -66,9 +59,9 @@ async function executarBulkEmLotes(coll, ops) {
   let totalUpdated = 0;
   let totalSkipped = 0;
 
-  for (const { collection, campo } of COLECOES_SLA) {
+  for (const { collection, campo, projecao } of COLECOES_SLA) {
     const coll = db.collection(collection);
-    const docs = await coll.find({}, { projection: { createdAt: 1, [campo]: 1 } }).toArray();
+    const docs = await coll.find({}, { projection: projecao }).toArray();
 
     let scanned = docs.length;
     let skipped = 0;
@@ -78,14 +71,8 @@ async function executarBulkEmLotes(coll, ops) {
     const amostras = [];
 
     for (const doc of docs) {
-      const createdAt = createdAtValido(doc.createdAt);
-      if (!createdAt) {
-        skipped += 1;
-        continue;
-      }
-
       const alvo = {};
-      aplicarPrazoAutomaticoPorColecao(alvo, collection, createdAt);
+      aplicarPrazoAutomaticoPorColecao(alvo, collection, doc);
       const prazo = alvo[campo];
       if (!prazo || !(prazo instanceof Date) || Number.isNaN(prazo.getTime())) {
         skipped += 1;
@@ -115,7 +102,7 @@ async function executarBulkEmLotes(coll, ops) {
     totalSkipped += skipped;
 
     console.log(`\n📦 ${collection} (${campo})`);
-    console.log(`   Escaneados: ${scanned} | Atualizados: ${updated} | Ignorados (sem createdAt): ${skipped}`);
+    console.log(`   Escaneados: ${scanned} | Atualizados: ${updated} | Ignorados (sem data de referência): ${skipped}`);
     if (amostras.length > 0) {
       amostras.forEach((a, i) => {
         console.log(`   Amostra ${i + 1}: _id=${a._id} → ${a.prazo.toISOString()}`);
