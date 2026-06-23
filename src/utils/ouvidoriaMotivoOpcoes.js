@@ -1,7 +1,8 @@
 /**
  * VeloHub V3 — Opções canônicas de motivoReduzido (módulo Ouvidoria / reclamações)
- * VERSION: v1.3.0 | DATE: 2026-06-08 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.4.0 | DATE: 2026-06-23 | AUTHOR: VeloHub Development Team
  *
+ * v1.4.0: Ação Judicial — motivo «Danos Morais»
  * v1.3.0: «Quitação automática sem chave pix» (todos os grupos); «Quitação de contrato» também em Ação Judicial
  * v1.2.0: Remove «Chave pix»; canônico «Portabilidade chave pix»; Ação Judicial — Liberação + Portabilidade chave pix
  * v1.1.0: MOTIVOS_REDUZIDOS — Encerramento cta Celcoin / Encerramento cta App (canônico único)
@@ -41,6 +42,7 @@ export const MOTIVOS_ACAO_JUDICIAL = [
   'Repetição indébito',
   'Superendividamento',
   'Desconhece contratação',
+  'Danos Morais',
 ];
 
 /** Reclame Aqui */

@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.34 | DATE: 2026-06-12 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.35 | DATE: 2026-06-23 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,16 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push — Ouvidoria: motivo Danos Morais em Ação Judicial**
+- **Data/Hora**: 2026-06-23
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: ouvidoriaMotivoOpcoes v1.4.0, DEPLOY_LOG v1.1.35
+- **Arquivos Modificados**:
+  - `src/utils/ouvidoriaMotivoOpcoes.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Adiciona o motivo «Danos Morais» à lista canônica de motivos do formulário Ação Judicial (cadastro, edição e filtro da lista de reclamações).
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push — Ouvidoria: SLA BACEN/Procon baseado na data de entrada**
 - **Data/Hora**: 2026-06-12
