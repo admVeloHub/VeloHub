@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.35 | DATE: 2026-06-23 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.36 | DATE: 2026-08-05 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,16 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push — Req_Prod: tipo Ordem Judicial no formulário**
+- **Data/Hora**: 2026-08-05
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: FormSolicitacao v1.21.18, DEPLOY_LOG v1.1.36
+- **Arquivos Modificados**:
+  - `src/components/Requisicoes/FormSolicitacao.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Adiciona o tipo de solicitação «Ordem Judicial» com campos obrigatórios Descrição e Data Limite (validação, payload e mensagem de envio).
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push — Ouvidoria: motivo Danos Morais em Ação Judicial**
 - **Data/Hora**: 2026-06-23

@@ -1,10 +1,11 @@
 /**
  * VeloHub V3 — FormSolicitacao (módulo Requisições)
- * VERSION: v1.21.17 | DATE: 2026-05-27 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.21.18 | DATE: 2026-08-05 | AUTHOR: VeloHub Development Team
  *
  * Branch: requisicoes
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.21.18: Tipo «Ordem Judicial» — campos Descrição e Data Limite
  * - v1.21.17: Modal histórico CPF — exibe Agente por linha (colaboradorNome)
  * - v1.21.16: Modal histórico CPF — subtexto «Certifique-se de não ser uma requisição redundante»
  * - v1.21.15: Modal histórico CPF — título «Histórico de requisições para o CPF» (sem «nesta aba»)
@@ -137,6 +138,9 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
     urgenciaProcon: false,
     /** Tipo «Solicitação de documentos» */
     documentos: '',
+    /** Tipo «Ordem Judicial» */
+    descricaoOrdemJudicial: '',
+    dataLimiteOrdemJudicial: '',
     ticketOctadesk: '',
   });
   const [painelUrgenteAberto, setPainelUrgenteAberto] = useState(false);
@@ -383,6 +387,14 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
       const cpfOk = String(form.cpf || '').replace(/\D/g, '').length === 11;
       return cpfOk && String(form.documentos || '').trim() !== '';
     }
+    if (form.tipo === 'Ordem Judicial') {
+      const cpfOk = String(form.cpf || '').replace(/\D/g, '').length === 11;
+      return (
+        cpfOk &&
+        String(form.descricaoOrdemJudicial || '').trim() !== '' &&
+        String(form.dataLimiteOrdemJudicial || '').trim() !== ''
+      );
+    }
     if (form.tipo !== 'Devolução de Antecipação') return true;
     const cpfOk = String(form.cpf || '').replace(/\D/g, '').length === 11;
     if (!cpfOk) return false;
@@ -393,6 +405,8 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
     form.tipo,
     form.cpf,
     form.documentos,
+    form.descricaoOrdemJudicial,
+    form.dataLimiteOrdemJudicial,
     form.analiseExcecaoDevolucao,
     form.obsClienteDevolucao,
     devolucaoAntecInfo.hasValidDate,
@@ -574,6 +588,7 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
       'Excluir conta - app': 'Excluir conta - app',
       'Excluir conta - Celcoin': 'Excluir conta - Celcoin',
       'Solicitação de documentos': 'Solicitação de documentos',
+      'Ordem Judicial': 'Ordem Judicial',
     };
     const tipoCanon = typeMap[form.tipo] || toTitleCase(String(form.tipo || ''));
     const cpfNorm = String(form.cpf || '').replace(/\s+/g, ' ').trim();
@@ -653,6 +668,15 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
       msg += `Observações (geral): ${form.observacoes || '—'}\n`;
     } else if (form.tipo === 'Solicitação de documentos') {
       msg += `Documentos: ${String(form.documentos || '').trim() || '—'}\n`;
+      msg += `Observações: ${form.observacoes || '—'}\n`;
+    } else if (form.tipo === 'Ordem Judicial') {
+      msg += `Descrição: ${String(form.descricaoOrdemJudicial || '').trim() || '—'}\n`;
+      if (form.dataLimiteOrdemJudicial) {
+        const dataFormatada = form.dataLimiteOrdemJudicial.split('-').reverse().join('/');
+        msg += `Data Limite: ${dataFormatada}\n`;
+      } else {
+        msg += `Data Limite: —\n`;
+      }
       msg += `Observações: ${form.observacoes || '—'}\n`;
     } else {
       msg += `Observações: ${form.observacoes || '—'}\n`;
@@ -745,6 +769,9 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
         urgenciaBacen: false,
         urgenciaProcon: false,
         documentos: '',
+        descricaoOrdemJudicial: '',
+        dataLimiteOrdemJudicial: '',
+        ticketOctadesk: '',
       });
       setPainelUrgenteAberto(false);
     } catch (err) {
@@ -843,6 +870,16 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
     if (form.tipo === 'Solicitação de documentos' && !String(form.documentos || '').trim()) {
       showNotification('Informe o campo Documentos.', 'error');
       return;
+    }
+    if (form.tipo === 'Ordem Judicial') {
+      if (!String(form.descricaoOrdemJudicial || '').trim()) {
+        showNotification('Informe a Descrição.', 'error');
+        return;
+      }
+      if (!String(form.dataLimiteOrdemJudicial || '').trim()) {
+        showNotification('Informe a Data Limite.', 'error');
+        return;
+      }
     }
     if (form.tipo === 'Devolução de Antecipação' && !formularioPodeEnviar) {
       showNotification(
@@ -1193,6 +1230,7 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
                   <option>Reset de Senha</option>
                   <option value="Cancelamento">Cancelamento</option>
                   <option value="Devolução de Antecipação">Devolução de Antecipação</option>
+                  <option>Ordem Judicial</option>
                   <option>Solicitação de documentos</option>
                 </select>
               </FloatingLabelField>
@@ -1485,6 +1523,32 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
                 required
               />
             </FloatingLabelField>
+          </div>
+        )}
+
+        {form.tipo === 'Ordem Judicial' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <FloatingLabelField label="Descrição" required value={form.descricaoOrdemJudicial || ''}>
+                <textarea
+                  className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 min-h-[88px] outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                  value={form.descricaoOrdemJudicial || ''}
+                  onChange={(e) => atualizar('descricaoOrdemJudicial', e.target.value)}
+                  required
+                />
+              </FloatingLabelField>
+            </div>
+            <div>
+              <FloatingLabelField label="Data Limite" required value={form.dataLimiteOrdemJudicial || ''}>
+                <input
+                  type="date"
+                  className="w-full border border-gray-400 dark:border-gray-500 rounded-lg px-3 py-2 outline-none transition-all duration-200 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                  value={form.dataLimiteOrdemJudicial || ''}
+                  onChange={(e) => atualizar('dataLimiteOrdemJudicial', e.target.value)}
+                  required
+                />
+              </FloatingLabelField>
+            </div>
           </div>
         )}
 
