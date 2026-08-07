@@ -1,6 +1,7 @@
 /**
  * VeloHub V3 - Escalações API Routes - Erros/Bugs
- * VERSION: v1.10.1 | DATE: 2026-05-22 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.10.2 | DATE: 2026-08-07 | AUTHOR: VeloHub Development Team
+ * - v1.10.2: POST — normaliza flags de urgência no payload (inclui urgenciaJudicial)
  * - v1.10.1: Octadesk PUT comentário interno — valida protocolosCentral como número de ticket
  * VERSION: v1.10.0 | DATE: 2026-05-20 | AUTHOR: VeloHub Development Team
  *
@@ -15,6 +16,9 @@
  */
 
 const express = require('express');
+const {
+  normalizePayloadUrgencia,
+} = require('../../../utils/escalacoesUrgenciaPayload');
 const router = express.Router();
 const { getStatusChamadoFromDoc } = require('../../../utils/escalacoesReplyStatus');
 const {
@@ -454,10 +458,10 @@ const initErrosBugsRoutes = (client, connectToMongo, services = {}) => {
       const colaboradorNome = String(agente).trim();
       
       // Garantir que payload tenha agente dentro
-      const payloadCompleto = {
+      const payloadCompleto = normalizePayloadUrgencia({
         agente: colaboradorNome,
-        ...(payload || {})
-      };
+        ...(payload || {}),
+      });
 
       // Tipo com prefixo "Erro/Bug - " se não tiver
       const tipoCompleto = String(tipo).startsWith('Erro/Bug - ') 

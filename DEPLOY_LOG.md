@@ -1,5 +1,5 @@
 # 📋 DEPLOY LOG - VeloHub V3
-<!-- VERSION: v1.1.36 | DATE: 2026-08-05 | AUTHOR: VeloHub Development Team -->
+<!-- VERSION: v1.1.37 | DATE: 2026-08-07 | AUTHOR: VeloHub Development Team -->
 
 ## 🔐 Configuração de Ambiente GCP
 
@@ -39,6 +39,22 @@
 ---
 
 ## 🚀 **DEPLOYS E PUSHES REALIZADOS**
+
+### **GitHub Push — Req_Prod: Solicitação urgente com Judicial**
+- **Data/Hora**: 2026-08-07
+- **Tipo**: GitHub Push
+- **Versão (componentes)**: SolicitacaoUrgenteBlock v1.0.2, FormSolicitacao v1.21.19, ErrosBugsTab v1.29.26, escalacoesUrgenciaPayload v1.0.0, solicitacoes v1.14.3, erros-bugs v1.10.2, octadeskRequisicaoComments v1.0.1, DEPLOY_LOG v1.1.37
+- **Arquivos Modificados**:
+  - `src/components/Requisicoes/SolicitacaoUrgenteBlock.js`
+  - `src/components/Requisicoes/FormSolicitacao.js`
+  - `src/components/Requisicoes/ErrosBugsTab.js`
+  - `backend/utils/escalacoesUrgenciaPayload.js`
+  - `backend/utils/octadeskRequisicaoComments.js`
+  - `backend/routes/api/escalacoes/solicitacoes.js`
+  - `backend/routes/api/escalacoes/erros-bugs.js`
+  - `DEPLOY_LOG.md`
+- **Descrição**: Legenda do bloco «Solicitação Urgente» sem jargão técnico; checkbox Judicial; backend normaliza flags de urgência no payload (inclui urgenciaJudicial) e reflete na mensagem Octadesk.
+- **Status**: ✅ Concluído com sucesso
 
 ### **GitHub Push — Req_Prod: tipo Ordem Judicial no formulário**
 - **Data/Hora**: 2026-08-05

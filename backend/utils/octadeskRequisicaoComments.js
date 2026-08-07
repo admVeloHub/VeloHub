@@ -1,7 +1,12 @@
 /**
  * Textos de comentários internos Octadesk para requisições.
- * VERSION: v1.0.0 | DATE: 2026-05-20 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.1 | DATE: 2026-08-07 | AUTHOR: VeloHub Development Team
+ *
+ * Referência:
+ * - v1.0.1: Linha «Solicitação urgente» no fallback (inclui Judicial)
  */
+
+const { buildUrgenciaTagsLine } = require('./escalacoesUrgenciaPayload');
 
 const simNao = (v) => (v ? 'Sim' : 'Não');
 
@@ -66,6 +71,7 @@ function buildSolicitacaoHeaderComment(body) {
   }
 
   msg += `Observações: ${pl.observacoes != null ? String(pl.observacoes) : '—'}\n`;
+  msg += buildUrgenciaTagsLine(pl);
   return msg.trim();
 }
 
@@ -90,6 +96,7 @@ function buildErroBugHeaderComment(body) {
   m += `\nDescrição:\n${descricao || '—'}\n`;
   if (pl.marca) m += `Marca: ${pl.marca}\n`;
   if (pl.modelo) m += `Modelo: ${pl.modelo}\n`;
+  m += buildUrgenciaTagsLine(pl);
   return m.trim();
 }
 

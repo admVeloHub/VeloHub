@@ -1,11 +1,12 @@
 /**
  * VeloHub V3 — Bloco «Solicitação Urgente» (Req_Prod / Erros-Bugs)
- * VERSION: v1.0.1 | DATE: 2026-05-15 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.0.2 | DATE: 2026-08-07 | AUTHOR: VeloHub Development Team
  *
  * Referência:
+ * - v1.0.2: Checkbox Judicial; legenda sem jargão técnico
  * - v1.0.1: Componente na pasta `src/components/Requisicoes/` (rename do módulo)
  *
- * Botão que expande checkboxes N2, RA, Bacen, ProCon — valores true viram campos no payload (urgenciaN2, urgenciaRa, urgenciaBacen, urgenciaProcon).
+ * Botão que expande checkboxes N2, RA, Bacen, ProCon, Judicial — marcados entram no payload da requisição.
  */
 
 import React from 'react';
@@ -15,13 +16,14 @@ const CHAVES = [
   { key: 'urgenciaRa', label: 'RA' },
   { key: 'urgenciaBacen', label: 'Bacen' },
   { key: 'urgenciaProcon', label: 'ProCon' },
+  { key: 'urgenciaJudicial', label: 'Judicial' },
 ];
 
 /**
  * @param {Object} props
  * @param {boolean} props.painelAberto
  * @param {() => void} props.onTogglePainel
- * @param {Record<string, boolean>} props.values — chaves: urgenciaN2, urgenciaRa, urgenciaBacen, urgenciaProcon
+ * @param {Record<string, boolean>} props.values — chaves: urgenciaN2, urgenciaRa, urgenciaBacen, urgenciaProcon, urgenciaJudicial
  * @param {(chave: string, marcado: boolean) => void} props.onCheckedChange
  */
 export default function SolicitacaoUrgenteBlock({
@@ -51,9 +53,9 @@ export default function SolicitacaoUrgenteBlock({
           className="bg-amber-50/80 dark:bg-amber-950/30 p-4 rounded-lg border border-amber-200 dark:border-amber-800 space-y-3"
         >
           <p className="text-xs text-gray-700 dark:text-gray-300">
-            Somente os itens marcados entram no envio (valor literal true no payload).
+            Marque os critérios aplicáveis.
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {CHAVES.map(({ key, label }) => (
               <label key={key} className="flex items-center gap-2 cursor-pointer select-none">
                 <input

@@ -1,8 +1,9 @@
 /**
  * VeloHub V3 - ErrosBugsTab Component
- * VERSION: v1.29.25 | DATE: 2026-05-27 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.29.26 | DATE: 2026-08-07 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.29.26: Solicitação urgente — flag Judicial no payload e mensagem
  * - v1.29.25: Modal histórico CPF — exibe Agente por linha (colaboradorNome)
  * - v1.29.24: Cards da busca CPF agregada exibem selo «Origem» (Solicitações | Erros/Bugs | Liberação chave pix)
  * - v1.29.23: Busca CPF da sidebar passa a agregar Solicitações + Erros/Bugs + Liberação chave pix (todas as abas)
@@ -117,6 +118,7 @@ const ErrosBugsTab = () => {
   const [urgenciaRa, setUrgenciaRa] = useState(false);
   const [urgenciaBacen, setUrgenciaBacen] = useState(false);
   const [urgenciaProcon, setUrgenciaProcon] = useState(false);
+  const [urgenciaJudicial, setUrgenciaJudicial] = useState(false);
   const [loading, setLoading] = useState(false);
   /** GET por CPF antes do POST (coleção erros_bugs). */
   const [verificandoHistoricoCpf, setVerificandoHistoricoCpf] = useState(false);
@@ -1043,6 +1045,7 @@ const ErrosBugsTab = () => {
     if (urgenciaRa) urgTags.push('RA');
     if (urgenciaBacen) urgTags.push('Bacen');
     if (urgenciaProcon) urgTags.push('ProCon');
+    if (urgenciaJudicial) urgTags.push('Judicial');
     if (urgTags.length) {
       m += `\n*Solicitação urgente*: ${urgTags.join(', ')}\n`;
     }
@@ -1103,6 +1106,7 @@ const ErrosBugsTab = () => {
       setUrgenciaRa(false);
       setUrgenciaBacen(false);
       setUrgenciaProcon(false);
+      setUrgenciaJudicial(false);
       setPainelUrgenteAberto(false);
       await loadStats();
     } catch (err) {
@@ -1168,6 +1172,7 @@ const ErrosBugsTab = () => {
         ...(urgenciaRa ? { urgenciaRa: true } : {}),
         ...(urgenciaBacen ? { urgenciaBacen: true } : {}),
         ...(urgenciaProcon ? { urgenciaProcon: true } : {}),
+        ...(urgenciaJudicial ? { urgenciaJudicial: true } : {}),
       },
     };
 
@@ -1784,12 +1789,14 @@ const ErrosBugsTab = () => {
             urgenciaRa,
             urgenciaBacen,
             urgenciaProcon,
+            urgenciaJudicial,
           }}
           onCheckedChange={(chave, marcado) => {
             if (chave === 'urgenciaN2') setUrgenciaN2(marcado);
             else if (chave === 'urgenciaRa') setUrgenciaRa(marcado);
             else if (chave === 'urgenciaBacen') setUrgenciaBacen(marcado);
             else if (chave === 'urgenciaProcon') setUrgenciaProcon(marcado);
+            else if (chave === 'urgenciaJudicial') setUrgenciaJudicial(marcado);
           }}
         />
 

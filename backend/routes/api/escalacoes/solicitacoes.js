@@ -1,8 +1,9 @@
 /**
  * VeloHub V3 - Escalações API Routes - Solicitações Técnicas
- * VERSION: v1.14.2 | DATE: 2026-05-28 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.14.3 | DATE: 2026-08-07 | AUTHOR: VeloHub Development Team
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.14.3: POST — normaliza flags de urgência no payload (inclui urgenciaJudicial)
  * - v1.14.2: POST /reply produtos terminal — exige permissoesVelohub.atendimento (sem e-mail hardcoded)
  * - v1.14.1: POST liberação PIX — recusa duplicata quando já existe liberacao_pix_prod para ouvidoriaReclamacaoId
  * - v1.14.0: POST internal/reconciliar-pix-liberado-ouvidoria — job Cloud Scheduler 15 min (header X-Velohub-Pix-Reconcile-Secret)
@@ -52,6 +53,10 @@ const {
   propagarPixLiberadoPorLiberacaoId,
   reconciliarPixLiberadoOuvidoriaBatch,
 } = require('../../../utils/liberacaoPixOuvidoriaSync');
+const {
+  extractUrgenciaFlags,
+  normalizePayloadUrgencia,
+} = require('../../../utils/escalacoesUrgenciaPayload');
 const router = express.Router();
 
 /**
@@ -165,6 +170,7 @@ function buildLiberacaoPixProdDoc({ colaboradorNome, cpf, origem, nomeCliente, p
       'Processo': pf.processo === true,
       'Bacen': pf.bacen === true,
       'Revogado consentimento ECAC': pf.revogadoConsentimentoEcac === true,
+      ...extractUrgenciaFlags(pf),
     },
     pixLiberado: false,
     dataLiberacao: null,
@@ -593,7 +599,7 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
         const ouvIdRaw = pl.ouvidoriaReclamacaoId;
         const ouvTipoRaw = pl.ouvidoriaReclamacaoTipo;
         const ouvProtoRaw = pl.ouvidoriaNumeroProtocolo;
-        const payloadForBuild = { ...pl };
+        const payloadForBuild = normalizePayloadUrgencia({ ...pl });
         delete payloadForBuild.ouvidoriaReclamacaoId;
         delete payloadForBuild.ouvidoriaReclamacaoTipo;
         delete payloadForBuild.ouvidoriaNumeroProtocolo;
@@ -723,10 +729,10 @@ const initSolicitacoesRoutes = (client, connectToMongo, services = {}) => {
       }
 
       // Garantir que payload tenha agente dentro
-      const payloadCompleto = {
+      const payloadCompleto = normalizePayloadUrgencia({
         agente: colaboradorNome,
         ...(payload || {}),
-      };
+      });
 
       const solicitacao = {
         colaboradorNome: colaboradorNome,

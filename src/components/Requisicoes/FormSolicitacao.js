@@ -1,10 +1,11 @@
 /**
  * VeloHub V3 — FormSolicitacao (módulo Requisições)
- * VERSION: v1.21.18 | DATE: 2026-08-05 | AUTHOR: VeloHub Development Team
+ * VERSION: v1.21.19 | DATE: 2026-08-07 | AUTHOR: VeloHub Development Team
  *
  * Branch: requisicoes
  *
  * Referência (duas entradas; detalhes no Git):
+ * - v1.21.19: Solicitação urgente — flag Judicial no payload e mensagem
  * - v1.21.18: Tipo «Ordem Judicial» — campos Descrição e Data Limite
  * - v1.21.17: Modal histórico CPF — exibe Agente por linha (colaboradorNome)
  * - v1.21.16: Modal histórico CPF — subtexto «Certifique-se de não ser uma requisição redundante»
@@ -136,6 +137,7 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
     urgenciaRa: false,
     urgenciaBacen: false,
     urgenciaProcon: false,
+    urgenciaJudicial: false,
     /** Tipo «Solicitação de documentos» */
     documentos: '',
     /** Tipo «Ordem Judicial» */
@@ -687,6 +689,7 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
     if (form.urgenciaRa) urgTags.push('RA');
     if (form.urgenciaBacen) urgTags.push('Bacen');
     if (form.urgenciaProcon) urgTags.push('ProCon');
+    if (form.urgenciaJudicial) urgTags.push('Judicial');
     if (urgTags.length) {
       msg += `\n*Solicitação urgente*: ${urgTags.join(', ')}\n`;
     }
@@ -768,6 +771,7 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
         urgenciaRa: false,
         urgenciaBacen: false,
         urgenciaProcon: false,
+        urgenciaJudicial: false,
         documentos: '',
         descricaoOrdemJudicial: '',
         dataLimiteOrdemJudicial: '',
@@ -921,6 +925,7 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
       urgenciaRa,
       urgenciaBacen,
       urgenciaProcon,
+      urgenciaJudicial,
       ...formRest
     } = form;
     const payload = { ...formRest, cpf: cpfApenasNumeros };
@@ -928,6 +933,7 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
     if (urgenciaRa === true) payload.urgenciaRa = true;
     if (urgenciaBacen === true) payload.urgenciaBacen = true;
     if (urgenciaProcon === true) payload.urgenciaProcon = true;
+    if (urgenciaJudicial === true) payload.urgenciaJudicial = true;
     if (isTipoExclusaoConta(form.tipo)) {
       payload.exclusaoContaSemDebitoAberto = form.exclusaoContaSemDebitoAberto === true;
       payload.exclusaoContaSemChavePixAssociada = form.exclusaoContaSemChavePixAssociada === true;
@@ -1615,6 +1621,7 @@ const FormSolicitacao = forwardRef(function FormSolicitacao(
             urgenciaRa: form.urgenciaRa,
             urgenciaBacen: form.urgenciaBacen,
             urgenciaProcon: form.urgenciaProcon,
+            urgenciaJudicial: form.urgenciaJudicial,
           }}
           onCheckedChange={(chave, marcado) => atualizar(chave, marcado)}
         />
